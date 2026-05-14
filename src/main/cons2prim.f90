@@ -307,8 +307,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
     call init_eos(ieos,ierr)
     if (ierr /= 0) call fatal('eos','could not initialise equation of state')
  endif
-!  write(*,*) 'cons2prim: done_init_eos=', done_init_eos, ' ieos=', ieos, ' X_in=', X_in, ' Z_in=', Z_in !debug for ryo Ali
-
  gammai = gamma
  mui    = gmw
  X_i    = X_in

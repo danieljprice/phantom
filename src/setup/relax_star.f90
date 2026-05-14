@@ -288,7 +288,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
        !
        if (mod(nits,100)==0 .or. ((nits==maxits .or. converged).and.nits > 1)) then
           filename = getnextfilename(filename)
-          write(*,*) 'relax_star ieos = ', ieos,'ieos_prev = ', ieos_prev, ' use_var_comp = ', use_var_comp ! debug for ryo Ali
+
           !
           ! before writing a file, set the real thermal energy profile
           ! so the file is useable as a starting file for the main calculation

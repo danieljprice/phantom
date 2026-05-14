@@ -450,7 +450,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
                      relax,use_var_comp,write_rho_to_file,&
                      rhozero,npart_total,mask,ierr,x0,v0)
  use unifdis,       only:mask_prototype
- use eos,           only:init_eos,finish_eos !,  X_in_global => X_in, Z_in_global => Z_in !Ali added these two for eos ryo
+ use eos,           only:init_eos,finish_eos
  use eos_piecewise, only:init_eos_piecewise_preset
  use io,            only:error
  type(star_t), intent(inout)  :: star(:)
@@ -475,8 +475,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  ! initialise piecewise polytropic equation of state if piecewise polytrope used
  if (ieos==9 .or. any(star(:)%iprofile==ibpwpoly)) call init_eos_piecewise_preset(EOSopt)
  if (any(star(:)%iprofile==ibpwpoly)) call init_eos(9,ierr)
-!  X_in_global = X_in !Ali added these for eos ryo because composition wasn't being passed and kept being set to default 
-!  Z_in_global = Z_in
+
  call init_eos(ieos,ierr)
  if (ierr /= 0) then
     call error('setup','could not initialise equation of state')

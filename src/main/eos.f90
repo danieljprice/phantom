@@ -57,7 +57,7 @@ module eos
  use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 25 !we added one more, it was 24 before
+ integer, parameter, public :: maxeos = 24
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  real,               public :: cs_min = 0.0
@@ -114,9 +114,7 @@ module eos
  real, public :: z0      = 1.
  real, public :: alpha_z = 3.01
  real, public :: beta_z  = 0.42
-!! added for our WD for Ryo's eos
- real, public :: mue_const = 2.0e0
- real, public :: mui_const = 13.798e0 ! computed for  X = 0.d0   ! H Y = 0.0013d0  ! He Xc = 0.4672d0 ! C Xo = 0.5315d0    ! O
+
 contains
 
 !----------------------------------------------------------------
@@ -134,7 +132,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_helmholtz, only:eos_helmholtz_pres_sound, eos_helmholtz_compute_pres_sound ! last one I added for forward backward test of eos_helmholtz_compute_pres_sound, Ali
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_temp,get_idealplusrad_spsoundi
- use eos_gasradrec,    only:equationofstate_gasradrec, get_pT_from_de_ryo,get_cs_from_dT_ryo ! last two are from Ryo Hirai's degenerate EOS
+ use eos_gasradrec,    only:equationofstate_gasradrec
  use eos_stratified,   only:get_eos_stratified
  use eos_barotropic,   only:get_eos_barotropic
  use eos_piecewise,    only:get_eos_piecewise
@@ -156,8 +154,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst,kappaBar,kappaPart
  real    :: enthi,pondensi
- real    :: cgs_e_vol, gamma1_ryo ! Ali: internal energy per volume, used for Ryo's degenerate EOS
-! Ali: added following 4 lines for forward backward test of eos_helmholtz_compute_pres_sound
+ ! Ali: added following 4 lines for forward backward test of eos_helmholtz_compute_pres_sound
  logical, save :: firstcall = .true.
  real :: T_input, T_recovered, cgsrhotest, rhotest
  real :: cgsprestest, cgsspsoundtest, cgsen_eosforward, cgsdendttest
@@ -172,7 +169,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     call fatal('eos','GR currently only works for ieos=2,12 or 11',&
          var='eos_type',val=real(eos_type))
  endif
-!  write(*,*) 'l 169: DEBUG equationofstate: X_in = ', X_in, ' Z_in = ', Z_in
 
  gammai = gamma
  mui    = gmw
@@ -183,7 +179,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
  if (present(isionised)) isionisedi = isionised
-!  write(*,*) 'l 180: DEBUG equationofstate: X_in = ', X_in, ' Z_in = ', Z_in
+
  select case(eos_type)
  case(1)
 !
@@ -328,12 +324,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !  and ionisation/dissociation. MESA is a stellar evolution code, so
 !  this equation of state is designed for matter inside stars
 !
-
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
-    write(*,*) 'l 325 (eos_MESA), equationofstate: cgs: cgsrhoi = ',cgsrhoi,&
-    ' cgseni erg/g = ',cgseni
-
     call get_eos_pressure_temp_gamma1_mesa(cgsrhoi,cgseni,cgspresi,temperaturei,gam1,ierr)
     presi = cgspresi / unit_pressure
 
@@ -343,8 +335,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(gamma_local)) gamma_local = gam1 ! gamma is an output
     if (present(mu_local)) mu_local = 1./get_eos_1overmu_mesa(cgsrhoi,cgseni)
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
-    write(*,*) 'l 340 (eos_MESA), equationofstate: cgs: presi = ',cgspresi,'  ponrhoi = ',ponrhoi,&
-    ' spsoundi = ',spsoundi, 'tempi = ',tempi
+
  case(11)
 !
 !--Equation of state with pressure and temperature equal to zero
@@ -570,33 +561,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     gammai = 1.d0 + presi/(eni*rhoi)
     spsoundi = sqrt(gammai*ponrhoi)
 
-
- case(25)   
-
-    cgsrhoi = rhoi * unit_density
-    cgseni  = eni * unit_ergg
-    
-    cgs_e_vol = cgseni * cgsrhoi ! internal energy per volume from internal energy per gram times density
-
-    write(*,*) 'l 539, equationofstate: cgs: cgsrhoi = ',cgsrhoi,' cgseni erg/g = ',cgseni,' cgs_e_vol erg/cm^3 = ',cgs_e_vol
-
-! Analytical degenerate EOS by Ryo Hirai (which handles gasrad as well as fermi dirac integrals)
-    call get_pT_from_de_ryo(cgsrhoi,cgs_e_vol,mue_const,mui_const,cgspresi,tempi)  ! pressure and temperature get_pT_from_de_ryo(d,e,mue,mui,p,T,eta)
-    call get_cs_from_dT_ryo(cgsrhoi,tempi,mue_const,mui_const,cgsspsoundi,gamma1_ryo) ! sound speed  subroutine get_cs_from_dT_ryo(d,T,mue,mui,cs,gamma1,eta)
-
-    if (present(gamma_local)) gamma_local = gamma1_ryo ! gamma is an output
-
-
-    presi = cgspresi/unit_pressure
-    ponrhoi = presi/rhoi
-
-   !  spsoundi = sqrt(ponrhoi) !!!Ali: this is wrong, but I am just testing to see if the reason the code is stopping is Ryos sound speed giving NaNs.
-    spsoundi = real(cgsspsoundi / unit_velocity) ! correct version
-    write(*,*) 'l 545, equationofstate: cgs: cgsrhoi = ',cgsrhoi,' cgseni erg/g = ',cgseni,&
-    ' presi = ',cgspresi,'  ponrhoi = ',ponrhoi,&
-    ' spsoundi = ',spsoundi, 'tempi = ',tempi, ' gamma1 = ', gamma1_ryo, ' gamma_local = ', gamma_local
-
-
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -620,7 +584,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_piecewise,  only:init_eos_piecewise
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
- use eos_gasradrec,  only:init_eos_gasradrec, init_eos_ryo ! Ryo's init eos
+ use eos_gasradrec,  only:init_eos_gasradrec
  use eos_stamatellos,only:read_optab,init_coolra,eos_file
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
@@ -637,7 +601,7 @@ subroutine init_eos(eos_type,ierr)
  !  c_s^2 = gamma*P/rho = gamma*kT/(gmw*m_p) -> T = P/rho * (gmw*m_p)/k
  !
  temperature_coef = unit_velocity**2  / Rg
-!  write(*,*) 'l 596: INIT_EOS CALLED: eos_type=', eos_type, ' X_in=', X_in, ' Z_in=', Z_in
+
  select case(eos_type)
  case(6)
     !
@@ -707,11 +671,6 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr_ra)
     if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_coolra
-
- case(25) ! 
-
-    call init_eos_ryo(ierr)
-
  end select
  done_init_eos = .true.
 
@@ -996,7 +955,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use physcon,          only:Rg
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
- use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec, get_eT_from_dp_ryo ! last one is from Ryo Hirai's degenerate EOS
+ use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  use eos_stamatellos,  only:getintenerg_opdep
  integer, intent(in)              :: eos_type
  real,    intent(in)              :: rho,pres
@@ -1006,7 +965,6 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  real,    intent(inout), optional :: mu_local
  integer, intent(out)             :: ierr
  real                             :: mu,X,Z
- real                             :: eni_vol ! Ali internal energy per volume, used for Ryo Hirai's degenerate EOS
  logical                          :: do_radiation_local
 
  ierr = 0
@@ -1036,15 +994,6 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(24) ! Stamatellos
     temp = pres /(rho * Rg) * mu
     call getintenerg_opdep(temp, rho, ene)
- case(25) ! degenerate EOS by Ryo Hirai
-    write(*,*) 'l 984, calc_temp_ene: cgs: rho = ',rho,' pres = ',pres,' temp = ',temp,&
-    ' mui = ',mui_const,' mue = ',mue_const, ' ene_vol (erg/cm^3) = ',eni_vol
-    call get_eT_from_dp_ryo(rho,pres,mue_const,mui_const,eni_vol,temp) ! eta is optional , input and output in cgs, so hopefully works get_eT_from_dp_ryo(d,p,mue,mui,e,T,eta)
-    !!! convert eni_vol to specific internal energy, assuming units are cgs
-    ene = eni_vol / rho
-    write(*,*) 'l 988, calc_temp_ene: cgs rho = ',rho,' pres = ',pres,&
-    ' temp = ',temp,' ene (erg/g) = ',ene, ' ene_vol (erg/cm^3) = ',eni_vol
-
  case default
     ierr = 1
  end select
@@ -1455,7 +1404,7 @@ logical function eos_is_non_ideal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(10,12,15,20,25) !! added 25
+ case(10,12,15,20)
     eos_is_non_ideal = .true.
  case default
     eos_is_non_ideal = .false.
@@ -1644,8 +1593,6 @@ subroutine eosinfo(eos_type,iprint)
 
  case(24)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
- case(25) ! I added
-    write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6,a)") ' Ryo EoS degenerate: X = ',X_in,' Z = ',Z_in,' (1-X-Z = ',1.-X_in-Z_in,')'
  end select
  write(iprint,*)
 
@@ -1813,7 +1760,7 @@ subroutine read_options_eos(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter  :: label = 'read_infile'
-!  ieos = 25 ! default to Ryo EoS, Ali (should find a better way to test this) 
+
  call read_inopt(ieos,'ieos',db,errcount=nerr,min=1,max=maxeos)
  if (ieos == 5 .or. ieos == 17) then
     store_dust_temperature = .true.
