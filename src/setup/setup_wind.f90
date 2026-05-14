@@ -39,6 +39,7 @@ module setup
 !   - primary_veq         : *primary equatorial velocity (in km/s)*
 !   - primary_vwind       : *primary wind velocity (in km/s)*
 !   - primary_wind_temp   : *primary wind temperature (K)*
+!   - primary_alpha       : *primary alpha wind parameter*
 !   - q2                  : *tight binary mass ratio*
 !   - racc2a              : *tight binary primary accretion radius*
 !   - racc2b              : *tight binary secondary accretion radius*
@@ -54,6 +55,7 @@ module setup
 !   - secondary_veq       : *secondary equatorial velocity (in km/s)*
 !   - secondary_vwind     : *secondary wind velocity (in km/s)*
 !   - secondary_wind_temp : *secondary wind temperature (K)*
+!   - secondary_alpha     : *secondary alpha wind parameter*
 !   - semi_major_axis     : *semi-major axis of the binary system (au)*
 !   - subst               : *star to substitute*
 !   - temp_exponent       : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
@@ -83,6 +85,7 @@ module setup
  real :: binary2_a_au,racc2a_au,racc2b_au,binary2_i,q2
  real :: primary_mdot_msun_yr,primary_vwind_km_s,secondary_mdot_msun_yr,secondary_vwind_km_s
  real :: primary_mdot,primary_vwind,primary_wind_temp,secondary_mdot,secondary_vwind,secondary_wind_temp
+ real :: primary_alpha,secondary_alpha
  real :: Reff2a,Reff2b
  real :: racc2a,racc2b
  real :: lum2a,lum2b
@@ -131,6 +134,7 @@ subroutine set_default_parameters_wind()
  primary_mdot_msun_yr  = 0.
  primary_vwind_km_s    = 0.
  primary_wind_temp     = 0.
+ primary_alpha         = 0.
  primary_veq = 0.
  primary_veq_km_s = 0.
  ! placeholder default value
@@ -139,8 +143,9 @@ subroutine set_default_parameters_wind()
  secondary_Reff_au     = 0.8
  secondary_racc_au     = 0.1
  secondary_mdot_msun_yr = .0
- secondary_vwind_km_s = 0.
+ secondary_vwind_km_s  = 0.
  secondary_wind_temp   = 0.
+ secondary_alpha       = 0.
  secondary_veq         = 0.
  secondary_veq_km_s    = 0.
  lum2a_lsun            = 0.
@@ -163,7 +168,7 @@ end subroutine set_default_parameters_wind
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,            only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,iTeff,iLum,iReff, &
-                           ispinx, ispiny, ispinz,ivwind,imloss,iTwind
+                           ispinx,ispiny,ispinz,ivwind,imloss,iTwind,iwalpha
  use physcon,         only:au,solarm,mass_proton_cgs,kboltz,solarl,km
  use units,           only:umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,          only:set_default_options_inject
@@ -234,6 +239,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(imloss,1) = primary_mdot
     xyzmh_ptmass(ivwind,1) = primary_vwind
     xyzmh_ptmass(iTwind,1) = primary_wind_temp
+    xyzmh_ptmass(iwalpha,1) = primary_alpha
     primary_veq = primary_veq_km_s * (km / unit_velocity)
     xyzmh_ptmass(ispinx,1) = primary_Reff**2*spin(1,1)*primary_veq
     xyzmh_ptmass(ispiny,1) = primary_Reff**2*spin(1,2)*primary_veq
@@ -245,6 +251,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(imloss,2) = secondary_mdot
     xyzmh_ptmass(ivwind,2) = secondary_vwind
     xyzmh_ptmass(iTwind,2) = secondary_wind_temp
+    xyzmh_ptmass(iwalpha,2) = secondary_alpha
     secondary_veq = secondary_veq_km_s * (km / unit_velocity)
     xyzmh_ptmass(ispinx,2) = secondary_Reff**2*spin(2,1)*secondary_veq
     xyzmh_ptmass(ispiny,2) = secondary_Reff**2*spin(2,2)*secondary_veq
@@ -300,6 +307,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        xyzmh_ptmass(imloss,1) = primary_mdot
        xyzmh_ptmass(ivwind,1) = primary_vwind
        xyzmh_ptmass(iTwind,1) = primary_wind_temp
+       xyzmh_ptmass(iwalpha,1) = primary_alpha
        xyzmh_ptmass(iTeff,2)  = secondary_Teff
        xyzmh_ptmass(iReff,2)  = secondary_Reff
        xyzmh_ptmass(iLum,2)   = secondary_lum
@@ -326,6 +334,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(imloss,1) = primary_mdot
     xyzmh_ptmass(ivwind,1) = primary_vwind
     xyzmh_ptmass(iTwind,1) = primary_wind_temp
+    xyzmh_ptmass(iwalpha,1) = primary_alpha
     primary_veq = primary_veq_km_s * (km / unit_velocity)
     xyzmh_ptmass(ispinx,1) = primary_Reff**2*spin(1,1)*primary_veq
     xyzmh_ptmass(ispiny,1) = primary_Reff**2*spin(1,2)*primary_veq
@@ -568,7 +577,7 @@ subroutine setup_interactive()
     ! define primary properties, wind and spin characteristics
     call get_sink_properties(primary_mass_msun,primary_mass,primary_racc_au,primary_racc,&
                              primary_Reff_au,primary_Reff,primary_Teff,primary_lum_lsun,primary_lum)
-    call get_sink_wind(primary_mdot_msun_yr,primary_vwind_km_s,primary_wind_temp)
+    call get_sink_wind(primary_mdot_msun_yr,primary_vwind_km_s,primary_wind_temp,primary_alpha)
     call get_sink_spin(spin(1,:),primary_veq_km_s)
 
     if (icompanion_star == 1) then
@@ -577,7 +586,7 @@ subroutine setup_interactive()
        call get_sink_properties(secondary_mass_msun,secondary_mass,secondary_racc_au,&
                                 secondary_racc,secondary_Reff_au,secondary_Reff,secondary_Teff,&
                                 secondary_lum_lsun,secondary_lum)
-       call get_sink_wind(secondary_mdot_msun_yr,secondary_vwind_km_s,secondary_wind_temp)
+       call get_sink_wind(secondary_mdot_msun_yr,secondary_vwind_km_s,secondary_wind_temp,secondary_alpha)
        call get_sink_spin(spin(2,:),secondary_veq_km_s)
 
        ichoice = 1
@@ -653,9 +662,9 @@ end subroutine get_sink_spin
 ! wind mass loss rate, velocity and temperature
 !+
 !--------------------------------------------------------
-subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp)
+subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha)
  use prompting, only:prompt
- real, intent(inout) :: wind_mdot_msun_yr,wind_speed_km_s,wind_temp
+ real, intent(inout) :: wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha
  integer :: ichoice
 
  ichoice = 1
@@ -697,9 +706,20 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp)
     case default
        call prompt('enter wind temperature in K',wind_temp,1.,1.e7)
     end select
+    ichoice = 1
+    print "(a)",' 1: Wind parameter alpha = 0.',&
+         ' 0: custom'
+    call prompt('select wind velocity',ichoice,0,1)
+    select case (ichoice)
+    case(1)
+       wind_alpha = 0.
+    case default
+       call prompt('enter wind alpha parameter',wind_alpha,0.,10.)
+    end select
  else
     wind_speed_km_s = 0.
     wind_temp = 0.
+    wind_alpha = 0.
  endif
 
 end subroutine get_sink_wind
@@ -892,6 +912,7 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_mdot_msun_yr,'primary_mdot','primary wind mass loss rate (in Msun/yr)',iunit)
     call write_inopt(primary_vwind_km_s,'primary_vwind','primary wind velocity (in km/s)',iunit)
     call write_inopt(primary_wind_temp,'primary_wind_temp','primary wind temperature (K)',iunit)
+    call write_inopt(primary_alpha,'primary_alpha','primary alpha parameter',iunit)
     call write_inopt(primary_veq_km_s,'primary_veq','primary equatorial velocity (in km/s)',iunit)
     if (primary_veq_km_s /= 0) then
        call write_inopt(spin(1,1),'primary_spinx','x-component of spin direction',iunit)
@@ -909,6 +930,7 @@ subroutine write_setupfile(filename)
        call write_inopt(secondary_mdot_msun_yr,'secondary_mdot','secondary wind mass loss rate (in Msun/yr)',iunit)
        call write_inopt(secondary_vwind_km_s,'secondary_vwind','secondary wind velocity (in km/s)',iunit)
        call write_inopt(secondary_wind_temp,'secondary_wind_temp','secondary wind temperature (K)',iunit)
+       call write_inopt(secondary_alpha,'secondary_alpha','secondary alpha parameter',iunit)
        call write_inopt(secondary_veq_km_s,'secondary_veq','secondary equatorial velocity (in km/s)',iunit)
        if (secondary_veq_km_s /= 0) then
           call write_inopt(spin(2,1),'secondary_spinx','x-component of spin direction',iunit)
@@ -975,6 +997,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(primary_vwind_km_s,'primary_vwind',db,min=0.,max=1.e4,errcount=nerr)
  primary_vwind = primary_vwind_km_s * (km / unit_velocity)
  call read_inopt(primary_wind_temp,'primary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
+ call read_inopt(primary_alpha,'primary_alpha',db,min=0.,max=10.,errcount=nerr)
  call read_inopt(primary_veq_km_s,'primary_veq',db,min=0.,max=1000.,errcount=nerr)
  if (primary_veq_km_s /= 0) then
     call read_inopt(spin(1,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
@@ -1002,6 +1025,7 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(secondary_vwind_km_s,'secondary_vwind',db,min=0.,max=1.e4,errcount=nerr)
     secondary_vwind = secondary_vwind_km_s * (km / unit_velocity)
     call read_inopt(secondary_wind_temp,'secondary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
+    call read_inopt(secondary_alpha,'secondary_alpha',db,min=0.,max=10.,errcount=nerr)
     call read_inopt(secondary_veq_km_s,'secondary_veq',db,min=0.,max=1000.,errcount=nerr)
     if (secondary_veq_km_s /= 0) then
        call read_inopt(spin(2,1),'secondary_spinx',db,min=-1.,max=1.,errcount=nerr)

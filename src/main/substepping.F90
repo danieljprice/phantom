@@ -1061,7 +1061,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  use chem,            only:update_abundances,get_dphot
  use dust_formation,  only:evolve_dust,calc_muGamma
  use cooling,         only:energ_cooling,cooling_in_step
- use part,            only:rhoh
+ use part,            only:rhoh,itemp
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only:update_krome
@@ -1106,7 +1106,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
     eos_vars(imu,i)    = nucleation(idmu,i)
     eos_vars(igamma,i) = nucleation(idgamma,i)
  elseif (update_muGamma) then
-    call calc_muGamma(rhoi, dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i), pH, pH_tot)
+    call calc_muGamma(rhoi,eos_vars(itemp,i),eos_vars(imu,i),eos_vars(igamma,i),pH,pH_tot)
  endif
  !
  ! COOLING

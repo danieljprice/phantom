@@ -51,7 +51,7 @@ module wind
  end type wind_state
 ! wind properties all in cgs
  type wind_params
-    real :: Mdot,Mstar,Lstar,Rstar,vwind,Tstar,Twind,Rinject,vinfty
+    real :: Mdot,Mstar,Lstar,Rstar,vwind,Tstar,Twind,Rinject,vinfty,alpha_rad
  end type wind_params
 
 contains
@@ -74,6 +74,7 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  wind_gamma = gamma
  u_to_temperature_ratio = u_to_T
  time_end = tmax*utime
+ T0 = params%Twind
 
  if (idust_opacity == 2) then
     call set_abundances
@@ -113,7 +114,7 @@ subroutine init_wind(params,time_end,state,tau_lucy_init)
  use physcon,          only:pi,Rg
  use io,               only:fatal
  use eos,              only:gmw
- use ptmass_radiation, only:alpha_rad,iget_tdust
+ use ptmass_radiation, only:iget_tdust
  use dust_formation,   only:kappa_gas,init_muGamma,idust_opacity
 
  real,              intent(in)  :: time_end
@@ -170,7 +171,7 @@ subroutine init_wind(params,time_end,state,tau_lucy_init)
  state%gamma     = wind_gamma
  state%JKmuS     = 0.
  if (idust_opacity == 2) call init_muGamma(state%rho,state%Tg,state%mu,state%gamma) !should not be needed because Tg = Twind
- state%alpha          = state%alpha_Edd + alpha_rad
+ state%alpha          = state%alpha_Edd + params%alpha_rad
  state%JKmuS(idalpha) = state%alpha
  state%JKmuS(idmu)    = state%mu
  state%JKmuS(idgamma) = state%gamma
@@ -198,7 +199,7 @@ subroutine wind_step(params,state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation,calc_alpha
+ use ptmass_radiation, only:iget_tdust,tdust_exp,isink_radiation,calc_alpha
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity,calc_muGamma
@@ -239,7 +240,7 @@ subroutine wind_step(params,state)
     state%mu             = state%JKmuS(idmu)
     state%gamma          = state%JKmuS(idgamma)
     state%kappa          = calc_kappa_dust(state%JKmuS(idK3),state%Tdust,state%rho)
-    state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
+    state%JKmuS(idalpha) = state%alpha_Edd+params%alpha_rad
  else
     if (idust_opacity == 1) state%kappa = calc_kappa_bowen(state%Tdust)
     if (update_muGamma) call calc_muGamma(state%rho,state%Tg,state%mu,state%gamma,pH,pH_tot)
@@ -252,14 +253,14 @@ subroutine wind_step(params,state)
  endif
  select case (isink_radiation)
  case (1)
-    state%alpha     = alpha_rad
-    state%dalpha_dr = (alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+    state%alpha     = params%alpha_rad
+    state%dalpha_dr = (params%alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
  case (2)
     state%alpha     = state%alpha_Edd
     state%dalpha_dr = (state%alpha_Edd-alpha_old)/(1.e-10+state%r-state%r_old)
  case (3)
-    state%alpha     = state%alpha_Edd+alpha_rad
-    state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+    state%alpha     = state%alpha_Edd+params%alpha_rad
+    state%dalpha_dr = (state%alpha_Edd+params%alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
  case (4)
     call calc_alpha(state%r/udist,params%Mstar/umass,state%Rstar/udist,state%vinfty/unit_velocity,state%alpha,state%dalpha_dr)
  case default
@@ -345,7 +346,7 @@ subroutine wind_step(params,state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation,calc_alpha
+ use ptmass_radiation, only:iget_tdust,tdust_exp,isink_radiation,calc_alpha
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity,calc_muGamma
@@ -380,11 +381,11 @@ subroutine wind_step(params,state)
  endif
  select case (isink_radiation)
  case (1)
-    state%alpha = alpha_rad
+    state%alpha = params%alpha_rad
  case (2)
     state%alpha = state%alpha_Edd
  case (3)
-    state%alpha = state%alpha_Edd+alpha_rad
+    state%alpha = state%alpha_Edd+params%alpha_rad
  case (4)
     call calc_alpha(real(state%r/udist),real(params%Mstar/umass),&
                     real(state%Rstar/udist),real(state%vinfty/unit_velocity),&
@@ -527,7 +528,6 @@ subroutine get_initial_wind_speed(params,time_end,rsonic,tsonic,wind_type)
  use units,    only:utime,udist
  use eos,      only:gmw,gamma
  use physcon,  only:Rg,Gg,au,years,solarm,km
- use ptmass_radiation, only:alpha_rad
  integer,           intent(in)    :: wind_type
  type(wind_params), intent(inout) :: params
  real,              intent(in)    :: time_end
@@ -549,9 +549,9 @@ subroutine get_initial_wind_speed(params,time_end,rsonic,tsonic,wind_type)
     stype = 0
  endif
  cs   = sqrt(gamma*Rg*params%Twind/gmw)
- Rs   = Gg*params%Mstar*(1.-alpha_rad)/(2.*cs*cs)
+ Rs   = Gg*params%Mstar*(1.-params%alpha_rad)/(2.*cs*cs)
  if (iverbose>0) then
-    vesc = sqrt(2.*Gg*params%Mstar*(1.-alpha_rad)/params%Rinject)
+    vesc = sqrt(2.*Gg*params%Mstar*(1.-params%alpha_rad)/params%Rinject)
     vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
     if (vesc> 1.d-50) then
        alpha_max = 1.-(2.*cs/vesc)**2
@@ -573,7 +573,7 @@ subroutine get_initial_wind_speed(params,time_end,rsonic,tsonic,wind_type)
     else
        print *, ' * v0  (km/s) = ',params%vwind/km
     endif
-    print *, ' * alpha      = ',alpha_rad
+    print *, ' * alpha      = ',params%alpha_rad
     print *, ' * alpha_max  = ',alpha_max
     print *, ' * tend (s)   = ',time_end,time_end/years
  endif
@@ -659,8 +659,8 @@ subroutine get_initial_wind_speed(params,time_end,rsonic,tsonic,wind_type)
           print *,' supersonic wind : vwind/cs = ',params%vwind/cs
        else
           !see discussion p72/73 in Lamers & Cassinelli textbook
-          if (params%Rinject > Rs .or. alpha_rad > gmax ) then
-             print *,'Rinject = ',params%Rinject,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',alpha_rad
+          if (params%Rinject > Rs .or. params%alpha_rad > gmax ) then
+             print *,'Rinject = ',params%Rinject,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',params%alpha_rad
              print '(/," WARNING : alpha_rad > Gamma_max = ",f7.5," breeze type solution (dv/dr < 0)",/)',gmax
           endif
           print '(" sub-sonic wind : vwind/cs = ",f7.5,", Gamma_max = ",f7.5)',params%vwind/cs,gmax
