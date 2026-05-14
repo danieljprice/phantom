@@ -496,9 +496,10 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  logical :: do_radiation_local
  integer :: i1
 ! Ali I defined these:
- logical, save :: mesa_initialized = .false.
+!  logical, save :: mesa_initialized = .false.
+!  real ::  radiusi (these two were for an old try I'm not using anymore rn)
  integer :: jmin, j
- real :: dist, radiusi
+ real :: dist 
 ! Ali At the very start of set_star_thermalenergy add following if clause
  ! Ali: should make this cleaner later, profile_wd.data is hardcoded here
  if (.not. allocated(mesa_rho)) then
