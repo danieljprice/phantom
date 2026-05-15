@@ -1635,10 +1635,9 @@ subroutine test_HIIregion(ntests,npass)
  use kernel,         only:hfact_default
  use kdtree,         only:tree_accuracy
  use testutils,      only:checkval,update_test_scores
- use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,&
-                          HII_feedback_ray
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,iH2R
  use setup_params,   only:npart_total
- use linklist,       only:set_linklist
+ use deriv,          only:get_density_global
  integer, intent(inout) :: ntests,npass
  integer          :: np,i,nfailed(2),itest,nion,ierr
  real             :: totmass,psep,r2,rstrommax
@@ -1724,14 +1723,14 @@ subroutine test_HIIregion(ntests,npass)
     vxyzu(4,:) = polyk
     ieos = 22
  endif
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call get_density_global(2)
 
  do itest = 1,2
+    iH2R = itest
     string = "nearest neighbors"
-    if (itest == 2) string = "inversed ray tracing"
+    if (iH2R == 2) string = "inversed ray tracing"
     if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
-    if (itest==1) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
-    if (itest==2) call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     rstrommax = epsilon(rstrommax)
     rhomean   = 0.
     nion      = 0

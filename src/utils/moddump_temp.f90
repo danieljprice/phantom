@@ -25,7 +25,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,      only:xyzmh_ptmass,vxyz_ptmass,nptmass,eos_vars,itemp,&
                      delete_dead_or_accreted_particles,accrete_particles_outside_sphere
  use ptmass,    only:h_acc
- use linklist,  only:set_linklist
+ use deriv,     only:get_density_global
  use io,        only:fatal
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -71,10 +71,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  print*, "number of dead sink particles :",nsinkdead
 
- call set_linklist(npart,npart,xyzh,vxyzu)
+ call get_density_global(2)
  call initialize_H2R()
  call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
- call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
 
  !call delete_dead_or_accreted_particles(npart,npartoftype)
 

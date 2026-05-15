@@ -694,13 +694,12 @@ end subroutine initialise_sink_particle_forces
 !----------------------------------------------------------------
 subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use dim,              only:maxalpha,maxp,nalpha,do_radiation
- use part,             only:npart,nptmass,fxyzu,eos_vars,alphaind,xyzh,vxyzu,xyzmh_ptmass
+ use part,             only:npart,fxyzu,eos_vars,alphaind
  use deriv,            only:get_derivs_global,get_density_global
  use timestep,         only:dtmax
- use HIIRegion,        only:iH2R,HII_feedback,HII_feedback_ray
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:igas,massoftype,rad
+ use part,             only:igas,massoftype,rad,xyzh,vxyzu
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
@@ -726,16 +725,6 @@ subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
     fxyzu(:,i) = 0.      ! so that div_a is 0 in first call to viscosity switch
  enddo
  !$omp end parallel do
-
- if (iH2R > 0) then
-    if (ntot > 0) call get_density_global(2)
-    select case(iH2R)
-    case(1)
-       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,0.)
-    case(2,3)
-       call HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
-    end select
- endif
 
  do j=1,nderivinit
     if (ntot > 0) call get_derivs_global(dt_new=dtnew_first,dt=0.,icall=1)

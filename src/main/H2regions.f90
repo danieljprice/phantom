@@ -26,7 +26,7 @@ module HIIRegion
  use eos,        only:gmw
  implicit none
 
- public :: update_ionrates,update_ionrate, HII_feedback,HII_feedback_ray,&
+ public :: update_ionrates,update_ionrate, HII_feedback,&
            initialize_H2R,read_options_H2R,write_options_H2R
 
  integer, parameter, public    :: HIIuprate   = 8 ! update rate when IND_TIMESTEPS=yes (Hopkins like method)
@@ -38,6 +38,8 @@ module HIIRegion
  real   , public               :: mH
  real   , public               :: mH1
  real   , public               :: DNcoeff
+ logical, public               :: HIIupdateflag
+ real   , public               :: HIIdt
 
  integer, parameter :: maxcache  = 1024
 
@@ -79,6 +81,8 @@ subroutine initialize_H2R
  mH = gmw*mass_proton_cgs/umass
  mH1 = 1./mH
  DNcoeff = log10(massoftype(1)*ar*mH1**2/utime)
+ HIIupdateflag = .true.
+ HIIdt = 0.
 
  if (id == master .and. iverbose > 1) then
     write(iprint,"(a,es18.10,es18.10)") " feedback constants mH,uIon      : ", mH,uIon
@@ -179,10 +183,29 @@ end subroutine update_ionrate
 
 !-----------------------------------------------------------------------
 !+
+! HII feedback interface for switching algorithms
+!+
+!-----------------------------------------------------------------------
+subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+ integer,          intent(in)    :: nptmass,npart
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,             intent(inout) :: eos_vars(:,:)
+ select case(iH2R)
+ case(1)
+    call HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+ case(2,3)
+    call HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+ end select
+
+end subroutine HII_feedback
+
+!-----------------------------------------------------------------------
+!+
 ! HII feedback routine using K nearest neighbors prescription
 !+
 !-----------------------------------------------------------------------
-subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
+subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom,get_partinfo,iphase,itemp,imu
  use neighkdtree,   only:listneigh,getneigh_pos,leaf_is_active
@@ -190,14 +213,13 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
  use dim,        only:maxvxyzu
- use io,         only:iverbose,iprint,warning
+ use io,         only:iverbose,iprint,warning,id,master
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,             intent(inout) :: eos_vars(:,:)
- real,             intent(in)    :: dt
  integer, parameter :: maxc  = 128
- real, save :: xyzcache(maxc,3)
+ real, save :: xyzcache(3,maxc)
  integer            :: i,k,j,npartin,nneigh,itypej,its
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,DNratio,logNdiff,taud,mHII,r,r_in,hcheck
@@ -209,15 +231,13 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  r_in = 0.
  pmass = massoftype(igas)
 
- !if (present(dt)) momflag = .true.
  call get_timings(t1,tcpu1)
- eos_vars(imu,:) = gmw
- if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
  !
  !-- Rst derivation and thermal feedback
  !
- if (nHIIsources > 0) then
-    call get_timings(t1,tcpu1)
+ if (nHIIsources > 0 .and. id==master) then
+    eos_vars(imu,:) = gmw
+    if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
     do i=1,nptmass
        converged  = .false.
        max_search = .false.
@@ -232,7 +252,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
        hcheck = xyzmh_ptmass(irstrom,i)
        iterations:do while (.not.max_search)
           if (hcheck > 0. ) then
-             hcheck = hcheck + 6.*csion*dt
+             hcheck = hcheck + 6.*csion*HIIdt
              if (hcheck > Rmax) then
                 hcheck = Rmax
                 max_search = .true.
@@ -302,7 +322,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
           mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
           if (mHII>3*pmass) then
              !$omp parallel do default(none) &
-             !$omp shared(mHII,xyzh,sigd,dt) &
+             !$omp shared(mHII,xyzh,sigd,HIIdt) &
              !$omp shared(mH,vxyzu,log_Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
              !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
              do k=1,npartin
@@ -319,37 +339,38 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                 vkz = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dz/r)
                 vkx = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dx/r)
                 vky = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dy/r)
-                vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
-                vxyzu(2,j) = vxyzu(2,j) +  vky*dt
-                vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
+                vxyzu(1,j) = vxyzu(1,j) +  vkx*HIIdt
+                vxyzu(2,j) = vxyzu(2,j) +  vky*HIIdt
+                vxyzu(3,j) = vxyzu(3,j) +  vkz*HIIdt
              enddo
              !$omp end parallel do
           endif
        endif
     enddo
-    call get_timings(t2,tcpu2)
-    call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
  endif
 
-end subroutine HII_feedback
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
+
+end subroutine HII_Knn
 
 !-----------------------------------------------------------------------
 !+
 ! HII feedback routine using inversed ray tracing method
 !+
 !-----------------------------------------------------------------------
-subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,     only:massoftype,igas,irateion,isdead_or_accreted,&
                     iphase,get_partinfo,noverlap,rhoh,itemp,imu
  use timing,   only:get_timings,increment_timer,itimer_HII
  use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
  use dim,      only:maxvxyzu
- use io,         only:iverbose,iprint
+ use io,         only:iverbose,iprint,id,master
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,             intent(inout) :: eos_vars(:,:)
- real, save         :: xyzcache(maxcache,4)
+ real, save         :: xyzcache(4,maxcache)
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real,allocatable   :: rhosrc(:)
  real               :: pmass,log_Qi,fluxi,xj,yj,zj
@@ -359,7 +380,9 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
 
  k=0
 
- if (nHIIsources > 0) then
+ call get_timings(t1,tcpu1)
+
+ if (nHIIsources > 0 .and. id==master) then
     if (iH2R == 3) then
        allocate(rhosrc(nptmass))
        rhosrc = 0.
@@ -367,7 +390,6 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     pmass = massoftype(igas)
 
 
-    call get_timings(t1,tcpu1)
     !
     !-- Rst derivation and thermal feedback
     !
@@ -426,14 +448,14 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     enddo
 !$omp enddo
 !$omp end parallel
-    call get_timings(t2,tcpu2)
-    call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
     if (iverbose == 2) write(iprint,*) 'N ionised = ',k
     if (iH2R == 3) deallocate(rhosrc)
  endif
 
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
 
-end subroutine HII_feedback_ray
+end subroutine HII_ray
 
 !-----------------------------------------------------------------------
 !+
@@ -496,7 +518,6 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  endif
 
  reachsrc:do while (unreached)
-
     call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,&
                       nneigh,xyzcache,maxcache,leaf_is_active)
     hi2 = (hi*radkern)**2
@@ -512,9 +533,9 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        call get_partinfo(iphase(j),isactive,isgas,isdust,itypei)
        if (isgas) then
           if(k <= maxcache) then
-             xij = xyzcache(k,1) - xi
-             yij = xyzcache(k,2) - yi
-             zij = xyzcache(k,3) - zi
+             xij = xyzcache(1,k) - xi
+             yij = xyzcache(2,k) - yi
+             zij = xyzcache(3,k) - zi
           else
              xij = xyzh(1,j) - xi
              yij = xyzh(2,j) - yi
@@ -544,7 +565,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        !
        dr = dr - (0.5*drprojmin)
        if(k<=maxcache) then
-          hj  = 1./xyzcache(knext,4)
+          hj  = 1./xyzcache(4,knext)
        else
           hj  = xyzh(4,inext)
        endif
@@ -568,9 +589,9 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        !-- prepare the next search
        !
        if(knext <= maxcache) then
-          xi = xyzcache(knext,1)
-          yi = xyzcache(knext,2)
-          zi = xyzcache(knext,3)
+          xi = xyzcache(1,knext)
+          yi = xyzcache(2,knext)
+          zi = xyzcache(3,knext)
        else
           xi = xyzh(1,inext)
           yi = xyzh(2,inext)
