@@ -410,7 +410,8 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  integer :: itercount
  real :: cgsrhoi, cgspresi, cgsspsoundi, cgseni, cgseni_eos, cgsdendti
  real :: tnew, tprev
-
+ real :: tlow, thigh, fold, fhigh, fnew,tnew_newton ! for bracketing the root
+ logical :: have_bracket
  cgsrhoi = rhoi * unit_density
 
  call eos_helmholtz_compute_pres_sound(tempi, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
@@ -420,10 +421,13 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
  cgseni = eni * unit_ergg
 !  write(*,*) 'ALI flag eos_helmholtz.f90 line 422: CHECKS eni=', eni
-
+ tlow  = tempmin
+ thigh = tempmax
+ have_bracket = .false.
 ! Newton-Raphson iterations
  tprev = tempi
- tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti
+ tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti !!! not replacing this for the newton step below, 
+ ! but still using this to get an initial guess for the temperature, and then we will iterate to convergence using the newton step below
 ! disallow large temperature changes
  if (tnew > 2.0 * tempi) then
     tnew = 2.0 * tempi
@@ -446,6 +450,28 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     tprev = tnew
     ! get new pressure, sound speed, energy for this temperature and density
     call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
+
+    !! get the difference between the internal energy from the eos and the internal energy from energy
+    fnew = cgseni_eos - cgseni
+    if (.not. have_bracket) then
+       tlow  = tnew
+       thigh = tnew
+       fold  = fnew
+       have_bracket = .true.
+    else
+       if (fnew * fold < 0.0) then
+          ! sign change → bracket found
+          if (tnew < tprev) then
+                tlow = tnew
+                thigh = tprev
+          else
+                tlow = tprev
+                thigh = tnew
+          endif
+       endif
+       fold = fnew
+    endif
+
     if (cgseni_eos < 0.0) then
        write(*,*) 'negative energy from eos ALI eos_helmholtz.f90 line 451: tnew=', tnew, &
        ' cgseni_eos (ener)=', cgseni_eos, ' eni (code units)=', cgseni/ unit_ergg
@@ -453,13 +479,28 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
     if (itercount > 8) then ! debug output Ali
 
-       write(*,*) 'ALI flag eos_helmholtz.f90 line 456: CHECKS tnew=', tnew, &
-       ' cgseni_eos (ener)=', cgseni_eos, ' eni (code units)=', cgseni/ unit_ergg
-       write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
+      !  write(*,*) 'ALI flag eos_helmholtz.f90 line 456: CHECKS tnew=', tnew, &
+      !  ' cgseni_eos (ener)=', cgseni_eos, ' eni (code units)=', cgseni/ unit_ergg
+      !  write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
     endif
    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 446: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
     ! iterate to new temperature
-    tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
+   !  tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
+
+    tnew_newton = tnew - fnew / cgsdendti !Ali  replacing line above with this newton step,
+    ! but still disallowing large temperature changes and checking for convergence
+    if (tnew_newton > tempmin .and. tnew_newton < tempmax .and. &
+       abs(tnew_newton - tnew) < 0.5*tnew) then
+       tnew = tnew_newton
+    else
+       ! fallback: true bisection step
+       if (have_bracket) then
+          tnew = 0.5 * (tlow + thigh)
+       else
+          tnew = max(tempmin, min(tempmax, tnew_newton))
+       endif
+    endif
+ 
     ! disallow large temperature changes
     if (tnew > 2.0 * tprev) then
        tnew = 2.0 * tprev
@@ -469,7 +510,8 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
        tnew = 0.5 * tprev
     endif
     ! exit if tolerance criterion satisfied
-    if (abs(tnew - tprev) < tempi * tol) then
+   !  if (abs(tnew - tprev) < tempi * tol) then
+    if (abs(fnew)/cgseni < tol) then ! Ali check for convergence of energy rather than temperature, since we are really trying to converge the energy here, and the temperature is just a means to get there. This also allows us to check for convergence even if we are at the temperature limits of the table, where we may not be able to converge the temperature but we can still check for convergence of the energy.
        done = .true.
       !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
     endif
@@ -488,6 +530,8 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
        call warning('eos','Helmholtz eos fail to converge')
        done = .true.
     endif
+
+    fold = fnew   ! update fold for next iteration
  enddo iterations
 ! store new temperature
 !  write(*,*) 'ALI flag eos_helmholtz.f90 line 492: CHECKS tempi=', tempi, &
