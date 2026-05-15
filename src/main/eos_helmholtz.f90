@@ -493,7 +493,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
        write(*,*) 'ALI flag fail to converge, eos_helmholtz.f90 line 493: Tnew=', tnew, &
        'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
        write(*,*) '(cgseni_eos - cgseni) / cgsdendti =', (cgseni_eos - cgseni) / cgsdendti, &
-       ' eni_eos (code units)=', cgseni_eos/ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
+       ' eni_eos (code units)=', cgseni_eos/unit_ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
 
        call warning('eos','Helmholtz eos fail to converge')
        done = .true.
