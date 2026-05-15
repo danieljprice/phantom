@@ -490,7 +490,8 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     ! exit if reached max number of iterations (convergence failed)
     if (itercount >= maxiter) then
 
-       write(*,*) 'ALI flag fail to converge, eos_helmholtz.f90 line 493: CHECKS tnew=', tnew
+       write(*,*) 'ALI flag fail to converge, eos_helmholtz.f90 line 493: Tnew=', tnew, &
+       'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
        write(*,*) '(cgseni_eos - cgseni) / cgsdendti =', (cgseni_eos - cgseni) / cgsdendti, &
        ' eni_eos (code units)=', cgseni_eos/ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
 
