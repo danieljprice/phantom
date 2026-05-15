@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -286,7 +286,7 @@ end subroutine read_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine check_setup(pmass,ierr)
- real, intent(in)     :: pmass
+ real,    intent(in)  :: pmass
  integer, intent(out) :: ierr
  real                 :: min_layer_sep
 

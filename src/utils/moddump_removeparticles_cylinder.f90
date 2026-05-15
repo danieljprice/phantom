@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,11 +24,11 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part, only:delete_particles_outside_cylinder
  integer, intent(inout) :: npart
- integer, dimension(:), intent(inout) :: npartoftype
- real, dimension(:), intent(inout) :: massoftype
- real, dimension(:,:), intent(inout) :: xyzh,vxyzu
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  !integer :: i
- real, dimension(3) :: center
+ real :: center(3)
  real :: radius,zmax
 
  print*,' Phantommoddump: Remove particles outside a cylinder'

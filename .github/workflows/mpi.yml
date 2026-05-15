@@ -1,10 +1,7 @@
 name: mpi
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_call:
 
 jobs:
   test:
@@ -25,8 +22,7 @@ jobs:
           - ['testkd', '']
           - ['testdust', 'dust']
           - ['testgr', 'gr ptmass']
-          - ['testgrav', 'gravity ptmass']
-          - ['testsinktree','gravity ptmass']
+          - ['testgrav', 'gravity ptmass sinktree']
           - ['testgrowth', 'dustgrowth']
           - ['testnimhd', 'nimhd']
           - ['test2', '']
@@ -63,24 +59,3 @@ jobs:
 
     - name: Test with MPI
       run: mpirun --allow-run-as-root -np ${{ matrix.ntasks }} --oversubscribe ./bin/phantomtest ${{ matrix.input[1] }}
-
-  # Gather results into a dummy job that will fail if the previous job fails
-  gather_results:
-    if: always()
-    needs:
-    - test
-
-    # This name matches the branch protection requirement
-    name: mpi
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check all tests
-      run: |
-        if [[ "${{ needs.test.result }}" == "success" ]]; then
-          echo "All tests succeeded"
-        else
-          echo "At least one test failed"
-          exit 1
-        fi

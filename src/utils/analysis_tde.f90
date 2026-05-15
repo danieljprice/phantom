@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -37,7 +37,9 @@ module analysis
 
  private
 
- real, dimension(:), allocatable :: ebins,dmde,tbins,dmdt,rbins,dlumdr,lumcdf,lbins,dmdl,angbins,dmdang,vbins,dmdv
+ real, allocatable :: ebins(:),dmde(:),tbins(:),dmdt(:),rbins(:)
+ real, allocatable :: dlumdr(:),lumcdf(:),lbins(:),dmdl(:),angbins(:)
+ real, allocatable :: dmdang(:),vbins(:),dmdv(:)
 
  !---- These can be changed in the params file
  integer :: nbins
@@ -62,17 +64,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,         only:warning
  use dump_utils, only:read_array_from_file
  use prompting,  only:prompt
- use readwrite_dumps, only: opened_full_dump
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ use readwrite_dumps, only:opened_full_dump
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  character(len=120) :: output
  character(len=20)  :: filename
  integer :: i,ierr
  logical :: iexist
  real(4) :: luminosity(npart)
-
 
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
@@ -87,10 +88,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     write(*,*)
     luminosity = 0.
  endif
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(output,"(a4,i5.5)") 'hist',numfile
  write(*,'("Output file name is ",A)') output
@@ -152,7 +149,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        dmdv(i)
  enddo
 
-
 end subroutine do_analysis
 
 !--------------------------------------------------------------------------------------------------------------------
@@ -163,9 +159,9 @@ end subroutine do_analysis
 subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
- real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
+ real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:),luminosity(:)
  integer :: i
- real, dimension(npart) :: eps,tr,r,Langm,vel,mass
+ real :: eps(npart),tr(npart),r(npart),Langm(npart),vel(npart),mass(npart)
  real :: v2,Li(3),de,dt,dr,dl,dang,dv
 
  !
@@ -277,10 +273,10 @@ end function treturn
 subroutine hist(np,xarray,xhist,yhist,xmin,xmax,n_bins,weights)
  use sortutils, only:indexx
  use io,        only:warning
- integer, intent(in) :: np,n_bins
- real, intent(in)    :: xarray(np),xmin,xmax
- real, intent(in), optional :: weights(np)
- real, intent(out)   :: xhist(n_bins),yhist(n_bins)
+ integer, intent(in)  :: np,n_bins
+ real,    intent(in)  :: xarray(np),xmin,xmax
+ real,    intent(out) :: xhist(n_bins),yhist(n_bins)
+ real,    intent(in), optional :: weights(np)
  integer :: indx(np),i,ibin,j,nbinned
  logical :: binned
  real    :: dx,xleft,xright,xi

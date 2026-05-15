@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -65,8 +65,8 @@ end subroutine print_etgrid
 
 subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)
  use part,   only: vxyzu,fext!,fxyzu
- integer, intent(in) :: i
- real, intent(out) :: vx,vy,vz,fx,fy,fz,e_rhs
+ integer, intent(in)  :: i
+ real,    intent(out) :: vx,vy,vz,fx,fy,fz,e_rhs
 
  !vxyz
  vx = vxyzu(1,i)
@@ -77,7 +77,6 @@ subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)
  fy = fext(2,i)
  fz = fext(3,i)
 
-
  ! de/dt
  e_rhs = 0.
 
@@ -85,8 +84,8 @@ end subroutine get_particle_rhs
 
 subroutine get_particle_val(i,x,y,z,px,py,pz,e)
  use part,   only: xyzh, pxyzu
- integer, intent(in) :: i
- real, intent(out) :: x,y,z,px,py,pz,e
+ integer, intent(in)  :: i
+ real,    intent(out) :: x,y,z,px,py,pz,e
 
  !xyz
  x = xyzh(1,i)
@@ -105,9 +104,9 @@ subroutine get_particle_val(i,x,y,z,px,py,pz,e)
 end subroutine get_particle_val
 
 subroutine set_particle_val(i,x,y,z,px,py,pz,e)
- use part, only: xyzh, pxyzu
+ use part, only:xyzh, pxyzu
  integer, intent(in) :: i
- real, intent(in) :: x,y,z,px,py,pz,e
+ real,    intent(in) :: x,y,z,px,py,pz,e
  ! Subroutine for setting the particle values in phantom
  ! using the values stored in einstein toolkit before a dump
 
@@ -121,7 +120,6 @@ subroutine set_particle_val(i,x,y,z,px,py,pz,e)
  pxyzu(2,i) = py
  pxyzu(3,i) = pz
  pxyzu(4,i) = e
-
 
 end subroutine set_particle_val
 
@@ -138,7 +136,6 @@ subroutine get_phantom_dt(dtout)
  ! Since c is allways one in our units
  dtout = safety_fac*minh
  print*, "dtout phantom: ", dtout
-
 
 end subroutine get_phantom_dt
 

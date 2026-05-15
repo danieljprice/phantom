@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -57,9 +57,7 @@ subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
 
  ierr = 0
 
-
 end subroutine init_eos_HIIR
-
 
  !-----------------------------------------------------------------------
  !+
@@ -81,15 +79,14 @@ subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
  if (abs(tempi-Tion) < epsilon(tempi)) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
+    tempi    = Tion
  else
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
  endif
 
-
 end subroutine get_eos_HIIR_iso
-
 
  !-----------------------------------------------------------------------
  !+
@@ -129,9 +126,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
     tempi = temperature_coef*mui*ponrhoi
  endif
 
-
 end subroutine get_eos_HIIR_adiab
-
 
 end module eos_HIIR
 

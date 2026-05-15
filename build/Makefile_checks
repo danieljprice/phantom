@@ -10,7 +10,6 @@ checksys:
         ifneq ($(SYSTEM),$(LASTSYSTEM))
 	    @echo system changed from ${LASTSYSTEM} to ${SYSTEM}
 	    @${MAKE} clean
-	    @${MAKE} cleanmathflags
         endif
 	@echo $(SYSTEM) > .make_lastsystem
    else
@@ -108,7 +107,7 @@ checkmcfost:
       ifneq ("X$(PREFIX)","X")
 		@echo; echo "assuming MCFOST directory is "$(PREFIX)" from PREFIX env variable"; echo;
       else
-		@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+		@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR or PREFIX=/opt/homebrew"; echo; ${MAKE} err
       endif
    endif
 

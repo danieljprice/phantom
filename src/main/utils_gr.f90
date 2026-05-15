@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -90,15 +90,15 @@ end subroutine get_bigv
 !  the conserved density rho* (stored as the smoothing length)
 !+
 !----------------------------------------------------------------
-subroutine h2dens(dens,xyzh,metrici,v)
- use part, only: rhoh,massoftype,igas
- real, intent(in) :: xyzh(1:4),metrici(:,:,:),v(1:3)
- real, intent(out):: dens
+subroutine h2dens(dens,pmass,xyzh,metrici,v)
+ use part, only:rhoh
+ real, intent(in)  :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
+ real, intent(out) :: dens
  real :: rho, h, xyz(1:3)
 
  xyz = xyzh(1:3)
  h   = xyzh(4)
- rho = rhoh(h,massoftype(igas))
+ rho = rhoh(h,pmass)
  call rho2dens(dens,rho,xyz,metrici,v)
 
 end subroutine h2dens
@@ -112,8 +112,8 @@ end subroutine h2dens
 subroutine rho2dens(dens,rho,position,metrici,v)
  use metric_tools, only:unpack_metric
  use io,           only:error
- real, intent(in) :: rho,position(1:3),metrici(:,:,:),v(1:3)
- real, intent(out):: dens
+ real, intent(in)  :: rho,position(1:3),metrici(:,:,:),v(1:3)
+ real, intent(out) :: dens
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
 
@@ -134,9 +134,9 @@ end subroutine rho2dens
 !----------------------------------------------------------------
 subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
  use metric_tools, only:unpack_metric
- integer, intent(in) :: npart
- real, intent(in)    :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
- real, intent(out)   :: axyz(3,npart)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: vxyz(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
+ real,    intent(out) :: axyz(3,npart)
  real :: gcon(0:3,0:3), v(0:3), gderiv(0:3,0:3,0:3), a(3)
  integer :: i,lambda,mu,sigma
 
@@ -169,8 +169,8 @@ end subroutine get_geodesic_accel
 !+
 !----------------------------------------------------------------
 subroutine get_sqrtg(gcov, sqrtg)
- use metric, only: metric_type
- real, intent(in) :: gcov(0:3,0:3)
+ use metric_tools, only:imetric,imet_binarybh,imet_et
+ real, intent(in)  :: gcov(0:3,0:3)
  real, intent(out) :: sqrtg
  real :: det
  real :: a11,a12,a13,a14
@@ -178,8 +178,7 @@ subroutine get_sqrtg(gcov, sqrtg)
  real :: a31,a32,a33,a34
  real :: a41,a42,a43,a44
 
-
- if (metric_type == 'et') then
+ if (imetric == imet_et .or. imetric == imet_binarybh) then
 
     a11 = gcov(0,0)
     a21 = gcov(1,0)
@@ -213,7 +212,6 @@ subroutine get_sqrtg(gcov, sqrtg)
     sqrtg = 1.
  endif
 
-
 end subroutine get_sqrtg
 
 !----------------------------------------------------------------
@@ -222,7 +220,7 @@ end subroutine get_sqrtg
 !+
 !----------------------------------------------------------------
 subroutine get_sqrt_gamma(gcov,sqrt_gamma)
- use metric, only: metric_type
+ use metric, only:metric_type
  real, intent(in)  :: gcov(0:3,0:3)
  real, intent(out) :: sqrt_gamma
  real :: a11,a12,a13
@@ -261,9 +259,9 @@ end subroutine get_sqrt_gamma
 !+
 !----------------------------------------------------------------
 subroutine perturb_metric(phi,gcovper,gcov)
- real, intent(in) :: phi
+ real, intent(in)  :: phi
  real, intent(out) :: gcovper(0:3,0:3)
- real, optional, intent(in) :: gcov(0:3,0:3)
+ real, intent(in), optional :: gcov(0:3,0:3)
 
  if (present(gcov)) then
     gcovper = gcov

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,6 +20,7 @@ module boundary
  real,    public :: xmin,xmax,ymin,ymax,zmin,zmax
  real,    public :: dxbound,dybound,dzbound
  real,    public :: totvol
+ real,    public :: hdlx,hdly,hdlz
 
  public :: set_boundary
  public :: cross_boundary
@@ -104,6 +105,10 @@ subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos,l)
  dxbound = xmax - xmin
  dybound = ymax - ymin
  dzbound = zmax - zmin
+
+ hdlx = 0.5*dxbound
+ hdly = 0.5*dybound
+ hdlz = 0.5*dzbound
 
  totvol = dxbound*dybound*dzbound
 

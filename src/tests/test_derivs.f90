@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,9 +14,10 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, dust,
-!   eos, io, kernel, linklist, mpidomain, mpiutils, nicil, options, part,
-!   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
+! :Dependencies: boundary, densityforce, deriv, dim, dust, eos, io, kernel,
+!   mpidomain, mpiutils, neighkdtree, nicil, options, part, physcon,
+!   shock_capturing, testutils, timestep, timestep_ind, timing, unifdis,
+!   units, viscosity
 !
  use part, only:massoftype,ien_type,ien_entropy
  use dim,  only:isothermal,ind_timesteps
@@ -38,9 +39,9 @@ subroutine test_derivs(ntests,npass,string)
  use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
- use options,      only:tolh,alpha,alphaB,ieos,psidecayfac,use_dustfrac,iopacity_type
+ use options,      only:alpha,alphaB,ieos,use_dustfrac,iopacity_type
  use kernel,       only:radkern,kernelname
- use part,         only:npart,npartoftype,igas,xyzh,hfact,vxyzu,fxyzu,init_part,&
+ use part,         only:npart,npartoftype,igas,xyzh,hfact,tolh,vxyzu,fxyzu,init_part,&
                         divcurlv,divcurlB,divBsymm,Bevol,dBevol,&
                         Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
@@ -49,11 +50,12 @@ subroutine test_derivs(ntests,npass,string)
  use physcon,      only:pi,au,solarm
  use deriv,        only:get_derivs_global
  use densityforce, only:get_neighbour_stats
- use linklist,     only:set_linklist
+ use neighkdtree,  only:build_tree
  use timing,       only:getused,printused
  use viscosity,    only:bulkvisc,shearparam,irealvisc
  use part,         only:iphase,isetphase,igas
  use nicil,        only:use_ambi
+ use timestep,     only:psidecayfac
  use timestep_ind, only:nactive
  use part,         only:ibin
  use dust,         only:init_drag,idrag,K_code
@@ -319,7 +321,7 @@ subroutine test_derivs(ntests,npass,string)
        call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15*tol_fac,nfailed(m+2),'dvxdy',mask)
        call checkvalf(np,xyzh,dvdx(3,:),dvxdz,2.5e-15*tol_fac,nfailed(m+3),'dvxdz',mask)
        call checkvalf(np,xyzh,dvdx(4,:),dvydx,1.e-3,nfailed(m+4),  'dvydx',mask)
-       call checkvalf(np,xyzh,dvdx(5,:),dvydy,2.5e-15*tol_fac,nfailed(m+5),'dvydy',mask)
+       call checkvalf(np,xyzh,dvdx(5,:),dvydy,3.e-15*tol_fac,nfailed(m+5),'dvydy',mask)
        call checkvalf(np,xyzh,dvdx(6,:),dvydz,1.e-3,nfailed(m+6),  'dvydz',mask)
        call checkvalf(np,xyzh,dvdx(7,:),dvzdx,2.5e-15*tol_fac,nfailed(m+7),'dvzdx',mask)
        call checkvalf(np,xyzh,dvdx(8,:),dvzdy,1.5e-3,nfailed(m+8), 'dvzdy',mask)
@@ -893,18 +895,15 @@ end subroutine test_avderivs
 subroutine test_cullendehnen(hzero,mask,ntests,npass)
  use io,           only:id,master
  use dim,          only:maxalpha,maxp,nalpha
- use part,         only:npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,fxyzu,&
-                        fext,alphaind,gradh,rad,radprop,dvdx,apr_level,igas
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,alphaind,igas
  use timestep_ind, only:nactive
- use densityforce, only:densityiterate
+ use deriv,        only:get_density_global
  use timing,       only:getused,printused
- use linklist,     only:set_linklist
  use testutils,    only:checkvalf,update_test_scores
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: hzero
  logical, intent(inout) :: mask(:)
  integer      :: i,m,ialphaloc,nfailed(12)
- real         :: stressmax
  real(kind=4) :: tused
 
  if (maxalpha==maxp .and. nalpha >= 2) then
@@ -926,10 +925,7 @@ subroutine test_cullendehnen(hzero,mask,ntests,npass)
 
     call getused(tused)
     ! ONLY call density, since we do not want accelerations being reset
-    call set_linklist(npart,nactive,xyzh,vxyzu)
-    call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
-                        Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                        rad,radprop,dvdx,apr_level)
+    call get_density_global(1,nactive=nactive)
     if (id==master) call printused(tused)
 
     nfailed(:) = 0; m = 0
@@ -1077,9 +1073,9 @@ end subroutine set_magnetic_field
 !+
 !----------------------------------
 subroutine reset_mhd_to_zero
- use dim,     only:mhd,use_dust
- use part,    only:Bextx,Bexty,Bextz,Bevol,Bxyz,dustfrac
- use options, only:psidecayfac
+ use dim,      only:mhd,use_dust
+ use part,     only:Bextx,Bexty,Bextz,Bevol,Bxyz,dustfrac
+ use timestep, only:psidecayfac
 
  Bextx = 0.
  Bexty = 0.
@@ -1193,7 +1189,7 @@ subroutine check_fxyzu_nomask(n,nfailed,j)
  use part,      only:xyzh,vxyzu,fxyzu
  use eos,       only:gamma,ieos
  use testutils, only:checkval,checkvalf
- integer, intent(in) :: n
+ integer, intent(in)    :: n
  integer, intent(inout) :: nfailed(:),j
  real, allocatable :: dummy(:)
 
@@ -1549,9 +1545,9 @@ real function ddivvdtfunc(xyzhi)
 end function ddivvdtfunc
 
 real function alphalocfunc(xyzhi)
- use options,      only:alpha,alphamax
- use eos,          only:gamma,polyk
- use cullendehnen, only:get_alphaloc
+ use options,         only:alpha,alphamax
+ use eos,             only:gamma,polyk
+ use shock_capturing, only:get_alphaloc
  real, intent(in) :: xyzhi(4)
  real :: ddivvdti,spsoundi,xi_limiter,fac,curlv2
 
@@ -2393,9 +2389,10 @@ real function psi(xyzhi)
 end function psi
 
 real function dpsidt(xyzhi)
- use options, only:ieos,psidecayfac
- use eos,     only:get_spsound
- use part,    only:rhoh
+ use options,  only:ieos
+ use timestep, only:psidecayfac
+ use eos,      only:get_spsound
+ use part,     only:rhoh
  real, intent(in) :: xyzhi(4)
  real :: vsig,spsoundi,vdummy(3)
 

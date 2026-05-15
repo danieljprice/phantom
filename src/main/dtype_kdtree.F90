@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,53 +18,70 @@ module dtypekdtree
 !
  implicit none
 
-#ifdef TREEVIZ
- integer, parameter :: ndimtree = 2  ! 2D for visualisation/debugging only
-#else
- integer, parameter :: ndimtree = 3
-#endif
+ integer, parameter, public :: lenfgrav = 20
 
  integer, parameter :: kdnode_bytes = &
-                      8*ndimtree &  ! xcen(ndimtree)
-                    + 8 &           ! size
-                    + 8 &           ! hmax
-                    + 4 &           ! leftchild
-                    + 4 &           ! rightchild
-                    + 4 &           ! parent
+                      8*3 &  ! xcen(3)
+                    + 8 &    ! size
+                    + 8 &    ! hmax
+                    + 8 &    ! mass
+                    + 4 &    ! leftchild
+                    + 4 &    ! rightchild
+                    + 4 &    ! parent
+                    + 4 &    ! idum
 #ifdef GRAVITY
-                    + 8 &           ! mass
-                    + 8*6 &         ! quads(6)
-#endif
-#ifdef TREEVIZ
- + 8*ndimtree &  ! xmin(ndimtree)
-                    + 8*ndimtree &  ! xmax(ndimtree)
+                    + 8*6 &  ! quads(6)
+                    + 4 &    ! tobecached
+                    + 4 &    ! cached
 #endif
                     + 0
 
+ integer, parameter :: ptmassnode_bytes = &
+                      8*3 &  ! xcen(3)
+                    + 8 &    ! size
+                    + 4 &    ! leftchild
+                    + 4 &    ! rightchild
+                    + 4 &    ! parent
+                    + 4 &    ! start index
+                    + 4      ! end index
+
  private
- public :: ndimtree
  public :: kdnode
- public :: kdnode_bytes
+ public :: kdnode_bytes,ptmassnode_bytes
  public :: get_mpitype_of_kdnode
+ public :: ptmasstree,ptmassnode
  type kdnode
     sequence
-    real :: xcen(ndimtree)
-    real :: size
-    real :: hmax
-    real :: dum   ! avoid ifort warning: align on 4-byte boundary
+    real    :: xcen(3)
+    real    :: size
+    real    :: hmax
+    real    :: mass   ! avoid ifort warning: align on 4-byte boundary
     integer :: leftchild
     integer :: rightchild
     integer :: parent
     integer :: idum ! avoid ifort warning: align on 4-byte boundary
 #ifdef GRAVITY
-    real :: mass
-    real :: quads(6)
-#endif
-#ifdef TREEVIZ
-    real :: xmin(ndimtree)
-    real :: xmax(ndimtree)
+    integer :: tobecached
+    logical :: cached
+    real    :: quads(6)
 #endif
  end type kdnode
+
+ type ptmassnode
+    real    :: xcen(3)
+    real    :: size   ! half-width of bounding cube
+    integer :: lchild
+    integer :: rchild
+    integer :: parent
+    integer :: istart  ! start index (into idx array)
+    integer :: iend    ! end index (into idx array)
+ end type ptmassnode
+
+ type ptmasstree
+    type(ptmassnode), allocatable :: nodes(:)
+    integer,           allocatable :: iptmassnode(:)     ! permutation of point indices (1..N)
+    integer                        :: nnodes
+ end type ptmasstree
 
 contains
 
@@ -81,8 +98,8 @@ subroutine get_mpitype_of_kdnode(dtype)
  use mpiutils, only:mpierr
  use io,       only:error
 
+ integer, intent(out) :: dtype
  integer, parameter              :: ndata = 20
- integer, intent(out)            :: dtype
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
  type(kdnode)                    :: node
@@ -112,6 +129,12 @@ subroutine get_mpitype_of_kdnode(dtype)
 
  nblock = nblock + 1
  blens(nblock) = 1
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(node%mass,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(node%leftchild,addr,mpierr)
  disp(nblock) = addr - start
@@ -130,28 +153,21 @@ subroutine get_mpitype_of_kdnode(dtype)
 
 #ifdef GRAVITY
  nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(node%mass,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(node%quads)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(node%quads,addr,mpierr)
  disp(nblock) = addr - start
-#endif
-#ifdef TREEVIZ
+
  nblock = nblock + 1
- blens(nblock) = size(node%xmin)
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(node%xmin,addr,mpierr)
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(node%tobecached,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(node%xmax)
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(node%xmax,addr,mpierr)
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_LOGICAL
+ call MPI_GET_ADDRESS(node%cached,addr,mpierr)
  disp(nblock) = addr - start
 #endif
 

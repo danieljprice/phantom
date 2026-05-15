@@ -57,10 +57,13 @@ get_subroutine_count()
 get_lines_of_code()
 {
   str='';
+  ntotal=0;
   for dir in main setup tests utils; do
-     str+="$(count_code $phantomdir/src/$dir) ";
+     mystr="$(count_code $phantomdir/src/$dir) ";
+     ntotal=$(( ntotal + mystr ));
+     str+=$mystr;
   done
-  echo "$str";
+  echo "$str $ntotal";
 }
 get_setup_count()
 {
@@ -154,7 +157,7 @@ nF90="$(count_files_ending_in '.F90')";
 subcount="$(get_subroutine_count)";
 nsetup="$(get_setup_count)";
 nsystem="$(get_system_count)";
-echo "Lines of code: main     setup    tests    utils";
+echo "Lines of code: main     setup    tests    util    total";
 echo "            $ncode";
 echo "Number of modules, subroutines, functions: $subcount";
 echo "Number of source files (.f90, .F90): $nfiles";

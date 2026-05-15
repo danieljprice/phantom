@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,8 +18,8 @@ module energies
 !
 ! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
 !   externalforces, gravwaveutils, io, kernel, metric_tools, mpiutils,
-!   nicil, options, part, ptmass, subgroup, timestep, units, utils_gr,
-!   viscosity
+!   nicil, options, part, ptmass, radiation_implicit, subgroup, timestep,
+!   units, utils_gr, viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall,track_lum
  use units, only:utime
@@ -38,7 +38,7 @@ module energies
  integer,         public    :: iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com(3),&
                                iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop(6),&
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
-                               iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),&
+                               iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),iev_errE,iev_errU,iev_radits,&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8),&
                                iev_mass,iev_bdy(3,2)
@@ -81,7 +81,7 @@ subroutine compute_energies(t)
  use eos_piecewise,  only:gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
- use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac
+ use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac,implicit_radiation
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas,use_regnbody
  use subgroup,       only:get_pot_subsys
@@ -92,10 +92,11 @@ subroutine compute_energies(t)
  use kernel,         only:radkern
  use timestep,       only:dtmax
  use part,           only:metrics,metrics_ptmass
- use metric_tools,   only:unpack_metric
+ use metric_tools,   only:unpack_metric,imet_binarybh,imetric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
+ use radiation_implicit, only:rad_errorE,rad_errorU,its_global
  real, intent(in) :: t
  integer :: iregime,idusttype,ierr
  real    :: ev_data_thread(4,0:inumev)
@@ -177,12 +178,13 @@ subroutine compute_energies(t)
 !$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd,eta_constant) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
-!$omp shared(calc_gravitwaves) &
+!$omp shared(calc_gravitwaves,use_sinktree) &
 !$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics,metrics_ptmass,pxyzu_ptmass) &
+!$omp shared(implicit_radiation,iev_errE,iev_errU,iev_radits,rad_errorE,rad_errorU,its_global) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
 !$omp private(ponrhoi,spsoundi,gammai,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -210,7 +212,7 @@ subroutine compute_energies(t)
     zi = xyzh(3,i)
     hi = xyzh(4,i)
     was_not_accreted = .not.was_accreted(iexternalforce,hi)
-    if (.not.isdead_or_accreted(hi) .or. .not. was_not_accreted) then
+    if (.not.isdead_or_accreted(hi) .or. (.not. was_not_accreted .and. .not.(gr .and. imetric==imet_binarybh))) then
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
@@ -627,6 +629,14 @@ subroutine compute_energies(t)
        endif
     enddo
     !$omp enddo
+
+    !$omp single
+    if (do_radiation .and. implicit_radiation) then
+       call ev_data_update(ev_data_thread,iev_errE,rad_errorE)
+       call ev_data_update(ev_data_thread,iev_errU,rad_errorU)
+       call ev_data_update(ev_data_thread,iev_radits,real(its_global))
+    endif
+    !$omp end single
  endif
 
 !$omp critical(collatedata)
@@ -881,7 +891,7 @@ end subroutine get_erot
 !+
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
- real,    intent(inout) :: evdata(4,0:inumev)
+ real, intent(inout) :: evdata(4,0:inumev)
 
  evdata            = 0.0
  evdata(iev_max,:) = -huge(evdata(iev_max,:))
@@ -909,8 +919,8 @@ end subroutine ev_data_update
 !+
 !----------------------------------------------------------------
 subroutine collate_ev_data(evdata_thread,evdata)
- real,            intent(in)    :: evdata_thread(4,0:inumev)
- real,            intent(inout) :: evdata(4,0:inumev)
+ real, intent(in)    :: evdata_thread(4,0:inumev)
+ real, intent(inout) :: evdata(4,0:inumev)
  integer                        :: i
 
  do i = 1,iquantities
@@ -927,8 +937,8 @@ end subroutine collate_ev_data
 !----------------------------------------------------------------
 subroutine finalise_ev_data(evdata,dnptot)
  use mpiutils, only:reduceall_mpi
- real,            intent(inout) :: evdata(4,0:inumev)
- real,            intent(in)    :: dnptot
+ real, intent(inout) :: evdata(4,0:inumev)
+ real, intent(in)    :: dnptot
  integer                        :: i
 
  do i = 1,iquantities

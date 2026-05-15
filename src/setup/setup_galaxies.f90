@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -149,10 +149,10 @@ subroutine read_galaxy_data(filename,npart,ndark,nstar,ngas,massdark,massstar,ma
  use dim,  only:maxp
  use io,   only:fatal
  use part, only:set_particle_type,idarkmatter,istar,igas
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: npart,ndark,nstar,ngas
- real,             intent(out)   :: massdark,massstar,massgas,time
- real,             intent(out)   :: xyzh(:,:),vxyzu(:,:),utmp(:)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: npart,ndark,nstar,ngas
+ real,             intent(out) :: massdark,massstar,massgas,time
+ real,             intent(out) :: xyzh(:,:),vxyzu(:,:),utmp(:)
  integer :: i,ro,itype,ctrd,ctrs,ctrg,lu,ierr
 
  ! open file and read header
@@ -210,7 +210,7 @@ end subroutine read_galaxy_data
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -229,7 +229,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
  use units,        only: select_unit
  character(len=*), intent(in)  :: filename

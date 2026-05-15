@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -28,10 +28,10 @@ module setup
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, setvfield, spherical, subgroup, timestep, units,
-!   utils_shuffleparticles, velfield
+!   ptmass, setup_params, setvfield, spherical, subgroup, systemutils,
+!   timestep, units, utils_shuffleparticles, velfield
 !
- use dim, only: maxvxyzu,mhd
+ use dim, only:maxvxyzu,mhd
  implicit none
  public :: setpart
 
@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use cooling,      only:Tfloor
  use options,      only:icooling
  use infile_utils, only:get_options,infile_exists
+ use systemutils,  only:get_command_option
  use utils_shuffleparticles, only:shuffleparticles
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -97,7 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
 
  !--Set default values
- np          = size(xyzh(1,:))
+ np          = int(get_command_option('np',default=size(xyzh(1,:)))) ! can set default value with --np=1e5 flag (mainly for testsuite)
  gamma       = 1.0           ! irrelevant for ieos = 1,8
  Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  Rsink_au    = 5.            ! Sink radius [au]
@@ -221,7 +222,7 @@ end subroutine setpart
 !
 !----------------------------------------------------------------
 subroutine get_defaults_cluster(icluster,default_cluster)
- integer, intent(in) :: icluster
+ integer,          intent(in)  :: icluster
  character(len=*), intent(out) :: default_cluster
 
  select case (icluster)
@@ -305,7 +306,7 @@ end subroutine get_input_from_prompts
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
@@ -338,7 +339,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
  use units,        only: select_unit
  character(len=*), intent(in)  :: filename

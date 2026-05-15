@@ -74,7 +74,7 @@ A non-exhaustive list of possible arguments are as follows:
 |                                   | derivatives in a setup with       |
 |                                   | density contrast                  |
 +-----------------------------------+-----------------------------------+
-| link                              | tests the linklist/neighbour      |
+| neigh                             | tests the neighbour               |
 |                                   | finding modules                   |
 +-----------------------------------+-----------------------------------+
 | step                              | performs checks on the            |

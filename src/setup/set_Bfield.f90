@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -35,13 +35,13 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  use physcon,      only:pi
  use io,           only:fatal
  use prompting,    only:prompt
- integer,      intent(in)  :: npart
- integer,      intent(in)  :: npartoftype(:)
- real,         intent(in)  :: xyzh(:,:), vxyzu(:,:)
- real,         intent(in)  :: massoftype(:)
- real,         intent(in)  :: polyk
- real,         intent(out) :: Bxyz(:,:)
- real,         intent(out) :: Bextx,Bexty,Bextz
+ integer, intent(in)  :: npart
+ integer, intent(in)  :: npartoftype(:)
+ real,    intent(in)  :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)  :: massoftype(:)
+ real,    intent(in)  :: polyk
+ real,    intent(out) :: Bxyz(:,:)
+ real,    intent(out) :: Bextx,Bexty,Bextz
  integer :: maxp
  integer :: igeom,i
  character(len=1)  :: isetB
@@ -266,7 +266,6 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  Bextz = Bzzero
  print "(' Setting external B field = ',3(es12.4,2x),//)",Bextx,Bexty,Bextz
 
- return
 end subroutine set_Bfield
 
 end module setBfield

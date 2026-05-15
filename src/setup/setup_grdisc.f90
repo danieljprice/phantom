@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - accrad  : *accretion radius   (GM/c^2, code units)*
@@ -29,9 +29,9 @@ module setup
 !   - spin    : *spin parameter of black hole |a|<1*
 !   - theta   : *inclination of disc (degrees)*
 !
-! :Dependencies: eos, externalforces, infile_utils, io, kernel, mpidomain,
-!   options, part, physcon, prompting, setdisc, setorbit, setstar,
-!   setunits, setup_params, timestep, units
+! :Dependencies: eos, externalforces, infile_utils, io, kernel, metric,
+!   mpidomain, options, part, physcon, prompting, setdisc, setorbit,
+!   setstar, setunits, setup_params, systemutils, timestep, units
 !
  use options,  only:alpha,ieos
  use setstar,  only:star_t
@@ -44,7 +44,7 @@ module setup
  logical, private :: ismooth,relax,write_rho_to_file
  integer, parameter :: max_stars = 10
  type(star_t), private :: star(max_stars)
- type(orbit_t),private :: orbit(max_stars)
+ type(orbit_t), private :: orbit(max_stars)
 
  private
 
@@ -60,7 +60,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,           only:igas,nsinkproperties,eos_vars,rad,xyzmh_ptmass,vxyz_ptmass,nptmass,gr
  use io,             only:master
  use externalforces, only:accradius1,accradius1_hard
- use options,        only:iexternalforce,alphau,iexternalforce,ipdv_heating,ishock_heating
+ use options,        only:iexternalforce,alphau
+ use eos,            only:ipdv_heating,ishock_heating
  use units,          only:set_units,umass,in_code_units
  use physcon,        only:solarm,pi
  use externalforces, only:iext_einsteinprec,a
@@ -73,7 +74,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setunits,       only:mass_unit
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero
- use infile_utils,   only:get_options
+ use infile_utils,   only:get_options,infile_exists
+ use systemutils,    only:get_command_option
+ use metric,         only:update_metric
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -95,10 +98,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass         = 0
  hfact           = hfact_default
 
- tmax  = 2.e4
- dtmax = 100.
-
- ieos  = 2
+ if (.not.infile_exists(fileprefix)) then
+    tmax  = 2.e4
+    dtmax = 100.
+    ieos  = 2
+ endif
 !
 ! Set default problem parameters
 !
@@ -116,12 +120,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  p_index= 1.5
  q_index= 0.75
  gamma_ad= 5./3.
- np     = 1e6
+ np = int(get_command_option('np',default=nint(1e6))) ! can set default e.g. --np=1000 (for testsuite)
  accrad = 4.      ! (GM/c^2)
  accradius1 = accrad
  gamma = gamma_ad
  ! default units
  call set_units(G=1.,c=1.,mass=mhole*solarm) ! Set central mass to M=1 in code units
+
+ call update_metric(0.)
 
  ! stars
  nstars = 0
@@ -151,7 +157,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(G=1.,c=1.,mass=mhole) ! Set central mass to M=1 in code units
  mdisc           = mdisc*solarm/umass
  accradius1_hard = accradius1
- massoftype(igas) = mdisc/np  ! set particle mass from the disc mass
+ if (np > 0) then
+    massoftype(igas) = mdisc/np  ! set particle mass from the disc mass
+ else
+    massoftype(igas) = 0.  ! will be set later
+ endif
 
  !
  ! add stars on desired orbits around the black hole, these could be
@@ -190,7 +200,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  theta = theta/180. * pi
 
- call set_disc(id,master,&
+ if (np > 0) then
+    call set_disc(id,master,&
                npart         = np,                   &
                npart_start   = npart+1,              &
                rmin          = r_in,                 &
@@ -206,12 +217,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,                &
                polyk         = cs2,                  &
                particle_mass = massoftype(igas),     &
- ! star_mass     = 1.0,                &
+    ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &
                prefix        = fileprefix)
-
+ else
+    massoftype(igas) = 1.e-10  ! set particle mass from the disc mass
+ endif
  npart = npart + np
  a = spin
  if (gr) then
@@ -231,7 +244,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print "(/,a,/)",' ** SETTING ipdv_heating=0 and ishock_heating=0 for grdisc setup **'
 
 end subroutine setpart
-
 
 !
 !---Read/write setup file--------------------------------------------------
@@ -266,7 +278,6 @@ subroutine write_setupfile(filename)
  call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
  call write_inopt(np     ,'np'     ,'number of particles in disc'               , iunit)
 
- write(iunit,"(/,a)") '# stars'
  call write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar=nstars)
  do i=1,nstars
     call write_options_orbit(orbit(i),iunit,label=achar(i+48))
@@ -281,11 +292,14 @@ subroutine read_setupfile(filename,ierr)
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: ierr
+ use units,        only:in_code_units,umass
+ use physcon,      only:solarm
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr,i
  type(inopts), allocatable :: db(:)
+ real :: mstar
 
  print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
@@ -309,7 +323,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
  call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstars)
  do i=1,nstars
-    call read_options_orbit(orbit(i),db,nerr,label=achar(i+48))
+    mstar = in_code_units(star(i)%m,ierr,unit_type='mass')
+    call read_options_orbit(orbit(i),mhole*solarm/umass,mstar,db,nerr,label=achar(i+48))
  enddo
  call close_db(db)
  if (nerr > 0) then

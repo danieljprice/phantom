@@ -1,21 +1,22 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module metric
 !
-! None
+! Schwarzschild metric
 !
-! :References: None
+! :References:
+!    https://en.wikipedia.org/wiki/Schwarzschild_metric
 !
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
 !   - mass1 : *black hole mass in code units*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: dump_utils, infile_utils, io
 !
  implicit none
  character(len=*), parameter :: metric_type = 'Schwarzschild'
@@ -34,7 +35,7 @@ contains
 
 !--- The metric tensor in 'CARTESIAN-like form'
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
- real, intent(in) :: position(3)
+ real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
@@ -52,7 +53,6 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  x2 = x**2
  y2 = y**2
  z2 = z**2
-
 
  !--- The Schwarzschild metric tensor in CARTESIAN-like form
  if (present(sqrtg)) sqrtg = 1.
@@ -156,8 +156,8 @@ end subroutine get_metric_spherical
 
 !--- Derivatives of the covariant 'CARTEISAN' metric
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
  real :: x,y,z,r,r2,r3,r4,r5,rs_on_r3,x2,y2,z2,rs2
  real :: rs
  rs = 2.*mass1
@@ -247,8 +247,8 @@ end subroutine metric_cartesian_derivatives
 
 !--- Derivatives of the covariant 'SPHERICAL' metric
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta
  real :: rs
  rs = 2.*mass1
@@ -277,9 +277,9 @@ end subroutine metric_spherical_derivatives
 
 !--- (Jacobian tensor) Derivatives of Schwarzschild 'Spherical' with respect to 'Cartesian' coordinates
 pure subroutine get_jacobian(position,dxdx)
- real, intent(in), dimension(3) :: position
- real, intent(out), dimension(0:3,0:3) :: dxdx
- real, dimension(3) :: dSPHERICALdx,dSPHERICALdy,dSPHERICALdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dxdx(0:3,0:3)
+ real :: dSPHERICALdx(3),dSPHERICALdy(3),dSPHERICALdz(3)
  real :: drdx,drdy,drdz
  real :: dthetadx,dthetady,dthetadz
  real :: dphidx,dphidy,dphidz
@@ -321,8 +321,8 @@ pure subroutine get_jacobian(position,dxdx)
 end subroutine get_jacobian
 
 pure subroutine cartesian2spherical(xcart,xspher)
- real, intent(in) :: xcart(3)
- real, intent(out) ::xspher(3)
+ real, intent(in)  :: xcart(3)
+ real, intent(out) :: xspher(3)
  real :: x,y,z
  real :: r,theta,phi
 
@@ -339,7 +339,7 @@ pure subroutine cartesian2spherical(xcart,xspher)
 end subroutine cartesian2spherical
 
 pure subroutine spherical2cartesian(xspher,xcart)
- real, intent(in) :: xspher(3)
+ real, intent(in)  :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi
 
@@ -353,6 +353,58 @@ pure subroutine spherical2cartesian(xspher,xcart)
  xcart = (/x,y,z/)
 
 end subroutine spherical2cartesian
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
+!-----------------------------------------------------------------------
+!+
+!  Check if a particle should be accreted by the black hole
+!+
+!-----------------------------------------------------------------------
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius
+ logical, intent(out) :: accreted
+
+ accreted = .false.
+
+end subroutine accrete_particles_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(inout) :: hdr
+ real,         intent(in)    :: time,accradius
+ integer,      intent(out)   :: ierr
+
+ ierr = 0
+
+end subroutine write_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_metric(hdr,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr  = 0
+
+end subroutine read_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+
@@ -374,27 +426,14 @@ end subroutine write_options_metric
 !  reads metric options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- use io, only:fatal,warn
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- character(len=*), parameter :: tag = 'metric'
- integer, save :: ngot = 0
+subroutine read_options_metric(db,nerr)
+ use io,           only:warn
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('mass1')
-    read(valstring,*,iostat=ierr) mass1
-    if (mass1 < 0.)  call fatal(tag,'black hole mass: mass1 < 0')
-    if (mass1 == 0.) call warn(tag,'black hole mass: mass1 = 0')
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ call read_inopt(mass1,'mass1',db,errcount=nerr,min=0.,max=1.e12)
+ if (mass1 <= tiny(mass1)) call warn('metric','black hole mass: mass1 = 0')
 
 end subroutine read_options_metric
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -43,8 +43,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 26
-
+ integer, parameter :: nsinkproperties = 29
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -63,9 +62,10 @@ module dim
  logical, parameter :: sink_radiation = .false.
 #endif
 
-! maxmimum storage in linklist
+! maxmimum storage in node list
  integer         :: ncellsmax
  integer(kind=8) :: ncellsmaxglobal
+ integer         :: nnodeptmassmax
 
 !------
 ! Dust
@@ -86,11 +86,18 @@ module dim
  integer, parameter :: maxdustsmall = 11
 #endif
 
+#ifdef COALA
+ logical, parameter :: use_dustgrowth_coala = .true.
+ logical, parameter :: use_dustgrowth = .false.
+#else
+ logical, parameter :: use_dustgrowth_coala = .false.
 #ifdef DUSTGROWTH
  logical, parameter :: use_dustgrowth = .true.
 #else
  logical, parameter :: use_dustgrowth = .false.
 #endif
+#endif
+
 #else
  logical, parameter :: use_dust = .false.
  ! integer, parameter :: ndustfluids = 0
@@ -98,6 +105,7 @@ module dim
  integer, parameter :: maxdustlarge = 1
  integer, parameter :: maxdustsmall = 1
  logical, parameter :: use_dustgrowth = .false.
+ logical, parameter :: use_dustgrowth_coala = .false.
 #endif
  integer, parameter :: maxdusttypes = maxdustsmall + maxdustlarge
 
@@ -181,7 +189,6 @@ module dim
  !
  integer, parameter :: ndim = 3
 
-
 !-----------------
 ! KROME chemistry
 !-----------------
@@ -248,31 +255,11 @@ module dim
  logical, parameter :: gr = .true.
  integer, parameter :: maxptmassgr = maxptmass
  integer, parameter :: nvel_ptmass = maxvxyzu
-#ifdef PRIM2CONS_FIRST
- logical, parameter :: gr_prim2cons_first = .true.
-#else
- logical, parameter :: gr_prim2cons_first = .false.
-#endif
 #else
  logical, parameter :: gr = .false.
  integer, parameter :: maxptmassgr = 0
  integer, parameter :: nvel_ptmass = 3
- logical, parameter :: gr_prim2cons_first = .false.
 #endif
-
-!---------------------
-! Numerical relativity
-!---------------------
-#ifdef NR
- logical, parameter :: nr = .true.
-#else
- logical, parameter :: nr = .false.
-#endif
-
-!--------------------
-! Supertimestepping
-!--------------------
- integer :: maxsts = 1
 
 !--------------------
 ! Dust formation
@@ -330,11 +317,7 @@ module dim
 !--------------------
 ! Sink in tree methods
 !--------------------
-#ifdef SINKTREE
- logical, parameter :: use_sinktree = .true.
-#else
- logical, parameter :: use_sinktree = .false.
-#endif
+ logical :: use_sinktree = .false.
  integer :: maxpsph = 0
 
 !--------------------
@@ -378,8 +361,8 @@ module dim
 contains
 
 subroutine update_max_sizes(n,ntot)
- integer,                   intent(in) :: n
- integer(kind=8), optional, intent(in) :: ntot
+ integer,         intent(in) :: n
+ integer(kind=8), intent(in), optional :: ntot
 
  maxp = n
  if (use_apr) then
@@ -415,6 +398,8 @@ subroutine update_max_sizes(n,ntot)
  endif
 #endif
 
+ nnodeptmassmax = 2*maxptmass
+
  if (use_dust) then
     maxp_dustfrac = maxp
     if (use_dustgrowth) maxp_growth = maxp
@@ -433,12 +418,6 @@ subroutine update_max_sizes(n,ntot)
 
  if (gravity) maxgrav = maxp
  if (gr) maxgr = maxp
-
-#ifdef STS_TIMESTEPS
-#ifdef IND_TIMESTEPS
- maxsts = maxp
-#endif
-#endif
 
  if (track_lum) maxlum = maxp
 

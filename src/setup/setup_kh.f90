@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -129,8 +129,8 @@ end function rhofunc
 !+
 !---------------------------------------------------
 real function Rfunc(y)
- real, parameter  :: delta = 0.05
  real, intent(in) :: y
+ real, parameter  :: delta = 0.05
  real :: fac1,fac2,yedgel,yedger
 
  yedgel = 0.5*ysize - 0.5*dy2

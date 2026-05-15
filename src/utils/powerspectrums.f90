@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,12 +31,12 @@ contains
 
 subroutine powerspectrum(npts,x,dat,nfreqpts,freq,power,idisordered)
  implicit none
- integer, intent(in) :: npts, nfreqpts
- real, intent(in), dimension(npts) :: x
- real, intent(in), dimension(npts) :: dat
- real, intent(in), dimension(nfreqpts) :: freq
- real, intent(out), dimension(nfreqpts) :: power
- logical, intent(in) :: idisordered
+ integer, intent(in)  :: npts, nfreqpts
+ real,    intent(in)  :: x(npts)
+ real,    intent(in)  :: dat(npts)
+ real,    intent(in)  :: freq(nfreqpts)
+ real,    intent(out) :: power(nfreqpts)
+ logical, intent(in)  :: idisordered
  integer :: ifreq
  real :: datmean, datvar, omega
 
@@ -75,10 +75,10 @@ end subroutine powerspectrum
 
 subroutine power_fourier(npts,x,dat,omega,power)
  implicit none
- integer, intent(in) :: npts
- real, intent(in), dimension(npts) :: x, dat
- real, intent(in) :: omega
- real, intent(out) :: power
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts), dat(npts)
+ real,    intent(in)  :: omega
+ real,    intent(out) :: power
  integer :: i
  real :: sum1,sum2
 
@@ -91,7 +91,6 @@ subroutine power_fourier(npts,x,dat,omega,power)
  enddo
  power= sqrt(sum1**2 + sum2**2)/real(npts)
 
- return
 end subroutine power_fourier
 
 !----------------------------------------------------------
@@ -105,10 +104,10 @@ end subroutine power_fourier
 !----------------------------------------------------------
 subroutine power_lomb(npts,x,dat,datmean,datvar,omega,power)
  implicit none
- integer, intent(in) :: npts
- real, intent(in), dimension(npts) :: x, dat
- real, intent(in) :: datmean,datvar,omega
- real, intent(out) :: power
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts), dat(npts)
+ real,    intent(in)  :: datmean,datvar,omega
+ real,    intent(out) :: power
  integer :: i
  real :: ddat
  real :: tau, tau_numerator, tau_denominator
@@ -148,7 +147,6 @@ subroutine power_lomb(npts,x,dat,datmean,datvar,omega,power)
  power = 1./(datvar)*(term1_numerator**2/term1_denominator + &
                          term2_numerator**2/term2_denominator)
 
- return
 end subroutine power_lomb
 
 !-------------------------------------------------
@@ -161,9 +159,9 @@ end subroutine power_lomb
 !-------------------------------------------------
 subroutine mean_variance(x,npts,xmean,xvariance)
  implicit none
- integer, intent(in) :: npts
- real, intent(in), dimension(npts) :: x
- real, intent(out) :: xmean, xvariance
+ integer, intent(in)  :: npts
+ real,    intent(in)  :: x(npts)
+ real,    intent(out) :: xmean, xvariance
  real :: roundoff, delta
  integer :: i
 !
@@ -192,7 +190,6 @@ subroutine mean_variance(x,npts,xmean,xvariance)
  enddo
  xvariance = (xvariance - roundoff**2/npts)/real(npts-1)
 
- return
 end subroutine mean_variance
 
 end module powerspectrums

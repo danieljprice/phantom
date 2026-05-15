@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -37,14 +37,14 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
- real, intent(in)    :: rhoi,eni,mu
- real, intent(inout) :: tempi
- integer, intent(out):: ierr
+ real,    intent(in)    :: rhoi,eni,mu
+ real,    intent(inout) :: tempi
+ integer, intent(out)   :: ierr
  real                :: gasfac,imu,numerator,denominator,correction
  integer             :: iter
  integer, parameter  :: iter_max = 1000
 
- gasfac = 3./2. !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
+ gasfac = 1.5 !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
  imu = 1./mu
  if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
@@ -62,15 +62,13 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
 
 end subroutine get_idealplusrad_temp
 
-
 subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
- real, intent(in)    :: rhoi,tempi,mu
- real, intent(out)   :: presi
+ real, intent(in)  :: rhoi,tempi,mu
+ real, intent(out) :: presi
 
  presi = (Rg*rhoi/mu + radconst*tempi**3/3.)*tempi ! Eq 13.2 (Kippenhahn et al.)
 
 end subroutine get_idealplusrad_pres
-
 
 subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi,gammai)
  real, intent(in)  :: rhoi,presi,eni
@@ -114,7 +112,6 @@ subroutine get_idealgasplusrad_tempfrompres(presi,rhoi,mu,tempi)
 
 end subroutine get_idealgasplusrad_tempfrompres
 
-
 !----------------------------------------------------------------
 !+
 !  Calculates internal energy per unit mass from density
@@ -125,10 +122,9 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi,mu)
+ eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi)
 
 end subroutine get_idealplusrad_enfromtemp
-
 
 !----------------------------------------------------------------
 !+
@@ -142,19 +138,17 @@ real function egas_from_rhoT(tempi,mu) result(egasi)
 
 end function egas_from_rhoT
 
-
 !----------------------------------------------------------------
 !+
 !  Calculates specific radiation energy from density and temperature
 !+
 !----------------------------------------------------------------
-real function erad_from_rhoT(densi,tempi,mu) result(eradi)
- real, intent(in) :: densi,tempi,mu
+real function erad_from_rhoT(densi,tempi) result(eradi)
+ real, intent(in) :: densi,tempi
 
  eradi = radconst*tempi**4/densi
 
 end function erad_from_rhoT
-
 
 !----------------------------------------------------------------
 !+

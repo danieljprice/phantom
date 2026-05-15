@@ -1,12 +1,13 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module testbinary
 !
-! None
+! Integrates a binary orbit given input orbital elements
+! print the resulting positions and velocities to file
 !
 ! :References: None
 !
@@ -14,10 +15,9 @@ module testbinary
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, setbinary
+! :Dependencies: orbits, physcon, setbinary
 !
  implicit none
- real, parameter :: pi = 4.*atan(1.)
 
 contains
 
@@ -30,8 +30,9 @@ contains
 !----------------------------------------------------
 subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  use setbinary, only:set_binary
+ use orbits,    only:get_orbital_period
  use physcon,   only:au,solarm,gg,years
- real, intent(in) :: m1,m2,a,e,inc,o,w,f
+ real,    intent(in) :: m1,m2,a,e,inc,o,w,f
  integer, intent(in) :: jfile,itex
  real :: xyz(3,2), vxyz(3,2), fxyz(3,2), xyzmh(6,2)
  real :: h1,h2
@@ -52,7 +53,7 @@ subroutine test_binary(m1,m2,a,e,inc,o,w,f,jfile,itex)
  print*,'initial velocity of secondary=',vxyz(1:3,2)
 
  t = 0.
- period = sqrt(4.*pi**2*a**3/(m1+m2))
+ period = get_orbital_period(m1+m2,a)
  nsteps = 2000
  dt = period/nsteps
  udist = au
@@ -99,7 +100,7 @@ end subroutine test_binary
 !+
 !----------------------------------------------------
 subroutine get_f(m1,m2,x,fx)
- real, intent(in) :: m1,m2,x(3,2)
+ real, intent(in)  :: m1,m2,x(3,2)
  real, intent(out) :: fx(3,2)
  real :: dx(3),r,r2
 

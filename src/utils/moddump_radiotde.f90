@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,8 +29,8 @@ module moddump
 !   - temperature      : *temperature of the gas cloud (-ve = read from file)*
 !   - use_func         : *if use broken power law for density profile*
 !
-! :Dependencies: eos, infile_utils, io, kernel, mpidomain, part, physcon,
-!   setup_params, spherical, stretchmap, timestep, units
+! :Dependencies: dynamic_dtmax, eos, infile_utils, io, kernel, mpidomain,
+!   part, physcon, setup_params, spherical, stretchmap, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
@@ -65,16 +65,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use io,           only:fatal,master,id
  use units,        only:umass,udist,utime,set_units,unit_density
  use timestep,     only:dtmax,tmax
+ use dynamic_dtmax,only:idtmax_frac,dtmax_ifactor,idtmax_n
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use stretchmap,   only:get_mass_r,rho_func
  use spherical,    only:set_sphere
  use mpidomain,    only:i_belong
- integer,           intent(inout)   :: npart
- integer,           intent(inout)   :: npartoftype(:)
- real,              intent(inout)   :: xyzh(:,:)
- real,              intent(inout)   :: vxyzu(:,:)
- real,              intent(inout)   :: massoftype(:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
+ real,    intent(inout) :: massoftype(:)
  integer                       :: i,ierr,iunit,iprof
  integer                       :: np_sphere,npart_old
  real                          :: totmass,delta,r,rhofr,presi
@@ -253,6 +254,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Set timesteps
  tmax = 3.*years/utime
  dtmax = tmax/1000.
+ dtmax_ifactor = 0
+ idtmax_frac = 0 ! so don't write to .restart
+ idtmax_n = 1
 
 end subroutine modify_dump
 
@@ -325,7 +329,7 @@ end function get_temp_r
 real function uerg(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst
  use units,   only:unit_density,unit_ergg
- real, intent(in) :: rho,T
+ real,    intent(in) :: rho,T
  integer, intent(in) :: ieos
  real :: ucgs_gas,ucgs_rad,rhocgs
 
@@ -343,7 +347,7 @@ end function uerg
 real function entropy(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst,kboltz
  use units,   only:unit_density,unit_ergg
- real, intent(in) :: rho,T
+ real,    intent(in) :: rho,T
  integer, intent(in) :: ieos
  real :: ent_gas,ent_rad,rhocgs
 
@@ -361,7 +365,7 @@ end function entropy
 real function pressure(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst
  use units,   only:unit_density,unit_pressure
- real, intent(in) :: rho,T
+ real,    intent(in) :: rho,T
  integer, intent(in) :: ieos
  real :: p_gas,p_rad,rhocgs
 
@@ -421,7 +425,7 @@ end subroutine calc_rho0
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
  integer            :: i
@@ -475,7 +479,7 @@ end subroutine write_setupfile
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only: fatal
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,24 +15,21 @@ module setup
 ! :Runtime parameters: None
 !
 ! :Dependencies: apr, apr_region, dim, eos, externalforces, infile_utils,
-!   io, kernel, mpidomain, options, part, physcon, setstar, setunits,
-!   setup_params, timestep
+!   io, kernel, mpidomain, options, part, setstar, setunits, setup_params,
+!   timestep
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr
- use physcon,        only:solarm,solarr,km,pi,c,radconst
- use options,        only:nfulldump,iexternalforce,calc_erot,use_var_comp
+ use options,        only:iexternalforce,calc_erot,use_var_comp
  use timestep,       only:tmax,dtmax
- use eos,                only:ieos
- use externalforces,     only:iext_densprofile
- use setstar,            only:star_t
- use setunits,           only:dist_unit,mass_unit
+ use eos,            only:ieos
+ use externalforces, only:iext_densprofile
+ use setstar,        only:star_t
  implicit none
  !
  ! Input parameters
  !
  real               :: maxvxyzu
- logical            :: iexist
  logical            :: relax_star_in_setup,write_rho_to_file
  type(star_t)       :: star(1)
 
@@ -55,6 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setstar,         only:set_defaults_stars,set_stars,shift_stars,ibpwpoly,ievrard
  use apr,             only:use_apr
  use infile_utils,    only:get_options,infile_exists
+ use setunits,        only:dist_unit,mass_unit
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -98,9 +96,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Verify correct pre-processor commands
  !
- if (.not.gravity) then
-    iexternalforce = iext_densprofile
- endif
+ if (.not.gravity) iexternalforce = iext_densprofile
  write_rho_to_file = .true.
 
  !
@@ -142,10 +138,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(ibpwpoly) ! piecewise polytrope
     calc_erot = .true.
  case(ievrard)  ! Evrard Collapse
-    if (.not.iexist) then
+    if (.not.infile_exists(fileprefix)) then
        tmax      = 3.0
        dtmax     = 0.1
-       nfulldump = 1
     endif
  end select
 
@@ -200,8 +195,8 @@ subroutine read_setupfile(filename,ierr)
  use setstar,       only:read_options_stars
  use setunits,      only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 
@@ -236,8 +231,8 @@ subroutine read_aprsetupfile(filename,ierr)
  use setunits,      only:read_options_and_set_units
  use apr_region,           only:apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
  character(len=*), intent(in)  :: filename
- integer,          parameter   :: lu = 21
  integer,          intent(out) :: ierr
+ integer,          parameter   :: lu = 21
  integer                       :: nerr
  type(inopts), allocatable     :: db(:)
 

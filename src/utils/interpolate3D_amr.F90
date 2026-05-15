@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -57,13 +57,13 @@ contains
 subroutine interpolate3D_amr(xyzh,weight,pmass,vxyzu,npart, &
                              xmin,datsmooth,nnodes,dxmax,normalise,ilendat,dat)
  use adaptivemesh, only:ifirstlevel,nsub,ndim,gridnodes
- integer,      intent(in)  :: npart,nnodes,ilendat
- real,         intent(in)  :: xyzh(:,:),vxyzu(:,:)
- real,         intent(in)  :: weight,pmass
- real,         intent(in)  :: xmin(3),dxmax(3)
- real,         intent(out) :: datsmooth(4+ilendat,nsub**ndim,nnodes)
- logical,      intent(in)  :: normalise
- real,         intent(in), optional :: dat(:,:)
+ integer, intent(in)  :: npart,nnodes,ilendat
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)  :: weight,pmass
+ real,    intent(in)  :: xmin(3),dxmax(3)
+ real,    intent(out) :: datsmooth(4+ilendat,nsub**ndim,nnodes)
+ logical, intent(in)  :: normalise
+ real,    intent(in), optional :: dat(:,:)
  real, allocatable :: datnorm(:,:)
 !  real, dimension(nsub**ndim,nnodes) :: datnorm
 
@@ -448,7 +448,6 @@ recursive subroutine interpolate_submesh(xi,yi,zi,radkern,hi21,termnorm,ilendat,
     enddo
  enddo
 
- return
 end subroutine interpolate_submesh
 
 end module interpolations3D_amr

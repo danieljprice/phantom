@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module HIIRegion
 !
 ! :Runtime parameters: iH2R (1:Hopkins like,2:Dale like)
 !
-! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
+! :Dependencies: dim, eos, infile_utils, io, neighkdtree, part, physcon,
 !   sortutils, timing, units
 !
  use eos_HIIR,   only:csion,uIon,Tion,Tcold,muion
@@ -105,33 +105,35 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  integer :: i
 
  nHIIsources = 0
- !$omp parallel do default(none) &
- !$omp shared(xyzmh_ptmass,iprint,iverbose,umass)&
- !$omp shared(Minmass,h_acc,nptmass)&
- !$omp private(logmi,log_Q,mi,hi)&
- !$omp reduction(+:nHIIsources)
- do i=1,nptmass
-    mi = xyzmh_ptmass(4,i)
-    hi = xyzmh_ptmass(ihacc,i)
-    if (mi > Minmass .and. hi < h_acc) then
-       logmi = log10(mi*(umass/solarm))
-       ! caluclation of the ionizing photon rate  of each sources
-       ! this calculation uses Fujii's formula derived from OSTAR2002 databases
-       log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
-       xyzmh_ptmass(irateion,i) = log_Q
-       xyzmh_ptmass(irstrom,i)  = -1.
-       nHIIsources = nHIIsources + 1
-       if (iverbose >= 0) then
-          write(iprint,"(/a,es18.10,es18.10/)") "Massive stars detected : Log Q, Mass : ",log_Q,mi
+ if (nptmass > 0) then
+    !$omp parallel do default(none) &
+    !$omp shared(xyzmh_ptmass,iprint,iverbose,umass)&
+    !$omp shared(Minmass,h_acc,nptmass)&
+    !$omp private(logmi,log_Q,mi,hi)&
+    !$omp reduction(+:nHIIsources)
+    do i=1,nptmass
+       mi = xyzmh_ptmass(4,i)
+       hi = xyzmh_ptmass(ihacc,i)
+       if (mi > Minmass .and. hi < h_acc) then
+          logmi = log10(mi*(umass/solarm))
+          ! caluclation of the ionizing photon rate  of each sources
+          ! this calculation uses Fujii's formula derived from OSTAR2002 databases
+          log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
+          xyzmh_ptmass(irateion,i) = log_Q
+          xyzmh_ptmass(irstrom,i)  = -1.
+          nHIIsources = nHIIsources + 1
+          if (iverbose >= 0) then
+             write(iprint,"(/a,es18.10,es18.10/)") "Massive stars detected : Log Q, Mass : ",log_Q,mi
+          endif
+       else
+          xyzmh_ptmass(irateion,i) = -1.
+          xyzmh_ptmass(irstrom,i)  = -1.
        endif
-    else
-       xyzmh_ptmass(irateion,i) = -1.
-       xyzmh_ptmass(irstrom,i)  = -1.
+    enddo
+    !$omp end parallel do
+    if (iverbose > 1) then
+       write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
     endif
- enddo
- !$omp end parallel do
- if (iverbose > 1) then
-    write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
  endif
 
 end subroutine update_ionrates
@@ -183,7 +185,7 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom,get_partinfo,iphase,itemp,imu
- use linklist,   only:listneigh,getneigh_pos,ifirstincell
+ use neighkdtree,   only:listneigh,getneigh_pos,leaf_is_active
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
@@ -211,11 +213,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
  call get_timings(t1,tcpu1)
  eos_vars(imu,:) = gmw
  if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
-
  !
  !-- Rst derivation and thermal feedback
  !
  if (nHIIsources > 0) then
+    call get_timings(t1,tcpu1)
     do i=1,nptmass
        converged  = .false.
        max_search = .false.
@@ -243,11 +245,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
 
           its = its + 1
 
-          call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzcache,maxc,ifirstincell)
+          call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxc,leaf_is_active)
           call Knnfunc(nneigh,(/xi,yi,zi/),xyzh,listneigh)
 
           if (nneigh > 0) then
-             do k=1,nneigh
+             neigh_cycle:do k=1,nneigh
                 j = listneigh(k)
                 call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
                 if (isgas) then
@@ -279,11 +281,12 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
                          endif
                          xyzmh_ptmass(irstrom,i) = r
                          converged = .true.
-                         exit iterations
+                         max_search = .true.
+                         exit neigh_cycle
                       endif
                    endif
                 endif
-             enddo
+             enddo neigh_cycle
           endif
        enddo iterations
        if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",npartin,&
@@ -324,9 +327,9 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars,dt)
           endif
        endif
     enddo
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
  endif
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
 
 end subroutine HII_feedback
 
@@ -339,7 +342,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,     only:massoftype,igas,irateion,isdead_or_accreted,&
                     iphase,get_partinfo,noverlap,rhoh,itemp,imu
  use timing,   only:get_timings,increment_timer,itimer_HII
- use linklist, only:getneigh_pos,ifirstincell,listneigh
+ use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
  use dim,      only:maxvxyzu
  use io,         only:iverbose,iprint
  integer,          intent(in)    :: nptmass,npart
@@ -370,7 +373,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     !
 !$omp parallel default(none)&
 !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
-!$omp shared(pmass,iphase,ifirstincell,rhosrc,iH2R,Tcold,uIon,gmw)&
+!$omp shared(pmass,iphase,leaf_is_active,rhosrc,iH2R,Tcold,uIon,gmw)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust)&
 !$omp private(isactive,noverlapi,nneighi)&
 !$omp reduction(+:k)
@@ -379,7 +382,7 @@ subroutine HII_feedback_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
        do i=1,nptmass ! if rough approx used, then we must find the density close to the sources
           if (xyzmh_ptmass(irateion,i) <= 0.) cycle
           call getneigh_pos((/xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i)/),0.,&
-                           0.19,3,listneigh,nneighi,xyzcache,maxcache,ifirstincell)
+                           0.19,listneigh,nneighi,xyzcache,maxcache,leaf_is_active)
           if (nneighi > 0.) then
              j = listneigh(1)
              rhosrc(i) = rhoh(xyzh(4,j),pmass)
@@ -439,7 +442,7 @@ end subroutine HII_feedback_ray
 !-----------------------------------------------------------------------
 subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,flux,rhosrcj)
  use part,     only:rhoh,iphase,get_partinfo
- use linklist, only:getneigh_pos,ifirstincell,listneigh
+ use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
  use kernel,   only:radkern
  use physcon,  only:fourpi
  use units,    only:utime
@@ -494,8 +497,8 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
 
  reachsrc:do while (unreached)
 
-    call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,&
-                      nneigh,xyzcache,maxcache,ifirstincell)
+    call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,&
+                      nneigh,xyzcache,maxcache,leaf_is_active)
     hi2 = (hi*radkern)**2
     dr2toraymin = huge(dr2ij)
     drprojmin  = huge(dr2ij)
@@ -630,32 +633,16 @@ end subroutine write_options_H2R
 !  read options from input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
- use io,         only:fatal
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter  :: label = 'read_options_H2R'
+subroutine read_options_H2R(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch = .true.
- select case(trim(name))
- case('iH2R')
-    read(valstring,*,iostat=ierr) iH2R
-    if (iH2R < 0) call fatal(label,'HII region option out of range')
-    ngot = ngot + 1
- case('Mmin')
-    read(valstring,*,iostat=ierr) Mmin
-    if (Mmin < 8.) call fatal(label,'Minimimum mass can not be inferior to 8 solar masses')
-    ngot = ngot + 1
- case('Rmax')
-    read(valstring,*,iostat=ierr) Rmax
-    if (Rmax < 10.) call fatal(label,'Maximum radius can not be inferior to 10 pc')
-    ngot = ngot + 1
- case default
-    imatch = .true.
- end select
- igotall = (ngot >= 3)
+ call read_inopt(iH2R,'iH2R',db,errcount=nerr,min=0,default=0)
+ if (iH2R > 0) then
+    call read_inopt(Mmin,'Mmin',db,errcount=nerr,min=8.)
+    call read_inopt(Rmax,'Rmax',db,errcount=nerr,min=10.)
+ endif
 
 end subroutine read_options_H2R
 

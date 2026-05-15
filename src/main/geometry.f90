@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -60,7 +60,7 @@ module geometry
       'flared cyl  R,phi,zdash', &
       'log flared  logR,phi,zd', &
       'planet wake t,eta,z    '/)
- character(len=6), dimension(3,maxcoordsys), parameter, public :: labelcoord = &
+ character(len=6), dimension(3, maxcoordsys), parameter, public :: labelcoord = &
     reshape((/'x     ','y     ','z     ', &
               'R     ','\phi  ','z     ', &
               'r     ','\phi  ','\theta', &
@@ -590,7 +590,6 @@ pure subroutine coord_transform(xin,ndimin,itypein,xout,ndimout,itypeout,err)
  end select
 
  if (present(err)) err = ierr
- return
 end subroutine coord_transform
 
 !-----------------------------------------------------------------
@@ -860,7 +859,6 @@ pure subroutine vector_transform(xin,vecin,ndimin,itypein,vecout,ndimout,itypeou
  enddo
 
  if (present(err)) err = ierr
- return
 end subroutine vector_transform
 
 !------------------------------------------------------------------
@@ -868,9 +866,9 @@ end subroutine vector_transform
 ! between various co-ordinate systems.
 !------------------------------------------------------------------
 recursive subroutine coord_transform_limits(xmin,xmax,itypein,itypeout,ndim)
- integer, intent(in) :: itypein,itypeout,ndim
- real, dimension(ndim), intent(inout) :: xmin,xmax
- real, dimension(ndim) :: xmaxtemp,xmintemp
+ integer, intent(in)    :: itypein,itypeout,ndim
+ real,    intent(inout) :: xmin(ndim),xmax(ndim)
+ real :: xmaxtemp(ndim),xmintemp(ndim)
  real    :: rcyl
  integer :: i
 !
@@ -1011,7 +1009,6 @@ recursive subroutine coord_transform_limits(xmin,xmax,itypein,itypeout,ndim)
     xmax(i) = max(xmintemp(i),xmaxtemp(i))
  enddo
 
- return
 end subroutine coord_transform_limits
 
 !------------------------------------------------------------
@@ -1027,9 +1024,9 @@ end subroutine coord_transform_limits
 !
 !------------------------------------------------------------
 subroutine get_coord_limits(rad,xin,xout,xmin,xmax,itypein)
- real, intent(in)  :: rad,xin(3)
- real, intent(out) :: xout(3),xmin(3),xmax(3)
- integer, intent(in) :: itypein
+ real,    intent(in)  :: rad,xin(3)
+ real,    intent(out) :: xout(3),xmin(3),xmax(3)
+ integer, intent(in)  :: itypein
  real :: r,rcyl,dphi,dtheta,fac
 
  select case(itypein)

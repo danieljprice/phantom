@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,25 +14,27 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, externalforces, fileutils,
-!   infile_utils, io, kernel, part, readwrite_dumps
+! :Dependencies: analysis, apr, dim, eos, eos_stamatellos, externalforces,
+!   fileutils, infile_utils, io, kernel, part, readwrite_dumps
 !
- use dim,             only:tagline,do_nucleation,inucleation
- use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
+ use dim,             only:tagline,do_nucleation,inucleation,use_apr
+ use part,            only:xyzh,hfact,massoftype,vxyzu,npart,apr_level !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis
  use readwrite_dumps, only:read_dump,read_smalldump,is_small_dump
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
+ use eos_stamatellos, only:init_coolra,finish_coolra
  use kernel,          only:hfact_default
  use externalforces,  only:mass1,accradius1
+ use apr,             only:init_apr
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i,idust_opacity
  real               :: time
  logical            :: iexist
  character(len=120) :: dumpfile,fileprefix,infile
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 
  call set_io_unit_numbers
  iprint = 6
@@ -47,6 +49,9 @@ program phantomanalysis
     print "(a)",' Usage: '//trim(basename(dumpfile))//' dumpfile(s)'
     stop
  endif
+
+ ! initialise apr if it is being used
+ if (use_apr) call init_apr(apr_level,ierr)
 
  print "(/,a,/)",' Phantom analysis ('//trim(analysistype)//'): You data, we analyse'
 
@@ -82,6 +87,8 @@ program phantomanalysis
           close(ianalysis)
        endif
     endif
+
+    if (iarg==1 .and. ieos == 24) call init_coolra()
 !
 !--read particle setup from dumpfile
 !
@@ -120,10 +127,14 @@ program phantomanalysis
        hfact = hfact_default
     endif
 
+    ! Print the analysis being done
+    write(*,'("Performing analysis type ",a)') analysistype
+    write(*,'("Input file name is ",a)') trim(dumpfile)
+
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(1),npart,time,ievfile)
  enddo over_args
-
+ if (ieos == 24) call finish_coolra
  print "(/,a,/)",' Phantom analysis: may your paper be a happy one'
 
 end program phantomanalysis

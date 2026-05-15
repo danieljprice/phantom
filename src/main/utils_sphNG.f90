@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -21,8 +21,8 @@ module sphNGutils
  ! labels for sphNG types, used when converting dumps (these cannot duplicate current itypes)
  integer, parameter :: isphNG_accreted  = 18
  integer, parameter :: isphNG_sink_temp = 19
- real,allocatable,public :: mass_sphng(:),spin_sphng(:,:)
- logical,public :: got_mass=.false.,got_spin(3)=.false.
+ real, allocatable, public :: mass_sphng(:),spin_sphng(:,:)
+ logical, public :: got_mass=.false.,got_spin(3)=.false.
 
  public
 
@@ -89,12 +89,12 @@ end function is_sphNG_sink
 subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
  use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz,&
        npartoftype,iunknown,isdead,shuffle_part
- integer :: i,nsink
- integer, intent(inout)    :: npart
- integer, intent(inout) :: nptmass
+ integer,         intent(inout) :: npart
+ integer,         intent(inout) :: nptmass
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,         intent(out)   :: ierr
+ integer :: i,nsink
  integer :: gascount,unkncount,othercount
 
  nsink = 0
@@ -174,9 +174,9 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
 end subroutine convert_sinks_sphNG
 
 subroutine set_gas_particle_mass(mass_sphng)
- use part, only: massoftype,igas,iphase,iamtype,hfact
- use dim, only: maxp
- real,intent(in) :: mass_sphng(maxp)
+ use part, only:massoftype,igas,iphase,iamtype,hfact
+ use dim, only:maxp
+ real, intent(in) :: mass_sphng(maxp)
  integer :: i
 
  if (hfact < 1) then
