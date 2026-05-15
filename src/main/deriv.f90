@@ -152,6 +152,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
        HIIupdateflag = .false.
     endif
+    call do_timing('HII_region',tlast,tcpulast)
  endif
 
  if (gr) then

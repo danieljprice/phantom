@@ -211,7 +211,6 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use neighkdtree,   only:listneigh,getneigh_pos,leaf_is_active
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
- use timing,     only:get_timings,increment_timer,itimer_HII
  use dim,        only:maxvxyzu
  use io,         only:iverbose,iprint,warning,id,master
  integer,          intent(in)    :: nptmass,npart
@@ -221,7 +220,6 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  integer, parameter :: maxc  = 128
  real, save :: xyzcache(3,maxc)
  integer            :: i,k,j,npartin,nneigh,itypej,its
- real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pmass,Ndot,DNdot,DNratio,logNdiff,taud,mHII,r,r_in,hcheck
  real               :: xi,yi,zi,log_Qi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
  logical            :: momflag,isactive,isgas,isdust,converged,max_search
@@ -231,7 +229,6 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  r_in = 0.
  pmass = massoftype(igas)
 
- call get_timings(t1,tcpu1)
  !
  !-- Rst derivation and thermal feedback
  !
@@ -349,9 +346,6 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     enddo
  endif
 
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
-
 end subroutine HII_Knn
 
 !-----------------------------------------------------------------------
@@ -360,9 +354,8 @@ end subroutine HII_Knn
 !+
 !-----------------------------------------------------------------------
 subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
- use part,     only:massoftype,igas,irateion,isdead_or_accreted,&
+ use part,     only:massoftype,igas,irateion,irstrom,isdead_or_accreted,&
                     iphase,get_partinfo,noverlap,rhoh,itemp,imu
- use timing,   only:get_timings,increment_timer,itimer_HII
  use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
  use dim,      only:maxvxyzu
  use io,         only:iverbose,iprint,id,master
@@ -371,16 +364,14 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,             intent(inout) :: eos_vars(:,:)
  real, save         :: xyzcache(4,maxcache)
- real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real,allocatable   :: rhosrc(:)
- real               :: pmass,log_Qi,fluxi,xj,yj,zj
+ real               :: pmass,log_Qi,fluxi,xj,yj,zj,rsrci
  logical            :: isactive,isgas,isdust
  integer            :: i,j,itypei,noverlapi,nneighi,k
  !$omp threadprivate(xyzcache)
 
  k=0
 
- call get_timings(t1,tcpu1)
 
  if (nHIIsources > 0 .and. id==master) then
     if (iH2R == 3) then
@@ -388,6 +379,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
        rhosrc = 0.
     endif
     pmass = massoftype(igas)
+    xyzmh_ptmass(irstrom,:) = -1.
 
 
     !
@@ -396,7 +388,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
 !$omp parallel default(none)&
 !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
 !$omp shared(pmass,iphase,leaf_is_active,rhosrc,iH2R,Tcold,uIon,gmw)&
-!$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,isgas,isdust)&
+!$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,rsrci,isgas,isdust)&
 !$omp private(isactive,noverlapi,nneighi)&
 !$omp reduction(+:k)
     if (iH2R == 3) then
@@ -416,7 +408,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     do i=1,npart
        if (.not. isdead_or_accreted(xyzh(4,i))) then
           call get_partinfo(iphase(i),isactive,isgas,isdust,itypei)
-          if (.not. isactive) cycle
+          ! if (.not. isactive) cycle
           if (isgas) then
              if (maxvxyzu < 4) eos_vars(itemp,i) = Tcold
              eos_vars(imu,i) = gmw
@@ -429,17 +421,18 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                 zj = xyzmh_ptmass(3,j)
                 if (iH2R == 3) then
                    call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,noverlap,&
-                                            pmass,log_Qi,fluxi,rhosrc(j))
+                                            pmass,log_Qi,fluxi,rsrci,rhosrc(j))
                 else
                    call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,noverlap,&
-                                            pmass,log_Qi,fluxi)
+                                            pmass,log_Qi,fluxi,rsrci)
                 endif
-                if (fluxi > 0)then
+                if (fluxi > 0.)then
                    eos_vars(itemp,i) = Tion
                    eos_vars(imu,i) = muion
                    noverlapi = noverlapi + 1
                    if (maxvxyzu >= 4) vxyzu(4,i) = uIon
                    k = k + 1
+                   if (rsrci > xyzmh_ptmass(irstrom,j)) xyzmh_ptmass(irstrom,j) = rsrci
                 endif
              enddo
              noverlap(i) = noverlapi
@@ -452,9 +445,6 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     if (iH2R == 3) deallocate(rhosrc)
  endif
 
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
-
 end subroutine HII_ray
 
 !-----------------------------------------------------------------------
@@ -462,7 +452,7 @@ end subroutine HII_ray
 ! find nearest particles along the ray from target to source
 !+
 !-----------------------------------------------------------------------
-subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,flux,rhosrcj)
+subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,flux,rsrc,rhosrcj)
  use part,     only:rhoh,iphase,get_partinfo
  use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
  use kernel,   only:radkern
@@ -474,9 +464,9 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  real,           intent(inout) :: xyzcache(:,:)
 
  real,           intent(in)    :: srcpos(3),pmass,log_Q
- real,           intent(out)   :: flux
+ real,           intent(out)   :: flux,rsrc
  real, optional, intent(in)    :: rhosrcj
- real,    parameter :: thetalim = 0.5
+ real, parameter :: thetalim2 = 0.0025
  real            :: rayx,rayy,rayz,drisrc1,drisrc,dr,hpmass1,lumS,recvol
  real            :: xij,yij,zij,xi,yi,zi,hi,hj,drproj,dr2toray,icoeff
  real            :: dr2ij,dr2toraymin,nmean,intensity,hi2,drprojmin,hcheck
@@ -512,6 +502,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  knext = i
  drprojmin  = huge(dr2ij)
  unreached   = .true.
+ rsrc = drisrc
  if (rough) then
     unreached = .false.
     icoeff = 0.57735026919
@@ -545,13 +536,13 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
           if( dr2ij < hi2) then
              drproj = rayx*xij + rayy*yij + rayz*zij
              if (drproj > 0.) then
-                dr2toray = dr2ij - drproj*drproj
+                dr2toray = (xij - drproj*rayx)**2 + (yij - drproj*rayy)**2 + (zij - drproj*rayz)**2
                 if (dr2toray < dr2toraymin) then
                    dr2toraymin = dr2toray
                    drprojmin = drproj
                    knext = k
                    inext = j
-                   if((drprojmin*drprojmin)<acos(thetalim)**2*dr2ij) exit neighsearch
+                   if( dr2toraymin < (drprojmin*drprojmin)*thetalim2) exit neighsearch
                 endif
              endif
           endif
@@ -582,7 +573,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        !
        !-- integrate intensity
        !
-       intensity = intensity + dr**2*drprojmin*recvol
+       intensity = intensity + drprojmin*recvol*dr**2
 
        if (lumS < intensity) exit reachsrc! exit if already neutral
        !
@@ -611,7 +602,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
     if (rough) then
        nmean    = (rhoh(hi,pmass)+rhosrcj)*(hpmass1)
     else
-       nmean    = rhoh(hi,pmass)*2*hpmass1
+       nmean    = 2.*rhoh(hi,pmass)*hpmass1
     endif
     noverlapj = noverlap(inext)
     if (noverlapj>0) then
@@ -619,7 +610,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
     else
        recvol = ar*(nmean)**2
     endif
-    intensity = intensity + (icoeff*dr)**2*drprojmin*recvol
+    intensity = intensity + drprojmin*recvol*(icoeff*dr)**2
     flux = (lumS-intensity)
  else
     flux = -1.

@@ -225,7 +225,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
              call write_array(1,tmunus(1,1,:),  'tmunutt (covariant)',npart,k,ipass,idump,nums,nerr)
           endif
        endif
-       if (eos_is_non_ideal(ieos) .or. (.not.store_dust_temperature .and. icooling > 0)) then
+       if (eos_outputs_temp(ieos) .or. (.not.store_dust_temperature .and. icooling > 0)) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=itemp)
        endif
        if (eos_is_non_ideal(ieos)) call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
