@@ -1660,7 +1660,7 @@ subroutine test_HIIregion(ntests,npass)
  call init_part()
  gmw = 1.0
 
- xyzmh_ptmass(1,:) = 0.
+ xyzmh_ptmass(1,:) = 1.e-8 ! to avoid having superimposed particles
  xyzmh_ptmass(2,:) = 0.
  xyzmh_ptmass(3,:) = 0.
  vxyz_ptmass(:,:)  = 0.

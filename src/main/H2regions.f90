@@ -447,7 +447,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  hpmass1 = 0.5*mH1
 
  lumS    = ((10**log_Q)*utime)/fourpi
-
+ flux = -1.
  xi      = xyzh(1,itarg)
  yi      = xyzh(2,itarg)
  zi      = xyzh(3,itarg)
@@ -456,6 +456,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  rayy    = srcpos(2)-yi
  rayz    = srcpos(3)-zi
  drisrc  = sqrt(rayx*rayx + rayy*rayy + rayz*rayz)
+ if (drisrc < epsilon(drisrc)) return
  drisrc1 = 1./drisrc
  rayx    = rayx*drisrc1
  rayy    = rayy*drisrc1
@@ -565,8 +566,6 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
 
     intensity = intensity + drprojmin*recvol*(icoeff*dr)**2
     flux = (lumS-intensity)
- else
-    flux = -1.
  endif
 
 end subroutine inversed_raytracing
