@@ -55,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  n = nptmass
  do while(isinkdeadhead>0)
     if (isinkdeadhead <= n) then
-       if (xyzmh_ptmass(4,n) > 0.)then
+       if (xyzmh_ptmass(4,n) > 0.) then
           xyzmh_ptmass(:,isinkdeadhead) = xyzmh_ptmass(:,n)
           vxyz_ptmass(:,isinkdeadhead) = vxyz_ptmass(:,n)
           isinkdeadhead = ll(isinkdeadhead)

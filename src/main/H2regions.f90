@@ -398,7 +398,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                 zj = xyzmh_ptmass(3,j)
                 call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,noverlap,&
                                             pmass,log_Qi,fluxi,rsrci)
-                if (fluxi > 0.)then
+                if (fluxi > 0.) then
                    eos_vars(itemp,i) = Tion
                    eos_vars(imu,i) = muion
                    noverlapi = noverlapi + 1
@@ -485,7 +485,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        if (j==i) cycle
        call get_partinfo(iphase(j),isactive,isgas,isdust,itypei)
        if (isgas) then
-          if(k <= maxcache) then
+          if (k <= maxcache) then
              xij = xyzcache(1,k) - xi
              yij = xyzcache(2,k) - yi
              zij = xyzcache(3,k) - zi
@@ -495,7 +495,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
              zij = xyzh(3,j) - zi
           endif
           dr2ij   = xij*xij + yij*yij + zij*zij
-          if( dr2ij < hi2) then
+          if ( dr2ij < hi2) then
              drproj = rayx*xij + rayy*yij + rayz*zij
              if (drproj > 0.) then
                 dr2toray = (xij - drproj*rayx)**2 + (yij - drproj*rayy)**2 + (zij - drproj*rayz)**2
@@ -504,7 +504,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
                    drprojmin = drproj
                    knext = k
                    inext = j
-                   if( dr2toraymin < (drprojmin*drprojmin)*thetalim2) exit neighsearch
+                   if ( dr2toraymin < (drprojmin*drprojmin)*thetalim2) exit neighsearch
                 endif
              endif
           endif
@@ -517,7 +517,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        !-- add projected distance to the distance between sample point and target part
        !
        dr = dr - (0.5*drprojmin)
-       if(k<=maxcache) then
+       if (k<=maxcache) then
           hj  = 1./xyzcache(4,knext)
        else
           hj  = xyzh(4,inext)
@@ -537,7 +537,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        !
        !-- prepare the next search
        !
-       if(knext <= maxcache) then
+       if (knext <= maxcache) then
           xi = xyzcache(1,knext)
           yi = xyzcache(2,knext)
           zi = xyzcache(3,knext)

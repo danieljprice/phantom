@@ -1643,9 +1643,9 @@ subroutine test_HIIregion(ntests,npass)
  real             :: totmass,psep,r2,rstrommax
  real             :: Rstrom,ci,k,rho0,rhomean
  real             :: totvol,nx,rmin,rmax,temp
- character(len=22):: string
+ character(len=22) :: string
 
- if (mpi .or. periodic)then
+ if (mpi .or. periodic) then
     write(iprint,*) '--> Skip HII tests when periodic or MPI are on...'
     return
  else
@@ -1740,7 +1740,7 @@ subroutine test_HIIregion(ntests,npass)
     do i= 1,npart
        r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
        if (eos_vars(imu,i) < gmw) then
-          if (r2>rstrommax**2)then
+          if (r2>rstrommax**2) then
              rstrommax = sqrt(r2)
           endif
        endif
