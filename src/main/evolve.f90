@@ -164,18 +164,17 @@ end subroutine evol
 !----------------------------------------------------------------
 subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  use dim,          only:inject_parts,use_apr,ind_timesteps
- use io,           only:fatal,id,master,iprint,iverbose
+ use io,           only:fatal,iprint,iverbose
  use apr,          only:update_apr
  use boundary_dyn, only:dynamic_bdy,update_boundaries
  use dynamic_dtmax,only:check_dtmax_for_decrease
  use evolve_utils, only:ptmass_create_and_update_forces
  use inject,       only:inject_particles
- use HIIRegion,    only:iH2R,HIIuprate,nHIIsources,HIIdt,HIIupdateflag
+ use HIIRegion,    only:iH2R,HIIuprate,HIIdt,HIIupdateflag
  use io_control,   only:nfulldump
  use mpiutils,     only:reduceall_mpi
- use part,         only:npart,npartoftype,nptmass,xyzh,vxyzu,fxyzu,apr_level,&
-                        xyzmh_ptmass,vxyz_ptmass,gravity,iboundary,ntot,ibin,iphase,&
-                        eos_vars
+ use part,         only:npart,npartoftype,xyzh,vxyzu,fxyzu,apr_level,&
+                        xyzmh_ptmass,vxyz_ptmass,gravity,iboundary,ntot,ibin,iphase
  use partinject,   only:update_injected_particles
  use ptmass,       only:icreate_sinks,ipart_createstars
  use timestep,     only:dtextforce,dtinject,rhomaxnow
