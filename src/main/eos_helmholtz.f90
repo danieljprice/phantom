@@ -467,16 +467,22 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     ! disallow large temperature changes
     if (tnew > 2.0 * tprev) then
        tnew = 2.0 * tprev
-       write(*,*) 'ALI flag eos_helmholtz.f90 line 465: large temp change happened'
+      !  write(*,*) 'ALI flag eos_helmholtz.f90 line 465: large temp change happened'
     endif
     if (tnew < 0.5 * tprev) then
        tnew = 0.5 * tprev
     endif
     ! exit if tolerance criterion satisfied
-    if (abs(tnew - tprev) < tempi * tol) then
+   !  if (abs(tnew - tprev) < tempi * tol) then
+   !     done = .true.
+   !    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
+   !  endif
+!!! trying different convergence condition, since our priority is the internal energy converging, not the temperature
+    if (abs((cgseni_eos - cgseni) / cgseni) < tol) then
        done = .true.
       !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
     endif
+
     ! exit if gas is too cold or too hot
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
     if (tnew > tempmax) then
@@ -491,8 +497,9 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     if (itercount >= maxiter) then
 
        write(*,*) 'ALI flag fail to converge, eos_helmholtz.f90 line 493: Tnew=', tnew, &
-       'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
-       write(*,*) '(cgseni_eos - cgseni) / cgsdendti =', (cgseni_eos - cgseni) / cgsdendti, &
+       ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
+       write(*,*) 'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
+       write(*,*) '(cgseni_eos - cgseni) / cgseni_eos =', (cgseni_eos - cgseni) / cgseni_eos, &
        ' eni_eos (code units)=', cgseni_eos/unit_ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
 
        call warning('eos','Helmholtz eos fail to converge')
