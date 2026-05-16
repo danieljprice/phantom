@@ -1753,6 +1753,10 @@ subroutine test_HIIregion(ntests,npass)
  enddo
  call update_test_scores(ntests,nfailed,npass)
 
+ call init_part()
+ iH2R = 0
+ ieos = 2
+
 end subroutine test_HIIregion
 
 !-----------------------------------------------------------------------

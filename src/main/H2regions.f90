@@ -208,7 +208,7 @@ end subroutine HII_feedback
 subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom,get_partinfo,iphase,itemp,imu
- use neighkdtree,   only:listneigh,getneigh_pos,leaf_is_active
+ use neighkdtree,   only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use dim,        only:maxvxyzu
@@ -285,9 +285,9 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                          if (k > 1) then ! end of the HII region
                             if (maxvxyzu >= 4) then
                                DNratio = Ndot/DNdot
-                               eos_vars(itemp,j)  = DNratio * Tion
-                               eos_vars(imu,j)    = DNratio * muion
-                               vxyzu(4,j)         = DNratio * uIon
+                               eos_vars(itemp,j)  = DNratio * Tion + (1.0 - DNratio) * Tcold
+                               eos_vars(imu,j)    = DNratio * muion + (1.0 - DNratio) * gmw
+                               vxyzu(4,j)         = DNratio * uIon + (1.0 - DNratio) * vxyzu(4,j)
                                Ndot = 0.
                             endif
                             r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
@@ -318,11 +318,11 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
           mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
           if (mHII>3*pmass) then
              !$omp parallel do default(none) &
-             !$omp shared(mHII,xyzh,sigd,HIIdt) &
+             !$omp shared(mHII,xyzh,listneigh,sigd,HIIdt) &
              !$omp shared(mH,vxyzu,log_Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
              !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
              do k=1,npartin
-                j = listneigh(1)
+                j = listneigh(k)
                 xj = xyzh(1,j)
                 yj = xyzh(2,j)
                 zj = xyzh(3,j)
@@ -355,7 +355,6 @@ end subroutine HII_Knn
 subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use part,     only:massoftype,igas,irateion,irstrom,isdead_or_accreted,&
                     iphase,get_partinfo,noverlap,rhoh,itemp,imu
- use neighkdtree, only:leaf_is_active
  use dim,      only:maxvxyzu
  use io,         only:iverbose,iprint,id,master
  integer,          intent(in)    :: nptmass,npart
@@ -365,7 +364,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  real, save         :: xyzcache(4,maxcache)
  real               :: pmass,log_Qi,fluxi,xj,yj,zj,rsrci
  logical            :: isactive,isgas,isdust
- integer            :: i,j,itypei,noverlapi,nneighi,k
+ integer            :: i,j,itypei,noverlapi,k
  !$omp threadprivate(xyzcache)
 
  if (nHIIsources > 0 .and. id==master) then
@@ -377,9 +376,9 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     !
 !$omp parallel default(none)&
 !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
-!$omp shared(pmass,iphase,leaf_is_active,iH2R,Tcold,uIon,gmw)&
+!$omp shared(pmass,iphase,iH2R,Tcold,uIon,gmw)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,rsrci,isgas,isdust)&
-!$omp private(isactive,noverlapi,nneighi)&
+!$omp private(isactive,noverlapi)&
 !$omp reduction(+:k)
 !$omp do
     do i=1,npart
@@ -404,7 +403,9 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                    noverlapi = noverlapi + 1
                    if (maxvxyzu >= 4) vxyzu(4,i) = uIon
                    k = k + 1
-                   if (rsrci > xyzmh_ptmass(irstrom,j)) xyzmh_ptmass(irstrom,j) = rsrci
+                   !$omp atomic update
+                   xyzmh_ptmass(irstrom,j) = max(rsrci,xyzmh_ptmass(irstrom,j))
+                   !$omp end atomic
                 endif
              enddo
              noverlap(i) = noverlapi
