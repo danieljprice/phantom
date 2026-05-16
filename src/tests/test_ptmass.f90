@@ -1643,10 +1643,14 @@ subroutine test_HIIregion(ntests,npass)
  real             :: totmass,psep,r2,rstrommax
  real             :: Rstrom,ci,k,rho0,rhomean
  real             :: totvol,nx,rmin,rmax,temp
- character(len=20):: string
+ character(len=22):: string
 
- if (periodic) return
- if (mpi) return
+ if (mpi .or. periodic)then
+    write(iprint,*) '--> Skip HII tests when periodic or MPI are on...'
+    return
+ else
+    write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
+ endif
  call set_units(dist=pc,mass=solarm,G=1.d0)
  call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
