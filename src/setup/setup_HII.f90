@@ -1,21 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
- !
- ! Setup for simulations of HII Region expansion
- ! :References:
- !
- ! :Owner:
- !
- ! :Runtime parameters:
- !
- ! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
- !   prompting, spherical, timestep, units
- !
+!
+! setup
+!
+! :References: None
+!
+! :Owner: Yann Bernard
+!
+! :Runtime parameters: None
+!
+! :Dependencies: HIIRegion, datafiles, dim, eos, io, options, part,
+!   physcon, prompting, random, spherical, timestep, units,
+!   utils_shuffleparticles
+!
  implicit none
  public :: setpart
 

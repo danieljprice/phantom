@@ -17,10 +17,10 @@ module HIIRegion
 !
 ! :Owner: Yann Bernard
 !
-! :Runtime parameters: iH2R (1:Hopkins like,2:Dale like)
+! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, infile_utils, io, neighkdtree, part, physcon,
-!   sortutils, timing, units
+! :Dependencies: dim, eos, eos_HIIR, infile_utils, io, kernel, neighkdtree,
+!   part, physcon, sortutils, units
 !
  use eos_HIIR,   only:csion,uIon,Tion,Tcold,muion
  use eos,        only:gmw

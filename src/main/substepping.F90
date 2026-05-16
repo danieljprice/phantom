@@ -26,9 +26,10 @@ module substepping
 ! :Runtime parameters: None
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
-!   dust_formation, eos, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
-!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
+!   dust_formation, eos, eos_HIIR, extern_gr, externalforces, io,
+!   io_summary, krome_interface, metric, metric_tools, mpiutils,
+!   neighkdtree, options, part, ptmass, ptmass_radiation, ptmass_tree,
+!   subgroup, timestep, timing
 !
  implicit none
 
