@@ -1710,11 +1710,9 @@ subroutine test_HIIregion(ntests,npass)
     enddo
  endif
 
-
  if (id==master) then
     call initialize_H2R
  endif
-
 
  xyzmh_ptmass(irstrom,1) = -1.
  ci   = sqrt(polykion)

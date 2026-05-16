@@ -387,7 +387,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,mu_local=mui)
        endif
 
-
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei

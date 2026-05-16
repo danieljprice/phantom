@@ -81,7 +81,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rho0 = totmass/totvol
  polyk = ((gamma*kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
 
-
  npart = 0
  npartoftype(:) = 0
 
@@ -148,11 +147,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rho0,dmedium=0.,&
  !is_setup=.true.,prefix=trim(fileprefix))
 
-
  if (nptmass == 0) call fatal('setup','no particles setup')
 
 end subroutine setpart
-
 
 !----------------------------------------------------------------
 !

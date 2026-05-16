@@ -259,7 +259,6 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
              max_search = .true.
           endif
 
-
           its = its + 1
 
           call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxc,leaf_is_active)
@@ -444,7 +443,6 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  integer         :: nneigh,k,i,j,knext,inext,itypei,noverlapj
  logical         :: isactive,isgas,isdust,unreached
 
-
  hpmass1 = 0.5*mH1
 
  lumS    = ((10**log_Q)*utime)/fourpi
@@ -570,9 +568,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
     flux = -1.
  endif
 
-
 end subroutine inversed_raytracing
-
 
 !-----------------------------------------------------------------------
 !+

@@ -1424,7 +1424,6 @@ logical function eos_outputs_temp(ieos)
 
 end function eos_outputs_temp
 
-
 !-----------------------------------------------------------------------
 !+
 !  Query function for whether the equation of state requires

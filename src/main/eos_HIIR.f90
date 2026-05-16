@@ -48,7 +48,6 @@ subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  csion    = sqrt(polykion)
  Tcold    = polyk*gmw*temperature_coef
 
-
  if (gamma>1.) then
     uIon = (kb_on_mh*Tion/(muion*(gamma-1.)))/(unit_velocity**2)
  else
@@ -99,9 +98,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
  real,    intent(out)             :: ponrhoi,spsoundi,mui,tempi
  real,    intent(in),    optional :: eni
 
-
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
-
 
  if (abs(eni-uIon) < epsilon(eni)) then
     ponrhoi  = polykion
