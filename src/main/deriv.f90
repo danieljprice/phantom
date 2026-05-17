@@ -14,10 +14,10 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, metric_tools, neighkdtree, options, part,
-!   porosity, ptmass, ptmass_radiation, radiation_implicit, timestep,
-!   timestep_ind, timing
+! :Dependencies: HIIRegion, cons2prim, densityforce, derivutils, dim,
+!   externalforces, forces, forcing, growth, io, metric_tools, neighkdtree,
+!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
+!   timestep, timestep_ind, timing
 !
  implicit none
 
@@ -61,6 +61,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
+ use HIIRegion,      only:HIIupdateflag,iH2R,HII_feedback
  integer,         intent(in)    :: icall
  integer,         intent(inout) :: npart
  integer,         intent(in)    :: nactive
@@ -142,6 +143,16 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     endif
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
+ endif
+!
+!-- update ionising state of the particle if HII regions are used in cluster formation simulations
+!
+ if (iH2R >0) then
+    if (HIIupdateflag) then
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+       HIIupdateflag = .false.
+    endif
+    call do_timing('HII_region',tlast,tcpulast)
  endif
 
  if (gr) then

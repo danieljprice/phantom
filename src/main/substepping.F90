@@ -26,9 +26,10 @@ module substepping
 ! :Runtime parameters: None
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
-!   dust_formation, eos, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
-!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
+!   dust_formation, eos, eos_HIIR, extern_gr, externalforces, io,
+!   io_summary, krome_interface, metric, metric_tools, mpiutils,
+!   neighkdtree, options, part, ptmass, ptmass_radiation, ptmass_tree,
+!   subgroup, timestep, timing
 !
  implicit none
 
@@ -110,7 +111,7 @@ end subroutine substep_sph_gr
 subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
                       fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                      bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                      bin_info,nmatrix,n_group,n_ingroup,n_sing)
  use io,             only:iverbose,id,master,iprint,fatal
  use part,           only:fxyz_ptmass_sinksink,ndptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt
@@ -129,7 +130,6 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  real,            intent(inout) :: fxyz_ptmass_tree(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
- logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
@@ -172,7 +172,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
     extf_vdep_flag = .false.
     call get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                   extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised, &
+                   extf_vdep_flag,bin_info,group_info,nmatrix, &
                    metrics=metrics,metricderivs=metricderivs,&
                    metrics_ptmass=metrics_ptmass,metricderivs_ptmass=metricderivs_ptmass,dens=dens,&
                    pxyzu_ptmass=pxyzu_ptmass)
@@ -272,7 +272,7 @@ end subroutine substep_sph
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,&
                    dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                   bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                   bin_info,nmatrix,n_group,n_ingroup,n_sing)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
  use part,           only:fxyz_ptmass_sinksink,ndptmass
@@ -292,7 +292,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: fxyz_ptmass_tree(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
- logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps,ikicklast
  real    :: timei,time_par,dt,t_end_step
@@ -345,7 +344,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
-                   extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
+                   extf_vdep_flag,bin_info,group_info,nmatrix)
+
     if (use_fourthorder) then !! FSI 4th order scheme
 
        ! FSI extrapolation method (Omelyan 2006)
@@ -368,7 +368,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
-                      extf_vdep_flag,bin_info,group_info,nmatrix,isionised=isionised)
+                      extf_vdep_flag,bin_info,group_info,nmatrix)
 
        call get_timings(t1,tcpu1)
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
@@ -739,7 +739,7 @@ end subroutine accretion
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
                      dsdt_ptmass,dt,dki,force_count,extf_vdep_flag,bin_info,&
-                     group_info,nmatrix,fsink_old,isionised,&
+                     group_info,nmatrix,fsink_old,&
                      metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,dens,pxyzu_ptmass)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc,gr,use_apr,maxptmass,use_sinktree
@@ -775,7 +775,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  integer,         intent(inout) :: group_info(:,:)
  integer(kind=1), intent(inout) :: nmatrix(:,:)
  real,            intent(inout), optional :: fsink_old(4,maxptmass)
- logical,         intent(in),    optional :: isionised(:)
  real,            intent(inout), optional :: metrics(:,:,:,:),metricderivs(:,:,:,:)
  real,            intent(inout), optional :: pxyzu_ptmass(:,:),metrics_ptmass(:,:,:,:),metricderivs_ptmass(:,:,:,:)
  real,            intent(in),    optional :: dens(:)
@@ -901,7 +900,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
  !$omp shared(divcurlv,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
- !$omp shared(isink_radiation,itau_alloc,tau,isionised,bin_info) &
+ !$omp shared(isink_radiation,itau_alloc,tau,bin_info) &
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,ieos,C_force) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
@@ -1005,7 +1004,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        !
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                         divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,isionised(i))
+                                         divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
        endif
     endif
  enddo
@@ -1053,15 +1052,16 @@ end subroutine get_force
 !+
 !------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,isionisedi)
+                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
- use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances
+ use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
  use dust_formation,  only:evolve_dust,calc_muGamma
  use cooling,         only:energ_cooling,cooling_in_step
  use part,            only:rhoh
+ use eos_HIIR,        only:muion,Tion
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only:update_krome
@@ -1074,7 +1074,6 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real,         intent(inout) :: abundc,abunde,abundo,abundsi
  real(kind=8), intent(in)    :: dphot0
  real,         intent(in)    :: dt,pmassi
- logical,      intent(in)    :: isionisedi
  integer,      intent(in)    :: i
 
  real :: dudtcool,rhoi,dphot,pH,pH_tot
@@ -1137,7 +1136,10 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
- if (isionisedi .or. icooling == 9) dudtcool = 0.
+ if (eos_vars(imu,i)> muion .and. (abs(eos_vars(itemp,i) - Tion) < epsilon(Tion))) then
+    dudtcool = (eos_vars(imu,i)/muion-1.)*vxyzu(4,i)/dt
+ endif
+ if ((icooling == 9)  .or. (abs(eos_vars(imu,i) - muion ) < epsilon(muion))) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 end subroutine cooling_abundances_update

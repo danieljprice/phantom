@@ -120,7 +120,7 @@ subroutine setup_timers
  call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
  call init_timer(itimer_kick        , 'kick',        itimer_substep  )
  call init_timer(itimer_drift       , 'drift',       itimer_substep  )
- call init_timer(itimer_HII         , 'HII_regions', 0            )
+ call init_timer(itimer_HII         , 'HII_regions', itimer_step     )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 
