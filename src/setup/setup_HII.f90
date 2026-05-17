@@ -37,7 +37,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only:solarm,pc,pi,au,kboltz,mass_proton_cgs
  use io,        only:fatal,master
  use eos,       only:gmw,ieos
- use dim,       only: maxp,maxphase,maxptmass
+ use dim,       only: maxp,maxphase,maxptmass,maxvxyzu
  use random,    only: ran2
  use timestep,  only:dtmax
  use spherical, only:set_sphere
@@ -87,7 +87,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
 
- vxyzu(4,:) = polyk
+ if (maxvxyzu >= 4) vxyzu(4,:) = polyk
 
  nptmass = nsrc
  if (id==master) then
