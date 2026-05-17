@@ -404,7 +404,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(out)   :: ponrhoi
  real, intent(out)   :: spsoundi
  real, intent(in)    :: eni
- integer, parameter  :: maxiter = 10
+ integer, parameter  :: maxiter = 20 ! I have established that 10 is too low and borderline.
  real,    parameter  :: tol = 1.0e-4  ! temperature convergence
  logical :: done
  integer :: itercount
