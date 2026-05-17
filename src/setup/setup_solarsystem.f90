@@ -30,6 +30,7 @@ module setup
  logical :: asteroids
  character(len=20) :: epoch,tmax_in,dtmax_in
  logical :: use_dem,apophis_only
+character(len=256) :: apophis_shape_file
 
  real :: scale_vel
  real :: scale_pos
@@ -56,7 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setsolarsystem,only:set_minor_planets,add_sun_and_planets,add_body
  use kernel,        only:hfact_default
  use eos_tillotson, only:rho_0,A
- use spherical,     only:set_sphere
+ use shape,         only:set_shape
  use options,       only:ieos
  use setup_params,  only:npart_total
  use infile_utils,  only:get_options
@@ -91,6 +92,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  scale_pos=1.
  scale_r_apophis=1.
  scale_rho=1.
+ apophis_shape_file='apophis.shape'
 !
 ! read runtime parameters from setup file
 !
@@ -185,8 +187,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! replace the sink particle with a ball of stuff
        !
        dx = r_apophis/40.
-       call set_sphere('closepacked',id,master,0.,r_apophis,dx,hfact,npart,xyzh,npart_total,&
-                       xyz_origin=xyzmh_ptmass(1:3,nptmass),exactN=.true.,np_requested=np_apophis)
+       call set_shape('closepacked',id,master,np_apophis,xyzmh_ptmass(1:3,nptmass),r_apophis,&
+                      hfact,npart,xyzh,npart_total,objfile=apophis_shape_file)
+       !call set_sphere('closepacked',id,master,0.,r_apophis,dx,hfact,npart,xyzh,npart_total,&
+       !                xyz_origin=xyzmh_ptmass(1:3,nptmass),exactN=.true.,np_requested=np_apophis)
 
        do i=1,npart
           vxyzu(1:3,i) = vxyz_ptmass(1:3,nptmass)
@@ -246,6 +250,7 @@ subroutine replace_gas_with_dem(npart,ngas,pmass,xyzh,vxyzu,nptmass,xyzmh_ptmass
  pmass = 0.
 
 end subroutine replace_gas_with_dem
+
 !----------------------------------------------------------------
 !+
 !  write setup parameters to file
@@ -273,6 +278,7 @@ subroutine write_setupfile(filename)
  call write_inopt(scale_pos,'scale_pos','scaling factor for apophis initial position',iunit)
  call write_inopt(scale_r_apophis,'scale_r_apophis','scaling factor for apophis radius',iunit)
  call write_inopt(scale_rho,'scale_rho','scaling factor for apophis bulk density',iunit)
+call write_inopt(apophis_shape_file,'apophis_shape_file','shape config file for lattice cropping',iunit)
 
  close(iunit)
 
@@ -308,6 +314,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(scale_pos,'scale_pos',db,default=1.0,errcount=nerr)
  call read_inopt(scale_r_apophis,'scale_r_apophis',db,default=1.0,errcount=nerr)
  call read_inopt(scale_rho,'scale_rho',db,default=1.0,errcount=nerr)
+call read_inopt(apophis_shape_file,'apophis_shape_file',db,default='apophis.shape',errcount=nerr)
 
  call close_db(db)
 
