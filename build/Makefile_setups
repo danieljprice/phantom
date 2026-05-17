@@ -748,6 +748,15 @@ ifeq ($(SETUP), cluster)
     MAXPTMASS=1000
 endif
 
+ifeq ($(SETUP), h2region)
+#   HII region(s) in a uniform cloud 
+    SETUPFILE= setup_HII.f90
+    ISOTHERMAL=yes
+    GRAVITY=no
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), binary)
 #   binary stars
     SETUPFILE= setup_binary.f90

@@ -20,11 +20,12 @@ module eos_HIIR
 
  public :: get_eos_HIIR_iso,get_eos_HIIR_adiab,init_eos_HIIR
 
- real, parameter :: Tion = 10000.
- real, parameter :: muioninv = 2.
- real, parameter :: muion = 0.5
-
- real, public    :: polykion
+ real, public,parameter :: Tion = 10000.
+ real, public,parameter :: muion = 0.5
+ real, public           :: polykion
+ real, public           :: csion
+ real, public           :: uIon
+ real, public           :: Tcold
 
  private
 
@@ -36,11 +37,24 @@ contains
  !+
  !-----------------------------------------------------------------------
 
-subroutine init_eos_HIIR
+subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  use physcon, only:kb_on_mh
  use units,   only:unit_velocity
 
- polykion = (muioninv*kb_on_mh*Tion)/(unit_velocity**2)
+ integer, intent(out) :: ierr
+ real,    intent(in)  :: gamma,polyk,gmw,temperature_coef
+
+ polykion = (kb_on_mh*Tion/muion)/(unit_velocity**2)
+ csion    = sqrt(polykion)
+ Tcold    = polyk*gmw*temperature_coef
+
+ if (gamma>1.) then
+    uIon = (kb_on_mh*Tion/(muion*(gamma-1.)))/(unit_velocity**2)
+ else
+    uIon = 1.5*polykion
+ endif
+
+ ierr = 0
 
 end subroutine init_eos_HIIR
 
@@ -49,10 +63,10 @@ end subroutine init_eos_HIIR
  !  Main eos routine (isothermal)
  !+
  !-----------------------------------------------------------------------
-subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
- real,    intent(in)  :: polyk,temperature_coef,mui
- real,    intent(out) :: ponrhoi,spsoundi,tempi
- logical, intent(in)  :: isionisedi
+subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
+ real, intent(in)    :: polyk,temperature_coef,mui
+ real, intent(out)   :: ponrhoi,spsoundi
+ real, intent(inout) :: tempi
 
  !
  !--dual medium isothermal eos
@@ -61,7 +75,7 @@ subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,is
  !
  !  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
  !
- if (isionisedi) then
+ if (abs(tempi-Tion) < epsilon(tempi)) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
     tempi    = Tion
@@ -78,16 +92,15 @@ end subroutine get_eos_HIIR_iso
  !  Main eos routine (adiabatic)
  !+
  !-----------------------------------------------------------------------
-subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
+subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi)
  use io, only:fatal
- real,    intent(in)  :: polyk,temperature_coef,rhoi,gammai,mui
- real,    intent(out) :: ponrhoi,spsoundi,tempi
- logical, intent(in)  :: isionisedi
- real,    intent(in), optional :: eni
+ real,    intent(in)              :: polyk,temperature_coef,rhoi,gammai,mui
+ real,    intent(out)             :: ponrhoi,spsoundi,tempi
+ real,    intent(in),    optional :: eni
 
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
- if (isionisedi) then
+ if (abs(eni-uIon) < epsilon(eni)) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
     tempi    = Tion

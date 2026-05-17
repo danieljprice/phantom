@@ -163,7 +163,7 @@ subroutine test_ptmass(ntests,npass,string)
 
  if (do_test_SDAR .or. testall .and. .not.gr) call test_SDAR(ntests,npass)
 
- if (do_test_HII .and. .not.gr) call test_HIIregion(ntests,npass)
+ if (do_test_HII .or. testall .and. .not.gr) call test_HIIregion(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -1618,15 +1618,15 @@ end subroutine test_merger
 !+
 !-----------------------------------------------------------------------
 subroutine test_HIIregion(ntests,npass)
- use dim,            only:maxp,maxphase,maxvxyzu
+ use dim,            only:maxp,maxphase,maxvxyzu,periodic,mpi
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
- use eos,            only:gmw,ieos,polyk,gamma
- use deriv,          only:get_derivs_global
+ use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
-                            npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
-                            npartoftype,fxyzu,massoftype,isionised,init_part,&
-                            iphase,isetphase,irateion,irstrom
+                          npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
+                          npartoftype,fxyzu,massoftype,init_part,&
+                          iphase,isetphase,irateion,irstrom,rhoh,&
+                          eos_vars,imu
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
  use spherical,      only:set_sphere
@@ -1635,17 +1635,24 @@ subroutine test_HIIregion(ntests,npass)
  use kernel,         only:hfact_default
  use kdtree,         only:tree_accuracy
  use testutils,      only:checkval,update_test_scores
- use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources,ar,mH
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,iH2R
  use setup_params,   only:npart_total
+ use deriv,          only:get_density_global
  integer, intent(inout) :: ntests,npass
- integer        :: np,i,nfailed(1)
- real           :: totmass,psep
- real           :: Rstrom,ci,k,rho0
- real           :: totvol,nx,rmin,rmax,temp
- if (id==master) write(iprint,"(/,a)") '--> testing HII region expansion around massive stars...'
+ integer          :: np,i,nfailed(2),itest,nion,ierr
+ real             :: totmass,psep,r2,rstrommax
+ real             :: Rstrom,ci,k,rho0,rhomean
+ real             :: totvol,nx,rmin,rmax,temp
+ character(len=22) :: string
 
+ if (mpi .or. periodic) then
+    write(iprint,*) '--> Skip HII tests when periodic or MPI are on...'
+    return
+ else
+    write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
+ endif
  call set_units(dist=pc,mass=solarm,G=1.d0)
- call init_eos_HIIR()
+ call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
  !
  ! initialise arrays to zero
@@ -1653,7 +1660,9 @@ subroutine test_HIIregion(ntests,npass)
  call init_part()
  gmw = 1.0
 
- xyzmh_ptmass(:,:) = 0.
+ xyzmh_ptmass(1,:) = 1.e-8 ! to avoid having superimposed particles
+ xyzmh_ptmass(2,:) = 0.
+ xyzmh_ptmass(3,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
  h_acc = 0.002
@@ -1679,6 +1688,7 @@ subroutine test_HIIregion(ntests,npass)
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
  npart_total = 0
+
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
     call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,nptot=npart_total,np_requested=np)
@@ -1688,10 +1698,11 @@ subroutine test_HIIregion(ntests,npass)
 !
 !--set particle properties
 !
- totmass        = 8.e3*solarm/umass
- npartoftype(:) = 0
+ totmass           = 8.e3*solarm/umass
+ rho0              = totmass/totvol
+ npartoftype(:)    = 0
  npartoftype(igas) = npart
- massoftype(:)  = 0.0
+ massoftype(:)     = 0.0
  massoftype(igas)  = totmass/npartoftype(igas)
  if (maxphase==maxp) then
     do i=1,npart
@@ -1699,15 +1710,10 @@ subroutine test_HIIregion(ntests,npass)
     enddo
  endif
 
- iH2R = 1
  if (id==master) then
     call initialize_H2R
-    !call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
  endif
 
- rho0 = totmass/totvol
-
- Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
  xyzmh_ptmass(irstrom,1) = -1.
  ci   = sqrt(polykion)
  k = 0.005
@@ -1719,14 +1725,37 @@ subroutine test_HIIregion(ntests,npass)
     vxyzu(4,:) = polyk
     ieos = 22
  endif
+ call get_density_global(2)
 
- call get_derivs_global()
+ do itest = 1,2
+    iH2R = itest
+    string = "nearest neighbors"
+    if (iH2R == 2) string = "inversed ray tracing"
+    if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    rstrommax = epsilon(rstrommax)
+    rhomean   = 0.
+    nion      = 0
 
- call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+    do i= 1,npart
+       r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
+       if (eos_vars(imu,i) < gmw) then
+          if (r2>rstrommax**2) then
+             rstrommax = sqrt(r2)
+          endif
+       endif
+       rhomean = rhomean + rhoh(xyzh(4,i),massoftype(1))
+    enddo
+    rhomean = rhomean / npart
+    Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
 
- call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.e-2,nfailed(1),'Initial strömgren radius')
-
+    call checkval(rstrommax,Rstrom,1.4e-2,nfailed(itest),'Initial strömgren radius')
+ enddo
  call update_test_scores(ntests,nfailed,npass)
+
+ call init_part()
+ iH2R = 0
+ ieos = 2
 
 end subroutine test_HIIregion
 
