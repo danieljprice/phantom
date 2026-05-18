@@ -363,8 +363,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! of each particle by interpolating from table
  !
  if (use_var_comp .or. eos_outputs_mu(ieos)) then
-    call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,&
-                              xyzh,Xfrac,Yfrac,mu,mtab,mstar,eos_vars,npin=npart_old)
+    call set_star_composition(eos_outputs_mu(ieos),npart,xyzh,Xfrac,Yfrac,&
+                              mu,mtab,mstar,eos_vars,npin=npart_old)
  endif
  !
  ! Write .comp file containing composition of each particle after interpolation

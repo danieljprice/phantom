@@ -420,11 +420,11 @@ end subroutine get_mass_coord
 !  Set the composition, if variable composition is used
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
+subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
            mu,mtab,Mstar,eos_vars,npin,x0)
  use part,        only:iX,iZ,imu
  use table_utils, only:yinterp
- logical, intent(in)  :: use_var_comp,use_mu
+ logical, intent(in)  :: eos_outputs_mu
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:),Mstar
@@ -445,11 +445,10 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
 
  do i = i1+1,npart
-    massri = mass_enclosed_r(i-i1)/Mstar
-    if (use_var_comp) then
-       eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
-       eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
-    endif
+    massri = mass_enclosed_r(i-i1)
+    eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
+    eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
+    if (.not. eos_outputs_mu) eos_vars(imu,i) = yinterp(mu,mtab,massri)
  enddo
 
 end subroutine set_star_composition
