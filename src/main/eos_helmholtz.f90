@@ -457,18 +457,20 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
        ' eni (ener)=', eni
     endif
 
-    if (itercount > 8) then ! debug output Ali
+   !  write(*,*) 'ALI flag eos_helmholtz.f90 line 446: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
+    ! iterate to new temperature
+    tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
+
+
+    if (itercount > 10) then ! debug output Ali
 
        write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
-       write(*,*) 'ALI Tnew=', tnew, &
-       ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
+       write(*,*) 'ALI Tnew=', tnew, ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
        write(*,*) 'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
        write(*,*) '(cgseni_eos - cgseni) / cgseni_eos =', (cgseni_eos - cgseni) / cgseni_eos, &
        ' eni_eos (code units)=', cgseni_eos/unit_ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
     endif
-   !  write(*,*) 'ALI flag eos_helmholtz.f90 line 446: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
-    ! iterate to new temperature
-    tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
+
     ! disallow large temperature changes
     if (tnew > 2.0 * tprev) then
        tnew = 2.0 * tprev
@@ -478,15 +480,15 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
        tnew = 0.5 * tprev
     endif
     ! exit if tolerance criterion satisfied
-   !  if (abs(tnew - tprev) < tempi * tol) then
-   !     done = .true.
-   !    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
-   !  endif
-!!! trying different convergence condition, since our priority is the internal energy converging, not the temperature
-    if (abs((cgseni_eos - cgseni) / cgseni) < tol) then
+    if (abs(tnew - tprev) < tempi * tol) then
        done = .true.
       !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
     endif
+!!! trying different convergence condition, since our priority is the internal energy converging, not the temperature
+   !  if (abs((cgseni_eos - cgseni) / cgseni) < tol) then
+   !     done = .true.
+   !    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
+   !  endif
 
     ! exit if gas is too cold or too hot
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
