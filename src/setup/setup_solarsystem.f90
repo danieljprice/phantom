@@ -186,7 +186,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !
        ! replace the sink particle with a ball of stuff
        !
-       dx = r_apophis/40.
        call set_shape('closepacked',id,master,np_apophis,xyzmh_ptmass(1:3,nptmass),r_apophis,&
                       hfact,npart,xyzh,npart_total,objfile=apophis_shape_file)
        !call set_sphere('closepacked',id,master,0.,r_apophis,dx,hfact,npart,xyzh,npart_total,&
@@ -200,8 +199,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        nptmass = nptmass - 1
 
        if (use_dem) then
-          call replace_gas_with_dem(npart,npartoftype(igas),massoftype(igas),&
-                                    xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)
+          call replace_gas_with_dem(id,npart,npartoftype(igas),massoftype(igas),&
+                                    xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,hfact)
           isink_potential = 2
        endif
        !
@@ -228,13 +227,66 @@ end subroutine setpart
 !  replace gas with discrete element method particles
 !+
 !----------------------------------------------------------------
-subroutine replace_gas_with_dem(npart,ngas,pmass,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,dx)
- use part, only:iReff
+subroutine replace_gas_with_dem(id,npart,ngas,pmass,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,hfact)
+ use part, only:iReff,ihacc
+ use units, only:udist
+ use physcon, only:km
+ use io, only:master
+ integer, intent(in)    :: id
  integer, intent(inout) :: npart,ngas,nptmass
  real, intent(inout) :: pmass,xyzh(:,:),vxyzu(:,:)
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(in) :: dx
- integer :: i
+ real, intent(in)    :: hfact
+ integer :: i,j
+ real :: dxij,dyij,dzij,dmin,reff,sep(npart)
+ real :: sep_med,sep_min,sep_max
+
+ if (npart < 1) return
+
+ !
+ ! DEM sphere radius from cropped lattice geometry (not r_apophis/40).
+ ! Use per-particle Reff = 0.5*nearest-neighbour distance so ellipsoid/mesh
+ ! surfaces do not share one radius (median) that overlaps close pairs on step 1.
+ !
+ sep_med = 0.
+ sep_min = huge(sep_min)
+ sep_max = 0.
+ if (npart == 1) then
+    sep(1) = xyzh(4,1)/hfact
+ else
+    do i=1,npart
+       dmin = huge(dmin)
+       do j=1,npart
+          if (j == i) cycle
+          dxij = xyzh(1,i) - xyzh(1,j)
+          dyij = xyzh(2,i) - xyzh(2,j)
+          dzij = xyzh(3,i) - xyzh(3,j)
+          dmin = min(dmin,sqrt(dxij*dxij + dyij*dyij + dzij*dzij))
+       enddo
+       sep(i) = dmin
+       sep_min = min(sep_min,dmin)
+       sep_max = max(sep_max,dmin)
+    enddo
+    do i=2,npart
+       dmin = sep(i)
+       j = i - 1
+       do while (j >= 1 .and. sep(j) > dmin)
+          sep(j+1) = sep(j)
+          j = j - 1
+       enddo
+       sep(j+1) = dmin
+    enddo
+    if (mod(npart,2) == 1) then
+       sep_med = sep((npart+1)/2)
+    else
+       sep_med = 0.5*(sep(npart/2) + sep(npart/2+1))
+    endif
+ endif
+
+ if (id == master) then
+    print "(a,1pg12.4,a)",' DEM NN spacing (min/median/max) = ',sep_min*udist/km,&
+          ' / ',sep_med*udist/km,' / ',sep_max*udist/km,' km'
+ endif
 
  xyzmh_ptmass(:,nptmass+1:) = 0.
  do i=1,npart
@@ -242,8 +294,9 @@ subroutine replace_gas_with_dem(npart,ngas,pmass,xyzh,vxyzu,nptmass,xyzmh_ptmass
     vxyz_ptmass(1:3,nptmass) = vxyzu(1:3,i)
     xyzmh_ptmass(1:3,nptmass) = xyzh(1:3,i)
     xyzmh_ptmass(4,nptmass) = pmass
-    xyzmh_ptmass(iReff,nptmass) = 0.5*dx*sqrt(2.)**(1./3.)
-    xyzmh_ptmass(5,nptmass) = xyzmh_ptmass(iReff,nptmass)/10.
+    reff = 0.5*sep(i)
+    xyzmh_ptmass(iReff,nptmass) = reff
+    xyzmh_ptmass(ihacc,nptmass) = reff
  enddo
  npart = 0
  ngas = 0
