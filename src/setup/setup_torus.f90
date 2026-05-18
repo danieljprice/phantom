@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -471,9 +471,9 @@ end subroutine setup_rings_inward
 !-----------------------------------------------------------------------
 subroutine setup_velocities_and_Bfields(npart,polyk,gamma,bigG,xyzh,vxyzu,Bxyz,massoftype)
  use setup_params, only:ihavesetupB
- integer, intent(in) :: npart
- real,    intent(in) :: polyk,gamma,bigG
- real,    intent(in) :: xyzh(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: polyk,gamma,bigG
+ real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),Bxyz(:,:),massoftype(:)
  integer :: i
  real :: densi,rcyl2,rcyl,rsph,omegai,v2onr,Bzi,dbeta,rhosum,pmassi

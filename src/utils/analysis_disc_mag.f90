@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,7 +22,7 @@ module analysis
  public :: do_analysis
 
  integer, parameter :: nr = 300
- real,dimension(nr) :: twist,twistprev
+ real :: twist(nr),twistprev(nr)
 
  private
 
@@ -37,7 +37,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  integer,          intent(in) :: npart,iunit,numfile
  real,             intent(in) :: xyzh(4,npart),vxyz(3,npart)
  real,             intent(in) :: pmass,time
- integer,parameter::nmaganalysis = 5
+ integer, parameter :: nmaganalysis = 5
  character(len=9) :: output
  character(len=20) :: filename
  character(len=20) :: discprefix

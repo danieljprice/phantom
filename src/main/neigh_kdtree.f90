@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -36,7 +36,7 @@ module neighkdtree
  integer(kind=8), public            :: ncells
  real, public                       :: dxcell
  real, public                       :: dcellx = 0.,dcelly = 0.,dcellz = 0.
- logical, public                    :: force_dual_walk
+ logical, public                    :: use_dualtree = .true.
  integer                            :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
@@ -136,10 +136,10 @@ end subroutine set_hmaxcell
 !+
 !-----------------------------------------------------------------------
 subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
- integer,   intent(in)           :: inode
- real,      intent(in)           :: xi,yi,zi
- real,      intent(out)          :: dx,dy,dz
- real,      intent(in), optional :: xcen(3)
+ integer, intent(in)  :: inode
+ real,    intent(in)  :: xi,yi,zi
+ real,    intent(out) :: dx,dy,dz
+ real,    intent(in), optional :: xcen(3)
 
  if (present(xcen)) then
     dx = xi - xcen(1)
@@ -160,15 +160,15 @@ end subroutine get_distance_from_centre_of_mass
 !-----------------------------------------------------------------------
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use kdtree,       only:maketree,maketreeglobal
+ use kdtree,       only:maketree,maketreeglobal!,revtree
  use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
  use allocutils,   only:allocate_array
- integer,           intent(inout) :: npart
- integer,           intent(in)    :: nactive
- real,              intent(inout) :: xyzh(:,:)
- real,              intent(in)    :: vxyzu(:,:)
- logical, optional, intent(in)    :: for_apr
+ integer, intent(inout) :: npart
+ integer, intent(in)    :: nactive
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: vxyzu(:,:)
+ logical, intent(in), optional :: for_apr
  logical :: apr_tree
 
  apr_tree = .false.
@@ -195,7 +195,13 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
     else
+       ! use revtree for small numbers of active particles to avoid tree rebuild overhead
+       ! threshold: use revtree if < 0.1% of total particles
+       !if (npart > 0 .and. nactive < 0.001*npart) then
+       !   call revtree(node,xyzh,leaf_is_active,ncells)
+       !else
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
+       !endif
     endif
  endif
 
@@ -273,12 +279,12 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- if ((get_f .or. force_dual_walk) .and. (.not.mpi)) then
+ if (get_f .and. .not.(mpi) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                       leaf_is_active,get_j,get_f,fgrav,inode)
+                          leaf_is_active,get_j,get_f,fgrav,inode)
  else
     call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                  leaf_is_active,get_j,get_f,fgrav)
+                     leaf_is_active,get_j,get_f,fgrav)
  endif
 
  if (get_f) f = fgrav + fgrav_global
@@ -320,9 +326,7 @@ subroutine write_options_tree(iunit)
  use part,         only:gravity
  integer, intent(in) :: iunit
 
- if (gravity) then
-    call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
- endif
+ if (gravity) call write_inopt(tree_accuracy,'tree_accuracy','tree opening criterion (0.0-1.0)',iunit)
 
 end subroutine write_options_tree
 
@@ -349,10 +353,10 @@ end subroutine read_options_tree
 !-----------------------------------------------------------------------
 subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  use kernel, only:radkern
- integer,            intent(in)     :: inode
- real,               intent(out)    :: xpos(3)
- real,               intent(out)    :: xsizei
- real,               intent(out)    :: rcuti
+ integer, intent(in)  :: inode
+ real,    intent(out) :: xpos(3)
+ real,    intent(out) :: xsizei
+ real,    intent(out) :: rcuti
 
  xpos    = node(inode)%xcen(1:3)
  xsizei  = node(inode)%size

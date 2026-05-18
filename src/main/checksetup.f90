@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,9 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, boundary, boundary_dyn, centreofmass, dim,
-!   dust, eos, externalforces, io, metric_tools, nicil, options, part,
-!   physcon, ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
+!   dust, eos, externalforces, inject, io, metric_tools, nicil, options,
+!   part, physcon, ptmass, ptmass_radiation, sortutils, timestep, units,
+!   utils_gr
 !
  implicit none
  public :: check_setup
@@ -57,6 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
  use dust,            only:drag_implicit
+ use inject,          only:inject_type
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -125,7 +127,7 @@ subroutine check_setup(nerror,nwarn,restart)
  elseif (npart==0 .and. nptmass==0) then
     if (id==master) print*,'WARNING! setup: npart = 0 (and no sink particles either)'
     nwarn = nwarn + 1
- elseif (npart==0) then
+ elseif (npart==0 .and. inject_type /= 'wind') then
     if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
  endif
@@ -1087,10 +1089,15 @@ end subroutine check_regnbody
 subroutine check_HIIRegion(nerror)
  use HIIRegion, only:iH2R
  use eos,       only:ieos
- use dim,       only:gr,mpi
+ use dim,       only:gr,mpi,periodic
+ use options,   only:icooling
  integer, intent(inout) :: nerror
  if (iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
     print "(/,a,/)", "Error: If HII activated, eos == 21 or 22 is mandatory..."
+    nerror = nerror + 1
+ endif
+ if (iH2R > 0 .and. ieos==22 .and. icooling==0) then
+    print "(/,a,/)", "Error: ieos==22 need cooling at edges of HII Region"
     nerror = nerror + 1
  endif
  if (iH2R > 0 .and. gr) then
@@ -1099,6 +1106,10 @@ subroutine check_HIIRegion(nerror)
  endif
  if (iH2R > 0 .and. mpi) then
     print "(/,a,/)", "Error: MPI is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+ if (iH2R > 0 .and. periodic) then
+    print "(/,a,/)", "Error: PERIODIC is not compatible with HII Region"
     nerror = nerror + 1
  endif
 end subroutine check_HIIRegion

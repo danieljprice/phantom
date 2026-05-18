@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -81,19 +81,19 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  use io,                 only:fatal
  use units,              only:udist,umass
  use physcon,            only:solarr,solarm
- integer,           intent(in)    :: iprofile,ieos
- character(len=*),  intent(in)    :: input_profile,outputfilename
- real,              intent(in)    :: ui_coef
- real,              intent(inout) :: gamma,polyk,hsoft
- real,              intent(in)    :: X_in,Z_in
- real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
- real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
- integer,           intent(out)   :: npts
- real,              intent(inout) :: rmin,Rstar,Mstar,rhocentre
- integer,           intent(in)    :: isoftcore,isofteningopt
- real,              intent(inout) :: rcore,mcore
- integer,           intent(out)   :: columns_compo
- character(len=20), allocatable, intent(out) :: comp_label(:)
+ integer,                        intent(in)    :: iprofile,ieos
+ character(len=*),               intent(in)    :: input_profile,outputfilename
+ real,                           intent(in)    :: ui_coef
+ real,                           intent(inout) :: gamma,polyk,hsoft
+ real,                           intent(in)    :: X_in,Z_in
+ real, allocatable,              intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
+ real, allocatable,              intent(out)   :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
+ integer,                        intent(out)   :: npts
+ real,                           intent(inout) :: rmin,Rstar,Mstar,rhocentre
+ integer,                        intent(in)    :: isoftcore,isofteningopt
+ real,                           intent(inout) :: rcore,mcore
+ integer,                        intent(out)   :: columns_compo
+ character(len=20), allocatable, intent(out)   :: comp_label(:)
  integer :: ierr,eos_type
  logical :: calc_polyk,iexist,regrid_core
  procedure(func), pointer :: get_dPdrho
@@ -310,7 +310,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  ! set particle type as gas particles
  !
  npartoftype(igas) = npartoftype(igas) + npart - npart_old   ! npart is number on this thread only
- do i=npart_old+1,npart_old+npart
+ do i=npart_old+1,npart
     call set_particle_type(i,igas)
  enddo
  !
@@ -328,8 +328,8 @@ end subroutine set_star_density
 subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
                             hsoft,ilum,lcore,iptmass_core,ierr)
  integer, intent(out) :: nptmass,ierr,iptmass_core
- real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(in)     :: mcore,hsoft,lcore
+ real,    intent(out) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)  :: mcore,hsoft,lcore
  integer, intent(in)  :: ihsoft,ilum
  integer              :: n
 
@@ -369,9 +369,9 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  use dim,       only:use_apr
  use part,      only:igas,apr_level,massoftype,aprmassoftype
  use sortutils, only:sort_by_radius
- integer, intent(in)  :: i1,npart
- real,    intent(in)  :: xyzh(:,:),x0(3)
- real,    intent(out), allocatable :: mass_enclosed_r(:)
+ integer,           intent(in)  :: i1,npart
+ real,              intent(in)  :: xyzh(:,:),x0(3)
+ real, allocatable, intent(out) :: mass_enclosed_r(:)
  integer, allocatable :: iorder(:)
  real :: massri,mass_at_r,pmassi,r2,r2prev
  integer :: i,j,iprev
@@ -444,12 +444,17 @@ subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
  ! this does NOT work with MPI
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,mass_enclosed_r,Mstar,use_var_comp) &
+ !$omp shared(Xfrac,Yfrac,mtab,eos_vars) &
+ !$omp private(i,massri)
  do i = i1+1,npart
     massri = mass_enclosed_r(i-i1)
     eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
     eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
     if (.not. eos_outputs_mu) eos_vars(imu,i) = yinterp(mu,mtab,massri)
  enddo
+ !$omp end parallel do
 
 end subroutine set_star_composition
 
@@ -491,6 +496,15 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  xorigin = 0.
  if (present(x0)) xorigin = x0
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,r,npts) &
+ !$omp shared(relaxed,use_var_comp,apr_level,aprmassoftype) &
+ !$omp shared(massoftype,ieos,initialtemp,polyk_in) &
+ !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &
+ !$omp shared(radprop,gmw) &
+ !$omp private(i,hi,pmassi,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
+ !$omp private(xi,yi,zi,p_on_rhogas,spsoundi,egasrad,eint,mu,u_gasrec) &
+ !$omp private(dum,eos_type,cv_type,ierr,do_radiation_local)
  do i = i1+1,npart
     if (relaxed) then
        hi = xyzh(4,i)
@@ -577,6 +591,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
 
     endif
  enddo
+ !$omp end parallel do
 
 end subroutine set_star_thermalenergy
 
@@ -588,9 +603,9 @@ end subroutine set_star_thermalenergy
 subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
  use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
  use physcon, only:radconst,Rg
- integer, intent(in) :: eos_type
- real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
- logical, intent(in) :: regrid_core
+ integer,           intent(in)    :: eos_type
+ real,              intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
+ logical,           intent(in)    :: regrid_core
  real, allocatable, intent(inout) :: temp(:),en(:),mu(:)
  integer             :: i,ierr
  real                :: guessene,tempi,eni

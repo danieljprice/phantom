@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,14 +14,14 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, metric_tools, neighkdtree, options, part,
-!   porosity, ptmass, ptmass_radiation, radiation_implicit, timestep,
-!   timestep_ind, timing
+! :Dependencies: HIIRegion, cons2prim, densityforce, derivutils, dim,
+!   externalforces, forces, forcing, growth, io, metric_tools, neighkdtree,
+!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
+!   timestep, timestep_ind, timing
 !
  implicit none
 
- public :: derivs, get_derivs_global
+ public :: derivs, get_derivs_global, get_density_global
  real, private :: stressmax
 
  private
@@ -61,31 +61,32 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
- integer,      intent(in)    :: icall
- integer,      intent(inout) :: npart
- integer,      intent(in)    :: nactive
- real,         intent(inout) :: xyzh(:,:)
- real,         intent(inout) :: vxyzu(:,:)
- real,         intent(inout) :: fxyzu(:,:)
- real,         intent(in)    :: fext(:,:)
- real(kind=4), intent(out)   :: divcurlv(:,:)
- real(kind=4), intent(out)   :: divcurlB(:,:)
- real,         intent(in)    :: Bevol(:,:)
- real,         intent(out)   :: dBevol(:,:)
- real,         intent(inout) :: rad(:,:)
- real,         intent(out)   :: eos_vars(:,:)
- real,         intent(out)   :: drad(:,:)
- real,         intent(inout) :: radprop(:,:)
- real,         intent(in)    :: dustevol(:,:)
- real,         intent(inout) :: dustprop(:,:)
- real,         intent(out)   :: dustfrac(:,:)
- real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
- real,         intent(inout) :: filfac(:)
- real,         intent(in)    :: time,dt
- real,         intent(out)   :: dtnew
- real,         intent(inout) :: pxyzu(:,:), dens(:)
- real,         intent(inout) :: metrics(:,:,:,:)
- integer(kind=1), intent(in) :: apr_level(:)
+ use HIIRegion,      only:HIIupdateflag,iH2R,HII_feedback
+ integer,         intent(in)    :: icall
+ integer,         intent(inout) :: npart
+ integer,         intent(in)    :: nactive
+ real,            intent(inout) :: xyzh(:,:)
+ real,            intent(inout) :: vxyzu(:,:)
+ real,            intent(inout) :: fxyzu(:,:)
+ real,            intent(in)    :: fext(:,:)
+ real(kind=4),    intent(out)   :: divcurlv(:,:)
+ real(kind=4),    intent(out)   :: divcurlB(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ real,            intent(out)   :: dBevol(:,:)
+ real,            intent(inout) :: rad(:,:)
+ real,            intent(out)   :: eos_vars(:,:)
+ real,            intent(out)   :: drad(:,:)
+ real,            intent(inout) :: radprop(:,:)
+ real,            intent(in)    :: dustevol(:,:)
+ real,            intent(inout) :: dustprop(:,:)
+ real,            intent(out)   :: dustfrac(:,:)
+ real,            intent(out)   :: ddustevol(:,:),ddustprop(:,:)
+ real,            intent(inout) :: filfac(:)
+ real,            intent(in)    :: time,dt
+ real,            intent(out)   :: dtnew
+ real,            intent(inout) :: pxyzu(:,:), dens(:)
+ real,            intent(inout) :: metrics(:,:,:,:)
+ integer(kind=1), intent(in)    :: apr_level(:)
  integer                     :: ierr,i
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
@@ -142,6 +143,16 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     endif
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
+ endif
+!
+!-- update ionising state of the particle if HII regions are used in cluster formation simulations
+!
+ if (iH2R >0) then
+    if (HIIupdateflag) then
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+       HIIupdateflag = .false.
+    endif
+    call do_timing('HII_region',tlast,tcpulast)
  endif
 
  if (gr) then
@@ -242,7 +253,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  real(kind=4), intent(out), optional :: tused
  real,         intent(out), optional :: dt_new
  real,         intent(in),  optional :: dt  ! optional argument needed to test implicit radiation routine
- integer     , intent(in),  optional :: icall
+ integer,      intent(in),  optional :: icall
  real(kind=4) :: t1,t2
  real    :: dtnew
  real    :: time,dti
@@ -271,5 +282,49 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  if (present(dt_new)) dt_new = dtnew
 
 end subroutine get_derivs_global
+
+!--------------------------------------
+!+
+!  wrapper for the call to densityiterate
+!  so only one line needs changing
+!  if interface changes
+!
+!  this should be used when one requires just a density calculation
+!  and store results in the global shared arrays
+!+
+!--------------------------------------
+subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                        Bevol,alphaind,gradh,rad,radprop,dvdx,apr_level
+ use densityforce, only:densityiterate
+ use neighkdtree,  only:build_tree
+ integer, intent(in) :: icall
+ integer, intent(in), optional :: nactive
+ logical, intent(in), optional :: zero_fxyzu
+ logical, intent(in), optional :: make_tree
+ integer :: nactivei
+ logical :: do_tree
+ real    :: stressmax
+
+ nactivei = npart
+ if (present(nactive)) nactivei = nactive
+
+ do_tree = .true.
+ if (present(make_tree)) do_tree = make_tree
+
+ ! build tree to prepare neighbour finding (if requested)
+ if (do_tree) call build_tree(npart,nactivei,xyzh,vxyzu)
+
+ ! optionally zero fxyzu (useful for initialization)
+ if (present(zero_fxyzu)) then
+    if (zero_fxyzu) fxyzu = 0.
+ endif
+
+ ! evaluate density
+ stressmax = 0.
+ call densityiterate(icall,npart,nactivei,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
+                     fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+
+end subroutine get_density_global
 
 end module deriv

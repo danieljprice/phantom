@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,8 +23,8 @@ module grids_for_setup
 
  implicit none
  public   init_grid_sigma,init_grid_ecc,deallocate_sigma,deallocate_ecc
- real, dimension(:,:), allocatable :: dataecc, datasigma
- real, dimension(:), allocatable :: dsigmadx, deda, ddeda !second derivative
+ real, allocatable :: dataecc(:,:), datasigma(:,:)
+ real, allocatable :: dsigmadx(:), deda(:), ddeda(:) !second derivative
  logical :: ecc_initialised=.false.,sigma_initialised=.false.
 
 contains
@@ -54,8 +54,8 @@ subroutine init_grid_ecc(Rin,Rout)
 end subroutine init_grid_ecc
 
 subroutine rescale(Rin,Rout,dataset)
- real, intent(in) :: Rin,Rout
- real, dimension(:,:), intent(inout) :: dataset
+ real, intent(in)    :: Rin,Rout
+ real, intent(inout) :: dataset(:,:)
  real :: x(size(dataset(:,1))),xin,xout
  integer :: Nsize
 

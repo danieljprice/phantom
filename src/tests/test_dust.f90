@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -743,8 +743,8 @@ end subroutine test_epsteinstokes
 subroutine write_file(time,xyzh,dustfrac,npart)
  use dim,  only:maxp
  use part, only:ndusttypes
- real, intent(in)     :: time
- real, intent(in)    :: xyzh(:,:),dustfrac(:,:)
+ real,    intent(in) :: time
+ real,    intent(in) :: xyzh(:,:),dustfrac(:,:)
  integer, intent(in) :: npart
  character(len=30)   :: filename,str1,str2,fmt1
  integer :: i,lu

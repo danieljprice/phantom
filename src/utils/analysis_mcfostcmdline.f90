@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -33,7 +33,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(in)    :: particlemass,time
  real,             intent(inout) :: vxyzu(:,:)
- real(kind=4), dimension(:), allocatable :: T_SPH
+ real(kind=4), allocatable :: T_SPH(:)
  integer :: n_SPH, file_size, ierr, i, stat
  logical :: file_exists
 

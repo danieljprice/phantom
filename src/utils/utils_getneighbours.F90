@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,8 +20,8 @@ module getneighbours
  implicit none
 
  public :: generate_neighbour_lists, neighbours_stats, read_neighbours, write_neighbours
- integer, public, allocatable, dimension(:)   :: neighcount
- integer, public, allocatable, dimension(:,:) :: neighb
+ integer, public, allocatable :: neighcount(:)
+ integer, public, allocatable :: neighb(:,:)
  real,    public            :: meanneigh, sdneigh, neighcrit
  logical                    :: neigh_overload
  integer,         parameter :: maxcellcache =  50000
@@ -46,11 +46,11 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- real,             intent(in)     :: xyzh(:,:),vxyzu(:,:)
- integer,          intent(in)     :: npart
- character(len=*), intent(in)     :: dumpfile
- logical,          intent(in)     :: write_neighbour_list
- real, allocatable, dimension(:,:) :: dumxyzh
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
+ logical,          intent(in) :: write_neighbour_list
+ real, allocatable :: dumxyzh(:,:)
 
  integer      :: i,j,k,p,ip,icell,ineigh,nneigh,dummynpart
  integer      :: ineigh_all(neighall)
@@ -102,7 +102,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  ! Allocate threadprivate arrays within parallel region
  ! to ensure each thread gets allocated copy
  if (.not.allocated(listneigh)) allocate(listneigh(maxp))
- if (.not.allocated(xyzcache)) allocate(xyzcache(maxcellcache,4))
+ if (.not.allocated(xyzcache)) allocate(xyzcache(4,maxcellcache))
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)

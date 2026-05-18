@@ -11,10 +11,9 @@ al. (in prep) <https://media.giphy.com/media/XIqCQx02E1U9W/giphy.>`__.
  disc, you can tilt and warp everything if you want and many more. Be
  creative :).
 
-If you find a bug, please report it either on the phantom slack channel
-or by sending me an email at arnaud.vericel@univ-lyon1.fr
+If you find a bug, please report it via github issues.
 
-The algorithm is tested automatically by the nightly test suite, but you
+The algorithm is tested automatically in the github actions workflow, but you
 can check the test manually in your phantom repository:
 
 ::

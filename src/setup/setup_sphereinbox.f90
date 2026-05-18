@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -43,11 +43,11 @@ module setup
 !   - totmass_sphere   : *mass of sphere in code units*
 !   - use_BE_sphere    : *centrally condense as a BE sphere*
 !
-! :Dependencies: boundary, centreofmass, datafiles, dim, dust,
-!   dynamic_dtmax, eos, eos_barotropic, infile_utils, io, io_control,
-!   kernel, mpidomain, options, part, physcon, prompting, ptmass,
-!   rho_profile, set_dust_options, setunits, setup_params, spherical,
-!   systemutils, timestep, unifdis, units, utils_shuffleparticles, velfield
+! :Dependencies: boundary, centreofmass, datafiles, dim, dynamic_dtmax,
+!   eos, eos_barotropic, infile_utils, io, io_control, kernel, mpidomain,
+!   options, part, physcon, prompting, ptmass, rho_profile,
+!   set_dust_options, setunits, setup_params, spherical, systemutils,
+!   timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge
  use dim,      only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal
@@ -98,12 +98,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal
  use eos,          only:polyk2
  use part,         only:Bxyz,igas,idust,set_particle_type
- use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,ilimitdustfluxinp,&
+ use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,&
                             ndustsmallinp,ndustlargeinp,dust_method
  use options,      only:use_dustfrac
  use kernel,       only:hfact_default
  use infile_utils, only:get_options,infile_exists
- use dust,         only:ilimitdustflux
  use units,        only:umass,udist
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -140,7 +139,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ndustsmall = ndustsmallinp
     ndustlarge = ndustlargeinp
     call set_dust_grain_distribution(ndusttypes,dustbinfrac,grainsize,graindens,udist,umass)
-    ilimitdustflux = ilimitdustfluxinp
  endif
 
  ! setup geometry, boundaries, and physical properties
@@ -235,14 +233,14 @@ subroutine setup_geometry_and_physics(rtab,rhotab,dens_sphere,dens_medium,cs_sph
  use setup_params,   only:rhozero,rmax,ihavesetupB
  use part,           only:Bextx,Bexty,Bextz
  use rho_profile,    only:rho_bonnorebert
- real, intent(out), allocatable :: rtab(:), rhotab(:)
- real, intent(out) :: vol_box,vol_sphere
- real, intent(out) :: dens_sphere, dens_medium, cs_sphere, cs_medium
- real, intent(out) :: totmass, totmass_box, t_ff, angvel_code, Bzero, przero
- real, intent(out) :: central_density, edge_density, area, rmasstoflux_crit
- real, intent(out) :: polyk, polyk2, gamma
- real, intent(out) :: h_acc_setup
- integer, intent(out) :: iBElast
+ real, allocatable, intent(out) :: rtab(:), rhotab(:)
+ real,              intent(out) :: vol_box,vol_sphere
+ real,              intent(out) :: dens_sphere, dens_medium, cs_sphere, cs_medium
+ real,              intent(out) :: totmass, totmass_box, t_ff, angvel_code, Bzero, przero
+ real,              intent(out) :: central_density, edge_density, area, rmasstoflux_crit
+ real,              intent(out) :: polyk, polyk2, gamma
+ real,              intent(out) :: h_acc_setup
+ integer,           intent(out) :: iBElast
  integer :: ierr, iBE
  real :: rhocritTcgs
 
@@ -364,7 +362,7 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
  use io,                     only:iprint
  use boundary,               only:xmin,xmax,ymin,ymax,zmin,zmax,dxbound
  use setup_params,           only:rmax
- integer,           intent(in)   :: id,master
+ integer,           intent(in)    :: id,master
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:),npartsphere
  integer(kind=8),   intent(out)   :: npart_total
@@ -375,7 +373,7 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
  real,              intent(out)   :: massoftype(:)
  real,              intent(in)    :: dens_sphere,dens_medium,totmass,vol_box,vol_sphere,dtg
  character(len=20), intent(in)    :: fileprefix
- real,              intent(inout), allocatable :: rtab(:), rhotab(:)
+ real, allocatable, intent(inout) :: rtab(:), rhotab(:)
  integer :: i,np_in,ierr
  real :: psep,psep_box,pmass_dusttogas
 
@@ -617,8 +615,8 @@ subroutine setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
  use eos,          only:ieos,icooling
  use infile_utils, only:infile_exists
  character(len=20), intent(in) :: fileprefix
- real, intent(in) :: t_ff
- real, intent(in) :: h_acc_setup
+ real,              intent(in) :: t_ff
+ real,              intent(in) :: h_acc_setup
  ! set default runtime parameters if .in file does not exist
  !
  dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,10 +26,10 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  integer, parameter :: iu = 1993
  logical, save      :: first = .true.
  real    :: ekin_av,epot_av,e_av
@@ -59,9 +59,9 @@ end subroutine do_analysis
 !-----------------------------------------------------------------------
 subroutine get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
  use part, only:isdead_or_accreted
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(out)   :: ekin_av,epot_av,e_av
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(out) :: ekin_av,epot_av,e_av
  integer :: i,n
  real    :: v2,r
 

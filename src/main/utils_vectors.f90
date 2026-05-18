@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module vectorutils
 !
  implicit none
  public :: minmaxave,cross_product3D,curl3D_epsijk,det
- public :: matrixinvert3D,rotatevec,unitvec,mag
+ public :: matrixinvert3D,rotatevec,unitvec,mag,make_perp_frame
 
  private
 
@@ -30,10 +30,10 @@ contains
 !+
 !-------------------------------------------------------------------
 subroutine minmaxave(x,xmin,xmax,xav,npts)
- integer :: i
  integer, intent(in)  :: npts
  real,    intent(in)  :: x(npts)
  real,    intent(out) :: xmin,xmax,xav
+ integer :: i
 
  xav = 0.
  xmin = huge(xmin)
@@ -140,10 +140,10 @@ end function det
 !+
 !------------------------------------------------------------------------
 pure subroutine rotatevec(u,v,theta)
- real, dimension(3), intent(inout) :: u
- real, dimension(3), intent(in)    :: v
- real, intent(in)   :: theta
- real, dimension(3) :: k,w
+ real, intent(inout) :: u(3)
+ real, intent(in)    :: v(3)
+ real, intent(in)    :: theta
+ real :: k(3),w(3)
 
  !--normalise v
  k = v/sqrt(dot_product(v,v))
@@ -182,5 +182,39 @@ pure function mag(u) result(umag)
  umag = sqrt(dot_product(u,u))
 
 end function mag
+
+!--------------------------------------------------------------------------------
+! +
+!   Build two perpendicular unit vectors {b, c} that complete a right–handed frame
+! +
+!--------------------------------------------------------------------------------
+pure subroutine make_perp_frame(a, b, c)
+ real, intent(in)  :: a(3)     ! arbitrary non-zero vector
+ real, intent(out) :: b(3), c(3)
+
+ real :: aa(3), inv_norm
+
+ ! normalise a
+ inv_norm = 1.0 / sqrt(sum(a*a))
+ aa        = a * inv_norm          ! temporarily store â in c (a is intent in so we can't modify it)
+
+ ! pick the largest component in magnitude
+ select case (maxloc(abs(aa), dim=1))
+ case (1)                          ! |a_x| is largest -> use y-axis
+    b = (/ 0.0, 1.0, 0.0 /)
+ case (2)                          ! |a_y| is largest -> use z-axis
+    b = (/ 0.0, 0.0, 1.0 /)
+ case default                      ! |a_z| is largest -> use x-axis
+    b = (/ 1.0, 0.0, 0.0 /)
+ end select
+
+ ! make b perpendicular to a via Gram–Schmidt process (https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process)
+ b = b - dot_product(b, aa) * aa
+ inv_norm = 1.0 / sqrt(sum(b*b))
+ b = b * inv_norm
+
+ ! c = a x b
+ call cross_product3D(aa, b, c)
+end subroutine make_perp_frame
 
 end module vectorutils

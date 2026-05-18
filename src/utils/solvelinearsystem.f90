@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -88,8 +88,8 @@ subroutine dple(rowk, n, a, b, c, ierr)
  end interface
 
 ! Local variables
- real (dp)  :: bk, cj, ck, c1, dkj
  real (dp), parameter  :: zero = 0.0_dp
+ real (dp)  :: bk, cj, ck, c1, dkj
  real (dp)  :: wk(n*n/4 + n + 3)
  integer    :: i, iflag, ij, ijold, ik, iwk(n), j, k, kjold, km1, kp1,   &
               last, lastm1, lcol, lcolp1, m, maxwk, mjold, nm1, np1

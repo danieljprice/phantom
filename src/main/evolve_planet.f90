@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,7 +29,7 @@ subroutine evolve_planet(pbondi,rbondi,mdotacc,mdotwind)
 ! this routine should call James' code to calculate mdotacc and mdotwind for boil-off
  use units, only:umass,utime
  use physcon, only:jupiterm,years
- real, intent(in) :: pbondi,rbondi
+ real, intent(in)  :: pbondi,rbondi
  real, intent(out) :: mdotacc,mdotwind
 
  mdotacc = 0.

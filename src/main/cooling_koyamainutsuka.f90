@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -160,8 +160,8 @@ subroutine cooling_KoyamaInutsuka_implicit(eni,rhoi,dt,dudti)
  use io,  only:fatal
  use eos, only:gamma,temperature_coef,gmw
 
- real, intent(in)    :: rhoi,eni,dt
- real, intent(out)   :: dudti
+ real, intent(in)  :: rhoi,eni,dt
+ real, intent(out) :: dudti
 
  integer             :: i,j,jm1
  real                :: ponrhoi,tempi,eni_equil,eni_final,deni,tau1,LambdaKI

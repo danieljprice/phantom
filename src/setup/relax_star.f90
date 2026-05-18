@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -76,18 +76,18 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
  use neighkdtree,     only:allocate_neigh
- integer, intent(in)    :: nt,iptmass_core
- integer, intent(inout) :: npart
- real,    intent(in)    :: rho(nt),pr(nt),r(nt)
- logical, intent(in)    :: use_var_comp
- real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
- real,    intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
- integer, intent(out)   :: ierr
- integer, intent(in), optional :: npin
- character(len=*), intent(in), optional :: label
- logical, intent(in),  optional :: write_dumps
- real,    intent(out), optional :: density_error,energy_error
- real,    intent(in),  optional :: mtab(nt)
+ integer,           intent(in)    :: nt,iptmass_core
+ integer,           intent(inout) :: npart
+ real,              intent(in)    :: rho(nt),pr(nt),r(nt)
+ logical,           intent(in)    :: use_var_comp
+ real, allocatable, intent(in)    :: Xfrac(:),Yfrac(:),mu(:)
+ real,              intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
+ integer,           intent(out)   :: ierr
+ integer,           intent(in),  optional :: npin
+ character(len=*),  intent(in),  optional :: label
+ logical,           intent(in),  optional :: write_dumps
+ real,              intent(out), optional :: density_error,energy_error
+ real,              intent(in),  optional :: mtab(nt)
  integer :: nits,nerr,nwarn,iunit,i1
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3),mtot
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
@@ -367,9 +367,9 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  use eos,   only:get_spsound
  use options, only:ieos
  use dim,   only:use_apr
- integer, intent(in) :: i1,npart
- real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
- real, intent(out)   :: dtmin
+ integer, intent(in)    :: i1,npart
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(out)   :: dtmin
  real :: dx(3),dti,phi,rhoi,cs,hi,pmassi
  integer :: i,nlargeshift
 !
@@ -423,10 +423,10 @@ end subroutine shift_particles
 !+
 !----------------------------------------------------------------
 subroutine shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
- integer, intent(in) :: i1,npart,iptmass_core
- real, intent(inout) :: xyzh(:,:)
- real, intent(in)    :: x0(3)
- real, intent(inout) :: xyzmh_ptmass(:,:)
+ integer, intent(in)    :: i1,npart,iptmass_core
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: x0(3)
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
  integer :: i
 
  !$omp parallel do schedule(guided) default(none) &
@@ -458,11 +458,11 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
  use dim,           only:do_radiation,use_apr
  use eos,           only:gamma
  use setstar_utils, only:get_mass_coord
- integer, intent(in) :: i1,npart,nt
- real, intent(in)    :: xyzh(:,:),x0(3),mr(nt),rho(nt),utherm(nt),entrop(nt)
- real, intent(inout) :: vxyzu(:,:),rad(:,:)
- real, intent(out)   :: rmax,rmserr
- logical, intent(in) :: fix_entrop
+ integer, intent(in)    :: i1,npart,nt
+ real,    intent(in)    :: xyzh(:,:),x0(3),mr(nt),rho(nt),utherm(nt),entrop(nt)
+ real,    intent(inout) :: vxyzu(:,:),rad(:,:)
+ real,    intent(out)   :: rmax,rmserr
+ logical, intent(in)    :: fix_entrop
  real :: ri,rhor,rhoi,rho1,mstar,massri,pmassi
  real, allocatable :: mass_enclosed_r(:)
  integer :: i
@@ -474,6 +474,12 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  mstar = mr(nt)
 
+ !$omp parallel do schedule(guided) default(none) &
+ !$omp shared(i1,npart,xyzh,vxyzu,x0,mass_enclosed_r,mr,rho,utherm,entrop) &
+ !$omp shared(fix_entrop,gamma,apr_level,aprmassoftype,massoftype) &
+ !$omp private(i,ri,rhor,rhoi,massri,pmassi) &
+ !$omp reduction(+:rmserr) &
+ !$omp reduction(max:rmax)
  do i = i1+1,npart
     ri = sqrt(dot_product(xyzh(1:3,i)-x0,xyzh(1:3,i)-x0))
     massri = mass_enclosed_r(i-i1)
@@ -495,6 +501,7 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rho,&
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
  enddo
+ !$omp end parallel do
  if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
 
@@ -615,7 +622,7 @@ end subroutine check_for_existing_file
 !--------------------------------------------------
 function get_mr(rho,r) result(mr)
  use physcon, only:pi
- real, intent(in)  :: rho(:),r(:)
+ real, intent(in) :: rho(:),r(:)
  real :: mr(size(r))
  integer :: i
 
@@ -671,7 +678,7 @@ end subroutine write_options_relax
 subroutine read_options_relax(db,nerr)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
- integer,      intent(inout) :: nerr
+ integer,                   intent(inout) :: nerr
 
  call read_inopt(tol_ekin,'tol_ekin',db,errcount=nerr)
  call read_inopt(maxits,'maxits',db,errcount=nerr)

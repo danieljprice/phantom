@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,17 +14,17 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, metric_et_utils, table_utils
+! :Dependencies: dump_utils, infile_utils, metric_et_utils, table_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
- integer,          parameter :: imetric     = 6
+ integer,          parameter :: imetric     = 7
  ! This are dummy parameters to stop the compiler complaing
  ! Not used anywhere in the code - Needs a fix!
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 0.0       ! spin of central object
-contains
 
+contains
 !----------------------------------------------------------------
 !+
 !  Compute the metric tensor in both covariant (gcov) and
@@ -113,8 +113,8 @@ end subroutine get_metric_spherical
 !-----------------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  use metric_et_utils, only:gridinit
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
  integer :: ierr
 
  if (.not. gridinit) then
@@ -139,8 +139,8 @@ end subroutine metric_cartesian_derivatives
 !+
 !-----------------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta
 
  r     = position(1)
@@ -179,6 +179,58 @@ pure subroutine cartesian2spherical(xcart,xspher)
  xspher   = (/r,theta,phi/)
 
 end subroutine cartesian2spherical
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
+!-----------------------------------------------------------------------
+!+
+!  Check if a particle should be accreted by the black hole
+!+
+!-----------------------------------------------------------------------
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius
+ logical, intent(out) :: accreted
+
+ accreted = .false.
+
+end subroutine accrete_particles_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(inout) :: hdr
+ real,         intent(in)    :: time,accradius
+ integer,      intent(out)   :: ierr
+
+ ierr = 0
+
+end subroutine write_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_metric(hdr,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr  = 0
+
+end subroutine read_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+
@@ -220,7 +272,7 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
- real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
+ real, intent(out), optional :: gcon(0:3,0:3), sqrtg
  integer :: xlower,ylower,zlower!,xupper,yupper,zupper
  real    :: xlowerpos,ylowerpos,zlowerpos
  real :: xd,yd,zd
@@ -414,8 +466,8 @@ end subroutine interpolate_metric_derivs
 !-----------------------------------------------------------------------
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
  use metric_et_utils, only:gridorigin
- real, intent(in) :: position(3)
- real, intent(in) :: dx(3)
+ real,    intent(in)  :: position(3)
+ real,    intent(in)  :: dx(3)
  integer, intent(out) :: xlower,ylower,zlower
 
  ! Get the lower grid neighbours of the position
