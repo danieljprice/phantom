@@ -233,12 +233,12 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=igasP)
        endif
        ! write X, Z, mu to file
-       if (eos_outputs_mu(ieos)) then
+       if (use_var_comp) then
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iX)
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
+       endif
+       if (use_var_comp .or. eos_outputs_mu(ieos)) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=imu)
-          if (use_var_comp) then
-             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iX)
-             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
-          endif
        endif
        ! write stamatellos cooling values
        if (icooling == 9) then
