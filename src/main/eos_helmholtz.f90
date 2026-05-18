@@ -404,7 +404,8 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(out)   :: ponrhoi
  real, intent(out)   :: spsoundi
  real, intent(in)    :: eni
- integer, parameter  :: maxiter = 20 ! I have established that 10 is too low and borderline.
+ integer, parameter  :: maxiter = 30 ! I have established that 10 is too low and borderline, even 20 is a bit low close
+ ! to wd tidal disruption as sometimes they go up to 19 iterations before convergence.
  real,    parameter  :: tol = 1.0e-4  ! temperature convergence
  logical :: done
  integer :: itercount
@@ -456,11 +457,15 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
        ' eni (ener)=', eni
     endif
 
-   !  if (itercount > 8) then ! debug output Ali
+    if (itercount > 8) then ! debug output Ali
 
-   !     write(*,*) 'ALI flag eos_helmholtz.f90 line 456: CHECKS tnew=', tnew
-   !     write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
-   !  endif
+       write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
+       write(*,*) 'ALI Tnew=', tnew, &
+       ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
+       write(*,*) 'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
+       write(*,*) '(cgseni_eos - cgseni) / cgseni_eos =', (cgseni_eos - cgseni) / cgseni_eos, &
+       ' eni_eos (code units)=', cgseni_eos/unit_ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
+    endif
    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 446: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
     ! iterate to new temperature
     tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
