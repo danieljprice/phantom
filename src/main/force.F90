@@ -746,7 +746,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        enddo
     endif
  endif
- write(*,*) 'GLOBAL MIN dtf=',global_dtf_min,' particle=',global_ip_min !ali test for dtforce control
+ write(*,*) 'GLOBAL MIN dtf=',global_dtf_min,' particle=',global_ip_tf_min !ali test for dtforce control
  write(*,*) 'GLOBAL MIN dtc=',global_dtc_min,' particle=',global_ip_tc_min !ali test for dtcool control
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
