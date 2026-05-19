@@ -1104,8 +1104,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
     eos_vars(imu,i)    = nucleation(idmu,i)
     eos_vars(igamma,i) = nucleation(idgamma,i)
  elseif (update_muGamma) then
-    call calc_muGamma(rhoi,eos_vars(
-    ,i),eos_vars(imu,i),eos_vars(igamma,i),pH,pH_tot)
+    call calc_muGamma(rhoi,eos_vars(itemp,i),eos_vars(imu,i),eos_vars(igamma,i),pH,pH_tot)
  endif
  !
  ! COOLING
