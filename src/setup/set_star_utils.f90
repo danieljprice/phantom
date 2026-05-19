@@ -134,7 +134,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
           call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
                            Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr,cgsunits=.true.)
        endif
-       if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
+       if (ierr /= 0) call fatal('setup','error in reading stellar profile from '//trim(input_profile))
        if (do_radiation) then
           eos_type = 12
        else
@@ -421,13 +421,13 @@ end subroutine get_mass_coord
 !+
 !-----------------------------------------------------------------------
 subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
-           mu,mtab,Mstar,eos_vars,npin,x0)
+           mu,mtab,eos_vars,npin,x0)
  use part,        only:iX,iZ,imu
  use table_utils, only:yinterp
  logical, intent(in)  :: eos_outputs_mu
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
- real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:),Mstar
+ real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:)
  real,    intent(out) :: eos_vars(:,:)
  real,    intent(in), optional :: x0(3)
  integer, intent(in), optional :: npin
@@ -445,7 +445,7 @@ subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
 
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(i1,npart,mass_enclosed_r,Mstar,use_var_comp) &
+ !$omp shared(i1,npart,mass_enclosed_r,eos_outputs_mu) &
  !$omp shared(Xfrac,Yfrac,mtab,eos_vars) &
  !$omp private(i,massri)
  do i = i1+1,npart

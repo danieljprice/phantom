@@ -594,6 +594,9 @@ subroutine init_eos(eos_type,ierr)
     if (do_radiation .and. ierr==0) then
        call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
        ierr=ierr_option_conflict !return error if using radiation and mesa EOS, shouldn't use mesa eos, as it will double count rad pres
+    elseif (use_var_comp) then
+       call error('eos','ieos=10, variable composition not supported from MESA EoS')
+       ierr=ierr_option_conflict ! can only read EoS table for fixed composition at the moment
     endif
 
  case(12)
