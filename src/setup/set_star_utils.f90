@@ -446,7 +446,7 @@ subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
 
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(i1,npart,mass_enclosed_r,eos_outputs_mu) &
- !$omp shared(Xfrac,Yfrac,mtab,eos_vars) &
+ !$omp shared(Xfrac,Yfrac,mtab,mu,eos_vars) &
  !$omp private(i,massri)
  do i = i1+1,npart
     massri = mass_enclosed_r(i-i1)
