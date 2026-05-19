@@ -448,13 +448,14 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     ! get new pressure, sound speed, energy for this temperature and density
     call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
     if (cgseni_eos < 0.0) then
-       write(*,*) 'negative energy from eos ALI eos_helmholtz.f90 line 451: tnew=', tnew, &
+       write(*,*) 'negative energy from eos ALI eos_helmholtz.f90 line 451: Tnew=', tnew, &
        ' cgseni_eos (ener)=', cgseni_eos, ' eni (code units)=', cgseni/ unit_ergg
     endif
 
     if (eni < 0.0) then
-       write(*,*) 'negative energy from hydro ALI eos_helmholtz.f90 line 451: tnew=', tnew, &
-       ' eni (ener)=', eni
+       write(*,*) 'negative energy from hydro ALI eos_helmholtz.f90 line 451: Tnew=', tnew, &
+       ' eni (cgs)=', cgseni, 'rhoi (cgs)=', cgsrhoi, ' pressure (cgs)=', cgspresi,&
+       ' sound speed (cgs)=', cgsspsoundi
     endif
 
    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 446: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
