@@ -56,7 +56,11 @@ module forces
  implicit none
 
  integer, parameter :: maxcellcache = 1000
-
+! ali global parameter for finding particle id of timesteps
+ real :: global_dtf_min = huge(1.0)
+ real :: global_dtc_min = huge(1.0)
+ integer(kind=8) :: global_ip_tf_min = -1
+ integer(kind=8) :: global_ip_tc_min = -1
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
@@ -295,7 +299,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
-
+! ali for debugging initialize
+ global_dtf_min = huge(1.0)
+ global_ip_tf_min  = -1
+ global_dtc_min = huge(1.0)
+ global_ip_tc_min  = -1
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
  ndtforce        = 0
@@ -738,7 +746,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        enddo
     endif
  endif
-
+ write(*,*) 'GLOBAL MIN dtf=',global_dtf_min,' particle=',global_ip_min !ali test for dtforce control
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
  ! are dead/inactive, e.g. after sink creation or if all
@@ -2634,7 +2642,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
-                          igamma,aprmassoftype
+                          igamma,aprmassoftype, iorig ! ali to check particle id
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -3258,6 +3266,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     dtcourant = min(dtcourant,dtc)
     dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean,dtent)
+    if (dtc < global_dtc_min) then ! ali stores the particle with the minimum courant timestep, for debugging purposes
+       global_dtc_min = dtc
+       global_ip_tc_min  = iorig(i)
+    endif
+    if (dtf < global_dtf_min) then ! ali stores the particle with the minimum force timestep, for debugging purposes
+       global_dtf_min = dtf
+       global_ip_tf_min  = iorig(i)
+    endif
     dtvisc    = min(dtvisc,dtvisci)
     if (mhd_nonideal .and. iamgasi) then
        dtohm  = min(dtohm,  dtohmi  )
