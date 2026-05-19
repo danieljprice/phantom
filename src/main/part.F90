@@ -218,6 +218,7 @@ module part
  integer, parameter :: itbirth  = 22 ! birth time of the new sink
  integer, parameter :: ivwind   = 23 ! wind velocity
  integer, parameter :: iTwind   = 24 ! wind temperature
+ integer, parameter :: iwalpha  = 30 ! alpha wind parameter
  integer, parameter :: ieject   = 25 ! number of ejected particles per sphere
  integer, parameter :: isftype  = 26 ! type of the sink (1: sink,2: star, 3:dead)
  integer, parameter :: inseed   = 27 ! number of seeds into a sink (icreate_sinks == 2)
@@ -239,7 +240,7 @@ module part
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   ',&
-    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi '/)
+    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi ','alpha    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity

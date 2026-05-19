@@ -1054,13 +1054,12 @@ end subroutine get_force
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
- use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp
+ use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp,rhoh
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
  use dust_formation,  only:evolve_dust,calc_muGamma
  use cooling,         only:energ_cooling,cooling_in_step
- use part,            only:rhoh
  use eos_HIIR,        only:muion,Tion
 #ifdef KROME
  use part,            only: T_gas_cool
@@ -1105,7 +1104,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
     eos_vars(imu,i)    = nucleation(idmu,i)
     eos_vars(igamma,i) = nucleation(idgamma,i)
  elseif (update_muGamma) then
-    call calc_muGamma(rhoi, dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i), pH, pH_tot)
+    call calc_muGamma(rhoi,eos_vars(itemp,i),eos_vars(imu,i),eos_vars(igamma,i),pH,pH_tot)
  endif
  !
  ! COOLING

@@ -15,7 +15,6 @@ module ptmass_radiation
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - alpha_rad  : *fraction of the gravitational acceleration imparted to the gas*
 !   - beta_vgrad : *characterize the steepness of the velocity gradient of the wind profile*
 !   - iget_tdust : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)*
 !   - tdust_exp  : *exponent of the dust temperature profile*
@@ -29,7 +28,6 @@ module ptmass_radiation
  integer, public  :: iget_tdust      = 0
  integer, public  :: iray_resolution = -1
  real,    public  :: tdust_exp       = 0.5
- real,    public  :: alpha_rad       = 0.
  real,    public  :: beta_vgrad      = 0.8
 
  public :: get_rad_accel_from_ptmass,calc_alpha
@@ -48,8 +46,8 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_radiation_ptmass(ierr)
- integer, intent(out) :: ierr
 
+ integer, intent(out) :: ierr
  ierr = 0
 
 end subroutine init_radiation_ptmass
@@ -60,7 +58,7 @@ end subroutine init_radiation_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz,tau,fsink_old,extrapfac)
- use part,    only:ilum,iseed_sink,iReff,ivwind
+ use part,    only:ilum,iseed_sink,iReff,ivwind,iwalpha
  use dim,     only:inject_parts
  integer, intent(in)    :: nptmass,npart,i
  real,    intent(in)    :: xi,yi,zi
@@ -69,7 +67,7 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
  real,    intent(in), optional :: tau(:)
  real,    intent(in), optional :: fsink_old(:,:)
  real,    intent(in), optional :: extrapfac
- real                    :: dx,dy,dz,Mstar,Lstar,vwind,rstar
+ real                    :: dx,dy,dz,Mstar,Lstar,vwind,rstar,alpha_rad
  integer                 :: j
  logical                 :: extrap
 
@@ -89,6 +87,7 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
     Lstar  = xyzmh_ptmass(ilum,j)
     Rstar  = xyzmh_ptmass(iReff,j)
     vwind  = xyzmh_ptmass(ivwind,j)
+    alpha_rad = xyzmh_ptmass(iwalpha,j)
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
     if (Lstar > 0.d0) then
        if (extrap) then
@@ -100,7 +99,7 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
           dy = yi - xyzmh_ptmass(2,j)
           dz = zi - xyzmh_ptmass(3,j)
        endif
-       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,fextx,fexty,fextz,tau)
+       call calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,alpha_rad,fextx,fexty,fextz,tau)
     endif
  enddo
 
@@ -111,12 +110,12 @@ end subroutine get_rad_accel_from_ptmass
 !  compute radiative acceleration on all particles
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,fextx,fexty,fextz,tau)
+subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,alpha_rad,fextx,fexty,fextz,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer, intent(in)    :: npart,i
- real,    intent(in)    :: dx,dy,dz,Lstar,Mstar,rstar,vwind
+ real,    intent(in)    :: dx,dy,dz,Lstar,Mstar,rstar,vwind,alpha_rad
  real,    intent(inout) :: fextx,fexty,fextz
  real,    intent(in), optional :: tau(:)
  real                             :: r,ax,ay,az,alpha,kappa
@@ -125,19 +124,19 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,f
  if (do_nucleation) then
     if (itau_alloc == 1) then
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
+               nucleation(idkappa,i),alpha_rad,ax,ay,az,nucleation(idalpha,i),tau(i))
     else
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
-               nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i))
+               nucleation(idkappa,i),alpha_rad,ax,ay,az,nucleation(idalpha,i))
     endif
  else
     kappa = calc_kappa_bowen(dust_temp(i))
     if (itau_alloc == 1) then
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
-               kappa,ax,ay,az,alpha,tau(i))
+               kappa,alpha_rad,ax,ay,az,alpha,tau(i))
     else
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
-               kappa,ax,ay,az,alpha)
+               kappa,alpha_rad,ax,ay,az,alpha)
     endif
  endif
  fextx = fextx + ax
@@ -212,10 +211,10 @@ end subroutine get_radiative_g0
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
-     kappa,ax,ay,az,alpha,tau_in)
+     kappa,alpha_rad,ax,ay,az,alpha,tau_in)
  use units,          only:umass,unit_luminosity
  use dust_formation, only:calc_Eddington_factor
- real, intent(in)  :: r,dx,dy,dz,Mstar,Lstar,rstar,vwind,kappa
+ real, intent(in)  :: r,dx,dy,dz,Mstar,Lstar,rstar,vwind,kappa,alpha_rad
  real, intent(out) :: ax,ay,az,alpha
  real, intent(in), optional :: tau_in
  real :: fac,tau,dalpha_dr
@@ -418,9 +417,6 @@ subroutine write_options_ptmass_radiation(iunit)
  write(iunit,"(/,a)") '# options controlling radiation pressure from sink particles'
  call write_inopt(isink_radiation,'isink_radiation', &
                   'sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust,4=alpha profile)',iunit)
- if (isink_radiation == 1 .or. isink_radiation == 3) then
-    call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
- endif
  if (isink_radiation == 2 .or. isink_radiation == 3) then
     call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)',iunit)
     if (iget_tdust /= 2) call write_inopt(iray_resolution,&
@@ -441,8 +437,7 @@ end subroutine write_options_ptmass_radiation
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(db,nerr)
- use io,             only:fatal
- use dust_formation, only:idust_opacity
+ use io,             only:error
  use dim,            only:itau_alloc,itauL_alloc
  use infile_utils,   only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
@@ -450,9 +445,6 @@ subroutine read_options_ptmass_radiation(db,nerr)
  character(len=*), parameter :: label = 'read_infile'
 
  call read_inopt(isink_radiation,'isink_radiation',db,errcount=nerr,min=0,max=4)
- if (isink_radiation == 1 .or. isink_radiation == 3) then
-    call read_inopt(alpha_rad,'alpha_rad',db,errcount=nerr,min=0.)
- endif
  if (isink_radiation == 2 .or. isink_radiation == 3) then
     call read_inopt(iget_tdust,'iget_tdust',db,errcount=nerr,min=0,max=4)
     if (iget_tdust /= 2) call read_inopt(iray_resolution,'iray_resolution',db,errcount=nerr,min=-1)
@@ -469,14 +461,6 @@ subroutine read_options_ptmass_radiation(db,nerr)
  !when Lucy is activated, no need to calculate optical depth
  if (iget_tdust == 4) itauL_alloc = 1
  if (iget_tdust == 3) itau_alloc  = 1
-
- if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
-     .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
-    call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
- if ((isink_radiation == 2 .or. isink_radiation == 3) .and. idust_opacity == 0 ) &
-    call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
- if (iget_tdust > 2 .and. iray_resolution < 0 ) &
-    call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
 
 end subroutine read_options_ptmass_radiation
 

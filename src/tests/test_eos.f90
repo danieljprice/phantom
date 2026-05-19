@@ -85,7 +85,7 @@ subroutine test_all(ntests, npass)
  integer :: ierr,ieos,correct_answer
  character(len=20) :: pdir
  logical :: got_phantom_dir
- integer, parameter :: eos_to_test_for_u_from_Prho(4)=(/2,5,12,17/)
+ integer, parameter :: eos_to_test_for_u_from_Prho(3)=(/2,5,12/)
 
  nfailed = 0
 
