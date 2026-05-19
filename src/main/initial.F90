@@ -560,7 +560,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
  use io,               only:iprint,id,master,nprocs
  use io_control,       only:set_rhofinal1
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
- use part,             only:isionised,ipert
+ use part,             only:ipert
  use subgroup,         only:subgroup_search,subgroup_init,update_kappa
  use utils_subgroup,   only:get_subgroup
  use metric_tools,     only:init_metric
@@ -601,13 +601,11 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
 
  if (iH2R > 0 .and. id==master) then
     call initialize_H2R
- else
-    isionised = .false.
+    call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  endif
 
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-    if (iH2R > 0) call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
     if (.not. gr) then
        ! compute initial sink-sink forces and get timestep
        if (use_regnbody) then
@@ -697,11 +695,11 @@ end subroutine initialise_sink_particle_forces
 subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use dim,              only:maxalpha,maxp,nalpha,do_radiation
  use part,             only:npart,fxyzu,eos_vars,alphaind
- use deriv,            only:get_derivs_global
+ use deriv,            only:get_derivs_global,get_density_global
  use timestep,         only:dtmax
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
- use part,             only:igas,massoftype,xyzh,vxyzu,rad
+ use part,             only:igas,massoftype,rad,xyzh,vxyzu
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal

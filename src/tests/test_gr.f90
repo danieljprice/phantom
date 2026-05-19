@@ -172,7 +172,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
                           metricderivs_ptmass,fxyz_ptmass,nptmass,&
                           fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,ibin_wake,gtgrad,group_info, &
-                          bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised
+                          bin_info,nmatrix,n_group,n_ingroup,n_sing
  use substepping,    only:substep_gr
  use eos,            only:ieos,gamma
  use cons2prim,      only:prim2consall
@@ -261,7 +261,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
     call substep_gr(npart,ntypes,nptmass,dt,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
                     xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
                     fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                    bin_info,nmatrix,n_group,n_ingroup,n_sing)
  enddo
 
  if (use_sink) then
