@@ -66,8 +66,8 @@ module eos
 
  public  :: equationofstate,setpolyk,eosinfo,get_mean_molecular_weight
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
- public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP,eos_outputs_temp
- public  :: get_local_u_internal,get_temperature_from_u
+ public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
+ public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
  public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos
@@ -1392,6 +1392,23 @@ logical function eos_outputs_mu(ieos)
  end select
 
 end function eos_outputs_mu
+
+!-----------------------------------------------------------------------
+!+
+!  Query function to return whether an EoS outputs the adiabatic index
+!+
+!-----------------------------------------------------------------------
+logical function eos_outputs_gamma(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(5,10,20)
+    eos_outputs_gamma = .true.
+ case default
+    eos_outputs_gamma = .false.
+ end select
+
+end function eos_outputs_gamma
 
 !-----------------------------------------------------------------------
 !+
