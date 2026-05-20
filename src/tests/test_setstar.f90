@@ -49,6 +49,9 @@ subroutine test_setstar(ntests,npass)
  ! test polytrope
  call test_polytrope(ntests,npass)
 
+ ! test red supergiant
+ call test_redsupergiant(ntests,npass)
+
 end subroutine test_setstar
 
 !-----------------------------------------------------------------------
@@ -195,5 +198,149 @@ subroutine test_polytrope(ntests,npass)
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_polytrope
+
+
+!-----------------------------------------------------------------------
+!+
+!   test that we can successfully relax a polytrope
+!   and that the profile matches the analytic solution
+!+
+!-----------------------------------------------------------------------
+subroutine test_redsupergiant(ntests,npass)
+ use io,        only:id,master,iverbose,warning
+ use datafiles, only:find_phantom_datafile
+ use part,      only:npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,igasP,imu,iX,iZ
+ use mpidomain, only:i_belong
+ use options,   only:ieos
+ use physcon,   only:solarr,solarm
+ use eos,       only:init_eos,gamma,gmw,X_in,Z_in,irecomb
+ use setstar,   only:star_t,set_star,set_defaults_star,imesa
+ use units,     only:set_units
+ use checksetup,  only:check_setup
+ use testutils,   only:checkvalbuf,checkvalbuf_end
+ use table_utils, only:yinterp
+ use readwrite_mesa, only:read_mesa
+ use setstar_utils, only:get_mass_coord
+ integer, intent(inout) :: ntests,npass
+ type(star_t) :: star
+ character(len=500) :: filepath
+ real :: rhozero,rmserr,rmserr_mu,rmserr_X,rmserr_Z,ekin,x0(3),errmax(2),Mstar,tolprof,tolcomposition,rhoj,rhoj_mesa,mj
+ integer(kind=8) :: ntot
+ integer :: ierr,nfail(1),i,j,nerror,nwarn,iunit
+ logical :: relax_star,var_comp
+ real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:),mass_enclosed_r(:)
+
+ filepath = find_phantom_datafile('lau22.data','star_data_files')
+ open(newunit=iunit,file=filepath,status="old",iostat=ierr)
+ if (ierr /= 0) then
+    call warning('test_setstar','lau22.data not found, skipping red supergiant test')
+    return
+ else
+    close(unit=iunit)
+ endif
+
+ npart = 0
+ npartoftype = 0
+ massoftype = 0.
+ iverbose = 0
+ call set_units(dist=solarr,mass=solarm,G=1.d0)
+ gamma = 5./3.
+ gmw = 0.61821
+ X_in = 0.698
+ Z_in = 1.-X_in-0.287
+ irecomb = 0
+ relax_star = .false.
+ var_comp = .false.
+ call set_defaults_star(star)
+ star%isinkcore   = .true.
+ star%hsoft          = '9.25'
+ star%hacc           = '0.0'
+ star%mcore          = '3.8405'
+ star%np             = 1000
+ star%input_profile  = trim(filepath)
+ star%iprofile = imesa
+ x0 = 0.
+
+
+ nfail = 0; errmax = 0.
+ tolprof = 0.04
+ tolcomposition = 0.08
+ do i=1,5
+    if (i==1) then  ! ideal gas EoS
+       ieos = 2
+    elseif (i==2) then  ! ideal gas + radiation EoS
+       ieos = 12
+    elseif (i==3) then  ! MESA EoS
+       ieos = 10
+    elseif (i==4) then  ! Gas + radiation + recombination energy EoS
+       ieos = 20
+    elseif (i==5) then  ! ideal gas + radiation EoS, with variable composition
+       ieos = 12
+       var_comp = .true.
+    endif
+
+    if (id==master) write(*,"(/,a,i2/)") '--> Testing ieos = ',ieos
+    call init_eos(ieos,ierr)
+
+    rmserr = 0.
+    call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
+               npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
+               relax=relax_star,use_var_comp=var_comp,write_rho_to_file=.false.,&
+               rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
+               write_files=.false.,density_error=rmserr,energy_error=ekin)
+
+    call read_mesa(filepath,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
+    Zfrac = 1.-Xfrac-Yfrac
+
+    call checkval(ierr,0,0,nfail(1),'set_star runs with ierr = 0')
+    call update_test_scores(ntests,nfail,npass)
+
+    call check_setup(nerror,nwarn,restart=.false.)
+    call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
+    call update_test_scores(ntests,nfail,npass)
+   
+    call checkval(rmserr,0.0,tolprof,nfail(1),'error in density profile')
+    call update_test_scores(ntests,nfail,npass)
+
+    call checkval(ekin,0.,1e-7,nfail(1),'ekin/epot < 1.e-7')
+    call update_test_scores(ntests,nfail,npass)
+
+    call get_mass_coord(0,npart,xyzh,mass_enclosed_r,x0)
+    rmserr_mu = 0.
+    rmserr_X = 0.
+    rmserr_Z = 0.
+    do j=1,star%np
+       mj = mass_enclosed_r(j)
+       rhoj = rhoh(xyzh(4,j),massoftype(igas))
+       rhoj_mesa = yinterp(den,mtab,mj)
+       rmserr = rmserr + (1-abs(rhoj/rhoj_mesa))**2
+
+       if (i==5) then  ! calculate rms error in mu, X, Z
+          rmserr_mu = rmserr_mu + (1-abs(eos_vars(imu,j)/yinterp(mu,mtab,mj)))**2
+          rmserr_X = rmserr_X + (1-abs(eos_vars(iX,j)/yinterp(Xfrac,mtab,mj)))**2
+          rmserr_Z = rmserr_Z + (1-abs(eos_vars(iZ,j)/yinterp(Zfrac,mtab,mj)))**2
+       endif
+    enddo
+    rmserr = sqrt(rmserr)/npart  ! root mean square relative error
+    call checkval(rmserr,0.,tolprof,nfail(1),'density matches MESA profile')
+    call update_test_scores(ntests,nfail,npass)
+
+    if (i==5) then
+       rmserr_mu = sqrt(rmserr_mu)/npart
+       rmserr_X = sqrt(rmserr_X)/npart
+       rmserr_Z = sqrt(rmserr_Z)/npart
+       call checkval(rmserr_mu,0.,tolcomposition,nfail(1),'mu matches MESA profile')
+       call update_test_scores(ntests,nfail,npass)
+       call checkval(rmserr_X,0.,tolcomposition,nfail(1),'X matches MESA profile')
+       call update_test_scores(ntests,nfail,npass)
+       call checkval(rmserr_Z,0.,tolcomposition,nfail(1),'Z matches MESA profile')
+       call update_test_scores(ntests,nfail,npass)
+    endif
+
+ enddo
+
+end subroutine test_redsupergiant
 
 end module testsetstar
