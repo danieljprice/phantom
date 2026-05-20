@@ -57,8 +57,10 @@ module forces
 
  integer, parameter :: maxcellcache = 1000
 ! ali global parameter for finding particle id of timesteps
- real :: global_dtf_min = huge(1.0)
+ real :: global_dtforce_min = huge(1.0)
  real :: global_dtc_min = huge(1.0)
+ real :: global_dtrad = huge(1.0)
+ real :: global_dtmax = huge(1.0)
  integer(kind=8) :: global_ip_tf_min = -1
  integer(kind=8) :: global_ip_tc_min = -1
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
@@ -300,7 +302,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
 ! ali for debugging initialize
- global_dtf_min = huge(1.0)
+ global_dtforce_min = huge(1.0)
  global_ip_tf_min  = -1
  global_dtc_min = huge(1.0)
  global_ip_tc_min  = -1
@@ -746,8 +748,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        enddo
     endif
  endif
- write(*,*) 'GLOBAL MIN dtf=',global_dtf_min,' particle=',global_ip_tf_min !ali test for dtforce control
+ write(*,*) 'GLOBAL MIN dtforce=',global_dtforce_min,' particle=',global_ip_tf_min !ali test for dtforce control
  write(*,*) 'GLOBAL MIN dtc=',global_dtc_min,' particle=',global_ip_tc_min !ali test for dtcool control
+ write(*,*) 'GLOBAL MAX dtmaxi=',global_dtmax
+!  write(*,*) 'GLOBAL MIN dtrad=',global_dtrad
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
  ! are dead/inactive, e.g. after sink creation or if all
@@ -3267,14 +3271,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     dtcourant = min(dtcourant,dtc)
     dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean,dtent)
-    if (dtc < global_dtc_min) then ! ali stores the particle with the minimum courant timestep, for debugging purposes
-       global_dtc_min = dtc
-       global_ip_tc_min  = iorig(i)
-    endif
-    if (dtf < global_dtf_min) then ! ali stores the particle with the minimum force timestep, for debugging purposes
-       global_dtf_min = dtf
-       global_ip_tf_min  = iorig(i)
-    endif
+
     dtvisc    = min(dtvisc,dtvisci)
     if (mhd_nonideal .and. iamgasi) then
        dtohm  = min(dtohm,  dtohmi  )
@@ -3284,6 +3281,16 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     dtmini  = min(dtmini,dti)
     dtmaxi  = max(dtmaxi,dti)
     dtrad   = min(dtrad,dtradi)
+    if (dtc < global_dtc_min) then ! ali stores the particle with the minimum courant timestep, for debugging purposes
+       global_dtc_min = dtc
+       global_ip_tc_min  = iorig(i)
+    endif
+    if (dtforce < global_dtforce_min) then ! ali stores the particle with the minimum force timestep, for debugging purposes
+       global_dtforce_min = dtforce
+       global_ip_tf_min  = iorig(i)
+    endif
+    global_dtmax = dtmaxi
+    global_dtrad = dtrad 
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
