@@ -129,14 +129,12 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
     deallocate(r,den,pres,temp,en,mtab)
     if (isoftcore > 0) then
        if (iprofile == imesa) then
-          call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.true.)
+          call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits=.true.)
        else
           call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
                            Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr,cgsunits=.true.)
        endif
-       allocate(mu(size(den)))
-       mu = 0.
-       if (ierr /= 0) call fatal('setup','error reading stellar profile from '//trim(input_profile))
+       if (ierr /= 0) call fatal('setup','error in reading stellar profile from '//trim(input_profile))
        if (do_radiation) then
           eos_type = 12
        else
@@ -153,10 +151,10 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
        call write_mesa(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
        ! now read the softened profile instead
-       call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
+       call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
     else
        if (iprofile == imesa) then
-          call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
+          call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
        else
           call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
                 Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr)
@@ -422,14 +420,14 @@ end subroutine get_mass_coord
 !  Set the composition, if variable composition is used
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
-           mu,mtab,Mstar,eos_vars,npin,x0)
+subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
+           mu,mtab,eos_vars,npin,x0)
  use part,        only:iX,iZ,imu
  use table_utils, only:yinterp
- logical, intent(in)  :: use_var_comp,use_mu
+ logical, intent(in)  :: eos_outputs_mu
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
- real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:),Mstar
+ real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:)
  real,    intent(out) :: eos_vars(:,:)
  real,    intent(in), optional :: x0(3)
  integer, intent(in), optional :: npin
@@ -447,15 +445,14 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
 
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(i1,npart,mass_enclosed_r,Mstar,use_var_comp) &
- !$omp shared(Xfrac,Yfrac,mtab,eos_vars) &
+ !$omp shared(i1,npart,mass_enclosed_r,eos_outputs_mu) &
+ !$omp shared(Xfrac,Yfrac,mtab,mu,eos_vars) &
  !$omp private(i,massri)
  do i = i1+1,npart
-    massri = mass_enclosed_r(i-i1)/Mstar
-    if (use_var_comp) then
-       eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
-       eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
-    endif
+    massri = mass_enclosed_r(i-i1)
+    eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
+    eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
+    if (.not. eos_outputs_mu) eos_vars(imu,i) = yinterp(mu,mtab,massri)
  enddo
  !$omp end parallel do
 

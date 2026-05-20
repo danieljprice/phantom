@@ -61,7 +61,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
  real                      :: time2,hfact2
  real                      :: xyzmh1_stash(nsinkproperties),xyzmh2_stash(nsinkproperties),vxyz1_stash(3),vxyz2_stash(3)
- real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),m(:)
+ real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),mu(:),m(:)
  logical                   :: use_corotating_frame,iprimary_grav_ans
  character(len=20)         :: filename = 'binary.in'
  character(len=100)        :: densityfile,dumpname
@@ -332,7 +332,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
 
-       call read_mesa(densityfile,den,r,pres,m,enitab,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
+       call read_mesa(densityfile,den,r,pres,m,enitab,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits=.false.)
        rcut = yinterp(r,m,mcut)
 
        irhomax = 1

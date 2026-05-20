@@ -47,7 +47,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                    track_lum,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
                    ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr,&
                    inject_parts
- use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP,eos_outputs_temp
+ use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP,eos_outputs_temp,eos_outputs_gamma
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
                  npartoftypetot,update_npartoftypetot, &
@@ -228,7 +228,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (eos_outputs_temp(ieos) .or. (.not.store_dust_temperature .and. icooling > 0)) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=itemp)
        endif
-       if (eos_is_non_ideal(ieos)) call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
 
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,nerr)
        ! write pressure to file
@@ -236,12 +235,15 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=igasP)
        endif
        ! write X, Z, mu to file
-       if (eos_outputs_mu(ieos)) then
+       if (use_var_comp) then
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iX)
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
+       endif
+       if (use_var_comp .or. eos_outputs_mu(ieos) .or. update_muGamma .or. use_krome) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=imu)
-          if (use_var_comp) then
-             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iX)
-             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
-          endif
+       endif
+       if (eos_outputs_gamma(ieos) .or. update_muGamma .or. use_krome) then
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=igamma)
        endif
        ! write stamatellos cooling values
        if (icooling == 9 .and. t>0.) then
@@ -271,10 +273,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        if (use_krome) then
           call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,nerr)
           call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,nerr)
-       endif
-       if (update_muGamma .or. use_krome .and. (ieos/=22)) then
-          call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,nerr)
-          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
        endif
        if (do_nucleation) call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,nerr)
        if (itau_alloc == 1) call write_array(1,tau,'tau',npart,k,ipass,idump,nums,nerr)

@@ -136,7 +136,7 @@ end subroutine read_masstransferrate
 !  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits)
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits)
  use physcon,   only:solarm,solarr
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
  use datafiles, only:find_phantom_datafile
@@ -144,7 +144,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  character(len=*),  intent(in)  :: filepath
  integer,           intent(out) :: ierr
  real,              intent(in)  :: X_in,Z_in
- real, allocatable, intent(out) :: rho(:),r(:),pres(:),m(:),ene(:),temp(:),Xfrac(:),Yfrac(:)
+ real, allocatable, intent(out) :: rho(:),r(:),pres(:),m(:),ene(:),temp(:),Xfrac(:),Yfrac(:),mu(:)
  real,              intent(out) :: Mstar
  logical,           intent(in), optional :: cgsunits
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
@@ -209,7 +209,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
 
  allocate(m(lines))
  m = -1.
- allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,source=m)
+ allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,mu,source=m)
 
  over_directions: do idir=1,2   ! try backwards, then forwards
     if (idir==1) then
@@ -231,6 +231,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
     ! Set mass fractions to fixed inputs if not in file
     Xfrac = X_in
     Yfrac = 1. - X_in - Z_in
+    mu = 0.
     do i = 1,ncols
        if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
           print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
@@ -251,7 +252,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
           rho = dat(1:lines,i)
        case('logrho')
           rho = 10**(dat(1:lines,i))
-       case('energy','e_int','e_internal')
+       case('energy','e_int','e_internal','cell_specific_ie')
           ene = dat(1:lines,i)
        case('loge')
           ene = 10**dat(1:lines,i)
@@ -282,6 +283,8 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
           Yfrac = dat(1:lines,i)
        case('log_y')
           Yfrac = 10**dat(1:lines,i)
+       case('mu')
+          mu = dat(1:lines,i)
        case default
           got_column = .false.
        end select
