@@ -46,7 +46,7 @@ to perform modifications on the data files. In your run directory you can compil
    make moddump
   ./phantommoddump file_00000 fileout_00000 0.
 
-More details can be found :doc:`here <analysis>`. Other example moddump plugins can be found in the  `src/utils <https://github.com/danieljprice/phantom/tree/master/src/utils>`__ directory.
+More details can be found :doc:`here <moddump>` and in :doc:`moddump-recipes`. Other example moddump plugins can be found in the `src/utils <https://github.com/danieljprice/phantom/tree/master/src/utils>`__ directory.
 
 showheader
 ~~~~~~~~~~
