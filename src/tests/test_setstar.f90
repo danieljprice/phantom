@@ -229,7 +229,7 @@ subroutine test_redsupergiant(ntests,npass)
  integer(kind=8) :: ntot
  integer :: ierr,nfail(1),i,j,nerror,nwarn,iunit
  logical :: relax_star,var_comp
- real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:),mass_enclosed_r(:)
+ real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:)
 
  filepath = find_phantom_datafile('lau22.data','star_data_files')
  open(newunit=iunit,file=filepath,status="old",iostat=ierr)
