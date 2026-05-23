@@ -160,8 +160,8 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
     if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON, please cite Bernard et al. (2026) and Price & Monaghan (2007)'
-    if (implicit_radiation) write(iprint,"(1x,a)") 'Implicit radiation is ON, please cite & 
-                                                   & Lau et al. (2025) and Whitehouse & Bate (2006)'
+    if (implicit_radiation) write(iprint,"(1x,a)") 'Implicit radiation is ON, please cite ' // &
+                                                   'Lau et al. (2025) and Whitehouse & Bate (2006)'
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dust) then
        if (use_dustfrac) then

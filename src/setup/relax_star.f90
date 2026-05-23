@@ -25,8 +25,8 @@ module relaxstar
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
 
- real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
- integer, private :: maxits = 1000
+ real,    public  :: tol_ekin = 1.e-7 ! criteria for being converged
+ integer, public  :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev,mass1prev
  integer, private :: ieos_prev
