@@ -33,7 +33,7 @@ contains
 subroutine test_setstar(ntests,npass)
  use checksetup, only:check_setup
  use io,         only:id,master
- use dim,        only:gravity
+ use dim,        only:gravity,do_radiation
  integer, intent(inout) :: ntests,npass
 
  if (.not.gravity) then
@@ -47,7 +47,7 @@ subroutine test_setstar(ntests,npass)
  call test_get_mass_coord(ntests,npass)
 
  ! test polytrope
- call test_polytrope(ntests,npass)
+ if (.not. do_radiation) call test_polytrope(ntests,npass)
 
  ! test red supergiant
  call test_redsupergiant(ntests,npass)
@@ -208,26 +208,30 @@ end subroutine test_polytrope
 !-----------------------------------------------------------------------
 subroutine test_redsupergiant(ntests,npass)
  use io,        only:id,master,iverbose,warning
+ use dim,       only:do_radiation
  use datafiles, only:find_phantom_datafile
- use part,      only:npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,igasP,imu,iX,iZ
+ use part,      only:init_part,npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,igasP,imu,iX,iZ,radprop,iradxi,&
+                     eos_vars,itemp
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm
- use eos,       only:init_eos,gamma,gmw,X_in,Z_in,irecomb
- use setstar,   only:star_t,set_star,set_defaults_star,imesa
+ use eos,       only:init_eos,gamma,gmw,X_in,Z_in,irecomb,eos_works_with_radiation
+ use setstar,   only:star_t,set_star,set_defaults_star,imesa,ierr_radiation_conflict
  use units,     only:set_units
  use relaxstar, only:maxits
  use checksetup,  only:check_setup
  use testutils,   only:checkvalbuf,checkvalbuf_end
  use table_utils, only:yinterp
- use readwrite_mesa, only:read_mesa
+ use readwrite_mesa,  only:read_mesa
+ use radiation_utils, only:Trad_from_radxi
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
  character(len=500) :: filepath
- real :: rhozero,rmserr,rmserr_mu,rmserr_X,rmserr_Z,ekin,x0(3),errmax(2),Mstar,tolprof,tolcomposition,rhoj,rhoj_mesa,rj
+ real :: rhozero,rmserr,rmserr_mu,rmserr_X,rmserr_Z,ekin,x0(3),errmax(2)
+ real :: Mstar,tolprof,tolcomposition,rhoj,rhoj_mesa,rj,Tgas,Trad
  integer(kind=8) :: ntot
- integer :: ierr,nfail(1),i,j,nerror,nwarn,iunit
+ integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
  logical :: relax_star,var_comp
  real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:)
 
@@ -260,7 +264,7 @@ subroutine test_redsupergiant(ntests,npass)
  star%iprofile = imesa
  x0 = 0.
 
- nfail = 0; errmax = 0.
+ nfail = 0; ncheck = 0; errmax = 0.
  tolprof = 0.08
  tolcomposition = 0.08
 
@@ -268,13 +272,7 @@ subroutine test_redsupergiant(ntests,npass)
  Zfrac = 1.-Xfrac-Yfrac
 
  do i=1,4
-    npart = 0
-    npartoftype = 0
-    massoftype = 0.
-    nptmass = 0
-    xyzmh_ptmass = 0.
-    vxyz_ptmass = 0.
-
+    call init_part()
     if (i==1) then  ! ideal gas EoS
        ieos = 2
     elseif (i==2) then  ! ideal gas + radiation EoS
@@ -299,8 +297,14 @@ subroutine test_redsupergiant(ntests,npass)
                rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
                write_files=.false.,density_error=rmserr,energy_error=ekin)
 
-    call checkval(ierr,0,0,nfail(1),'set_star runs with ierr = 0')
+    if (do_radiation .and. (.not. eos_works_with_radiation(ieos))) then
+       expected_error = ierr_radiation_conflict
+    else
+       expected_error = 0
+    endif
+    call checkval(ierr,expected_error,0,nfail(1),'set_star runs with expected ierr')
     call update_test_scores(ntests,nfail,npass)
+    if (ierr == ierr_radiation_conflict) cycle  ! skip the rest of the checks if we get a radiation conflict error
 
     call check_setup(nerror,nwarn,restart=.false.)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
@@ -322,6 +326,12 @@ subroutine test_redsupergiant(ntests,npass)
        rhoj_mesa = yinterp(den,r,rj)
        rmserr = rmserr + (1-rhoj/rhoj_mesa)**2
 
+       if (do_radiation) then
+          Trad = Trad_from_radxi(rhoj, rad(iradxi,j))
+          Tgas = eos_vars(itemp,j)
+          call checkvalbuf(Trad/Tgas,1.,1e-15,'Trad/Tgas = 1 for radiative star',nfail(2),ncheck(2),errmax(2),use_rel_tol=.true.)
+       endif
+
        if (i==5) then  ! calculate rms error in mu, X, Z, not implemented yet
           rmserr_mu = rmserr_mu + (1-abs(eos_vars(imu,j)/yinterp(mu,r,rj)))**2
           rmserr_X = rmserr_X + (1-abs(eos_vars(iX,j)/yinterp(Xfrac,r,rj)))**2
@@ -330,6 +340,9 @@ subroutine test_redsupergiant(ntests,npass)
     enddo
     rmserr = sqrt(rmserr/npart)  ! root mean square relative error
     call checkval(rmserr,0.,tolprof,nfail(1),'density matches MESA profile')
+    call update_test_scores(ntests,nfail,npass)
+
+    call checkvalbuf_end('Trad/Tgas ~ 1 for radiative star',ncheck(2),nfail(2),errmax(2),1.e-15)
     call update_test_scores(ntests,nfail,npass)
 
     if (i==5) then  ! not implemented yet
