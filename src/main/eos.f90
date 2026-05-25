@@ -72,8 +72,8 @@ module eos
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
- public  :: eos_requires_isothermal,eos_requires_polyk,eos_allows_shock_and_work
- public  :: eos_is_not_implemented,eos_has_pressure_without_u
+ public  :: eos_requires_isothermal,eos_works_with_radiation,eos_requires_polyk
+ public  :: eos_allows_shock_and_work,eos_is_not_implemented,eos_has_pressure_without_u
 
  public :: irecomb  ! propagated from eos_gasradrec
 
@@ -590,10 +590,7 @@ subroutine init_eos(eos_type,ierr)
     !
     write(*,'(1x,a,f7.5,a,f7.5)') 'Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
     call init_eos_mesa(X_in,Z_in,ierr)
-    if (do_radiation .and. ierr==0) then
-       call error('eos','ieos=10, cannot use eos with radiation, will double count radiation pressure')
-       ierr=ierr_option_conflict !return error if using radiation and mesa EOS, shouldn't use mesa eos, as it will double count rad pres
-    elseif (use_var_comp) then
+    if (use_var_comp) then
        call error('eos','ieos=10, variable composition not supported from MESA EoS')
        ierr=ierr_option_conflict ! can only read EoS table for fixed composition at the moment
     endif
@@ -603,10 +600,6 @@ subroutine init_eos(eos_type,ierr)
     ! ideal plus radiation
     !
     write(*,'(1x,a,f7.5)') 'Using ideal plus radiation EoS with mu = ',gmw
-    if (do_radiation) then
-       call error('eos','ieos=12, cannot use eos with radiation, will double count radiation pressure')
-       ierr = ierr_option_conflict
-    endif
 
  case(15)
 
@@ -637,10 +630,18 @@ subroutine init_eos(eos_type,ierr)
  end select
  done_init_eos = .true.
 
- if (do_radiation .and. iopacity_type==1) then
-    write(*,'(1x,a,f7.5,a,f7.5)') 'Using radiation with MESA opacities. Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
-    call init_eos_mesa(X_in,Z_in,ierr_mesakapp)
-    ierr = max(ierr,ierr_mesakapp)
+ if (do_radiation) then
+    if (.not. eos_works_with_radiation(eos_type)) then
+       call error('eos','eos is incompatible with radiation')
+       ierr = ierr_option_conflict
+       return
+    endif
+    
+    if (iopacity_type==1) then
+       write(*,'(1x,a,f7.5,a,f7.5)') 'Using radiation with MESA opacities. Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
+       call init_eos_mesa(X_in,Z_in,ierr_mesakapp)
+       ierr = max(ierr,ierr_mesakapp)
+    endif
  endif
 
 end subroutine init_eos
@@ -1442,6 +1443,24 @@ logical function eos_outputs_temp(ieos)
  end select
 
 end function eos_outputs_temp
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state is compatible
+!  with radiation transport
+!+
+!-----------------------------------------------------------------------
+logical function eos_works_with_radiation(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(2,20)
+    eos_works_with_radiation = .true.
+ case default
+    eos_works_with_radiation = .false.
+ end select
+
+end function eos_works_with_radiation
 
 !-----------------------------------------------------------------------
 !+
