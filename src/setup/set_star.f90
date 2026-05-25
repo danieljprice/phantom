@@ -92,8 +92,8 @@ subroutine set_defaults_star(star)
  star%initialtemp = 1.0e7
  star%isoftcore   = 0
  star%isinkcore   = .false.
- star%hsoft          = '0.0'
- star%hacc           = '1.0'
+ star%hsoft          = '1.0'
+ star%hacc           = '0.0'
  star%rcore          = '0.0'
  star%mcore          = '0.0'
  star%lcore          = '0 lsun'
