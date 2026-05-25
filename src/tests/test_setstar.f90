@@ -211,7 +211,7 @@ subroutine test_redsupergiant(ntests,npass)
  use dim,       only:do_radiation
  use datafiles, only:find_phantom_datafile
  use part,      only:init_part,npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,igasP,imu,iX,iZ,radprop,iradxi,&
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,igasP,imu,iX,iZ,iradxi,&
                      eos_vars,itemp
  use mpidomain, only:i_belong
  use options,   only:ieos

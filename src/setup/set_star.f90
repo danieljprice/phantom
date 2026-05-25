@@ -69,10 +69,10 @@ module setstar
  integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
  ! placed in stars from other particles in the simulation
 
- integer, public :: ierr_sink_profile = 1, &
-                    ierr_part = 2, &
-                    ierr_unbound = 3, &
-                    ierr_radiation_conflict = 4
+ integer, parameter, public :: ierr_sink_profile = 1, &
+                               ierr_part = 2, &
+                               ierr_unbound = 3, &
+                               ierr_radiation_conflict = 4
 
  integer, private :: EOSopt = 1
 
