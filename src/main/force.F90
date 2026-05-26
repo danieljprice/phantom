@@ -3369,8 +3369,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
    !     global_ip_dtvisc_min = iorig(i)
    !  endif
 
-    global_dtmax = dtmaxi
-    global_dtrad = dtrad 
+   !  global_dtmax = dtmaxi
+   !  global_dtrad = dtrad 
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
