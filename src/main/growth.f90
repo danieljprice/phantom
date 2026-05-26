@@ -344,7 +344,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
  !--relative motions at shock fronts
  divvi = real(dvdx(1)+dvdx(5)+dvdx(9))
  Vrel_shock = xyzh(4) * max(-divvi,0.)
- !-- Vrel_discp = relative motions from crossing dust particles, dispersion of relative motions between dust particles in the kernel
+ !-- Vrel_disp = relative motions from crossing dust particles, dispersion of relative motions between dust particles in the kernel
 
  !--compute vrel
  vrel = sqrt(Vrel_micro**2 + Vrel_shock**2 + Vrel_disp**2)
