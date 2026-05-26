@@ -55,7 +55,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,        only:set_units
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
- use growth,       only:check_dustprop
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -86,22 +85,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartx = 64
  ilattice = 1
  polykset = 1.
+!
+!--dust growth
+!
+if (use_dustgrowth) then
+   ifrag = 0
+   isnow = 0
+   vfragSI = 15.
+   gsizemincgs = 5.e-3
 
- !--dust growth
- ifrag = 0
- isnow = 0
- vfragSI = 15.
- gsizemincgs = 5.e-3
+   grainsizecgs = 0.1
+   graindenscgs = 3.
 
- grainsizecgs = 0.1
- graindenscgs = 3.
-
- mprev(:) = 99.
- filfacprev(:) = 99.
+   mprev(:) = 99.
+   filfacprev(:) = 99.
+endif
 
 
  ! read setup parameters from file
- if (id==master) print "(/,a,/)",'  >>> Setting up dustybox problem with growing dust <<<'
+ if (use_dustgrowth) then
+    if (id==master) print "(/,a,/)",'  >>> Setting up dustybox problem with growing dust <<<'
+ else
+    if (id==master) print "(/,a,/)",'  >>> Setting up dustybox problem with dust <<<'
+ endif
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
@@ -173,21 +179,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
           vxyzu(2:3,i) = 0.
        endif
-    enddo
-
-    !--set dustprops
-    do i=npart_previous+1,npart
-       call set_particle_type(i,itype)
-       if (itype==igas) then
-          dustprop(:,i) = 0.
-       else
-          dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3
-          dustprop(2,i) = graindens(1)
+       !--set dustprops
+       if (use_dustgrowth) then
+          if (itype==igas) then
+             dustprop(:,i) = 0.
+          else
+             dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3
+             dustprop(2,i) = graindens(1)
+          endif
+          filfac(i) = 0.
+          probastick(i) = 1.
+          dustgasprop(:,i) = 0.
+          VrelVf(:,i)        = 0.
        endif
-       filfac(i) = 0.
-       probastick(i) = 1.
-       dustgasprop(:,i) = 0.
-       VrelVf(:,i)        = 0.
     enddo
 
     npartoftype(itype) = npart - npart_previous
@@ -198,7 +202,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (id==master) print*,' particle mass = ',massoftype(itype)
 
  enddo overtypes
- call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
 
 end subroutine setpart
 
