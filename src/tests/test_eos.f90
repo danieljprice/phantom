@@ -75,7 +75,7 @@ end subroutine test_eos
 subroutine test_all(ntests, npass)
  use eos,       only:maxeos,init_eos,isink,polyk,polyk2,qfacdisc,&
                      ierr_file_not_found,ierr_option_conflict,&
-                     eos_is_not_implemented
+                     eos_is_not_implemented,eos_works_with_radiation
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores
  use dim,       only:do_radiation
@@ -116,7 +116,7 @@ subroutine test_all(ntests, npass)
     if (ieos==15 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip helmholtz
     if (ieos==16 .and. ierr /= 0 .and. .not. got_phantom_dir) cycle ! skip Shen
 
-    if (do_radiation .and. (ieos==10 .or. ieos==12)) correct_answer = ierr_option_conflict
+    if (do_radiation .and. (.not. eos_works_with_radiation(ieos))) correct_answer = ierr_option_conflict
     call checkval(ierr,correct_answer,0,nfailed(1),'eos initialisation')
     call update_test_scores(ntests,nfailed,npass)
     !

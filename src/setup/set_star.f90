@@ -69,6 +69,11 @@ module setstar
  integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
  ! placed in stars from other particles in the simulation
 
+ integer, parameter, public :: ierr_sink_profile = 1, &
+                               ierr_part = 2, &
+                               ierr_unbound = 3, &
+                               ierr_radiation_conflict = 4
+
  integer, private :: EOSopt = 1
 
  private
@@ -190,9 +195,9 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     rhozero,npart_total,mask,ierr,x0,v0,itype,&
                     write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
- use dim,                only:gr,gravity,maxvxyzu
+ use dim,                only:gr,gravity,maxvxyzu,do_radiation
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu,polyk_eos=>polyk
+ use eos,                only:eos_works_with_radiation,eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -248,7 +253,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  call get_star_properties_in_code_units(star,star%r_code,mstar,star%rcore_code,star%mcore_code,&
                                         star%hsoft_code,star%lcore_code,star%hacc_code,nerr)
  if (nerr /= 0) then
-    ierr = 2
+    ierr = ierr_part
     return
  endif
 
@@ -258,7 +263,15 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (star%iprofile <= 0) then
     star%m_code = mstar
     call write_mass('Sink particle with mass = ',star%m_code,umass)
-    ierr = 1
+    ierr = ierr_sink_profile
+    return
+ endif
+ !
+ ! throw error if equation of state is incompatible with radiation
+ !
+ if (do_radiation .and. (.not. eos_works_with_radiation(ieos))) then
+    call error('set_star','radiation is not supported with the chosen equation of state')
+    ierr = ierr_radiation_conflict
     return
  endif
  !
@@ -280,12 +293,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (relax) lattice='random'
  if (star%np < 1 .and. npart_old==0) then
     call fatal('set_star','cannot set up a star with zero particles')
-    ierr = 2
+    ierr = ierr_part
     return
  endif
  if (mstar < 0.) then
     call fatal('set_star','cannot set up a star with negative mass!')
-    ierr = 2
+    ierr = ierr_part
     return
  endif
  call set_star_density(lattice,id,master,rmin,star%r_code,mstar,hfact,&
