@@ -463,7 +463,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
 
 
-    if (itercount > 10) then ! debug output Ali
+    if (itercount > 12) then ! debug output Ali
 
        write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
        write(*,*) 'ALI Tnew=', tnew, ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
