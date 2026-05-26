@@ -3096,7 +3096,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
        ! cooling timestep dt < fac*u/(du/dt)
        if (maxvxyzu >= 4 .and. .not. gr .and. .not. (ieos==23)) then ! not with gr which uses entropy
-          if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
+          if (eni + dtc*fxyzu(4,i) < epsilon(0.)) then
+             fxyzu(4,i) =  fxyzu(4,i)/(1.-dtc*fxyzu(4,i)/eni) ! change dudt to avoid negative energy
        endif
 
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature
