@@ -85,14 +85,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (use_dustgrowth) then
     ifrag = 0
     isnow = 0
-    !vfragSI = 15.
-    !gsizemincgs = 5.e-3
-
-    !grainsizecgs = 0.1
-    !graindenscgs = 3.
-
-    !mprev(:) = 99.
-    !filfacprev(:) = 99.
  endif
 
  if (use_dustgrowth) then
