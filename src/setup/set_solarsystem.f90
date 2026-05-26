@@ -177,8 +177,8 @@ end subroutine add_dwarf_planets
 !+
 !----------------------------------------------------------------
 subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
- use ephemeris, only:get_ephemeris,nelem
- use units,     only:umass,udist
+ use ephemeris, only:get_ephemeris,get_ephemeris_vectors,nelem,nstate
+ use units,     only:umass,udist,unit_velocity
  use physcon,   only:gg,km,solarm,solarr,earthm,au
  use setbinary, only:set_binary
  use fileutils, only:lcase
@@ -189,13 +189,18 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
  integer,          intent(out)   :: ierr
  character(len=*), intent(in), optional :: epoch
  real    :: elems(nelem)
+ real    :: state(nstate)
  real    :: xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
  real    :: mbody,rbody,a,e,inc,O,w,f
  integer :: ntmp
- logical :: got_elem(nelem)
+ logical :: got_elem(nelem),got_state(nstate)
+ character(len=20) :: obj
+ logical :: is_satellite
 
  ierr = 0
- if (trim(adjustl(lcase(body_name)))=='sun') then
+ obj = trim(adjustl(lcase(body_name)))
+ is_satellite = (obj=='phobos' .or. obj=='deimos')
+ if (obj=='sun') then
     !
     ! add the Sun, ideally would add here its motion
     ! around the solar system barycentre
@@ -209,15 +214,54 @@ subroutine add_body(body_name,nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,ierr,epoch)
  endif
 
  if (present(epoch)) then
-    elems = get_ephemeris(lcase(body_name),got_elem,ierr,epoch=epoch)
+    elems = get_ephemeris(obj,got_elem,ierr,epoch=epoch)
  else
-    elems = get_ephemeris(lcase(body_name),got_elem,ierr)
+    elems = get_ephemeris(obj,got_elem,ierr)
  endif
  if (ierr > 0 .or. .not.any(got_elem)) then
     print "(a)",' ERROR: could not read ephemeris data for '//body_name
     ierr = 1
     return ! skip if error reading ephemeris file
  endif
+
+ !
+ ! natural satellites: heliocentric osculating elements are not valid
+ ! Keplerian orbits about the Sun, so use heliocentric state vectors
+ ! from Horizons (same Sun-centred frame as the planets and Apophis)
+ !
+ if (is_satellite) then
+    gm_cgs = elems(7)*km**3
+    if (got_elem(7) .and. gm_cgs > 0.) then
+       mbody = (gm_cgs/gg)/umass
+    else
+       mbody = 0.
+    endif
+    if (got_elem(8)) then
+       rbody = elems(8)*km/udist
+    else
+       rbody = 0.01
+    endif
+    if (present(epoch)) then
+       state = get_ephemeris_vectors(obj,'10',got_state,ierr,epoch=epoch)
+    else
+       state = get_ephemeris_vectors(obj,'10',got_state,ierr)
+    endif
+    if (ierr > 0 .or. .not.all(got_state)) then
+       print "(a)",' ERROR: could not read heliocentric state for '//body_name
+       ierr = 1
+       return
+    endif
+    nptmass = nptmass + 1
+    xyzmh_ptmass(1:3,nptmass) = state(1:3)*km/udist
+    xyzmh_ptmass(4,nptmass) = mbody
+    xyzmh_ptmass(5,nptmass) = rbody
+    vxyz_ptmass(1:3,nptmass) = state(4:6)*km/unit_velocity
+    print "(1x,a,1pg11.4,a)", '           radius = ',elems(8),' km'
+    print "(1x,a,3(1x,1pg10.3))",' x = ',xyzmh_ptmass(1:3,nptmass)
+    print "(1x,a,3(1x,1pg10.3))",' v = ',vxyz_ptmass(1:3,nptmass)
+    return
+ endif
+
  a   = elems(1)*km/udist
  e   = elems(2)
  inc = elems(3)

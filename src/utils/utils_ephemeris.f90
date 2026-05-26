@@ -19,8 +19,9 @@ module ephemeris
 !
  implicit none
  integer, parameter :: nelem = 9
+ integer, parameter :: nstate = 6
 
- public :: get_ephemeris,nelem
+ public :: get_ephemeris,get_ephemeris_vectors,nelem,nstate
 
  private
 
@@ -68,19 +69,54 @@ end function get_ephemeris
 
 !-----------------------------------------------------------------------
 !+
-!  construct API call to the JPL Horizons ephemeris server
+!  read cartesian state vectors from Horizons (center='10' = heliocentric)
 !+
 !-----------------------------------------------------------------------
-subroutine construct_horizons_api_url(object,url,ierr,epoch)
- character(len=*), intent(in)  :: object  ! name of the solar system object
- character(len=*), intent(out) :: url     ! url for query
+function get_ephemeris_vectors(object,center,got_state,ierr,epoch) result(state)
+ use datautils, only:download_datafile
+ character(len=*), intent(in)  :: object
+ character(len=*), intent(in)  :: center
+ logical,          intent(out) :: got_state(nstate)
  integer,          intent(out) :: ierr
  character(len=*), intent(in), optional :: epoch
- character(len=8)  :: cmd
- character(len=20) :: start_epoch,end_epoch
- integer           :: values(8),year,month,day
+ real :: state(nstate)
+ character(len=512) :: url
+ character(len=40)  :: localfile,filepath
+ logical :: iexist
+ integer :: ierr2
 
  ierr = 0
+ localfile = trim(object)//'_c'//trim(center)//'.txt'
+ inquire(file=localfile,exist=iexist)
+ if (.not.iexist) then
+    if (present(epoch)) then
+       call construct_horizons_vectors_api_url(trim(object),trim(center),url,ierr,epoch=epoch)
+    else
+       call construct_horizons_vectors_api_url(trim(object),trim(center),url,ierr)
+    endif
+    if (ierr /= 0) then
+       print*,' ERROR: could not query horizons database for object='//trim(object)
+       return
+    endif
+    call download_datafile(url=url,dir=localfile,filename='',filepath=filepath,ierr=ierr)
+ else
+    filepath = localfile
+ endif
+
+ call read_ephemeris_vectors_file(filepath,state,got_state,ierr2)
+ if (ierr2 /= 0) ierr = ierr2
+
+end function get_ephemeris_vectors
+
+!-----------------------------------------------------------------------
+!+
+!  Horizons COMMAND string for a named solar system object
+!+
+!-----------------------------------------------------------------------
+subroutine horizons_command(object,cmd)
+ character(len=*), intent(in)  :: object
+ character(len=*), intent(out) :: cmd
+
  select case(trim(adjustl(object)))
  case('makemake')
     cmd='136472'   ! makemake barycentre
@@ -102,6 +138,10 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
     cmd = '599' ! jupiter body centre
  case('mars')
     cmd = '499' ! mars body centre
+ case('phobos')
+    cmd = '401' ! phobos M1
+ case('deimos')
+    cmd = '402' ! deimos M2
  case('earth')
     cmd = '399' ! earth
  case('venus')
@@ -117,6 +157,25 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
  case default
     cmd = trim(adjustl(object))
  end select
+
+end subroutine horizons_command
+
+!-----------------------------------------------------------------------
+!+
+!  construct API call to the JPL Horizons ephemeris server
+!+
+!-----------------------------------------------------------------------
+subroutine construct_horizons_api_url(object,url,ierr,epoch)
+ character(len=*), intent(in)  :: object  ! name of the solar system object
+ character(len=*), intent(out) :: url     ! url for query
+ integer,          intent(out) :: ierr
+ character(len=*), intent(in), optional :: epoch
+ character(len=8)  :: cmd
+ character(len=20) :: start_epoch,end_epoch
+ integer           :: values(8),year,month,day
+
+ ierr = 0
+ call horizons_command(object,cmd)
 
  call date_and_time(values=values)
  year = values(1); month = values(2); day = values(3)
@@ -141,6 +200,109 @@ subroutine construct_horizons_api_url(object,url,ierr,epoch)
        "'&STEP_SIZE='1DAYS'&REF_SYSTEM='ICRF'&REF_PLANE='ECLIPTIC''"
 
 end subroutine construct_horizons_api_url
+
+!-----------------------------------------------------------------------
+!+
+!  construct API call for cartesian vectors w.r.t. a body
+!+
+!-----------------------------------------------------------------------
+subroutine construct_horizons_vectors_api_url(object,center,url,ierr,epoch)
+ character(len=*), intent(in)  :: object,center
+ character(len=*), intent(out) :: url
+ integer,          intent(out) :: ierr
+ character(len=*), intent(in), optional :: epoch
+ character(len=8)  :: cmd
+ character(len=20) :: start_epoch,end_epoch
+ integer           :: values(8),year,month,day
+
+ ierr = 0
+ call horizons_command(object,cmd)
+
+ call date_and_time(values=values)
+ year = values(1); month = values(2); day = values(3)
+ write(start_epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day
+
+ if (present(epoch)) then
+    read(epoch(1:10),"(i4.4,1x,i2.2,1x,i2.2)",iostat=ierr) year,month,day
+    if (ierr == 0) then
+       start_epoch = epoch
+    else
+       print "(a)",' ERROR parsing epoch in get_ephemeris_vectors, defaulting to '//trim(start_epoch)
+    endif
+ endif
+
+ write(end_epoch,"(i4.4,'-',i2.2,'-',i2.2)") year,month,day+1
+ url = "'https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='"//trim(cmd)// &
+       "'&OBJ_DATA='NO'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&CENTER='500@"//trim(center)// &
+       "'&START_TIME='"//trim(start_epoch)//"'&STOP_TIME='"//trim(end_epoch)// &
+       "'&STEP_SIZE='1DAYS'&REF_SYSTEM='ICRF'&REF_PLANE='ECLIPTIC''"
+
+end subroutine construct_horizons_vectors_api_url
+
+!-----------------------------------------------------------------------
+!+
+!  read cartesian state vectors from a Horizons vector ephemeris file
+!+
+!-----------------------------------------------------------------------
+subroutine read_ephemeris_vectors_file(file,state,got_state,ierr)
+ character(len=*), intent(in)  :: file
+ real,             intent(out) :: state(nstate)
+ logical,          intent(out) :: got_state(nstate)
+ integer,          intent(out) :: ierr
+ integer :: iu
+ character(len=80)  :: line
+ character(len=*), parameter :: tag(nstate) = &
+    (/'X ','Y ','Z ','VX','VY','VZ'/)
+ logical :: start_vectors
+
+ got_state(:) = .false.
+ state(:) = 0.
+ start_vectors = .false.
+
+ open(newunit=iu,file=file,status='old',iostat=ierr)
+ if (ierr /= 0) then
+    print "(a)",' ERROR opening '//trim(file)
+    return
+ endif
+ print "(/,a)",' > reading vector ephemeris from '//trim(file)
+ do while (.not.all(got_state))
+    read(iu,"(a)",iostat=ierr) line
+    if (ierr /= 0) exit
+    if (index(line,'$SOE') > 0) start_vectors = .true.
+    if (start_vectors) then
+       call read_vector_values(line,tag,state,got_state)
+       if (all(got_state)) exit
+    endif
+ enddo
+ close(iu)
+
+ if (.not.all(got_state)) then
+    print "(a)",' ERROR: could not read state vector from '//trim(file)
+    ierr = 1
+ else
+    print "(a,6(1x,1pg12.4))",'   state (km, km/s) = ',state
+    ierr = 0
+ endif
+
+end subroutine read_ephemeris_vectors_file
+
+!-----------------------------------------------------------------------
+!+
+!  read X=, Y=, ... from a Horizons vector ephemeris line
+!+
+!-----------------------------------------------------------------------
+subroutine read_vector_values(line,tag,state,got_state)
+ character(len=*), intent(in)    :: line
+ character(len=*), intent(in)    :: tag(:)
+ real,             intent(inout) :: state(:)
+ logical,          intent(inout) :: got_state(:)
+ integer :: j
+
+ do j=1,size(tag)
+    if (.not.got_state(j)) call read_value(line,tag(j),state(j),got_state(j))
+ enddo
+
+end subroutine read_vector_values
 
 !-----------------------------------------------------------------------
 !+
