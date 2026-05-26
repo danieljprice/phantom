@@ -3145,7 +3145,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (maxvxyzu >= 4 .and. .not. gr .and. .not. (ieos==23)) then ! not with gr which uses entropy
          !  if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
           if (eni + dtc*fxyzu(4,i) < epsilon(0.)) then
-             fxyzu(4,i) =  fxyzu(4,i)/(1-dtc*fxyzu(4,i)/eni) 
+             fxyzu(4,i) =  fxyzu(4,i)/(1.-dtc*fxyzu(4,i)/eni) 
           endif
 ! change dudt to become smaller instead of dt, to avoid too large dt when du/dt is small but non-zero, which can lead to numerical issues
        endif
