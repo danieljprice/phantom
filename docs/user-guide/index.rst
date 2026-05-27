@@ -13,6 +13,7 @@ This section contains the basic user guide for Phantom.
    sweeps
    analysis
    moddump
+   moddump-recipes
    utils
    dumpfile
    hdf5

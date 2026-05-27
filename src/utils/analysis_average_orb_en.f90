@@ -1,12 +1,13 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
-! None
+! Computes the average orbital energy over all non-accreted particles
+! in the simulation
 !
 ! :References: None
 !
@@ -17,7 +18,7 @@ module analysis
 ! :Dependencies: part
 !
  implicit none
- character(len=20), parameter, public :: analysistype = 'average orbital energy'
+ character(len=*), parameter, public :: analysistype = 'average orbital energy'
  public :: do_analysis
 
  private
@@ -25,17 +26,13 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  integer, parameter :: iu = 1993
  logical, save      :: first = .true.
  real    :: ekin_av,epot_av,e_av
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  call get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
 
@@ -55,16 +52,16 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 end subroutine do_analysis
 
-!--------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 !
-!-- Actual subroutine where the analysis is done!
+! Actual subroutine where the analysis is done
 !
-!--------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine get_average_energies(npart,xyzh,vxyzu,ekin_av,epot_av,e_av)
  use part, only:isdead_or_accreted
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(out)   :: ekin_av,epot_av,e_av
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(out) :: ekin_av,epot_av,e_av
  integer :: i,n
  real    :: v2,r
 

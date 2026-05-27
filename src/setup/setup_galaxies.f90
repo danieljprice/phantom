@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -149,10 +149,10 @@ subroutine read_galaxy_data(filename,npart,ndark,nstar,ngas,massdark,massstar,ma
  use dim,  only:maxp
  use io,   only:fatal
  use part, only:set_particle_type,idarkmatter,istar,igas
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: npart,ndark,nstar,ngas
- real,             intent(out)   :: massdark,massstar,massgas,time
- real,             intent(out)   :: xyzh(:,:),vxyzu(:,:),utmp(:)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: npart,ndark,nstar,ngas
+ real,             intent(out) :: massdark,massstar,massgas,time
+ real,             intent(out) :: xyzh(:,:),vxyzu(:,:),utmp(:)
  integer :: i,ro,itype,ctrd,ctrs,ctrg,lu,ierr
 
  ! open file and read header

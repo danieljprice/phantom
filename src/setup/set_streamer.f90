@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -41,10 +41,10 @@ subroutine set_streamer_particle(mu, R_p, R_in, R_imp, incl_imp_deg, &
                                    x, v, ierr, phi_imp_deg, ingoing)
 
  real,    intent(in)  :: mu, R_p, R_in, R_imp, incl_imp_deg
- real,    intent(in), optional :: phi_imp_deg
- logical, intent(in), optional :: ingoing
  real,    intent(out) :: x(3), v(3)
  integer, intent(out) :: ierr
+ real,    intent(in), optional :: phi_imp_deg
+ logical, intent(in), optional :: ingoing
  real :: p, Omega_deg, Omega, i_deg, i_rad
  real :: cosw, omega_arg
  real :: ctheta, stheta, r, vp

@@ -78,6 +78,8 @@ We welcome contributions, including (but not limited to):
 4. Documentation, also by [pull request](https://github.com/danieljprice/phantom/pulls). Docs can be edited in the docs/ directory of the main code.
 5. Suggestions for features or bug reports, via the [issue tracker](https://github.com/danieljprice/phantom/issues/new). Please file bugs via github rather than by email.
 
+[![Star History Chart](https://api.star-history.com/image?repos=danieljprice/phantom&type=date)](https://www.star-history.com/?repos=danieljprice%2Fphantom&type=date&legend=top-left)
+
 Citation
 --------
 
@@ -89,5 +91,5 @@ Other things
 For CHANGES see the release notes: https://phantomsph.readthedocs.io/en/latest/releasenotes.html.
 See LICENSE file for usage and distribution conditions.
 
-Copyright (c) 2007-2025 Daniel Price and contributors (see AUTHORS file).
+Copyright (c) 2007-2026 Daniel Price and contributors (see AUTHORS file).
 

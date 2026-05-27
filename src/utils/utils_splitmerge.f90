@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -90,10 +90,10 @@ end subroutine sample_kernel
 !-----------------------------------------------------------------------
 subroutine shift_particles(npart,xyzh,vxyzu,deltat,beta,shifts)
  use kernel, only:radkern2
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(in)    :: deltat,beta
- integer, intent(in) :: npart
- real, intent(out)   :: shifts(3,npart)
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in)  :: deltat,beta
+ integer, intent(in)  :: npart
+ real,    intent(out) :: shifts(3,npart)
  integer             :: i,j,neighbours
  real                :: rnaught,rij2,dr3,vel2,vmax
  real                :: q2,rij(3),rsum(3)
@@ -144,7 +144,7 @@ subroutine fancy_merge_into_a_particle(nchild,ichildren,mchild,npart, &
  integer, intent(in)    :: nchild,ichildren(nchild),iparent
  integer, intent(inout) :: npart
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(in)   :: mchild
+ real,    intent(in)    :: mchild
  integer :: i,j,ichild
  real    :: h1,h31,rij_vec(3)
  real    :: qij,rij,wchild,grkernchild,rho_parent

@@ -185,6 +185,10 @@ For a circumprimary disc the equation of state is set to ieos=6, such that the r
 
 The Farris et al. (2014) :doc:`equation of state </physics/eos>` (ieos=14 for a binary or ieos=13 if there are more than two stars) is also useful for a flyby simulation if one does not want to have excessively cold material around the secondary
 
+To add a flyby perturber to an **already evolved** disc (e.g. after relaxation),
+use ``moddump_addflyby`` instead of rebuilding the initial conditions; see
+:doc:`/user-guide/moddump-recipes`.
+
 
 Protoplanetary disc with embedded planets
 -----------------------------------------------
@@ -245,7 +249,6 @@ the dust-as-mixture method, where up to 11 grain sizes are allowed by default, s
             dust_method =           1    ! dust method (1=one fluid,2=two    fluid,3=Hybrid)
             dust_to_gas =       0.010    ! dust to gas ratio
           ndusttypesinp =          11    ! number of grain sizes
-      ilimitdustfluxinp =           T    ! limit dust diffusion using Ballabio et    al. (2018)
              igrainsize =           0    ! grain size distribution (0=log-   space,1=manually)
           igrainsizelog =           0    ! select parameters to fix    (0=smin,smax|1=s1,sN|2=s1,logds|3=sN,logds|4=s1,sN,logds)
                 smincgs =   1.000E-04    ! min grain size (in cm)
@@ -259,10 +262,25 @@ then run phantomsetup again::
 
     $ ./phantomsetup disc
 
-The 'limit dust diffusion' makes the simulation inaccurate for the very largest grains but ensures that the simulations do not become prohibitively slow by ensuring that decoupled dust species do not control the simulation timestep. If you want to simulate such species accurately and cheaply you should add these species using separate sets of dust particles.
+For one-fluid (``dust_method = 1``) runs, you can prevent short timesteps and therefore dramatically
+increase the efficiency of the simulation by limiting the timestep in
+the outer disc with ``ilimitdustflux = T`` in ``disc.in`` (Ballabio et
+al. 2018). This makes the simulation inaccurate for the very largest grains but
+ensures that decoupled dust species do not control the timestep. To treat large,
+decoupled grains accurately, use separate dust particle sets (two-fluid method)
+instead.
+
+Further guidance on dust methods, timesteps, and grain sizes is in
+:doc:`/physics/dust`.
 
 check the .in file and proceed to run phantom
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Assuming setup has completed correctly, you can run phantom as previously::
 
     $ ./phantom disc.in
+
+Further reading
+---------------
+
+- :doc:`/physics/dust` — choosing dust method, grain sizes, and timestep options
+- :doc:`/user-guide/moddump-recipes` — modify dumps (flyby, add dust, extend disc, etc.)

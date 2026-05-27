@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -66,18 +66,18 @@ end subroutine rho_uniform
 !+
 !-----------------------------------------------------------------------
 subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,Rstar)
- integer, intent(out)             :: npts
- real,    intent(in)              :: gamma
- real,    intent(in)              :: Mstar
- real,    intent(inout)           :: rtab(:),polyk
- real,    intent(out)             :: rhotab(size(rtab))
+ integer, intent(out)   :: npts
+ real,    intent(in)    :: gamma
+ real,    intent(in)    :: Mstar
+ real,    intent(inout) :: rtab(:),polyk
+ real,    intent(out)   :: rhotab(size(rtab))
  real,    intent(inout), optional :: Rstar
  real,    intent(out),   optional :: rhocentre
  logical, intent(in),    optional :: set_polyk
  integer                          :: i,j
  real                             :: r(size(rtab)),v(size(rtab)),den(size(rtab))
  real                             :: dr,an,rhs,Mstar_f,rhocentre0
- real                             :: fac,rfac
+ real                             :: fac,rfac,rfac_target
 
  dr   = 0.001
  an   = 1./(gamma-1.)
@@ -119,9 +119,10 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
 
  if (present(set_polyk) .and. present(Rstar) ) then
     if ( set_polyk ) then
-       !--Rescale radius to get polyk
-       rfac      = Rstar/(r(npts)*rfac)
-       polyk     = polyk*rfac
+       !--Rescale K so radius matches target Rstar.
+       !  With fixed mass, radius scales as R ~ K^(1/(3*gamma-4)).
+       rfac_target = Rstar/(r(npts)*rfac)
+       polyk       = polyk*rfac_target**(3.*gamma - 4.)
        !
        !--Re-rescale central density to give desired mass (using the correct polyk)
        fac        = (gamma*polyk)/(fourpi*(gamma - 1.))
@@ -145,9 +146,9 @@ end subroutine rho_polytrope
 !+
 !-----------------------------------------------------------------------
 subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,get_dPdrho,npts,ierr)
- integer, intent(out)   :: npts,ierr
- real,    intent(in)    :: mstar_in
- real,    intent(out)   :: rhocentre,rtab(:),rhotab(:)
+ integer, intent(out) :: npts,ierr
+ real,    intent(in)  :: mstar_in
+ real,    intent(out) :: rhocentre,rtab(:),rhotab(:)
  integer, parameter     :: itermax = 1000
  integer                :: iter,lastsign
  real                   :: dr,drho,mstar
@@ -265,8 +266,8 @@ end subroutine integrate_rho_profile
 !  Calculate the enclosed mass of a star
 !-----------------------------------------------------------------------
 subroutine calc_mass_enc(npts,rtab,rhotab,mtab,mstar)
- integer, intent(in)            :: npts
- real,    intent(in)            :: rtab(:),rhotab(:)
+ integer, intent(in) :: npts
+ real,    intent(in) :: rtab(:),rhotab(:)
  real,    intent(out), optional :: mtab(:),mstar
  integer                        :: i
  real                           :: ri,ro,menc(npts)

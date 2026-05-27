@@ -1,1 +1,2 @@
 Tabulated cooling functions, first column is temperature, second column is cooling rate
+Masunaga_2000_collapse.csv: log density and log Temperature for the uniform sphere collapse test used by testcoolra

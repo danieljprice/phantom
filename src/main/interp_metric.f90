@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -39,8 +39,8 @@ end subroutine interp_gderiv
 
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
  use einsteintk_utils, only:gridorigin
- real, intent(in) :: position(3)
- real, intent(in) :: dx(3)
+ real,    intent(in)  :: position(3)
+ real,    intent(in)  :: dx(3)
  integer, intent(out) :: xlower,ylower,zlower
 
  ! Get the lower grid neighbours of the position

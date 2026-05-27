@@ -1,6 +1,13 @@
 Frequently Asked Questions
 ==========================
 
+How do I add a flyby to an already-run disc?
+--------------------------------------------
+
+Use the ``moddump_addflyby`` utility on your latest dump file. This adds a sink
+on a parabolic orbit while keeping your evolved disc particles. See
+:doc:`/user-guide/moddump-recipes`.
+
 What is the lowest alpha viscosity for a disc that Phantom can simulate?
 ------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -69,6 +69,11 @@ module setstar
  integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
  ! placed in stars from other particles in the simulation
 
+ integer, parameter, public :: ierr_sink_profile = 1, &
+                               ierr_part = 2, &
+                               ierr_unbound = 3, &
+                               ierr_radiation_conflict = 4
+
  integer, private :: EOSopt = 1
 
  private
@@ -92,8 +97,8 @@ subroutine set_defaults_star(star)
  star%initialtemp = 1.0e7
  star%isoftcore   = 0
  star%isinkcore   = .false.
- star%hsoft          = '0.0'
- star%hacc           = '1.0'
+ star%hsoft          = '1.0'
+ star%hacc           = '0.0'
  star%rcore          = '0.0'
  star%mcore          = '0.0'
  star%lcore          = '0 lsun'
@@ -190,9 +195,9 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     rhozero,npart_total,mask,ierr,x0,v0,itype,&
                     write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
- use dim,                only:gr,gravity,maxvxyzu
+ use dim,                only:gr,gravity,maxvxyzu,do_radiation
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu,polyk_eos=>polyk
+ use eos,                only:eos_works_with_radiation,eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -203,27 +208,27 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use physcon,            only:pi
  use units,              only:umass,udist,utime,unit_density
  use mpiutils,           only:reduceall_mpi
- type(star_t), intent(inout)  :: star
- integer,      intent(in)     :: id,master
- integer,      intent(inout)  :: npart,npartoftype(:),nptmass
- real,         intent(inout)  :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:),rad(:,:)
- real,         intent(inout)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,         intent(inout)  :: massoftype(:)
- real,         intent(in)     :: hfact
- logical,      intent(in)     :: relax,use_var_comp,write_rho_to_file
- integer,      intent(in)     :: ieos
- real,         intent(inout)  :: gamma
- real,         intent(in)     :: X_in,Z_in
- real,         intent(out)    :: rhozero
- integer(kind=8), intent(out) :: npart_total
- integer,      intent(out)    :: ierr
- real,         intent(in),  optional :: x0(3),v0(3)
- integer,      intent(in),  optional :: itype
- logical,      intent(in),  optional :: write_files
- real,         intent(out), optional :: density_error,energy_error
+ type(star_t),    intent(inout) :: star
+ integer,         intent(in)    :: id,master
+ integer,         intent(inout) :: npart,npartoftype(:),nptmass
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:),rad(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,            intent(inout) :: massoftype(:)
+ real,            intent(in)    :: hfact
+ logical,         intent(in)    :: relax,use_var_comp,write_rho_to_file
+ integer,         intent(in)    :: ieos
+ real,            intent(inout) :: gamma
+ real,            intent(in)    :: X_in,Z_in
+ real,            intent(out)   :: rhozero
+ integer(kind=8), intent(out)   :: npart_total
+ integer,         intent(out)   :: ierr
+ real,            intent(in),  optional :: x0(3),v0(3)
+ integer,         intent(in),  optional :: itype
+ logical,         intent(in),  optional :: write_files
+ real,            intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax,nerr
- integer                        :: ncols_compo,npart_old,i,iptmass_core
+ integer                        :: ncols_compo,npart_old,i,iptmass_core,nptmass_old
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
@@ -237,6 +242,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ nptmass_old = nptmass
  write_dumps = .true.
  ierr = 0
  if (present(write_files)) write_dumps = write_files
@@ -247,7 +253,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  call get_star_properties_in_code_units(star,star%r_code,mstar,star%rcore_code,star%mcore_code,&
                                         star%hsoft_code,star%lcore_code,star%hacc_code,nerr)
  if (nerr /= 0) then
-    ierr = 2
+    ierr = ierr_part
     return
  endif
 
@@ -257,7 +263,15 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (star%iprofile <= 0) then
     star%m_code = mstar
     call write_mass('Sink particle with mass = ',star%m_code,umass)
-    ierr = 1
+    ierr = ierr_sink_profile
+    return
+ endif
+ !
+ ! throw error if equation of state is incompatible with radiation
+ !
+ if (do_radiation .and. (.not. eos_works_with_radiation(ieos))) then
+    call error('set_star','radiation is not supported with the chosen equation of state')
+    ierr = ierr_radiation_conflict
     return
  endif
  !
@@ -279,12 +293,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (relax) lattice='random'
  if (star%np < 1 .and. npart_old==0) then
     call fatal('set_star','cannot set up a star with zero particles')
-    ierr = 2
+    ierr = ierr_part
     return
  endif
  if (mstar < 0.) then
     call fatal('set_star','cannot set up a star with negative mass!')
-    ierr = 2
+    ierr = ierr_part
     return
  endif
  call set_star_density(lattice,id,master,rmin,star%r_code,mstar,hfact,&
@@ -319,6 +333,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! excluded from the centre of mass and relax_star calculations
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = -abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = -abs(xyzmh_ptmass(4,1:nptmass_old))
  !
  ! relax the density profile to achieve nice hydrostatic equilibrium
  !
@@ -357,14 +372,15 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! restore previous particles
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = abs(xyzh(4,1:npart_old))
+ if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = abs(xyzmh_ptmass(4,1:nptmass_old))
 
  !
  ! set composition (X,Z,mu, if using variable composition)
  ! of each particle by interpolating from table
  !
  if (use_var_comp .or. eos_outputs_mu(ieos)) then
-    call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,&
-                              xyzh,Xfrac,Yfrac,mu,mtab,mstar,eos_vars,npin=npart_old)
+    call set_star_composition(eos_outputs_mu(ieos),npart,xyzh,Xfrac,Yfrac,&
+                              mu,mtab,eos_vars,npin=npart_old)
  endif
  !
  ! Write .comp file containing composition of each particle after interpolation
@@ -453,21 +469,21 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  use eos,           only:init_eos,finish_eos
  use eos_piecewise, only:init_eos_piecewise_preset
  use io,            only:error
- type(star_t), intent(inout)  :: star(:)
- integer,      intent(in)     :: id,master,nstars
- integer,      intent(inout)  :: npart,npartoftype(:),nptmass
- real,         intent(inout)  :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:),rad(:,:)
- real,         intent(inout)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,         intent(inout)  :: massoftype(:)
- real,         intent(in)     :: hfact
- logical,      intent(in)     :: relax,use_var_comp,write_rho_to_file
- integer,      intent(in)     :: ieos
- real,         intent(inout)  :: gamma
- real,         intent(in)     :: X_in,Z_in
- real,         intent(out)    :: rhozero
- integer(kind=8), intent(out) :: npart_total
- real,         intent(in), optional :: x0(3,nstars),v0(3,nstars)
- integer,      intent(out)    :: ierr
+ type(star_t),    intent(inout) :: star(:)
+ integer,         intent(in)    :: id,master,nstars
+ integer,         intent(inout) :: npart,npartoftype(:),nptmass
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:),rad(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,            intent(inout) :: massoftype(:)
+ real,            intent(in)    :: hfact
+ logical,         intent(in)    :: relax,use_var_comp,write_rho_to_file
+ integer,         intent(in)    :: ieos
+ real,            intent(inout) :: gamma
+ real,            intent(in)    :: X_in,Z_in
+ real,            intent(out)   :: rhozero
+ integer(kind=8), intent(out)   :: npart_total
+ integer,         intent(out)   :: ierr
+ real,            intent(in), optional :: x0(:,:),v0(:,:)
  procedure(mask_prototype)    :: mask
  integer  :: i
  real     :: xstar(3),vstar(3)
@@ -509,8 +525,8 @@ subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
  use vectorutils, only:cross_product3D
  integer, intent(in)    :: npart
  integer, intent(inout) :: npartoftype(:)
- real, intent(inout) :: xyz(:,:),vxyz(:,:)
- real, intent(in)    :: x0(3),v0(3)
+ real,    intent(inout) :: xyz(:,:),vxyz(:,:)
+ real,    intent(in)    :: x0(3),v0(3)
  integer, intent(in), optional :: itype
  logical, intent(in), optional :: corotate
  logical :: add_spin
@@ -565,7 +581,7 @@ subroutine shift_stars(nstar,star,x0,v0,&
  use part, only:ihacc,ihsoft
  integer,      intent(in)    :: nstar,npart
  type(star_t), intent(in)    :: star(nstar)
- real,         intent(in)    :: x0(3,nstar),v0(3,nstar)
+ real,         intent(in)    :: x0(:,:),v0(:,:)
  real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,      intent(inout) :: nptmass,npartoftype(:)
@@ -643,10 +659,10 @@ end subroutine write_mass
 !+
 !-----------------------------------------------------------------------
 subroutine set_defaults_given_profile(iprofile,filename,mstar,polyk)
- integer, intent(in)  :: iprofile
- character(len=120), intent(out) :: filename
- real,    intent(inout) :: polyk
- character(len=*), intent(inout) :: mstar
+ integer,            intent(in)    :: iprofile
+ character(len=120), intent(out)   :: filename
+ real,               intent(inout) :: polyk
+ character(len=*),   intent(inout) :: mstar
 
  select case(iprofile)
  case(ifromfile)
@@ -1021,6 +1037,7 @@ subroutine write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
 
  ! optionally ask for number of stars, otherwise fix nstars to the input array size
  if (present(nstar)) then
+    write(iunit,"(/,a)") '# how many bodies'
     call write_inopt(nstar,'nstars','number of bodies to add (0-'//trim(int_to_string(size(star)))//')',iunit)
     nstars = nstar
  else
@@ -1066,7 +1083,7 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
 
  ! optionally ask for number of stars
  if (present(nstar)) then
-    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star))
+    call read_inopt(nstar,'nstars',db,errcount=nerr,min=0,max=size(star),default=2)
     nstars = nstar
  else
     nstars = size(star)
@@ -1102,7 +1119,7 @@ end subroutine read_options_stars
 subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
  use eos,          only:use_var_comp,X_in,Z_in,irecomb,gmw,gamma
  use infile_utils, only:write_inopt
- integer, intent(in) :: nstars,ieos,iunit
+ integer,          intent(in) :: nstars,ieos,iunit
  type(star_t),     intent(in) :: star(nstars)
  character(len=*), intent(in) :: label(nstars)
  integer :: i

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module icosahedron
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io
+! :Dependencies: io, physcon
 !
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -103,6 +103,7 @@ module icosahedron
  use io, only:error
  implicit none
  public :: demo,vector2pixel,pixel2vector,compute_matrices,compute_corners
+ public :: fibonacci_sphere, fibonacci_jets
 
  private
 
@@ -577,7 +578,7 @@ subroutine find_another_face(vector,R,face)
  ! This simple routine can be substantially accelerated
  ! by adding a bunch of if-statements, to avoid looping
  ! over more than a few faces.
- real,    intent(in)  :: vector(3), R(0:19,3,3)
+ real,    intent(in)    :: vector(3), R(0:19,3,3)
  integer, intent(inout) :: face
  real    :: dot, max
  integer :: n,facetoavoid,i
@@ -886,6 +887,67 @@ subroutine unadjust_sixth(x,y)
  y    = -y
 
 end subroutine unadjust_sixth
+
+!-----------------------------------------------------------------------
+!+
+!  Inject a quasi-uniform distribution of particles
+!  using Fibonacci spheres
+!
+!  Reference : Gonzalez A. (2009)
+!+
+!-----------------------------------------------------------------------
+subroutine fibonacci_sphere(j,resolution,radial_unit_vector)
+
+ use physcon, only:pi
+
+ integer, intent(in)  :: j, resolution
+ real,    intent(out) :: radial_unit_vector(3)
+
+ real, parameter :: phi = pi * (sqrt(5.)-1.) ! Golden angle
+ real :: radius, theta
+
+ ! slightly modified expression to get rid of polar particles
+ radial_unit_vector(2) = 1. - ((j + 0.5)/resolution) * 2.
+
+ radius = sqrt(1. - radial_unit_vector(2) * radial_unit_vector(2))
+
+ theta = phi * j
+
+ radial_unit_vector(1) = cos(theta) * radius
+ radial_unit_vector(3) = sin(theta) * radius
+
+end subroutine fibonacci_sphere
+
+!-----------------------------------------------------------------------
+!+
+!  Modified Fibonacci sphere routine to only inject particles at
+!  the poles of the sink
+!+
+!-----------------------------------------------------------------------
+subroutine fibonacci_jets(j,resolution,radial_unit_vector)
+
+ use physcon, only:pi
+
+ integer, intent(in)  :: j, resolution
+ real,    intent(out) :: radial_unit_vector(3)
+
+ real, parameter :: phi = pi * (sqrt(5.)-1.) ! Golden angle
+ real :: radius, theta
+
+ if (2 * j < resolution) then
+    radial_unit_vector(3) = 1. - ((j + 0.5)/resolution) * 0.1
+ else
+    radial_unit_vector(3) = - 1. + ((j - resolution/2 + 0.5)/resolution) * 0.1
+ endif
+
+ radius = sqrt(1. - radial_unit_vector(3) * radial_unit_vector(3))
+
+ theta = phi * j
+
+ radial_unit_vector(1) = cos(theta) * radius
+ radial_unit_vector(2) = sin(theta) * radius
+
+end subroutine fibonacci_jets
 
 end module icosahedron
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

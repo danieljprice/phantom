@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -161,8 +161,8 @@ subroutine step_lf(t,dt,dtnew)
  use timestep,       only:C_force
  use part,           only:xyzh,vxyzu
  use options,        only:iexternalforce
- real,    intent(in)    :: t,dt
- real,    intent(out)   :: dtnew
+ real, intent(in)  :: t,dt
+ real, intent(out) :: dtnew
  real    :: dtf,hdt,phi
  real    :: fextx,fexty,fextz,fextv(3),fx,fy,fz,vxhalf,vyhalf,vzhalf
 

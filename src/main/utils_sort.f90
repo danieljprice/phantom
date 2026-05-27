@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -61,16 +61,23 @@ real function r2func_origin(xyzh)
  r2func_origin = (xyzh(1)-x0)**2 + (xyzh(2)-y0)**2 + (xyzh(3)-z0)**2
 
 end function r2func_origin
+
+real function r2func_pos(xyzh,xpos)
+ real, intent(in) :: xyzh(4),xpos(3)
+
+ r2func_pos = (xyzh(1)-xpos(1))**2 + (xyzh(2)-xpos(2))**2 + (xyzh(3)-xpos(3))**2
+
+end function r2func_pos
 !----------------------------------------------------------------
 !+
 !  standard sorting routine using Quicksort for real*4
 !+
 !----------------------------------------------------------------
 subroutine indexx_r4(n, arr, indx)
- integer, parameter :: m=7, nstack=500
  integer, intent(in)  :: n
  real,    intent(in)  :: arr(n)
  integer, intent(out) :: indx(n)
+ integer, parameter :: m=7, nstack=500
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -164,10 +171,10 @@ end subroutine indexx_r4
 !+
 !----------------------------------------------------------------
 subroutine indexx_i8(n, arr, indx)
+ integer,         intent(in)  :: n
+ integer(kind=8), intent(in)  :: arr(n)
+ integer,         intent(out) :: indx(n)
  integer,            parameter :: m=7, nstack=500
- integer,            intent(in)  :: n
- integer(kind=8),    intent(in)  :: arr(n)
- integer,            intent(out) :: indx(n)
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -262,11 +269,11 @@ end subroutine indexx_i8
 !+
 !----------------------------------------------------------------
 subroutine indexxfunc(n, func, xyzh, indx)
- integer, parameter :: m=7, nstack=500
  integer, intent(in)  :: n
- real, external :: func
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: indx(n)
+ integer, parameter :: m=7, nstack=500
+ real, external :: func
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -362,12 +369,13 @@ end subroutine indexxfunc
 !   neighbours founded using the KD tree)
 !+
 !----------------------------------------------------------------
-subroutine Knnfunc(n, func, xyzh, indx)
- integer, parameter :: m=7, nstack=500
+subroutine Knnfunc(n, xpos, xyzh, indx)
  integer, intent(in)  :: n
- real, external :: func
+ real,    intent(in)  :: xpos(3)
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: indx(n)
+ integer, parameter :: m=7, nstack=500
+ real, external :: func
 
  integer :: i,j,k,l,ir,jstack,indxt,itemp
  integer :: istack(nstack)
@@ -380,9 +388,9 @@ subroutine Knnfunc(n, func, xyzh, indx)
 1 if (ir - l < m) then
     do j = l + 1, ir
        indxt = indx(j)
-       a = func(xyzh(:,indxt))
+       a = r2func_pos(xyzh(:,indxt),xpos)
        do i = j - 1, 1, -1
-          if (func(xyzh(:,indx(i))) <= a) goto 2
+          if (r2func_pos(xyzh(:,indx(i)),xpos) <= a) goto 2
           indx(i + 1) = indx(i)
        enddo
        i = 0
@@ -397,17 +405,17 @@ subroutine Knnfunc(n, func, xyzh, indx)
     itemp = indx(k)
     indx(k) = indx(l + 1)
     indx(l + 1) = itemp
-    if (func(xyzh(:,indx(l+1))) > func(xyzh(:,indx(ir)))) then
+    if (r2func_pos(xyzh(:,indx(l+1)),xpos) > r2func_pos(xyzh(:,indx(ir)),xpos)) then
        itemp = indx(l + 1)
        indx(l + 1) = indx(ir)
        indx(ir) = itemp
     endif
-    if (func(xyzh(:,indx(l))) > func(xyzh(:,indx(ir)))) then
+    if (r2func_pos(xyzh(:,indx(l)),xpos) > r2func_pos(xyzh(:,indx(ir)),xpos)) then
        itemp = indx(l)
        indx(l) = indx(ir)
        indx(ir) = itemp
     endif
-    if (func(xyzh(:,indx(l+1))) > func(xyzh(:,indx(l)))) then
+    if (r2func_pos(xyzh(:,indx(l+1)),xpos) > r2func_pos(xyzh(:,indx(l)),xpos)) then
        itemp = indx(l + 1)
        indx(l + 1) = indx(l)
        indx(l) = itemp
@@ -415,14 +423,14 @@ subroutine Knnfunc(n, func, xyzh, indx)
     i = l + 1
     j = ir
     indxt = indx(l)
-    a = func(xyzh(:,indxt))
+    a = r2func_pos(xyzh(:,indxt),xpos)
 
 3   continue
     i = i + 1
-    if (func(xyzh(:,indx(i))) < a) goto 3
+    if (r2func_pos(xyzh(:,indx(i)),xpos) < a) goto 3
 4   continue
     j = j - 1
-    if (func(xyzh(:,indx(j))) > a) goto 4
+    if (r2func_pos(xyzh(:,indx(j)),xpos) > a) goto 4
     if (j < i) goto 5
     itemp = indx(i)
     indx(i) = indx(j)
@@ -463,10 +471,10 @@ end subroutine Knnfunc
 subroutine parqsort(n, arr,func, indx)
 !$ use omp_lib,only:omp_get_num_threads
  implicit none
- integer, parameter :: m=8, nstack=500
- integer, intent(in)  :: n
- real,    intent(in)  :: arr(n)
+ integer, intent(in)    :: n
+ real,    intent(in)    :: arr(n)
  integer, intent(inout) :: indx(n)
+ integer, parameter :: m=8, nstack=500
  real, external :: func
  integer       :: i,j,k,il,ir,jstack,jqueue,indxt,itemp,nthreads,t,spt,nquick
  integer, save :: istack(nstack)
@@ -613,10 +621,10 @@ end subroutine parqsort
 !+
 !----------------------------------------------------------------
 subroutine find_rank(npart,func,xyzh,ranki)
- real, external :: func
- real, intent(in)  :: xyzh(:,:)
- integer, intent(in) :: npart
+ real,                 intent(in)  :: xyzh(:,:)
+ integer,              intent(in)  :: npart
  integer, allocatable, intent(out) :: ranki(:)
+ real, external :: func
  integer, allocatable :: iorder(:)
  real, parameter :: min_diff = tiny(1.)
  integer :: i,j,k
@@ -646,9 +654,9 @@ end subroutine find_rank
 !----------------------------------------------------------------
 subroutine sort_by_radius(n,xyzh,iorder,x0)
  integer, intent(in)  :: n
- real, intent(in)     :: xyzh(4,n)
+ real,    intent(in)  :: xyzh(4,n)
  integer, intent(out) :: iorder(n)
- real, intent(in), optional :: x0(3)
+ real,    intent(in), optional :: x0(3)
 
  ! optional argument x0=[1,1,1] to set the origin
  if (present(x0)) then

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,9 +24,10 @@ module physcon
  real, parameter :: twopi    =  6.2831853072d0
  real, parameter :: fourpi   = 12.5663706144d0
  real, parameter :: piontwo  =  1.5707963268d0
- real, parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
+ real, parameter :: rpiontwo =  1.2533141373d0       !square root of (Pi/2)
  real, parameter :: roottwo  =  1.4142135624d0
  real, parameter :: deg_to_rad = pi/180.
+ real, parameter :: golden  = pi * (sqrt(5.)-1.)     !golden number
 !
 !--Physical constants
 !

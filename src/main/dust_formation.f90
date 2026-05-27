@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -135,10 +135,9 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  use units,          only:utime,unit_density
  use eos,            only:ieos,get_temperature
 
- real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
- real,    intent(inout) :: JKmuS(:)
+ real, intent(in)    :: dtsph,Tdust,rho,u,xyzh(4)
+ real, intent(inout) :: JKmuS(:)
 
- integer, parameter :: wind_emitting_sink = 1
  real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
  dt_cgs    = dtsph* utime
@@ -212,7 +211,7 @@ end subroutine evolve_chem
 !------------------------------------
 pure elemental real function calc_kappa_bowen(Teq)
 !all quantities in cgs
- real,    intent(in)  :: Teq
+ real, intent(in) :: Teq
  real :: dlnT
 
  dlnT = (Teq-bowen_Tcond)/bowen_delta
@@ -244,7 +243,7 @@ pure real function calc_kappa_dust(K3, Tdust, rho_cgs)
 
  ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
  !kappa_cgs = 6.7d0 * fac * Tdust  ! planck
- kappa_cgs = 5.9d0 * fac * Tdust  ! Rosseland
+ kappa_cgs = 5.9 * fac * Tdust  ! Rosseland
 
  calc_kappa_dust = kappa_cgs + kappa_gas
 end function calc_kappa_dust
@@ -329,7 +328,7 @@ end subroutine calc_nucleation
 !------------------------------------
 subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
 ! all quantities are in cgs, K and K_new are the *normalized* moments (K/n<H>)
- real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
+ real, intent(in)  :: Jstar, K(0:3), JstarS, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
  real, parameter :: Nl_13 = 10. !(lower grain size limit)**1/3
@@ -373,24 +372,26 @@ end subroutine evol_K
 subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! all quantities are in cgs
  use io,  only:fatal
- use eos, only:ieos
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
  real, intent(out)   :: pH, pH_tot
- real :: KH2, pH2, x
+ real :: KH2, pH2, x, T_ionisation_He
  real :: T_old, mu_old, gamma_old, tol
  logical :: converged
  integer :: i,isolve
  integer, parameter :: itermax = 100
+ real, parameter    :: a1 = 4.4314613664, b1 = 7.46314789e-02, c1 = 1.5361475e-03
  character(len=30), parameter :: label = 'calc_muGamma'
 
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
- T_old = T
- if (T > 1.d4) then
-    mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    pH     = pH_tot
-    if (ieos /= 17) gamma  = 5./3.
+ T_old  = T
+ ! temperature above which helium starts being ionized (fit to Saha equation)
+ T_ionisation_He = 10.**(a1 + log(rho_cgs)/log(10.) * b1 + (log(rho_cgs)/log(10.))**2 * c1)
+ if (T > T_ionisation_He) then
+    pH = pH_tot
+    mu = 0.62
+    !  mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
     tol       = 1.d-3
@@ -405,7 +406,6 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        pH        = solve_q(2.*KH2, 1., -pH_tot)
        pH2       = KH2*pH**2
        mu        = (1.+4.*eps(iHe))/(.5+eps(iHe)+0.5*pH/pH_tot)
-       if (ieos == 17) exit !only update mu, keep gamma constant
        x         = 2.*(1.+4.*eps(iHe))/mu
        gamma     = (3.*x+4.+4.*eps(iHe))/(x+4.+4.*eps(iHe))
        converged = (abs(T-T_old)/T_old) < tol
@@ -433,7 +433,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH2    = pH_tot/2.
     pH     = 0.
     mu     = (1.+4.*eps(iHe))/(0.5+eps(iHe))
-    if (ieos /= 17)  gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
+    gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
  endif
 
 end subroutine calc_muGamma
@@ -445,10 +445,10 @@ end subroutine calc_muGamma
 !--------------------------------------------
 subroutine init_muGamma(rho_cgs, T, mu, gamma, ppH, ppH2)
 ! all quantities are in cgs
- real, intent(in)              :: rho_cgs
- real, intent(inout)           :: T
- real, intent(out)             :: mu, gamma
- real, intent(out), optional   :: ppH, ppH2
+ real, intent(in)    :: rho_cgs
+ real, intent(inout) :: T
+ real, intent(out)   :: mu, gamma
+ real, intent(out), optional :: ppH, ppH2
  real :: KH2, pH_tot, pH, pH2
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)

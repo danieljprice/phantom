@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -36,12 +36,12 @@ contains
 !+
 !------------------------------------------------------------------------
 subroutine get_rhomach_grid(datgrid,nx,ny,nz,smin,rhomean,rhovar,smean,svar,rmsv,rhogrid)
- real,    intent(in)  :: datgrid(:,:,:,:)
- integer, intent(in)  :: nx,ny,nz
- real,    intent(in)  :: smin
- real,    intent(out) :: rhomean,rhovar
- real,    intent(out) :: smean,svar,rmsv
- real,    intent(out), allocatable :: rhogrid(:)
+ real,              intent(in)  :: datgrid(:,:,:,:)
+ integer,           intent(in)  :: nx,ny,nz
+ real,              intent(in)  :: smin
+ real,              intent(out) :: rhomean,rhovar
+ real,              intent(out) :: smean,svar,rmsv
+ real, allocatable, intent(out) :: rhogrid(:)
  integer :: i,j,k,n,isize
  real    :: rhoi,si,vx2,vy2,vz2
  real    :: rhomin,rhomax,totvol,totmass,dn

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -98,7 +98,7 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
 !    polynomials at the point X.
 !
 
- integer, intent(in) :: n
+ integer,      intent(in)  :: n
  real(kind=8), intent(in)  :: alpha
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8), intent(in)  :: x
@@ -240,7 +240,7 @@ subroutine legendre_associated( n, m, x, cx )
 !    Output, real ( kind = 8 ) CX(0:N), the values of the first N+1 functions.
 !
 
- integer, intent(in) :: n, m
+ integer,      intent(in)  :: n, m
  real(kind=8), intent(in)  :: x
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8) :: fact
@@ -474,7 +474,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     k0=12
     if (x >= 35.0) k0=9
     if (x >= 50.0) k0=7
-    ca=dexp(x)/dsqrt(2.0d0*pi*x)
+    ca=dexp(x)/sqrt(2.0d0*pi*x)
     bi0=1.0d0
     xr=1.0d0/x
     do k=1,k0

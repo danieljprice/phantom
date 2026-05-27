@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,20 +27,16 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
+ integer,          intent(in)    :: npart,iunit,numfile
  character(len=9) :: output,filename
  integer :: i
  integer, parameter :: iparams = 10
  integer, parameter :: iprec   = 24
  integer, parameter :: iecc    = 23
  real :: ecc,G,M,E,vel(3),pos(3),rad,Li(3),Limag,term,mu
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(output,"(a4,i5.5)") 'part',numfile
  write(*,'("Output file name is ",A)') output

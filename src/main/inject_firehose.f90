@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -267,7 +267,7 @@ end subroutine read_options_inject
 !+
 !-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 
 end subroutine set_default_options_inject
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -92,7 +92,7 @@ subroutine compute_energies(t)
  use kernel,         only:radkern
  use timestep,       only:dtmax
  use part,           only:metrics,metrics_ptmass
- use metric_tools,   only:unpack_metric
+ use metric_tools,   only:unpack_metric,imet_binarybh,imetric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
@@ -212,7 +212,7 @@ subroutine compute_energies(t)
     zi = xyzh(3,i)
     hi = xyzh(4,i)
     was_not_accreted = .not.was_accreted(iexternalforce,hi)
-    if (.not.isdead_or_accreted(hi) .or. .not. was_not_accreted) then
+    if (.not.isdead_or_accreted(hi) .or. (.not. was_not_accreted .and. .not.(gr .and. imetric==imet_binarybh))) then
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
@@ -416,7 +416,7 @@ subroutine compute_energies(t)
                 if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
              endif
           else
-             if ((ieos==2 .or. ieos == 5 .or. ieos == 17) .and. gammai > 1.001) then
+             if ((ieos==2 .or. ieos == 5) .and. gammai > 1.001) then
                 !--thermal energy using polytropic equation of state
                 ethermi = pmassi*ponrhoi/(gammai-1.)*gasfrac
              elseif (ieos==9) then
@@ -891,7 +891,7 @@ end subroutine get_erot
 !+
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
- real,    intent(inout) :: evdata(4,0:inumev)
+ real, intent(inout) :: evdata(4,0:inumev)
 
  evdata            = 0.0
  evdata(iev_max,:) = -huge(evdata(iev_max,:))
@@ -919,8 +919,8 @@ end subroutine ev_data_update
 !+
 !----------------------------------------------------------------
 subroutine collate_ev_data(evdata_thread,evdata)
- real,            intent(in)    :: evdata_thread(4,0:inumev)
- real,            intent(inout) :: evdata(4,0:inumev)
+ real, intent(in)    :: evdata_thread(4,0:inumev)
+ real, intent(inout) :: evdata(4,0:inumev)
  integer                        :: i
 
  do i = 1,iquantities
@@ -937,8 +937,8 @@ end subroutine collate_ev_data
 !----------------------------------------------------------------
 subroutine finalise_ev_data(evdata,dnptot)
  use mpiutils, only:reduceall_mpi
- real,            intent(inout) :: evdata(4,0:inumev)
- real,            intent(in)    :: dnptot
+ real, intent(inout) :: evdata(4,0:inumev)
+ real, intent(in)    :: dnptot
  integer                        :: i
 
  do i = 1,iquantities
