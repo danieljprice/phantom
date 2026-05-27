@@ -2646,7 +2646,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use neighkdtree,    only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
- use timestep,       only:C_cour,C_cool,C_force,C_rad,bignumber,dtmax,psidecayfac,overcleanfac
+ use timestep,       only:C_cour,C_force,C_rad,bignumber,dtmax,psidecayfac,overcleanfac
  use units,          only:get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
  use metric_tools,   only:unpack_metric
