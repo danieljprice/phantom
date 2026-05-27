@@ -221,6 +221,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
+ use timestep,        only:dtmax
  real, intent(inout)      :: dustprop(:,:)
  real(kind=4), intent(in) :: dvdx(:,:)
  real, intent(in)         :: Vrel_disp(:)
@@ -232,6 +233,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  integer, intent(in)      :: npart
  real                     :: rhog,rhod,vrel,rho,sdust
  real                     :: mass_min,massgrain,rhograin,filfaci
+ real                     :: dt_arb,frac_masschange,att_factor
  integer                  :: i,iam
 
  vrel = 0.
@@ -298,21 +300,12 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              endif
           endif
 
-!          !--Enforce minimum grain size by limiting dm/dt when approaching minimum
-!          if (ifrag > 0 .and. dmdt(i) < 0.) then
-!             ! Calculate minimum mass corresponding to minimum grain size
-!             mass_min = fourpi/3. * rhograin * filfaci * grainsizemin**3
-!
-!             ! Check if we're close to minimum size (within xx% of current mass), put physical sense here
-!             if (0 > dmdt(i)*xyzh(4,i)/dustgasprop(1,i)+massgrain) then!(massgrain < VrelVf(1,i) * mass_min) then
-!                ! Limit dm/dt to prevent going below minimum, but allow some evolution
-!                ! Use a smooth transition: dm/dt goes to zero as mass approaches minimum
-!                ! dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / ((VrelVf(1,i)-1) * mass_min))
-!                ! Make grain size to minimum size and zero derivative
-!                dmdt(i) = 0.
-!                dustprop(1,i) = mass_min
-!             endif
-!          endif
+          !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
+          if (ifrag > 0 .and. dmdt(i) < 0.) then
+              dt_arb = dtmax/(2**20) ! arbitrary timestep, only needs to be small enough
+              frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
+              att_factor = 1-dt_arb*frac_masschange !attenuation factor
+              dmdt(i) = dmdt(i)*att_factor
        endif
     else
        dmdt(i) = 0.
