@@ -78,7 +78,7 @@ module part
  real, allocatable :: Vrel_disp(:)     !- relative velocity due to dust particles with crossing trajectories (see force.F90)
  character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
- character(len=*), parameter :: VrelVf_label(4) = (/'Vrel/Vfrag  ','Vmicro/Vfrag','Vshock/Vfrag','Vdisp/Vfrag '/)
+ character(len=*), parameter :: VrelVf_label(3) = (/'Vrel/Vfrag  ','Vmicro/Vfrag','Vdisp/Vfrag '/)
 
  !- porosity
  integer, allocatable :: dragreg(:)    !- drag regime
@@ -116,11 +116,6 @@ module part
    (/'dvxdx','dvxdy','dvxdz', &
      'dvydx','dvydy','dvydz', &
      'dvzdx','dvzdy','dvzdz'/)
-real(kind=4), allocatable :: dvdxpos(:,:)
-character(len=*), parameter :: dvdxpos_label(9) = &
-  (/'dvxdxpos','dvxdypos','dvxdzpos', &
-    'dvydxpos','dvydypos','dvydzpos', &
-    'dvzdxpos','dvzdypos','dvzdzpos'/)
 !
 !--H2 chemistry
 !
@@ -468,7 +463,6 @@ subroutine allocate_part
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
  call allocate_array('divcurlv', divcurlv, ndivcurlv, maxp)
  call allocate_array('dvdx', dvdx, 9, maxp)
- call allocate_array('dvdxpos', dvdxpos, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('apr_level',apr_level,maxp_apr)
@@ -478,7 +472,7 @@ subroutine allocate_part
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
  call allocate_array('Vrel_disp', Vrel_disp, maxp_growth)
- call allocate_array('VrelVf', VrelVf, 4, maxp_growth)
+ call allocate_array('VrelVf', VrelVf, 3, maxp_growth)
  call allocate_array('eosvars', eos_vars, maxeosvars, maxan)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
@@ -566,7 +560,6 @@ subroutine deallocate_part
  if (allocated(alphaind)) deallocate(alphaind)
  if (allocated(divcurlv)) deallocate(divcurlv)
  if (allocated(dvdx))     deallocate(dvdx)
- if (allocated(dvdxpos))  deallocate(dvdxpos)
  if (allocated(divcurlB)) deallocate(divcurlB)
  if (allocated(Bevol))    deallocate(Bevol)
  if (allocated(Bxyz))     deallocate(Bxyz)
@@ -686,7 +679,6 @@ subroutine init_part
  if (maxalpha==maxp)  alphaind = 0.
  divcurlv = 0.
  if (maxdvdx==maxp) dvdx = 0.
- if (maxdvdx==maxp) dvdxpos = 0.
  if (ndivcurlB > 0) divcurlB = 0.
  if (maxgrav > 0) poten = 0.
  if (use_dust) then
@@ -1356,7 +1348,6 @@ subroutine copy_particle_all(src,dst,new_part)
  divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
- if (maxdvdx ==maxp)  dvdxpos(:,dst) = dvdxpos(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
@@ -1472,7 +1463,6 @@ subroutine combine_two_particles(keep,discard)
  divcurlv(:,keep) = factor*(divcurlv(:,keep) + divcurlv(:,discard))
  if (ndivcurlB > 0) divcurlB(:,keep) = factor*(divcurlB(:,keep) + divcurlB(:,discard))
  if (maxdvdx ==maxp)  dvdx(:,keep) = factor*(dvdx(:,keep) + dvdx(:,discard))
- if (maxdvdx ==maxp)  dvdxpos(:,keep) = factor*(dvdxpos(:,keep) + dvdxpos(:,discard))
  if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
  if (maxgradh ==maxp) gradh(:,keep) = factor*(gradh(:,keep) + gradh(:,discard))
  if (maxphase ==maxp .and. (iphase(keep) /= iphase(discard))) make_warning = .true.

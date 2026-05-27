@@ -215,7 +215,7 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,dvdx,Vrel_disp)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,Vrel_disp)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
                            massoftype,Omega_k,dustfrac,tstop,deltav
  use options,         only:use_dustfrac,use_porosity
@@ -223,7 +223,6 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  use eos,             only:ieos,get_spsound
  use timestep,        only:dtmax
  real, intent(inout)      :: dustprop(:,:)
- real(kind=4), intent(in) :: dvdx(:,:)
  real, intent(in)         :: Vrel_disp(:)
  real, intent(inout)      :: dustgasprop(:,:)
  real, intent(in)         :: xyzh(:,:)
@@ -246,7 +245,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp parallel do default(none) &
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
- !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,dvdx,Vrel_disp) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
  !$omp private(mass_min,massgrain,rhograin) &
  !$omp firstprivate(filfaci)
@@ -275,7 +274,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           if (use_porosity) filfaci = filfac(i)
           sdust = get_size(massgrain,rhograin,filfaci)
 
-          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(:,i),dustgasprop(:,i),dvdx(:,i),Vrel_disp(i))
+          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(:,i),dustgasprop(:,i),Vrel_disp(i))
 
           !
           !--dustprop(1) = mass, dustprop(2) = intrinsic density,
@@ -320,11 +319,10 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
+subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
  real, intent(in)         :: xyzh(:)
- real(kind=4), intent(in) :: dvdx(:)
  real, intent(in)         :: dustgasprop(:)
  real, intent(in)         :: Vrel_disp
  real, intent(inout)      :: vrel,vxyzu(:)
@@ -334,14 +332,11 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
  !--turbulence at micro scales
  Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
  Vrel_micro = vrelative(dustgasprop,Vt)
- !--relative motions at shock fronts
- divvi = real(dvdx(1)+dvdx(5)+dvdx(9))
- Vrel_shock = xyzh(4) * max(-divvi,0.)
- !-- Vrel_disp = relative motions from crossing dust particles, dispersion of relative motions between dust particles in the kernel
+
+ !-- Vrel_disp = relative motions from crossing dust particles, average of relative motions between dust particles in the kernel
 
  !--compute vrel
- vrel = sqrt(Vrel_micro**2 + Vrel_shock**2 + Vrel_disp**2)
- !if (Vrel_macro>0.5) print*,vref,vfrag,Vrel_macro
+ vrel = sqrt(Vrel_micro**2 + Vrel_disp**2)
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -350,8 +345,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
     if (vref > 0.) then
        VrelVf(1) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
        VrelVf(2) = Vrel_micro/vref
-       VrelVf(3) = Vrel_shock/vref
-       VrelVf(4) = Vrel_disp/vref
+       VrelVf(3) = Vrel_disp/vref
     endif
  elseif (ifrag > 0) then
     call comp_snow_line(xyzh,vxyzu,dustgasprop(2),izone)
@@ -360,22 +354,19 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,dvdx,Vrel_disp)
        if (vfragout > 0.) then
           VrelVf(1) = vrel/vfragout
           VrelVf(2) = Vrel_micro/vfragout
-          VrelVf(3) = Vrel_shock/vfragout
-          VrelVf(4) = Vrel_disp/vfragout
+          VrelVf(3) = Vrel_disp/vfragout
        endif
     case(1)
         if (vfragin > 0.) then
            VrelVf(1) = vrel/vfragin
            VrelVf(2) = Vrel_micro/vfragin
-           VrelVf(3) = Vrel_shock/vfragin
-           VrelVf(4) = Vrel_disp/vfragin
+           VrelVf(3) = Vrel_disp/vfragin
         endif
     case default
         if (vfrag > 0.) then
            VrelVf(1) = vrel/vfrag
            VrelVf(2) = Vrel_micro/vfrag
-           VrelVf(3) = Vrel_shock/vfrag
-           VrelVf(4) = Vrel_disp/vfrag
+           VrelVf(3) = Vrel_disp/vfrag
         endif
     end select
  endif

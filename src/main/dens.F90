@@ -124,7 +124,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,dvdxpos,apr_level)
+                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
  use dim,         only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -158,7 +158,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(in)    :: rad(:,:)
  real,         intent(inout) :: radprop(:,:)
  real(kind=4), intent(out)   :: dvdx(:,:)
- real(kind=4), intent(out)   :: dvdxpos(:,:)
  real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache)
 
@@ -248,7 +247,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(alphaind) &
 !$omp shared(dustfrac) &
 !$omp shared(dvdx) &
-!$omp shared(dvdxpos) &
 !$omp shared(id) &
 !$omp shared(nprocs) &
 !$omp shared(getdB) &
@@ -382,7 +380,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo local_its
        if (.not. do_export) then
           call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-               divcurlB,alphaind,dvdx,dvdxpos,vxyzu,&
+               divcurlB,alphaind,dvdx,vxyzu,&
                dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
           nlocal = nlocal + 1
        endif
@@ -505,7 +503,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call write_cell(stack_redo,cell)
           else
              call store_results(icall,cell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-                  divcurlB,alphaind,dvdx,dvdxpos,vxyzu, &
+                  divcurlB,alphaind,dvdx,vxyzu, &
                   dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,np,ncalc,radprop)
           endif
 
@@ -1064,63 +1062,6 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
 
 end subroutine calculate_strain_from_sums
 
-!----------------------------------------------------------------
-!+
-!  Internal utility to extract velocity gradients from summations
-!  calculated during the density loop, considering only the positive
-!  contribution to the divergence along each direction.
-!  Used only for computing dust grain relative velocities in
-!  growth.f90
-!  Put the flags as inputs .?
-!+
-!----------------------------------------------------------------
-subroutine calculate_strain_from_sums_positive(rhosum,termnorm,denom,rmatrix,dvdxpos,use_exact_linear)
- real, intent(in)  :: rhosum(:)
- real, intent(in)  :: termnorm,denom
- real, intent(in)  :: rmatrix(6)
- real, intent(out) :: dvdxpos(9)
- logical, intent(in) :: use_exact_linear
- real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
- real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
- real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
-
-! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
- if (use_exact_linear) then ! do exact linear first derivatives
-    ddenom = 1./denom
-    call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
-                     rhosum(idvxdxposi),rhosum(idvxdyposi),rhosum(idvxdzposi),rmatrix,ddenom)
-    call exactlinear(gradvydxi,gradvydyi,gradvydzi, &
-                     rhosum(idvydxposi),rhosum(idvydyposi),rhosum(idvydzposi),rmatrix,ddenom)
-    call exactlinear(gradvzdxi,gradvzdyi,gradvzdzi, &
-                     rhosum(idvzdxposi),rhosum(idvzdyposi),rhosum(idvzdzposi),rmatrix,ddenom)
-
-    !print*,'dvxdxi = ',-rhosum(idvxdxi)*termnorm,gradvxdxi
-    dvxdxi = -gradvxdxi
-    dvxdyi = -gradvxdyi
-    dvxdzi = -gradvxdzi
-    dvydxi = -gradvydxi
-    dvydyi = -gradvydyi
-    dvydzi = -gradvydzi
-    dvzdxi = -gradvzdxi
-    dvzdyi = -gradvzdyi
-    dvzdzi = -gradvzdzi
- else
-
-    !--these make rho*dv/dx_i
-    dvxdxi = -rhosum(idvxdxposi)*termnorm
-    dvxdyi = -rhosum(idvxdyposi)*termnorm
-    dvxdzi = -rhosum(idvxdzposi)*termnorm
-    dvydxi = -rhosum(idvydxposi)*termnorm
-    dvydyi = -rhosum(idvydyposi)*termnorm
-    dvydzi = -rhosum(idvydzposi)*termnorm
-    dvzdxi = -rhosum(idvzdxposi)*termnorm
-    dvzdyi = -rhosum(idvzdyposi)*termnorm
-    dvzdzi = -rhosum(idvzdzposi)*termnorm
- endif
-
- dvdxpos(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
-
-end subroutine calculate_strain_from_sums_positive
 
 !----------------------------------------------------------------
 !+
@@ -1580,7 +1521,7 @@ end subroutine finish_rhosum
 !+
 !--------------------------------------------------------------------------
 subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
-                         gradh,divcurlv,divcurlB,alphaind,dvdx,dvdxpos,vxyzu,&
+                         gradh,divcurlv,divcurlB,alphaind,dvdx,vxyzu,&
                          dustfrac,rhomax,nneightry,nneighact,maxneightry,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
@@ -1606,7 +1547,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real(kind=4),    intent(inout) :: dvdx(:,:)
- real(kind=4),    intent(inout) :: dvdxpos(:,:)
  real,            intent(in)    :: vxyzu(:,:)
  real,            intent(out)   :: dustfrac(:,:)
  real,            intent(inout) :: rhomax
@@ -1728,12 +1668,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        if (maxdvdx==maxp .and. getdv) then
           if (.not.igotrmatrix) call calculate_rmatrix_from_sums(cell%rhosums(:,i),denom,rmatrix,igotrmatrix)
           call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi,.not.realviscosity)
-          call calculate_strain_from_sums_positive(cell%rhosums(:,i),term,denom,rmatrix,dvdxipos,.not.realviscosity)
           ! check for negative stresses to prevent tensile instability
           if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
           ! store strain tensor
           dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
-          dvdxpos(:,lli) = real(dvdxipos(:),kind=kind(dvdxpos))
        endif
 
        if (do_radiation .and. iamgasi .and. .not. implicit_radiation) then
