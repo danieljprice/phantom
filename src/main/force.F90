@@ -239,29 +239,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use omputils,     only:omp_thread_num,omp_num_threads
  use eos,          only:iresistive_heating
 
-<<<<<<< HEAD
- integer,         intent(in)    :: icall,npart
- integer(kind=1), intent(in)    :: apr_level(:)
- real,            intent(in)    :: xyzh(:,:)
- real,            intent(inout) :: vxyzu(:,:)
- real,            intent(in)    :: dustfrac(:,:)
- real,            intent(in)    :: dustprop(:,:)
- real,            intent(inout) :: dustgasprop(:,:)
- real,            intent(in)    :: fext(:,:)
- real,            intent(inout) :: fxyz_drag(:,:)
- real,            intent(in)    :: eos_vars(:,:)
- real,            intent(out)   :: fxyzu(:,:),ddustevol(:,:)
- real,            intent(in)    :: Bevol(:,:)
- real,            intent(out)   :: dBevol(:,:)
- real(kind=4),    intent(inout) :: divcurlv(:,:)
- real(kind=4),    intent(in)    :: divcurlB(:,:)
- real,            intent(in)    :: dt,stressmax
- integer,         intent(out)   :: ipart_rhomax ! test this particle for point mass creation
- real,            intent(in)    :: rad(:,:)
- real,            intent(out)   :: drad(:,:)
- real,            intent(inout) :: radprop(:,:)
- real,            intent(in)    :: dens(:), metrics(:,:,:,:)
-=======
  integer,      intent(in)    :: icall,npart
  integer(kind=1), intent(in) :: apr_level(:)
  real,         intent(in)    :: xyzh(:,:)
@@ -284,8 +261,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(out)   :: drad(:,:)
  real,         intent(inout) :: radprop(:,:)
  real,         intent(in)    :: dens(:), metrics(:,:,:,:)
->>>>>>> f4acd1c57 (add contributions to the relative grain velocity in dust a particle, contributions from dust streaming at gas shocks and from crossing trajectories of dust particles)
-
  real, save :: xyzcache(4,maxcellcache)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
@@ -1042,7 +1017,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
- real    :: vdustxi,vdustyi,vdustzi,vdustxj,vdustyj,vdustzj,projvdust
+ real    :: vdustxi,vdustyi,vdustzi,vdustxj,vdustyj,vdustzj,projvdust !this creates warning, here to prepare Vrel with 1F
  real    :: projvstar,projf_drag,epstsj,sdrag1,sdrag2!,rhogas1i
  real    :: winter
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
@@ -2732,6 +2707,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
+ use eos_stamatellos,only:duSPH
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)

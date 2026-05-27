@@ -232,7 +232,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  integer, intent(in)      :: npart
  real                     :: rhog,rhod,vrel,rho,sdust
  real                     :: mass_min,massgrain,rhograin,filfaci
- real                     :: dt_arb,frac_masschange,att_factor
+ real                     :: dtarb,frac_masschange,att_factor
  integer                  :: i,iam
 
  vrel = 0.
@@ -244,10 +244,10 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
 
  !$omp parallel do default(none) &
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
- !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
+ !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc,dtmax) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
- !$omp private(mass_min,massgrain,rhograin) &
+ !$omp private(mass_min,massgrain,rhograin,dtarb,frac_masschange,att_factor) &
  !$omp firstprivate(filfaci)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -301,10 +301,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
 
           !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
           if (ifrag > 0 .and. dmdt(i) < 0.) then
-              dt_arb = dtmax/(2**20) ! arbitrary timestep, only needs to be small enough
+              dtarb = dtmax/(2**20) ! arbitrary timestep, only needs to be small enough
               frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
-              att_factor = 1-dt_arb*frac_masschange !attenuation factor
+              att_factor = 1-dtarb*frac_masschange !attenuation factor
               dmdt(i) = dmdt(i)*att_factor
+          endif
        endif
     else
        dmdt(i) = 0.
@@ -327,7 +328,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  real, intent(in)         :: Vrel_disp
  real, intent(inout)      :: vrel,vxyzu(:)
  real, intent(out)        :: VrelVf(:)
- real                     :: Vt,Vrel_micro,Vrel_shock,divvi
+ real                     :: Vt,Vrel_micro
  integer                  :: izone
  !--turbulence at micro scales
  Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)

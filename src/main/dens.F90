@@ -1566,7 +1566,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: hi,hi1,hi21,hi31,hi41
  real         :: pmassi,rhoi
  real(kind=8) :: gradhi,gradsofti
- real         :: divcurlvi(5),rmatrix(6),dvdxi(9),dvdxipos(9)
+ real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
 

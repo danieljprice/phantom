@@ -59,7 +59,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                    VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,&
                    !dvdx,dvdx_label,&
                    rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
-                   iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
+                   iorig,iseed_sink,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
                    luminosity,eta_nimhd,eta_nimhd_label,apr_level
  use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
@@ -984,9 +984,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_sink_sfprop(2),got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
- logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf(3),got_dustgasprop(4)
- logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),&
-                            got_iorig,got_apr_level
+ logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf(3),got_dustgasprop(4),got_iseed_sink
+ logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4)
+logical                :: got_iorig,got_apr_level,got_taumean,got_ueqi,got_dudt,got_ttherm
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
  real, allocatable :: tmparray(:)
@@ -1003,7 +1003,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_poten       = .false.
  got_sink_data   = .false.
  got_sink_vels   = .false.
- got_sink_sfprop  = .false.
+ got_sink_sfprop = .false.
  got_Bxyz        = .false.
  got_psi         = .false.
  got_eosvars     = .false.
@@ -1028,7 +1028,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_ueqi        = .false.
  got_taumean     = .false.
  got_ttherm      = .false.
- got_dudt      = .false.
+ got_dudt        = .false.
 
  ndustfraci = 0
  if (use_dust .or. mhd) allocate(tmparray(max(size(dustfrac,2),size(Bevol,2))))
