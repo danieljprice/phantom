@@ -104,6 +104,13 @@ module eos
     ierr_units_not_set   = 3, &
     ierr_isink_not_set   = 4
 
+! integer parameters for eos type
+ integer, parameter, public :: &
+    ieos_isothermal = 1, &
+    ieos_adiabatic = 2, &
+    ieos_idealplusrad = 12, &
+    ieos_helmholtz = 15
+
 !
 ! Default temperature prescription for vertical stratification (0=MAPS, 1=Dartois)
 !
