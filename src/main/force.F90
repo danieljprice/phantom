@@ -3222,7 +3222,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           endif
           dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
 
-          !-get dust velocity dispersion in the kernel
+          !-get dust relative velocity in the kernel, sum all dimensions quadratically
           Vrel_disp(i) = sqrt(fsum(ivreldispxi)**2 + fsum(ivreldispyi)**2 + fsum(ivreldispzi)**2)
        endif
 
