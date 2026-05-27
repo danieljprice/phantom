@@ -55,7 +55,7 @@ contains
 !    xyzh(:,:) - positions and smoothing lengths of all particles
 !+
 !----------------------------------------------------------------
-subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
+subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
                       iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error,mtab)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
@@ -78,7 +78,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use neighkdtree,     only:allocate_neigh
  integer, intent(in)    :: nt,iptmass_core
  integer, intent(inout) :: npart
- real,    intent(in)    :: rho(nt),pr(nt),r(nt)
+ real,    intent(in)    :: rho(nt),pr(nt),temp(nt),r(nt)
  logical, intent(in)    :: use_var_comp
  real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
  real,    intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
@@ -297,7 +297,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
                                  eos_outputs_mu(ieos_prev),npart,xyzh,&
                                  Xfrac,Yfrac,mu,mr,mstar,eos_vars,npin=i1,x0=x0)
 
-          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,&
+          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,temp,&
                                 r,nt,npart,xyzh,vxyzu,rad,eos_vars,.true.,&
                                 use_var_comp=.false.,initialtemp=1.e3,polyk_in=polyk,npin=i1,x0=x0)
 

@@ -26,6 +26,7 @@ module eos_helmholtz
  public :: eos_helmholtz_write_inopt
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
+ public :: eos_helmholtz_energy_from_rhoT  ! invert EOS: get energy from rho, pressure, T
  public :: eos_helmholtz_cv_dpresdt
  public :: eos_helmholtz_get_minrho
  public :: eos_helmholtz_get_maxrho
@@ -1120,6 +1121,26 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! end of pipeline loop
 end subroutine eos_helmholtz_compute_pres_sound
+
+!----------------------------------------------------------------
+!+
+!  Get internal energy from density and temperature
+!  This routine inverts the EOS to compute energy from
+!  given temperature and density (pressure is not used).
+!  Inputs are in CGS units.
+!+
+!----------------------------------------------------------------
+subroutine eos_helmholtz_energy_from_rhoT(rho, temp, ener)
+ real, intent(in)  :: rho, temp
+ real, intent(out) :: ener
+
+ real :: dummy_pres, dummy_sound, dummy_denerdt
+
+ ! Call the main computation routine with temperature and density
+ ! We discard the pressure and sound speed outputs
+ call eos_helmholtz_compute_pres_sound(temp, rho, dummy_pres, dummy_sound, ener, dummy_denerdt)
+
+end subroutine eos_helmholtz_energy_from_rhoT
 
 !----------------------------------------------------------------
 !+

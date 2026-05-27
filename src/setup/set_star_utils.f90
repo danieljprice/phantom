@@ -21,7 +21,6 @@ module setstar_utils
 !
  use extern_densprofile, only:nrhotab
  use readwrite_kepler,   only:write_kepler_comp
- use readwrite_mesa, only: read_mesa ! ALi added this
  implicit none
  !
  ! Index of setup options
@@ -56,15 +55,6 @@ module setstar_utils
  public :: get_mass_coord
 
  private
-
-! Ali Add these below your public/private section, before contains
-! Variables for MESA lookup
-real, allocatable :: mesa_rho(:), mesa_r(:), mesa_pres(:)
-real, allocatable :: mesa_ene(:), mesa_temp(:), mesa_m(:)
-real :: X_in, Z_in
-real, allocatable :: Xfrac(:), Yfrac(:)
-real :: Mstar
-integer :: ierr_mesa
 
  integer, parameter :: ng_max = nrhotab
 
@@ -471,7 +461,7 @@ end subroutine set_star_composition
 !  Set the thermal energy profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
+subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
  use part,            only:rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi,icv,&
                            aprmassoftype,apr_level,radprop
@@ -483,7 +473,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  use physcon,         only:Rg,radconst
  use io,              only:fatal
  integer, intent(in)    :: ieos,npart,npts
- real,    intent(in)    :: den(:), pres(:), r(:)  ! density and pressure tables
+ real,    intent(in)    :: den(:),pres(:),temp(:),r(:)  ! density, pressure, and temperature tables
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),eos_vars(:,:),rad(:,:)
  logical, intent(in)    :: relaxed,use_var_comp
@@ -495,21 +485,6 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),pmassi,dum
  logical :: do_radiation_local
  integer :: i1
-! Ali I defined these:
-!  logical, save :: mesa_initialized = .false.
-!  real ::  radiusi (these two were for an old try I'm not using anymore rn)
- integer :: jmin, j
- real :: dist 
-! Ali At the very start of set_star_thermalenergy add following if clause
- ! Ali: should make this cleaner later, profile_wd.data is hardcoded here
- if (.not. allocated(mesa_rho)) then
-    call read_mesa('profile_wd.data',&
-     mesa_rho, mesa_r, mesa_pres,& 
-     mesa_m, mesa_ene, mesa_temp,&
-     X_in, Z_in, Xfrac,&
-     Yfrac, Mstar, ierr_mesa)
-    if (ierr_mesa /= 0) call fatal('set_star_thermalenergy','Failed to read MESA profile')
- endif
 
  i1  = 0
  eni = 0. ! to prevent compiler warning
@@ -536,11 +511,15 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
 
-    if (do_radiation) then
-       rho_cgs = densi*unit_density
-       p_cgs = presi*unit_pressure
+    rho_cgs = densi*unit_density
+    p_cgs = presi*unit_pressure
+    if (ieos==15) then       ! should really be a check if we actually have the temperature table
+       tempi = yinterp(temp(1:npts),r(1:npts),ri)  ! use MESA temperature as initial guess for Helmholtz
+    else
        tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
+    endif
 
+    if (do_radiation) then
        select case(ieos)
        case(2)
           eos_type = 12  ! Calculate temperature from both gas and radiation pressure
@@ -572,137 +551,13 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        eos_vars(itemp,i) = tempi
        vxyzu(4,i) = radprop(icv,i)*tempi
-
     else
        select case(ieos)
        case(23) ! Tillotson
           vxyzu(4,i) = 1.5*polyk_in
        case(16) ! Shen EoS
           vxyzu(4,i) = initialtemp
-      !!! Ali: Modified this case to use MESA profile lookup only while relaxing    
-       case(15) ! Helmholtz EoS
-
-      !     ! --- ALWAYS update positions ---
-      !     xi = xyzh(1,i) - xorigin(1)
-      !     yi = xyzh(2,i) - xorigin(2)
-      !     zi = xyzh(3,i) - xorigin(3)
-
-      !     ! --- Decide the initial guess for EOS ---
-      !     if (relaxed) then
-      !        ! Not relaxed anymore → use previous timestep values as guesses
-      !        tempi = eos_vars(itemp,i)
-      !        eni   = vxyzu(4,i)
-      !        ! Still relaxing → use MESA profile as initial guess
-      !        radiusi = sqrt(xi*xi + yi*yi + zi*zi)
-
-      !        dist = abs(radiusi - mesa_r(1))
-      !        jmin = 1
-      !        do j = 2, size(mesa_r)
-      !           if (abs(radiusi - mesa_r(j)) < dist) then
-      !              dist = abs(radiusi - mesa_r(j))
-      !              jmin = j
-      !           endif
-      !        enddo
-
-      !        tempi = mesa_temp(jmin)
-      !        eni   = mesa_ene(jmin)
-
-      !     else
-
-      !     endif
-
-      !     ! --- ALWAYS call EOS ---
-      !     call equationofstate(ieos,p_on_rhogas,spsoundi, &
-      !                         densi,xi,yi,zi,tempi,eni)
-
-      !     ! --- Store updated EOS results ---
-      !     vxyzu(4,i)         = eni
-      !     eos_vars(itemp,i)  = tempi
-
-!!!Ali: Modified this case to use MESA profile lookup only for first timestep
-      !  case(15) ! Helmholtz EoS
-
-      !    ! --- ALWAYS update positions ---
-      !     xi = xyzh(1,i) - xorigin(1)
-      !     yi = xyzh(2,i) - xorigin(2)
-      !     zi = xyzh(3,i) - xorigin(3)
-
-      !     ! --- Decide the initial guess for EOS ---
-      !     if (.not. mesa_initialized) then
-      !        ! First timestep: use MESA profile
-      !        radiusi = sqrt(xi*xi + yi*yi + zi*zi)
-
-      !        dist = abs(radiusi - mesa_r(1))
-      !        jmin = 1
-      !        do j = 2, size(mesa_r)
-      !           if (abs(radiusi - mesa_r(j)) < dist) then
-      !              dist = abs(radiusi - mesa_r(j))
-      !              jmin = j
-      !           endif
-      !        enddo
-
-      !        tempi = mesa_temp(jmin)
-         !     eni   = mesa_ene(jmin)
-
-         !  else
-         !     ! Later timesteps: use previous timestep values
-         !     tempi = eos_vars(itemp,i)
-         !     eni   = vxyzu(4,i)
-         !  endif
-
-         !  ! --- ALWAYS call EOS with updated positions ---
-         !  call equationofstate(ieos,p_on_rhogas,spsoundi, &
-         !                      densi,xi,yi,zi,tempi,eni)
-
-         !  ! --- Store updated EOS results ---
-         !  vxyzu(4,i)         = eni
-         !  eos_vars(itemp,i)  = tempi
-
-
-!        case(15) ! Helmholtz EoS
-!           xi    = xyzh(1,i) - xorigin(1)
-!           yi    = xyzh(2,i) - xorigin(2)
-!           zi    = xyzh(3,i) - xorigin(3)
-! ! Ali: This is what I added for MESA profile lookup
-!          ! --- Lookup nearest MESA profile zone with radius ---  
-!           radiusi = sqrt(xi*xi + yi*yi + zi*zi)
-!           dist = abs(radiusi - mesa_r(1))
-!           jmin = 1
-!           do j = 2, size(mesa_rho)
-!              if (abs(radiusi - mesa_r(j)) < dist) then
-!                    dist = abs(radiusi - mesa_r(j))
-!                    jmin = j
-!              endif
-!           enddo
-! !!! other way, with density 
-         dist = abs(densi - mesa_rho(1))
-                  jmin = 1
-                  do j = 2, size(mesa_rho)
-                     if (abs(densi - mesa_rho(j)) < dist) then
-                           dist = abs(densi - mesa_rho(j))
-                           jmin = j
-                     endif
-                  enddo
-
-         ! Assign internal energy and temperature from MESA
-          eni   = mesa_ene(jmin)
-          tempi = mesa_temp(jmin)
-
-         ! Call EOS
-          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
-
-          vxyzu(4,i) = eni
-          eos_vars(itemp,i) = tempi
-
-    ! Ali commented out: previous implementation used initialtemp directly
-         !  tempi = initialtemp
-         !  call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
-         !  vxyzu(4,i) = eni
-         !  eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS
-          rho_cgs = densi*unit_density
-          p_cgs = presi*unit_pressure
-          tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
           if (use_var_comp) then
              call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eni,tempi,ierr,&
                                     mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
@@ -714,14 +569,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
           eos_vars(itemp,i) = tempi
           vxyzu(4,i) = eni / unit_ergg
        end select
-
     endif
  enddo
- !! Ali: set mesa_initialized to true after first timestep
-!  if (ieos == 15 .and. .not. mesa_initialized) then
-!     mesa_initialized = .true.
-!  endif
-
 
 end subroutine set_star_thermalenergy
 
