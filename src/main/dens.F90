@@ -63,42 +63,33 @@ module densityforce
        idvzdxi          = 11, &
        idvzdyi          = 12, &
        idvzdzi          = 13, &
-       idvxdxposi       = 14, &
-       idvxdyposi       = 15, &
-       idvxdzposi       = 16, &
-       idvydxposi       = 17, &
-       idvydyposi       = 18, &
-       idvydzposi       = 19, &
-       idvzdxposi       = 20, &
-       idvzdyposi       = 21, &
-       idvzdzposi       = 22, &
-       idaxdxi          = 23, &
-       idaxdyi          = 24, &
-       idaxdzi          = 25, &
-       idaydxi          = 26, &
-       idaydyi          = 27, &
-       idaydzi          = 28, &
-       idazdxi          = 29, &
-       idazdyi          = 30, &
-       idazdzi          = 31, &
-       irxxi            = 32, &
-       irxyi            = 33, &
-       irxzi            = 34, &
-       iryyi            = 35, &
-       iryzi            = 36, &
-       irzzi            = 37, &
-       idivBi           = 38, &
-       idBxdxi          = 39, &
-       idBxdyi          = 40, &
-       idBxdzi          = 41, &
-       idBydxi          = 42, &
-       idBydyi          = 43, &
-       idBydzi          = 44, &
-       idBzdxi          = 45, &
-       idBzdyi          = 46, &
-       idBzdzi          = 47, &
-       irhodusti        = 48, &
-       irhodustiend     = 48 + (maxdustlarge - 1), &
+       idaxdxi          = 14, &
+       idaxdyi          = 15, &
+       idaxdzi          = 16, &
+       idaydxi          = 17, &
+       idaydyi          = 18, &
+       idaydzi          = 19, &
+       idazdxi          = 20, &
+       idazdyi          = 21, &
+       idazdzi          = 22, &
+       irxxi            = 23, &
+       irxyi            = 24, &
+       irxzi            = 25, &
+       iryyi            = 26, &
+       iryzi            = 27, &
+       irzzi            = 28, &
+       idivBi           = 29, &
+       idBxdxi          = 30, &
+       idBxdyi          = 31, &
+       idBxdzi          = 32, &
+       idBydxi          = 33, &
+       idBydyi          = 34, &
+       idBydzi          = 35, &
+       idBzdxi          = 36, &
+       idBzdyi          = 37, &
+       idBzdzi          = 38, &
+       irhodusti        = 39, &
+       irhodustiend     = 39 + (maxdustlarge - 1), &
        iradfxi          = irhodustiend + 1, &
        iradfyi          = irhodustiend + 2, &
        iradfzi          = irhodustiend + 3
@@ -145,19 +136,21 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  use omputils,    only:omp_thread_num,omp_num_threads
- integer,      intent(in)    :: icall,npart,nactive
- integer(kind=1), intent(in) :: apr_level(:)
- real,         intent(inout) :: xyzh(:,:)
- real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,         intent(in)    :: Bevol(:,:)
- real(kind=4), intent(out)   :: divcurlv(:,:)
- real(kind=4), intent(out)   :: divcurlB(:,:)
- real(kind=4), intent(out)   :: alphaind(:,:)
- real(kind=4), intent(inout) :: gradh(:,:)  ! requires in for icall = 3
- real,         intent(out)   :: stressmax
- real,         intent(in)    :: rad(:,:)
- real,         intent(inout) :: radprop(:,:)
- real(kind=4), intent(out)   :: dvdx(:,:)
+
+ integer,         intent(in)    :: icall,npart,nactive
+ integer(kind=1), intent(in)    :: apr_level(:)
+ real,            intent(inout) :: xyzh(:,:)
+ real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ real(kind=4),    intent(out)   :: divcurlv(:,:)
+ real(kind=4),    intent(out)   :: divcurlB(:,:)
+ real(kind=4),    intent(out)   :: alphaind(:,:)
+ real(kind=4),    intent(inout) :: gradh(:,:)  ! requires in for icall = 3
+ real,            intent(out)   :: stressmax
+ real,            intent(in)    :: rad(:,:)
+ real,            intent(inout) :: radprop(:,:)
+ real(kind=4),    intent(out)   :: dvdx(:,:)
+
  real,   save :: xyzcache(3,isizecellcache)
 !$omp threadprivate(xyzcache)
 
@@ -781,19 +774,6 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                    rhosum(idvzdyi) = rhosum(idvzdyi) + dvz*runiy
                    rhosum(idvzdzi) = rhosum(idvzdzi) + dvz*runiz
 
-                   !--get dvdx components considering only particles approaching each other - do the dot product of the div here
-                   if (dx*dvx + dy*dvy + dz*dvz < 0) then!(dvx<0 .and. dvy<0 .and. dvz<0) then
-                       rhosum(idvxdxposi) = rhosum(idvxdxposi) + dvx*runix
-                       rhosum(idvxdyposi) = rhosum(idvxdyposi) + dvx*runiy
-                       rhosum(idvxdzposi) = rhosum(idvxdzposi) + dvx*runiz
-                       rhosum(idvydxposi) = rhosum(idvydxposi) + dvy*runix
-                       rhosum(idvydyposi) = rhosum(idvydyposi) + dvy*runiy
-                       rhosum(idvydzposi) = rhosum(idvydzposi) + dvy*runiz
-                       rhosum(idvzdxposi) = rhosum(idvzdxposi) + dvz*runix
-                       rhosum(idvzdyposi) = rhosum(idvzdyposi) + dvz*runiy
-                       rhosum(idvzdzposi) = rhosum(idvzdzposi) + dvz*runiz
-                   endif
-
                    if (nalpha > 1 .and. gas_gas) then
                       !--divergence of acceleration for Cullen & Dehnen switch
                       fxj = fxyzu(1,j) + fext(1,j)
@@ -1019,6 +999,7 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
  real, intent(in)  :: termnorm,denom
  real, intent(in)  :: rmatrix(6)
  real, intent(out) :: dvdx(9)
+
  logical, intent(in) :: use_exact_linear
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
