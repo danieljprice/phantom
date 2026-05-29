@@ -405,8 +405,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(out)   :: ponrhoi
  real, intent(out)   :: spsoundi
  real, intent(in)    :: eni
- integer, parameter  :: maxiter = 30 ! I have established that 10 is too low and borderline, even 20 is a bit low close
- ! to wd tidal disruption as sometimes they go up to 19 iterations before convergence.
+ integer, parameter  :: maxiter = 30
  real,    parameter  :: tol = 1.0e-4  ! temperature convergence
  logical :: done
  integer :: itercount
@@ -416,12 +415,10 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  cgsrhoi = rhoi * unit_density
 
  call eos_helmholtz_compute_pres_sound(tempi, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-!  write(*,*) 'ALI flag eos_helmholtz.f90 line 417: CHECKS tnew=', tempi, ' cgseni_eos (ener)=', cgseni_eos
 
 ! dynamical evolution:
 ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
  cgseni = eni * unit_ergg
-!  write(*,*) 'ALI flag eos_helmholtz.f90 line 422: CHECKS eni=', eni
 
 ! Newton-Raphson iterations
  tprev = tempi
@@ -448,35 +445,13 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     tprev = tnew
     ! get new pressure, sound speed, energy for this temperature and density
     call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-    if (cgseni_eos < 0.0) then
-       write(*,*) 'negative energy from eos ALI eos_helmholtz.f90 line 451: Tnew=', tnew, &
-       ' cgseni_eos (ener)=', cgseni_eos, ' eni (code units)=', cgseni/ unit_ergg
-    endif
 
-    if (eni < 0.0) then
-       write(*,*) 'negative energy from hydro ALI eos_helmholtz.f90 line 451: Tnew=', tnew, &
-       ' eni (cgs)=', cgseni, 'rhoi (cgs)=', cgsrhoi, ' pressure (cgs)=', cgspresi,&
-       ' sound speed (cgs)=', cgsspsoundi
-    endif
-
-   !  write(*,*) 'ALI flag eos_helmholtz.f90 line 446: CHECKS tnew=', tnew, ' cgseni_eos (ener)=', cgseni_eos
     ! iterate to new temperature
     tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
-
-
-    if (itercount > 12) then ! debug output Ali
-
-       write(*,*) 'ALI flag eos_helmholtz.f90 line 457: CHECKS itercount=', itercount
-       write(*,*) 'ALI Tnew=', tnew, ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
-       write(*,*) 'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
-       write(*,*) '(cgseni_eos - cgseni) / cgseni_eos =', (cgseni_eos - cgseni) / cgseni_eos, &
-       ' eni_eos (code units)=', cgseni_eos/unit_ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
-    endif
 
     ! disallow large temperature changes
     if (tnew > 2.0 * tprev) then
        tnew = 2.0 * tprev
-      !  write(*,*) 'ALI flag eos_helmholtz.f90 line 465: large temp change happened'
     endif
     if (tnew < 0.5 * tprev) then
        tnew = 0.5 * tprev
@@ -484,13 +459,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     ! exit if tolerance criterion satisfied
     if (abs(tnew - tprev) < tempi * tol) then
        done = .true.
-      !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
     endif
-!!! trying different convergence condition, since our priority is the internal energy converging, not the temperature
-   !  if (abs((cgseni_eos - cgseni) / cgseni) < tol) then
-   !     done = .true.
-   !    !  write(*,*) 'ALI flag eos_helmholtz.f90 line 463: tolerance satisfied'
-   !  endif
 
     ! exit if gas is too cold or too hot
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
@@ -504,20 +473,12 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
     ! exit if reached max number of iterations (convergence failed)
     if (itercount >= maxiter) then
-
-       write(*,*) 'ALI flag fail to converge, eos_helmholtz.f90 line 493: Tnew=', tnew, &
-       ' Tprev=', tprev,'(Tnew-Tprev)/Tprev=', (tnew-tprev)/tprev
-       write(*,*) 'pressure (cgs)=', cgspresi, ' rho (cgs)=', cgsrhoi 
-       write(*,*) '(cgseni_eos - cgseni) / cgseni_eos =', (cgseni_eos - cgseni) / cgseni_eos, &
-       ' eni_eos (code units)=', cgseni_eos/unit_ergg, ' eni hydro (code units)=', cgseni/ unit_ergg
-
        call warning('eos','Helmholtz eos fail to converge')
        done = .true.
     endif
  enddo iterations
 ! store new temperature
-!  write(*,*) 'ALI flag eos_helmholtz.f90 line 492: CHECKS tempi=', tempi, &
-!        ' Tnew (found from newton raphson solver)=', tnew
+
  tempi = tnew
 ! TODO: currently we just use the final temperature from the eos and assume we have converged
 !

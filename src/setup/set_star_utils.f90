@@ -497,7 +497,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  if (present(x0)) xorigin = x0
 
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,r,npts) &
+ !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,temp,r,npts) &
  !$omp shared(relaxed,use_var_comp,apr_level,aprmassoftype) &
  !$omp shared(massoftype,ieos,initialtemp,polyk_in) &
  !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &

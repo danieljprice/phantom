@@ -56,23 +56,7 @@ module forces
  implicit none
 
  integer, parameter :: maxcellcache = 1000
-! ali global parameter for finding particle id of timesteps
-!  real :: global_dtforce_min = huge(1.0)
-!  real :: global_dtf_min = huge(1.0) 
-!  real :: global_dtcool_min = huge(1.0)
-!  real :: global_dtdrag_min = huge(1.0)
-!  real :: global_dtdust_min = huge(1.0)
-!  real :: global_dtclean_min = huge(1.0)
-!  real :: global_dtent_min = huge(1.0)
-!  real :: global_dtvisc_min = huge(1.0)
-!  real :: global_dtc_min = huge(1.0)
-!  real :: global_dtrad = huge(1.0)
-!  real :: global_dtmax = huge(1.0)
-!  integer(kind=8) :: global_ip_dtforce_min = -1 , global_ip_dtcool_min = -1
-!  integer(kind=8) :: global_ip_dtf_min = -1
-!  integer(kind=8) :: global_ip_dtdrag_min = -1 , global_ip_dtdust_min = -1
-!  integer(kind=8) :: global_ip_dtclean_min = -1 , global_ip_dtent_min = -1 
-!  integer(kind=8) :: global_ip_dtc_min = -1, global_ip_dtvisc_min = -1
+
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
@@ -311,25 +295,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
-! ali for debugging initialize
-!  global_dtforce_min = huge(1.0)
-!  global_ip_dtforce_min  = -1
-!  global_dtf_min = huge(1.0)
-!  global_ip_dtf_min = -1
-!  global_dtcool_min = huge(1.0)
-!  global_ip_dtcool_min = -1
-!  global_dtdrag_min = huge(1.0)
-!  global_ip_dtdrag_min = -1
-!  global_dtdust_min = huge(1.0)
-!  global_ip_dtdust_min = -1
-!  global_dtclean_min = huge(1.0)
-!  global_ip_dtclean_min = -1
-!  global_dtent_min = huge(1.0)
-!  global_ip_dtent_min = -1
-!  global_dtvisc_min = huge(1.0)
-!  global_ip_dtvisc_min = -1
-!  global_dtc_min = huge(1.0)
-!  global_ip_dtc_min  = -1
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -773,19 +738,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        enddo
     endif
  endif
-!  write(*,*) 'GLOBAL MIN dtforce=',global_dtforce_min,' particle=',global_ip_dtforce_min !ali test for dtforce control
-!  write(*,*) 'GLOBAL MIN dtf=',global_dtf_min,' particle=',global_ip_dtf_min !ali test for dtforce control
-!  write(*,*) 'GLOBAL MIN dtvisc=',global_dtvisc_min,' particle=',global_ip_dtvisc_min !ali test for viscosity control
-!  write(*,*) 'GLOBAL MIN dtcool=',global_dtcool_min,' particle=',global_ip_dtcool_min !ali test for dtcool control
-!  write(*,*) 'energy of minimum dt cool particle vxyzu(4)=',vxyzu(4,global_ip_dtcool_min),&
-!   ' fxyzu(4)=',fxyzu(4,global_ip_dtcool_min) !ali test for dtcool control
-!  write(*,*) 'GLOBAL MIN dtdrag=',global_dtdrag_min,' particle=',global_ip_dtdrag_min !ali test for dtdrag control
-!  write(*,*) 'GLOBAL MIN dtdust=',global_dtdust_min,' particle=',global_ip_dtdust_min !ali test for dtdust control
-!  write(*,*) 'GLOBAL MIN dtclean=',global_dtclean_min,' particle=',global_ip_dtclean_min !ali test for dtclean control
-!  write(*,*) 'GLOBAL MIN dtent=',global_dtent_min,' particle=',global_ip_dtent_min !ali test for dtent control   
-!  write(*,*) 'GLOBAL MIN dtc=',global_dtc_min,' particle=',global_ip_dtc_min !ali test for dtcourant control
-!  write(*,*) 'GLOBAL MIN dtmaxi=',global_dtmax
-!  write(*,*) 'GLOBAL MIN dtrad=',global_dtrad
+
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles
  ! are dead/inactive, e.g. after sink creation or if all
@@ -2679,7 +2632,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
-                          igamma,aprmassoftype !, iorig ! ali to check particle id
+                          igamma,aprmassoftype
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -3319,57 +3272,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     dtmaxi  = max(dtmaxi,dti)
     dtrad   = min(dtrad,dtradi)
 
-    !=========================================================
-    ! Ali debugging: track timestep contributors
-    !=========================================================
 
-   !  if (dtc < global_dtc_min) then
-   !     global_dtc_min = dtc
-   !     global_ip_dtc_min = iorig(i)
-   !  endif
-
-   !  if (dtforce < global_dtforce_min) then
-   !     global_dtforce_min = dtforce
-   !     global_ip_dtforce_min = iorig(i)
-   !  endif
-
-   !  if (dtf < global_dtf_min) then
-   !     global_dtf_min = dtf
-   !     global_ip_dtf_min = iorig(i)
-   !  endif
-
-   !  if (dtcool < global_dtcool_min) then
-   !     global_dtcool_min = dtcool
-   !     global_ip_dtcool_min = iorig(i)
-   !  endif
-
-   !  if (dtdrag < global_dtdrag_min) then
-   !     global_dtdrag_min = dtdrag
-   !     global_ip_dtdrag_min = iorig(i)
-   !  endif
-
-   !  if (dtdusti < global_dtdust_min) then
-   !     global_dtdust_min = dtdusti
-   !     global_ip_dtdust_min = iorig(i)
-   !  endif
-
-   !  if (dtclean < global_dtclean_min) then
-   !     global_dtclean_min = dtclean
-   !     global_ip_dtclean_min = iorig(i)
-   !  endif
-
-   !  if (dtent < global_dtent_min) then
-   !     global_dtent_min = dtent
-   !     global_ip_dtent_min = iorig(i)
-   !  endif
-
-   !  if (dtvisci < global_dtvisc_min) then
-   !     global_dtvisc_min = dtvisci
-   !     global_ip_dtvisc_min = iorig(i)
-   !  endif
-
-   !  global_dtmax = dtmaxi
-   !  global_dtrad = dtrad 
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
