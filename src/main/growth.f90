@@ -305,7 +305,10 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
           if (ifrag > 0 .and. dmdt(i) < 0.) then
               dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
-              frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
+              if (dustprop(1,i) > tiny(dustprop(1,i))) then
+                  frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
+              else
+                  frac_masschange = 0.
               att_factor = 1-dtarb*frac_masschange    ! attenuation factor
               dmdt(i) = dmdt(i)*att_factor
           endif
@@ -979,7 +982,6 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
     VrelVf(1,ipart)        = VrelVf(1,iloc)
     VrelVf(2,ipart)        = VrelVf(2,iloc)
     VrelVf(3,ipart)        = VrelVf(3,iloc)
-    VrelVf(4,ipart)        = VrelVf(4,iloc)
     if (use_porosity) then
        filfac(ipart)     = filfac(iloc)
     endif
@@ -1008,7 +1010,6 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
        VrelVf(1,j)      = 0.
        VrelVf(2,j)      = 0.
        VrelVf(3,j)      = 0.
-       VrelVf(4,j)      = 0.
        if (use_porosity) then
           filfac(j)     = 0.
        endif

@@ -515,7 +515,7 @@ end subroutine get_binary_params
 subroutine discgrow_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
                      tilt,tilt_acc,twist,twistprev,psi,H,bin,h_smooth,sigma,unitlx,unitly,unitlz,Lx,Ly,Lz,&
                      ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass,&
-                     VrelVf,VrelVfragbin,VmicroVfragbin,VshockVfragbin,VdispVfragbin)
+                     VrelVf,VrelVfragbin,VmicroVfragbin,VdispVfragbin)
  use physcon,        only:pi
  use centreofmass,   only:get_total_angular_momentum,reset_centreofmass
  use externalforces, only:iext_einsteinprec
@@ -533,7 +533,7 @@ subroutine discgrow_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,
  real, intent(out)                :: tilt(nbin),tilt_acc(nbin),twistprev(nbin)
  real, intent(out)                :: psi(nbin),H(nbin),ecc(nbin),unitlz(nbin)
  real, intent(out)                :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
- real, intent(out)                :: VrelVfragbin(nbin),VmicroVfragbin(nbin),VshockVfragbin(nbin),VdispVfragbin(nbin)
+ real, intent(out)                :: VrelVfragbin(nbin),VmicroVfragbin(nbin),VdispVfragbin(nbin)
  integer, intent(out)             :: ninbin(nbin)
  real                             :: dbin,angx,angy,angz,unitangz
  real                             :: angtot,Ltot
@@ -654,8 +654,7 @@ subroutine discgrow_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,
 
        VrelVfragbin(ii)  = VrelVfragbin(ii)  + VrelVf(1,i)
        VmicroVfragbin(ii)= VmicroVfragbin(ii)+ VrelVf(2,i)
-       VshockVfragbin(ii)= VshockVfragbin(ii)+ VrelVf(3,i)
-       VdispVfragbin(ii) = VdispVfragbin(ii) + VrelVf(4,i)
+       VdispVfragbin(ii) = VdispVfragbin(ii) + VrelVf(3,i)
 
        ninbin(ii) = ninbin(ii) + 1
 
@@ -742,18 +741,15 @@ subroutine discgrow_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,
        H(i) = 0.
        VrelVfragbin(i)  = 0.
        VmicroVfragbin(i)= 0.
-       VshockVfragbin(i)= 0.
        VdispVfragbin(i) = 0.
     else
        h_smooth(i) = h_smooth(i)/H(i)
        VrelVfragbin(i)  = VrelVfragbin(i)  / ninbin(i)
        VmicroVfragbin(i)= VmicroVfragbin(i)/ ninbin(i)
-       VshockVfragbin(i)= VshockVfragbin(i)/ ninbin(i)
        VdispVfragbin(i) = VdispVfragbin(i) / ninbin(i)
     endif
     if ((abs(VrelVfragbin(i))>1e11) .or. (abs(VrelVfragbin(i))<1e-11)) VrelVfragbin(i) = 0
     if ((abs(VmicroVfragbin(i))>1e11) .or. (abs(VmicroVfragbin(i))<1e-11)) VmicroVfragbin(i) = 0
-    if ((abs(VshockVfragbin(i))>1e11) .or. (abs(VshockVfragbin(i))<1e-11)) VshockVfragbin(i) = 0
     if ((abs(VdispVfragbin(i))>1e11) .or. (abs(VdispVfragbin(i))<1e-11)) VdispVfragbin(i) = 0
  enddo
 

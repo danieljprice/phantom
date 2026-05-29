@@ -48,7 +48,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: rad(nr),h_smooth(nr),sigma(nr),H(nr)
  real :: unitlx(nr),unitly(nr),unitlz(nr),ecc(nr)
  real :: psi(nr),tilt_acc(nr)
- real :: VrelVfragbin(nr),VmicroVfragbin(nr),VshockVfragbin(nr),VdispVfragbin(nr)
+ real :: VrelVfragbin(nr),VmicroVfragbin(nr),VdispVfragbin(nr)
  integer :: ninbin(nr),iexternalforce_read
  logical :: assume_Ltot_is_same_as_zaxis,iexist
  type(inopts), allocatable :: db(:)
@@ -123,11 +123,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
                      tilt,tilt_acc,twist,twistprev,psi,H,rad,h_smooth,sigma,unitlx,unitly,unitlz,&
                      Lx,Ly,Lz,ecc,ninbin,assume_Ltot_is_same_as_zaxis,xyzmh_ptmass,vxyz_ptmass,nptmass,&
                      VrelVf,VrelVfragbin,VmicroVfragbin,&
-                     VshockVfragbin,VdispVfragbin)
+                     VdispVfragbin)
 
  open(iunit,file=output)
  write(iunit,'("# Analysis data at t = ",es20.12)') time
- write(iunit,"('#',15(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',14(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius', &
        2,'sigma', &
        3,'<h>/H', &
@@ -141,14 +141,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        11,'|e|',&
        12,'VrelVfrag',&
        13,'VmicroVfrag',&
-       14,'VshockVfrag',&
-       15,'VdispVfrag'
+       14,'VdispVfrag'
 
  do i = 1,nr
     if (ninbin(i) > 0) then
-       write(iunit,'(15(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
+       write(iunit,'(14(es18.10,1X))') rad(i),sigma(i),h_smooth(i),unitlx(i),unitly(i),unitlz(i),&
                                          tilt(i),twistprev(i),psi(i),H(i)/rad(i),ecc(i),&
-                                         VrelVfragbin(i),VmicroVfragbin(i),VshockVfragbin(i),VdispVfragbin(i)
+                                         VrelVfragbin(i),VmicroVfragbin(i),VdispVfragbin(i)
     endif
 
 ! Printing time and twist for each radius bin
