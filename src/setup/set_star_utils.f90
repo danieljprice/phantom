@@ -524,7 +524,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
 
     rho_cgs = densi*unit_density
     p_cgs = presi*unit_pressure
-    if (ieos==15) then       ! should really be a check if we actually have the temperature table
+    if (ieos==15 .and. temp(1) > 0.) then       ! should really be a check if we actually have the temperature table
        tempi = yinterp(temp(1:npts),r(1:npts),ri)  ! use MESA temperature as initial guess for Helmholtz
     else
        tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess

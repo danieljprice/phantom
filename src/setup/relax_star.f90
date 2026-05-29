@@ -120,9 +120,7 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  !If mtab is present, it is used as the mass profile.
  if (present(mtab)) then
     mr=mtab
-    mr=mtab
  else
-    mr = get_mr(rho,r)
     mr = get_mr(rho,r)
  endif
 

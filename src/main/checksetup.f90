@@ -45,7 +45,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr,eos_vars,itemp
- use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz,ieos
+ use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
