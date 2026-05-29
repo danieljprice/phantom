@@ -577,9 +577,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use physcon, only:fourpi
  real, intent(inout)        :: dustprop(:,:)
  integer, intent(in)        :: npart
- real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
- integer                   :: i,iam
- real                      :: tsnew,sdustprev,sdustmin,sdust,grainmassmin
+ real, intent(in)           :: filfac(:),mprev(:),filfacprev(:)
+ integer                    :: i,iam
+ real                       :: tsnew,sdustprev,sdustmin,sdust,grainmassmin
 
  !$omp parallel do default(none) &
  !$omp shared(iphase,dustgasprop,use_dustfrac,use_porosity) &
@@ -599,7 +599,7 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
           endif
        else
           !if (dustprop(1,i) < 0.) call fatal('check_dustprop','dust mass < 0.',i) !stop the code
-          if (dustprop(1,i) < 0.) then !put negatives to minimum grain mass
+          if (dustprop(1,i) < 0.) then !put negatives back to minimum grain mass
              grainmassmin = fourpi/3 * grainsizemin**3 * dustprop(2,i)
              dustprop(1,i) = grainmassmin
           else

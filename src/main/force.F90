@@ -1842,7 +1842,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       else
                          wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                       endif
-                      if (projvstar<0) then  ! projvstar > 0 = particles are not crossing
+                      if (projvstar<0) then  ! projvstar < 0 = particles are crossing
                          fsum(ivreldispxi) = fsum(ivreldispxi) + 3.*pmassj*projvstar*runix*wdrag/(rhoi*dustfraci(l))
                          fsum(ivreldispyi) = fsum(ivreldispyi) + 3.*pmassj*projvstar*runiy*wdrag/(rhoi*dustfraci(l))
                          fsum(ivreldispzi) = fsum(ivreldispzi) + 3.*pmassj*projvstar*runiz*wdrag/(rhoi*dustfraci(l))
