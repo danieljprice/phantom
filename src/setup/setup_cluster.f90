@@ -225,6 +225,7 @@ subroutine get_defaults_cluster(icluster,default_cluster)
  integer,          intent(in)  :: icluster
  character(len=*), intent(out) :: default_cluster
 
+ iH2R_in = 0
  select case (icluster)
  case(4)
     ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
@@ -330,7 +331,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# options for sink particles'
  call write_inopt(Rsink_au,'Rsink_au','sink radius in au',iunit)
  write(iunit,"(/,a)") '# options for HII feedback'
- call write_inopt(iH2R_in, 'iH2R_in','HII feeback algorithm id', iunit)
+ call write_inopt(iH2R_in, 'iH2R_in','HII feedback algorithm id', iunit)
  close(iunit)
 
 end subroutine write_setupfile
