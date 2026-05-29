@@ -34,7 +34,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine test_growth(ntests,npass)
  use dim,      only:use_dust,use_dustgrowth
- use growth,   only:init_growth,ifrag,isnow
+ use growth,   only:init_growth,ifrag,isnow,ivrelkin
  use physcon,  only:solarm,au
  use units,    only:set_units
  use mpiutils, only:barrier_mpi
@@ -103,7 +103,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size,alpha_dg
+ use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size,alpha_dg,ivrelkin
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
