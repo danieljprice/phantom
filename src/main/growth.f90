@@ -234,7 +234,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  real, intent(out)        :: dmdt(:)
  integer, intent(in)      :: npart
  real                     :: rhog,rhod,vrel,rho,sdust
- real                     :: mass_min,massgrain,rhograin,filfaci
+ real                     :: massgrain,rhograin,filfaci
  real                     :: dtarb,frac_masschange,att_factor
  integer                  :: i,iam
 
@@ -250,7 +250,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc,dtmax) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
- !$omp private(mass_min,massgrain,rhograin,dtarb,frac_masschange,att_factor) &
+ !$omp private(massgrain,rhograin,dtarb,frac_masschange,att_factor) &
  !$omp firstprivate(filfaci)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
