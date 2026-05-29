@@ -309,6 +309,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
                   frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
               else
                   frac_masschange = 0.
+              endif
               att_factor = 1-dtarb*frac_masschange    ! attenuation factor
               dmdt(i) = dmdt(i)*att_factor
           endif
