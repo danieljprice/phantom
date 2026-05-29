@@ -268,11 +268,12 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  idrag         = 1
  if (frag) then
     ifrag      = 1
-    alpha_dg = 2.5e-2
+    alpha_dg   = 2.5e-2
  else
     ifrag      = 0
-    alpha_dg = 1.e-2
+    alpha_dg   = 1.e-2
  endif
+ ivrelkin     = 1
  isnow        = 0
  vfrag        = 1.e-11
  gsizemincgs  = 1.e-2

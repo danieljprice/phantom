@@ -49,6 +49,7 @@ module growth
  integer, public        :: isnow        = 0
  integer, public        :: ieros        = 0
  integer, public        :: iporosity    = 0        !--0=Off  1=On    (-1=On for checkup, filfac is initialized but does not evolve)
+ integer, public        :: ivrelkin     = 0
  real, public           :: gsizemincgs  = 5.e-3
  real, public           :: tsmincgs     = 1.e5
  real, public           :: rsnow        = 100.
@@ -205,6 +206,8 @@ subroutine print_growthinfo(iprint)
     write(iprint,"(a)")    ' Using aeolian-erosion model where ds = -fourpi*rhos*rhog*s*(deltav**3)*(dsize**2)/(3*cohacc)*dt    '
     write(iprint,"(2(a,1pg10.3),a)")' dsize = ',dsizecgs,' cm = ',dsize,' (code units)'
  endif
+if (ivrelkin == 0) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence only    '
+if (ivrelkin == 1) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence and dust relative motion at macro scale    '
 
 end subroutine print_growthinfo
 
@@ -334,10 +337,12 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
  Vrel_micro = vrelative(dustgasprop,Vt)
 
- !-- Vrel_disp = relative motions from crossing dust particles, average of relative motions between dust particles in the kernel
+ !-- Vrel_disp = relative motion from crossing dust particles, average of relative motion between dust particles in the kernel
 
  !--compute vrel
- vrel = sqrt(Vrel_micro**2 + Vrel_disp**2)
+ vrel = 0.
+ if (ivrelkin == 0) vrel = sqrt(Vrel_micro**2)                  ! gas turbulence only
+ if (ivrelkin == 1) vrel = sqrt(Vrel_micro**2 + Vrel_disp**2)   ! gas turbulence + macro-scale dust motion
  !
  !--If statements to compute local ratio vrel/vfrag
  !
@@ -420,6 +425,7 @@ subroutine write_options_growth(iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit)
+ call write_inopt(ivrelkin,'ivrelkin','vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)',iunit)
  if (ifrag /= 0) then
     if (use_porosity) then
        call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
@@ -465,6 +471,7 @@ subroutine read_options_growth(db,nerr)
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
  call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr,default=0)
+ call read_inopt(ivrelkin,'ivrelkin',db,min=0,max=1,errcount=nerr,default=1)
  use_porosity = (iporosity /= 0)  !--convert to logical flag
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
@@ -513,6 +520,7 @@ subroutine write_growth_setup_options(iunit)
  call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  call write_inopt(iporosity,'iporosity','porosity (0=off,1=on)',iunit)
+ call write_inopt(ivrelkin,'ivrelkin','vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)',iunit)
  call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
  call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
  call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
@@ -541,6 +549,7 @@ subroutine read_growth_setup_options(db,nerr)
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
  call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
+ call read_inopt(ivrelkin,'ivrelkin',db,min=0,max=1,errcount=nerr)
  use_porosity = (iporosity /= 0)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
