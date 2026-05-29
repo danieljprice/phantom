@@ -159,12 +159,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst,kappaBar,kappaPart
  real    :: enthi,pondensi
- ! Ali: added following 4 lines for forward backward test of eos_helmholtz_compute_pres_sound
- logical, save :: firstcall = .true.
- real :: T_input, T_recovered, cgsrhotest, rhotest
- real :: cgsprestest, cgsspsoundtest, cgsen_eosforward, cgsdendttest
- real :: ponrhocodeunits,cs_codeunits,  u_target_code_units
-!! preceding lines end here
  logical :: isionisedi
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
