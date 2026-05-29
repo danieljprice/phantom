@@ -303,7 +303,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           endif
 
           !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
-          if (ifrag > 0 .and. dmdt(i) < 0.) then
+          if (ifrag > 0 .and. dmdt(i) < 0. .and. VrelVf(1,i) > 50) then
               dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
               if (dustprop(1,i) > tiny(dustprop(1,i))) then
                   frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
