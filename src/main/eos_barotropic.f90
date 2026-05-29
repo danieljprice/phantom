@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -59,7 +59,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_eos_barotropic(polyk,polyk2,ierr)
  use io, only:warning
- real, intent(in) :: polyk,polyk2
+ real,    intent(in)  :: polyk,polyk2
  integer, intent(out) :: ierr
  !
  !--calculate initial variables for the barotropic equation of state

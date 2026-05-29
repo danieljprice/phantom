@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -32,10 +32,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use sortutils,      only:set_r2func_origin,indexxfunc,r2func_origin
  use physcon,        only:solarr,solarm
 
- integer,  intent(inout) :: npart
- integer,  intent(inout) :: npartoftype(:)
- real,     intent(inout) :: massoftype(:)
- real,     intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
 
  real :: mcore,rcore,xpos(3),vpos(3)
  real :: den_all(npart),pmass,r

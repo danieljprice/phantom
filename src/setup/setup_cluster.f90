@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -222,7 +222,7 @@ end subroutine setpart
 !
 !----------------------------------------------------------------
 subroutine get_defaults_cluster(icluster,default_cluster)
- integer, intent(in) :: icluster
+ integer,          intent(in)  :: icluster
  character(len=*), intent(out) :: default_cluster
 
  select case (icluster)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -28,9 +28,8 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=library (step), 2=library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_radapprox,
-!   cooling_solver, dim, eos, infile_utils, io, part, physcon, timestep,
-!   units, viscosity
+!   cooling_koyamainutsuka, cooling_radapprox, cooling_solver, dim, eos,
+!   infile_utils, io, part, physcon, timestep, units, viscosity
 !
 
  use eos,      only:icooling
@@ -102,6 +101,7 @@ subroutine init_cooling(id,master,iprint,ierr)
     cooling_in_step = .false.
  case(2)
     cooling_in_step = .false.
+    call init_cooling_solver(ierr)
  case default
     call init_cooling_solver(ierr)
  end select
@@ -141,12 +141,12 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
                                   cooling_KoyamaInutsuka_implicit
  use cooling_radapprox,      only:radcool_update_du
 
- real(kind=4), intent(in)   :: divv               ! in code units
- real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
- real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
- real, intent(in), optional :: abund_in(nabn),duhydro
- integer, intent(in), optional :: ipart
- real, intent(out)          :: dudt                                ! in code units
+ real(kind=4), intent(in)  :: divv               ! in code units
+ real,         intent(in)  :: xi,yi,zi,ui,rho,dt                      ! in code units
+ real,         intent(out) :: dudt                                ! in code units
+ real,         intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
+ real,         intent(in), optional :: abund_in(nabn),duhydro
+ integer,      intent(in), optional :: ipart
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
  real :: abundi(nabn)
 
@@ -200,7 +200,7 @@ subroutine write_options_cooling(iunit)
  use cooling_ism,       only:write_options_cooling_ism
  use cooling_gammie,    only:write_options_cooling_gammie
  use cooling_gammie_PL, only:write_options_cooling_gammie_PL
- use cooling_molecular, only:write_options_molecularcooling
+ !use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
  use cooling_radapprox, only:write_options_cooling_radapprox
  integer, intent(in) :: iunit
@@ -233,12 +233,12 @@ end subroutine write_options_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(db,nerr)
- use io,                only:fatal
+ use io,                only:error
  use eos,               only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
- use cooling_molecular, only:read_options_molecular_cooling
+ !use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
  use cooling_radapprox, only:read_options_cooling_radapprox
  use infile_utils,      only:inopts,read_inopt
@@ -248,9 +248,9 @@ subroutine read_options_cooling(db,nerr)
 
  call read_inopt(icooling,'icooling',db,errcount=nerr,min=0,max=9,default=icooling)
  if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
-    call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
+    call error(label,'cooling requires adiabatic eos (e.g. ieos=2)')
  if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
-    call fatal(label,'cooling requires shock and work contributions')
+    call error(label,'cooling requires shock and work contributions')
  call read_inopt(C_cool,'C_cool',db,errcount=nerr,min=0.,default=C_cool)
  call read_inopt(Tfloor,'Tfloor',db,errcount=nerr,min=0.,default=Tfloor)
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -100,9 +100,9 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
  real,    intent(in)    :: min,max
  procedure(rho_func), pointer, optional :: rhofunc
  procedure(mass_func), pointer, optional :: massfunc
- real,    intent(in), optional :: rhotab(:),xtab(:)
- integer, intent(in), optional :: start, geom, coord
- logical, intent(in), optional :: verbose
+ real,    intent(in),  optional :: rhotab(:),xtab(:)
+ integer, intent(in),  optional :: start, geom, coord
+ logical, intent(in),  optional :: verbose
  integer, intent(out), optional :: err
  real :: totmass,rhozero,hi,fracmassold
  real :: x(3),xt(3),xmin,xmax,xold,xi,xminbisect,xmaxbisect

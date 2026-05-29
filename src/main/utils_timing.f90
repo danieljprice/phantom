@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,7 +40,7 @@ module timing
     character(len=treelabel_len) :: treelabel
  end type timer
 
- integer, public, parameter ::   itimer_fromstart     = 1,  &
+ integer, public, parameter :: itimer_fromstart     = 1,  &
                                  itimer_lastdump      = 2,  &
                                  itimer_step          = 3,  &
                                  itimer_tree          = 4,  &
@@ -67,10 +67,12 @@ module timing
                                  itimer_acc           = 25, &
                                  itimer_sg_id         = 26, &
                                  itimer_sg_evol       = 27, &
-                                 itimer_HII           = 28, &
-                                 itimer_ev            = 29, &
-                                 itimer_io            = 30
- integer, public, parameter :: ntimers = 30 ! should be equal to the largest itimer index
+                                 itimer_kick          = 28, &
+                                 itimer_drift         = 29, &
+                                 itimer_HII           = 30, &
+                                 itimer_ev            = 31, &
+                                 itimer_io            = 32
+ integer, public, parameter :: ntimers = 32 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -116,6 +118,9 @@ subroutine setup_timers
  call init_timer(itimer_acc         , 'accretion',   itimer_substep  )
  call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
  call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
+ call init_timer(itimer_kick        , 'kick',        itimer_substep  )
+ call init_timer(itimer_drift       , 'drift',       itimer_substep  )
+ call init_timer(itimer_HII         , 'HII_regions', itimer_step     )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 
@@ -265,7 +270,7 @@ subroutine finish_timer_tree_symbols
 end subroutine finish_timer_tree_symbols
 
 subroutine reset_timer(itimer)
- integer, intent(in)        :: itimer
+ integer, intent(in) :: itimer
 
  timers(itimer)%wall = 0.0_4
  timers(itimer)%cpu  = 0.0_4
@@ -374,10 +379,10 @@ end subroutine print_timer
 !--------------------------------------------------------------------
 subroutine log_timing(label,twall,tcpu,start,iunit)
  character(len=*), intent(in) :: label
- character(len=len(label)+16) :: string,stringcpu,stringwall
  real(kind=4),     intent(in) :: twall,tcpu
  logical,          intent(in), optional :: start
  integer,          intent(in), optional :: iunit
+ character(len=len(label)+16) :: string,stringcpu,stringwall
  character(len=240), save :: logtiming,logtimingwall,logtimingcpu
 
  write(stringwall,"(1x,a,' =',f10.2,'s')") trim(label),twall

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module metric
 !   - a     : *spin parameter for Kerr metric*
 !   - mass1 : *black hole mass in code units*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: dump_utils, infile_utils, io
 !
  implicit none
  character(len=*), parameter :: metric_type = 'Kerr'
@@ -196,8 +196,8 @@ end subroutine get_metric_spherical
 !+
 !----------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3),dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real :: rs,x,y,z,x2,y2,z2,a2,r2spherical,r2,r,rho2
  real :: a2pr2,delta,sintheta2,gtt,gphiphi,gtphi
  real :: r21,rho21,r2mz2,r2mz21,x2py2,x2py21,delta1
@@ -358,8 +358,8 @@ end subroutine metric_cartesian_derivatives
 !+
 !----------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta, sintheta, costheta, rho, delta
  real :: rs
  rs = 2.*mass1
@@ -399,9 +399,9 @@ end subroutine metric_spherical_derivatives
 !+
 !----------------------------------------------------------------
 pure subroutine get_jacobian(position,dxdx)
- real, intent(in), dimension(3) :: position
- real, intent(out), dimension(0:3,0:3) :: dxdx
- real, dimension(3) :: dBLdx,dBLdy,dBLdz
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dxdx(0:3,0:3)
+ real :: dBLdx(3),dBLdy(3),dBLdz(3)
  real :: drdx,drdy,drdz
  real :: dthetadx,dthetady,dthetadz
  real :: dphidx,dphidy,dphidz
@@ -456,8 +456,8 @@ end subroutine get_jacobian
 !+
 !-----------------------------------------------------------------------
 pure subroutine cartesian2spherical(xcart,xspher)
- real, intent(in) :: xcart(3)
- real, intent(out) ::xspher(3)
+ real, intent(in)  :: xcart(3)
+ real, intent(out) :: xspher(3)
  real :: x,y,z,x2,y2,z2,a2,r2spherical,r2,r
  real :: theta,phi
 
@@ -483,7 +483,7 @@ end subroutine cartesian2spherical
 !+
 !-----------------------------------------------------------------------
 pure subroutine spherical2cartesian(xspher,xcart)
- real, intent(in) :: xspher(3)
+ real, intent(in)  :: xspher(3)
  real, intent(out) :: xcart(3)
  real :: x,y,z,r,theta,phi,r2,a2
 
@@ -498,6 +498,58 @@ pure subroutine spherical2cartesian(xspher,xcart)
  xcart = (/x,y,z/)
 
 end subroutine spherical2cartesian
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
+!-----------------------------------------------------------------------
+!+
+!  Check if a particle should be accreted by the black hole
+!+
+!-----------------------------------------------------------------------
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius
+ logical, intent(out) :: accreted
+
+ accreted = .false.
+
+end subroutine accrete_particles_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(inout) :: hdr
+ real,         intent(in)    :: time,accradius
+ integer,      intent(out)   :: ierr
+
+ ierr = 0
+
+end subroutine write_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_metric(hdr,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr  = 0
+
+end subroutine read_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -336,7 +336,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  endif
 
- call shift_stars(nstar,star,xyzmh_ptmass_in(1:3,1:nstar),vxyz_ptmass_in(1:3,1:nstar),&
+ call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
                   xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,&
                   npartoftype,nptmass)
 
@@ -425,8 +425,8 @@ subroutine read_setupfile(filename,ierr)
  use setorbit,     only:read_options_orbit
  use eos,          only:ieos
  use setunits,     only:read_options_and_set_units
- character(len=*), intent(in)    :: filename
- integer,          intent(out)   :: ierr
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr
  type(inopts), allocatable :: db(:)
@@ -513,8 +513,8 @@ end subroutine write_params
 subroutine read_params(db,nerr,nstar)
  use infile_utils, only:inopts,read_inopt
  type(inopts), allocatable, intent(inout) :: db(:)
- integer,      intent(inout) :: nerr
- integer,      intent(in)    :: nstar
+ integer,                   intent(inout) :: nerr
+ integer,                   intent(in)    :: nstar
 
  call read_inopt(x1, 'x1', db,errcount=nerr)
  call read_inopt(y1, 'y1', db,errcount=nerr)

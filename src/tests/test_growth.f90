@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,8 +16,7 @@ module testgrowth
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
 !   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
-!   step_lf_global, testdust, testutils, timestep, unifdis, units,
-!   viscosity
+!   step_lf_global, testdust, testutils, timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -369,12 +368,12 @@ end subroutine test_farmingbox
 
 subroutine write_file_err(step,t,xyzh,gsize,gsize_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
- real, intent(in)              :: t
- real, intent(in)              :: xyzh(:,:)
- real, intent(in)              :: St(:),St_exact(:)
- real(kind=8), intent(in)      :: gsize(:),gsize_exact(:)
- character(len=*), intent(in)  :: prefix
- integer, intent(in)           :: npart,step
+ real,             intent(in) :: t
+ real,             intent(in) :: xyzh(:,:)
+ real,             intent(in) :: St(:),St_exact(:)
+ real(kind=8),     intent(in) :: gsize(:),gsize_exact(:)
+ character(len=*), intent(in) :: prefix
+ integer,          intent(in) :: npart,step
  character(len=30)             :: filename,str
  integer                       :: i,lu
 

@@ -17,9 +17,9 @@ subroutine inject_or_update_particle(particle_number, mass, position, velocity, 
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
  use units, only:umass, udist, utime
  implicit none
- integer, intent(in) :: particle_number
+ integer,          intent(in) :: particle_number
  double precision, intent(in) :: mass, position(3), velocity(3), h, u
- logical, intent(in) :: boundary
+ logical,          intent(in) :: boundary
  !logical :: nodisabled
 
  integer :: i, itype, ierr
@@ -52,9 +52,9 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
  use part,       only:igas,iboundary,npart,npartoftype,xyzh,vxyzu
  use units, only:umass, udist, utime
  implicit none
- integer, intent(in) :: ifirst, n
+ integer,          intent(in) :: ifirst, n
  double precision, intent(in) :: position(3,n), velocity(3,n), h(n), u(n)
- logical, intent(in) :: boundary
+ logical,          intent(in) :: boundary
 
  integer :: i, itype
 
@@ -76,7 +76,7 @@ subroutine inject_or_update_sink_particle(sink_number, position, velocity, mass,
  use partinject, only:add_or_update_sink
  use units, only:umass, udist, utime
  implicit none
- integer, intent(in) :: sink_number
+ integer,          intent(in) :: sink_number
  double precision, intent(in) :: position(3), velocity(3), mass, radius
 
  call add_or_update_sink(position/udist,velocity/(udist/utime),radius/udist,mass/umass,sink_number)
@@ -88,11 +88,11 @@ end subroutine inject_or_update_sink_particle
 subroutine inject_or_update_sphere(ifirst, resolution, center, radius, center_velocity, expansion_velocity, h, u, angles, boundary)
  use icosahedron, only:compute_matrices, compute_corners, pixel2vector
  implicit none
- integer, intent(in) :: ifirst, resolution
+ integer,          intent(in) :: ifirst, resolution
  double precision, intent(in) :: center(3), radius
  double precision, intent(in) :: center_velocity(3), expansion_velocity
  double precision, intent(in) :: h, u, angles(3)
- logical, intent(in) :: boundary
+ logical,          intent(in) :: boundary
 
  real :: R(0:19,3,3), v(0:11,3)
  integer :: i, N
@@ -152,11 +152,11 @@ end subroutine inject_or_update_sphere
 subroutine plot_rho_xysec(z, xmin, ymin, npx, npy, dx, dy, npart, massofgas, hfact, xyzh, pixmap)
  use libphantomsplash, only:interpolate3D_fastxsec
  implicit none
- double precision, intent(in) :: z, xmin, ymin
- integer, intent(in) :: npx, npy
- double precision, intent(in) :: dx, dy
- integer, intent(in) :: npart
- double precision, intent(in) :: massofgas, hfact, xyzh(4,npart)
+ double precision, intent(in)  :: z, xmin, ymin
+ integer,          intent(in)  :: npx, npy
+ double precision, intent(in)  :: dx, dy
+ integer,          intent(in)  :: npart
+ double precision, intent(in)  :: massofgas, hfact, xyzh(4,npart)
  double precision, intent(out) :: pixmap(npx, npy)
 
  real :: w(npart), datsmooth(npx, npy)
@@ -174,11 +174,11 @@ end subroutine plot_rho_xysec
 subroutine plot_log_rho_xysec(z, xmin, ymin, npx, npy, dx, dy, npart, massofgas, hfact, xyzh, pixmap)
  use libphantomsplash, only:interpolate3D_fastxsec
  implicit none
- double precision, intent(in) :: z, xmin, ymin
- integer, intent(in) :: npx, npy
- double precision, intent(in) :: dx, dy
- integer, intent(in) :: npart
- double precision, intent(in) :: massofgas, hfact, xyzh(4,npart)
+ double precision, intent(in)  :: z, xmin, ymin
+ integer,          intent(in)  :: npx, npy
+ double precision, intent(in)  :: dx, dy
+ integer,          intent(in)  :: npart
+ double precision, intent(in)  :: massofgas, hfact, xyzh(4,npart)
  double precision, intent(out) :: pixmap(npx, npy)
 
  double precision :: v, minpositive, logminpositive
@@ -266,9 +266,9 @@ subroutine init(len_infile, infile, logfile, evfile, dumpfile, tmax_in, dtmax_in
  use units,    only:utime
  implicit none
  integer,            intent(in)  :: len_infile
- character(len=len_infile) :: infile
  character(len=120), intent(out) :: logfile,evfile,dumpfile
- double precision, intent(in) :: tmax_in, dtmax_in
+ double precision,   intent(in)  :: tmax_in, dtmax_in
+ character(len=len_infile) :: infile
 
  call set_io_unit_numbers
  if (index(infile,'.in')==0) then
@@ -330,7 +330,7 @@ subroutine init_step_wrapper(t1,tcpu1)
  use timestep,     only:time,dt,dtmax
  use timestep_ind, only:nactive
  implicit none
- real(kind=4),    intent(out) :: t1,tcpu1
+ real(kind=4), intent(out) :: t1,tcpu1
 
  call evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,.false.)
 
@@ -367,7 +367,7 @@ subroutine get_time(time_out, tmax_out, nsteps_out, nmax_out, dt_out)
  use units,            only:utime
  implicit none
  double precision, intent(out) :: time_out, tmax_out, dt_out
- integer, intent(out) :: nsteps_out, nmax_out
+ integer,          intent(out) :: nsteps_out, nmax_out
 
  time_out = dble(time*utime)
  tmax_out = dble(tmax*utime)
@@ -418,11 +418,11 @@ subroutine read_dump_wrapper(len_dumpfile, dumpfile, headeronly, time_dp, hfact_
  use readwrite_dumps, only:read_dump
  use units, only:umass
  implicit none
- integer,                     intent(in) :: len_dumpfile
- character(len=len_dumpfile), intent(in) :: dumpfile
- logical,                     intent(in) :: headeronly
- double precision, intent(out) :: time_dp, hfact_dp, massofgas_dp
- integer, intent(out) :: ierr
+ integer,                     intent(in)  :: len_dumpfile
+ character(len=len_dumpfile), intent(in)  :: dumpfile
+ logical,                     intent(in)  :: headeronly
+ double precision,            intent(out) :: time_dp, hfact_dp, massofgas_dp
+ integer,                     intent(out) :: ierr
 
  real :: time
 
@@ -487,7 +487,7 @@ subroutine get_specific_xyzh(n, part_xyzh)
  use part, only:npart,xyzh
  use units, only:udist
  implicit none
- double precision, dimension(4), intent(out) :: part_xyzh
+ double precision, intent(out) :: part_xyzh(4)
  integer :: i, n
 
  do i=1,4
@@ -503,10 +503,10 @@ subroutine get_part_xyzh(npart_in, part_xyzh, nodisabled, ierr)
  use part, only:npart,xyzh
  use units, only:udist
  implicit none
- integer, intent(in) :: npart_in
- double precision, dimension(4,npart_in), intent(out) :: part_xyzh
- logical, intent(in)  :: nodisabled
- integer, intent(out) :: ierr
+ integer,          intent(in)  :: npart_in
+ double precision, intent(out) :: part_xyzh(4,npart_in)
+ logical,          intent(in)  :: nodisabled
+ integer,          intent(out) :: ierr
 
  integer :: i, j, n
 
@@ -545,7 +545,7 @@ subroutine get_specific_vxyz(n, part_vxyz)
  use part, only:npart,vxyzu
  use units, only:udist,utime
  implicit none
- double precision, dimension(4), intent(out) :: part_vxyz
+ double precision, intent(out) :: part_vxyz(4)
  integer :: n,i
 
  do i=1,3
@@ -560,10 +560,10 @@ subroutine get_part_vxyz(npart_in, part_vxyz, nodisabled, ierr)
  use part, only:npart,xyzh,vxyzu
  use units, only:udist,utime
  implicit none
- integer, intent(in) :: npart_in
- double precision, dimension(3,npart_in), intent(out) :: part_vxyz
- logical, intent(in)  :: nodisabled
- integer, intent(out) :: ierr
+ integer,          intent(in)  :: npart_in
+ double precision, intent(out) :: part_vxyz(3,npart_in)
+ logical,          intent(in)  :: nodisabled
+ integer,          intent(out) :: ierr
 
  integer :: i, n
 
@@ -596,10 +596,10 @@ subroutine get_part_bxyz(npart_in, part_bxyz, nodisabled, ierr)
  use part,  only:npart,xyzh,Bxyz,mhd
  use units, only:unit_Bfield
  implicit none
- integer, intent(in) :: npart_in
- double precision, dimension(3,npart_in), intent(out) :: part_bxyz
- logical, intent(in)  :: nodisabled
- integer, intent(out) :: ierr
+ integer,          intent(in)  :: npart_in
+ double precision, intent(out) :: part_bxyz(3,npart_in)
+ logical,          intent(in)  :: nodisabled
+ integer,          intent(out) :: ierr
  integer :: i, n
 
  if (mhd) then
@@ -635,10 +635,10 @@ subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
  use part, only:npart,xyzh,vxyzu,maxvxyzu
  use units, only:udist,utime
  implicit none
- integer, intent(in) :: npart_in
- double precision, dimension(npart_in), intent(out) :: part_u
- logical, intent(in)  :: nodisabled
- integer, intent(out) :: ierr
+ integer,          intent(in)  :: npart_in
+ double precision, intent(out) :: part_u(npart_in)
+ logical,          intent(in)  :: nodisabled
+ integer,          intent(out) :: ierr
  integer :: i, n
 
  if (maxvxyzu == 4) then
@@ -672,10 +672,10 @@ end subroutine get_part_u
 subroutine get_part_temp(npart_in, part_temp, nodisabled, ierr)
  use part,  only:npart,xyzh,eos_vars,itemp
  implicit none
- integer, intent(in) :: npart_in
- double precision, dimension(npart_in), intent(out) :: part_temp
- logical, intent(in)  :: nodisabled
- integer, intent(out) :: ierr
+ integer,          intent(in)  :: npart_in
+ double precision, intent(out) :: part_temp(npart_in)
+ logical,          intent(in)  :: nodisabled
+ integer,          intent(out) :: ierr
  integer :: i, n
 
  if (nodisabled) then
@@ -717,9 +717,9 @@ subroutine get_ptmass_xyzmh(nptmass_in, ptmass_xyzmh_out, ierr)
  use part, only:nptmass,xyzmh_ptmass
  use units, only:udist,umass
  implicit none
- integer, intent(in) :: nptmass_in
- double precision, dimension(5,nptmass_in) :: ptmass_xyzmh_out
+ integer, intent(in)  :: nptmass_in
  integer, intent(out) :: ierr
+ double precision :: ptmass_xyzmh_out(5,nptmass_in)
 
  integer :: i
 
@@ -739,9 +739,9 @@ subroutine get_ptmass_vxyz(nptmass_in, ptmass_vxyz_out, ierr)
  use part, only:nptmass,vxyz_ptmass
  use units, only:udist,utime
  implicit none
- integer, intent(in) :: nptmass_in
- double precision, dimension(3,nptmass_in) :: ptmass_vxyz_out
+ integer, intent(in)  :: nptmass_in
  integer, intent(out) :: ierr
+ double precision :: ptmass_vxyz_out(3,nptmass_in)
 
  if (nptmass_in == nptmass) then
     ptmass_vxyz_out(1:3,1:nptmass) = vxyz_ptmass(1:3,1:nptmass)*(udist/utime)
@@ -757,9 +757,9 @@ subroutine get_ptmass_spinxyz(nptmass_in, ptmass_spinxyz, ierr)
  use part, only:nptmass,xyzmh_ptmass,ispinx,ispiny,ispinz
  use units, only:udist,umass,utime
  implicit none
- integer, intent(in) :: nptmass_in
- double precision, dimension(3,nptmass_in) :: ptmass_spinxyz
+ integer, intent(in)  :: nptmass_in
  integer, intent(out) :: ierr
+ double precision :: ptmass_spinxyz(3,nptmass_in)
 
  integer :: i
 
@@ -781,8 +781,8 @@ subroutine set_part_mass(newmass, ierr)
  use part, only:npart,massoftype
  use units, only:umass
  implicit none
- double precision, intent(in) :: newmass
- integer, intent(out) :: ierr
+ double precision, intent(in)  :: newmass
+ integer,          intent(out) :: ierr
 
  if (npart == 0) then
     massoftype(:) = newmass/umass

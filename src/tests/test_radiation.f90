@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -96,10 +96,10 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use mpidomain,  only:i_belong
  use radiation_implicit, only:do_radiation_implicit
  use neighkdtree,        only:build_tree
- real :: psep,hfact
- real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: use_implicit
+ real :: psep,hfact
+ real :: pmassi,rhozero,totmass
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest,N_implicit_steps
  integer(kind=8) :: nptot

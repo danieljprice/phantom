@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,7 +20,7 @@ module testptmass
 !   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
 !   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
 !   setup_params, spherical, step_lf_global, stretchmap, subgroup,
-!   testutils, timestep, timing, units, utils_subgroup
+!   table_utils, testutils, timestep, timing, units, utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -36,14 +36,14 @@ subroutine test_ptmass(ntests,npass,string)
  use part,    only:nptmass,gr
  use options, only:iexternalforce,alpha
  use ptmass,  only:use_fourthorder,set_integration_precision
- character(len=*), intent(in) :: string
+ character(len=*), intent(in)    :: string
+ integer,          intent(inout) :: ntests,npass
  character(len=20) :: filename
  character(len=40) :: stringf
- integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr,do_test_flyby
+ logical :: do_test_binary_gr,do_test_orbit
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -58,7 +58,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_HII = .false.
  do_test_SDAR = .false.
  do_test_binary_gr = .false.
- do_test_flyby = .false.
+ do_test_orbit = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -87,8 +87,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
- case('ptmassflyby')
-    do_test_flyby = .true.
+ case('ptmassorbit','ptmassflyby')
+    do_test_orbit = .true.
  case default
     testall = .true.
  end select
@@ -139,9 +139,9 @@ subroutine test_ptmass(ntests,npass,string)
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
     !
-    !  Test of Flyby Reconstructor^TM
+    !  Test of Orbit Reconstructor^TM
     !
-    if (do_test_flyby .or. testall) call test_flyby_reconstructor(ntests,npass,stringf)
+    if (do_test_orbit .or. testall) call test_orbit_reconstructor_grid(ntests,npass,stringf)
 
  enddo
  !
@@ -163,7 +163,7 @@ subroutine test_ptmass(ntests,npass,string)
 
  if (do_test_SDAR .or. testall .and. .not.gr) call test_SDAR(ntests,npass)
 
- if (do_test_HII .and. .not.gr) call test_HIIregion(ntests,npass)
+ if (do_test_HII .or. testall .and. .not.gr) call test_HIIregion(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -175,6 +175,11 @@ subroutine test_ptmass(ntests,npass,string)
  close(itmp,status='delete',iostat=ierr)
  open(unit=itmp,file='Sink00.sink',status='old',iostat=ierr)
  close(itmp,status='delete',iostat=ierr)
+
+ ! reset integration precision to default
+ use_fourthorder = .true.
+ call set_integration_precision
+ alpha = 0.
 
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
@@ -552,7 +557,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  use extern_gr,      only:get_grforce_all
  use energies,       only:angtot,etot,totmom,compute_energies,epot
  use step_lf_global, only:step
- integer, intent(inout)          :: ntests,npass
+ integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  real    :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real    :: m1,m2,a,ecc,hacc1,hacc2,t,dt,tol_en
@@ -817,7 +822,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  use options,        only:iexternalforce
  use externalforces, only:iext_binary,update_externalforce
  use physcon,        only:pi
- use step_lf_global, only:step
+ use step_lf_global, only:step,init_step
  use ptmass,         only:use_fourthorder,get_accel_sink_sink
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
@@ -870,12 +875,12 @@ subroutine test_chinese_coin(ntests,npass,string)
     tol_per_orbit_y = 1.1e-3
     tol_per_orbit_v = 3.35e-4
  endif
+ call init_step(npart,t,dtorb)
  do while (t < tmax)
     ! do a whole orbit but with the substepping handling how many steps per orbit
     call step(npart,npart,t,dtorb,dtext,dtnew)
     t = t + dtorb
     norbit = norbit + 1
-
     write(tag,"(a,i1,a)") '(orbit ',norbit,')'
     call checkval(xyzmh_ptmass(2,1),y0,norbit*tol_per_orbit_y,nfailed(1),'y pos of sink '//trim(tag))
     call checkval(vxyz_ptmass(1,1),v0,norbit*tol_per_orbit_v,nfailed(2),'x vel of sink '//trim(tag))
@@ -912,6 +917,7 @@ subroutine test_accretion(ntests,npass,itest)
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
  integer :: i,j,nfailed(11),np_disc,nneigh
+ real :: xyz(3)
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
@@ -995,7 +1001,7 @@ subroutine test_accretion(ntests,npass,itest)
  naccreted  = 0
  dptmass(:,1:nptmass) = 0.
  !$omp parallel default(shared)&
- !$omp private(i,accreted,nneigh)&
+ !$omp private(i,accreted,nneigh,xyz)&
  !$omp firstprivate(dptmass_thread,rsearch)&
  !$omp reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
@@ -1004,7 +1010,8 @@ subroutine test_accretion(ntests,npass,itest)
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (itest==3) then
           rsearch = max(rsearch,xyzh(4,i))
-          call get_ptmass_neigh(ptmasskdtree,(/xyzh(1,i),xyzh(2,i),xyzh(3,i)/),rsearch,listneigh,nneigh)
+          xyz = [xyzh(1,i),xyzh(2,i),xyzh(3,i)]
+          call get_ptmass_neigh(ptmasskdtree,xyz,rsearch,listneigh,nneigh)
        else
           listneigh(1:nptmass) = (/ (j, j=1,nptmass) /)
           nneigh = nptmass
@@ -1611,15 +1618,15 @@ end subroutine test_merger
 !+
 !-----------------------------------------------------------------------
 subroutine test_HIIregion(ntests,npass)
- use dim,            only:maxp,maxphase,maxvxyzu
+ use dim,            only:maxp,maxphase,maxvxyzu,periodic,mpi
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
- use eos,            only:gmw,ieos,polyk,gamma
- use deriv,          only:get_derivs_global
+ use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
-                            npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
-                            npartoftype,fxyzu,massoftype,isionised,init_part,&
-                            iphase,isetphase,irateion,irstrom
+                          npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
+                          npartoftype,fxyzu,massoftype,init_part,&
+                          iphase,isetphase,irateion,irstrom,rhoh,&
+                          eos_vars,imu
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
  use spherical,      only:set_sphere
@@ -1628,17 +1635,24 @@ subroutine test_HIIregion(ntests,npass)
  use kernel,         only:hfact_default
  use kdtree,         only:tree_accuracy
  use testutils,      only:checkval,update_test_scores
- use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources,ar,mH
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,iH2R
  use setup_params,   only:npart_total
+ use deriv,          only:get_density_global
  integer, intent(inout) :: ntests,npass
- integer        :: np,i,nfailed(1)
- real           :: totmass,psep
- real           :: Rstrom,ci,k,rho0
- real           :: totvol,nx,rmin,rmax,temp
- if (id==master) write(iprint,"(/,a)") '--> testing HII region expansion around massive stars...'
+ integer          :: np,i,nfailed(2),itest,nion,ierr
+ real             :: totmass,psep,r2,rstrommax
+ real             :: Rstrom,ci,k,rho0,rhomean
+ real             :: totvol,nx,rmin,rmax,temp
+ character(len=22) :: string
 
+ if (mpi .or. periodic) then
+    write(iprint,*) '--> Skip HII tests when periodic or MPI are on...'
+    return
+ else
+    write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
+ endif
  call set_units(dist=pc,mass=solarm,G=1.d0)
- call init_eos_HIIR()
+ call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
  !
  ! initialise arrays to zero
@@ -1646,7 +1660,9 @@ subroutine test_HIIregion(ntests,npass)
  call init_part()
  gmw = 1.0
 
- xyzmh_ptmass(:,:) = 0.
+ xyzmh_ptmass(1,:) = 1.e-8 ! to avoid having superimposed particles
+ xyzmh_ptmass(2,:) = 0.
+ xyzmh_ptmass(3,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
  h_acc = 0.002
@@ -1672,6 +1688,7 @@ subroutine test_HIIregion(ntests,npass)
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
  npart_total = 0
+
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
     call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,nptot=npart_total,np_requested=np)
@@ -1681,10 +1698,11 @@ subroutine test_HIIregion(ntests,npass)
 !
 !--set particle properties
 !
- totmass        = 8.e3*solarm/umass
- npartoftype(:) = 0
+ totmass           = 8.e3*solarm/umass
+ rho0              = totmass/totvol
+ npartoftype(:)    = 0
  npartoftype(igas) = npart
- massoftype(:)  = 0.0
+ massoftype(:)     = 0.0
  massoftype(igas)  = totmass/npartoftype(igas)
  if (maxphase==maxp) then
     do i=1,npart
@@ -1692,15 +1710,10 @@ subroutine test_HIIregion(ntests,npass)
     enddo
  endif
 
- iH2R = 1
  if (id==master) then
     call initialize_H2R
-    !call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
  endif
 
- rho0 = totmass/totvol
-
- Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
  xyzmh_ptmass(irstrom,1) = -1.
  ci   = sqrt(polykion)
  k = 0.005
@@ -1712,14 +1725,37 @@ subroutine test_HIIregion(ntests,npass)
     vxyzu(4,:) = polyk
     ieos = 22
  endif
+ call get_density_global(2)
 
- call get_derivs_global()
+ do itest = 1,2
+    iH2R = itest
+    string = "nearest neighbors"
+    if (iH2R == 2) string = "inversed ray tracing"
+    if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    rstrommax = epsilon(rstrommax)
+    rhomean   = 0.
+    nion      = 0
 
- call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+    do i= 1,npart
+       r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
+       if (eos_vars(imu,i) < gmw) then
+          if (r2>rstrommax**2) then
+             rstrommax = sqrt(r2)
+          endif
+       endif
+       rhomean = rhomean + rhoh(xyzh(4,i),massoftype(1))
+    enddo
+    rhomean = rhomean / npart
+    Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
 
- call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.e-2,nfailed(1),'Initial strömgren radius')
-
+    call checkval(rstrommax,Rstrom,1.4e-2,nfailed(itest),'Initial strömgren radius')
+ enddo
  call update_test_scores(ntests,nfailed,npass)
+
+ call init_part()
+ iH2R = 0
+ ieos = 2
 
 end subroutine test_HIIregion
 
@@ -1752,7 +1788,7 @@ subroutine test_SDAR(ntests,npass)
  use subgroup,       only:subgroup_search,r_neigh,update_kappa
  use utils_subgroup, only:get_subgroup,get_binary
  use centreofmass,   only:reset_centreofmass
- integer,          intent(inout) :: ntests,npass
+ integer, intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(4),nerr,nwarn
  integer :: merge_ij(3),merge_n
  integer :: gsize,sid,eid,prim,sec
@@ -1987,11 +2023,42 @@ end subroutine test_sink_potential
 
 !-----------------------------------------------------------------------
 !+
-!  Test the Flyby Reconstructor^TM functionality in set_orbit
+!  Test the Orbit Reconstructor^TM functionality on a grid of dvx and dvy
 !+
 !-----------------------------------------------------------------------
-subroutine test_flyby_reconstructor(ntests,npass,string)
- use dim,            only:use_sinktree,gr
+subroutine test_orbit_reconstructor_grid(ntests,npass,string)
+ use dim,         only:use_sinktree,gr
+ use io,          only:id,master
+ use table_utils, only:linspace
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
+ integer, parameter :: ngrid = 5
+ real :: dvxgrid(ngrid),dvygrid(ngrid),dxobs(3),dvobs(3)
+ integer :: i,j
+ real, parameter :: dv_tol = 1.e-12
+
+ if (gr .or. use_sinktree) return
+ if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
+ call linspace(dvxgrid,-0.3,0.3)
+ call linspace(dvygrid,-0.3,0.3)
+ do i=1,ngrid
+    do j=1,ngrid
+       dxobs = [346.,-247.,0.]
+       dvobs = [dvxgrid(i),dvygrid(j),0.]
+       ! skip dvx = 0 and dvy = 0: cannot have semi-major axis of zero
+       if (abs(dvobs(1)) <= dv_tol .and. abs(dvobs(2)) <= dv_tol .and. abs(dvobs(3)) <= dv_tol) cycle
+       call test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
+    enddo
+ enddo
+
+end subroutine test_orbit_reconstructor_grid
+
+!-----------------------------------------------------------------------
+!+
+!  Test the Orbit Reconstructor^TM functionality in set_orbit
+!+
+!-----------------------------------------------------------------------
+subroutine test_orbit_reconstructor(ntests,npass,string,dxobs,dvobs)
  use io,             only:id,master,iverbose
  use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,&
                           fxyz_ptmass,dsdt_ptmass,epot_sinksink
@@ -2003,15 +2070,15 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  use units,          only:in_code_units
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
+ real,             intent(in)    :: dxobs(3),dvobs(3)
  integer :: nfailed(5),merge_ij(1),merge_n,ierr,i
- real, parameter :: tol = 2.e-4
- real :: t,dtnew,dtext,tmax,dt
- real :: m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
+ real, parameter :: tol = 1.e-12, tol_step = 6.e-4
+ real :: t,dtnew,dtext,tmax,dt,m1,m2,hacc1,hacc2,dx(3),dv(3),dx0(3),dv0(3),ftmp
  character(len=40) :: tmpstr
  type(orbit_t) :: binary
 
- if (gr .or. use_sinktree) return
- if (id==master) write(*,"(/,a)") '--> testing Flyby Reconstructor^TM '//trim(string)
+ nfailed = 0
+ if (id==master) write(*,"(/,a)") '--> testing Orbit Reconstructor^TM '//trim(string)
 
  ! no gas
  npart = 0
@@ -2021,11 +2088,14 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
  m1 = 0.8; m2 = 0.3; hacc1 = 1.0; hacc2 = 1.0
  call set_defaults_orbit(binary)
 
- ! set up for a flyby reconstruction
+ ! set up for an orbit reconstruction
  binary%input_type = 2
- binary%obs%dx(:) = (/' 360.0','-225.0','   0.0'/)
- binary%obs%dv(:) = (/' 0.168','0.0357',' 0.000'/)
+ do i=1,3
+    write(binary%obs%dx(i),"(es12.4)") dxobs(i)
+    write(binary%obs%dv(i),"(es12.4)") dvobs(i)
+ enddo
  binary%flyby%d = '1200.0'
+
  ! retrieve the input separation and velocity difference
  do i=1,3
     dx0(i) = in_code_units(binary%obs%dx(i),ierr,unit_type='length')
@@ -2070,13 +2140,13 @@ subroutine test_flyby_reconstructor(ntests,npass,string)
 
  ! check that the separation and velocity difference at the end time are as expected
  call get_dx_dv_ptmass(xyzmh_ptmass,vxyz_ptmass,dx,dv)
- call checkval(3,dx,dx0,tol,nfailed(4),'separation at end time')
- call checkval(3,dv,dv0,tol,nfailed(5),'delta v at end time')
+ call checkval(3,dx,dx0,tol_step,nfailed(4),'separation at end time')
+ call checkval(3,dv,dv0,tol_step,nfailed(5),'delta v at end time')
 
  call update_test_scores(ntests,nfailed,npass)
  iverbose = 0  ! reset verbosity
 
-end subroutine test_flyby_reconstructor
+end subroutine test_orbit_reconstructor
 
 !-----------------------------------------------------------------------
 !+

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,10 +29,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use part,     only:nptmass,xyzmh_ptmass,vxyz_ptmass,ispinx,ispinz,igas,massoftype
  use units,    only:unit_angmom,utime
  use physcon,  only:years
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  logical, save      :: first = .true.
  real    :: Lhat(3),Ltot(3),Ltot_mag,inc,rot
  real    :: Ltot_sink(3),Lhat_sink(3),Lsink_mag,inc_sink,rot_sink
@@ -40,9 +40,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real    :: dx(3),sep,mgas,msinks,mtot
  integer :: i,iu
 
-! Print the analysis being done
- write(*,'(1x,"Performing analysis type ",a)') analysistype
- write(*,'(1x,"Input file name is ",a,/)') dumpfile
  !
  ! get angular momentum of the gas and the sink particles
  !
@@ -114,10 +111,10 @@ subroutine get_angmom(n,xyz_arr,vxyz,Lhat,Ltot,Lmag,inc,rot,type)
  use vectorutils, only:cross_product3D
  use part,        only:isdead_or_accreted,massoftype,igas,iamtype,iphase
  use dim,         only:maxphase,maxp
- integer, intent(in) :: n
- real, intent(in)    :: xyz_arr(:,:),vxyz(:,:)
- real, intent(out)   :: Lhat(3),Ltot(3),Lmag,inc,rot
- character(len=*), intent(in) :: type
+ integer,          intent(in)  :: n
+ real,             intent(in)  :: xyz_arr(:,:),vxyz(:,:)
+ real,             intent(out) :: Lhat(3),Ltot(3),Lmag,inc,rot
+ character(len=*), intent(in)  :: type
  integer :: i
  real    :: Li(3),massi
 

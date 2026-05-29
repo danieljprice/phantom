@@ -8,12 +8,15 @@ This section contains some examples of physical problems that you can solve with
    :caption: Contents:
 
    disc
+   turbulence
+   nonidealmhd
    relaxation
    binary
    star
    softstar
    dustsettle
    dustgrowth
+   inject_sim
    hierarchicalsystems
    selfgravity_gravitationalinstability
    phantomNR

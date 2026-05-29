@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -53,9 +53,9 @@ contains
 !-----------------------------------------------------------------------
 subroutine find_inner_and_outer_radius(npart,xyzh,rmin,rmax)
  use part, only:xyzmh_ptmass, isdead_or_accreted
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:)
- real, intent(out)   :: rmin,rmax
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:)
+ real,    intent(out) :: rmin,rmax
  integer :: ii
  real    :: rmin_test, rmax_test, xi, yi, zi, r2_test
 
@@ -88,9 +88,9 @@ end subroutine find_inner_and_outer_radius
 !  routine to find the closest apr centre to a position
 !+
 !-----------------------------------------------------------------------
-
-subroutine find_closest_region(pos,iclosest)
- real, intent(in) :: pos(3)
+subroutine find_closest_region(pos,ntrack,apr_centre,iclosest)
+ real,    intent(in)  :: pos(3),apr_centre(:,:)
+ integer, intent(in)  :: ntrack
  integer, intent(out) :: iclosest
  real :: r2,rtest,dx,dy,dz
  integer :: ii

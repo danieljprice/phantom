@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -75,7 +75,8 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use io,               only:iprint
  use boundary,         only:print_boundaries
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
- use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity,icooling
+ use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,&
+                            use_porosity,icooling,implicit_radiation
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes,igas
  use mpiutils,         only:reduceall_mpi
@@ -90,10 +91,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use growth,           only:print_growthinfo
  use metric_tools,     only:print_metricinfo
  use ptmass,           only:icreate_sinks,h_acc,r_merge_uncond,rho_crit_cgs,rho_crit
- integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
  integer(kind=8),  intent(in), optional :: ntot
+ integer                      :: Nneigh,i
  character(len=10) :: startdate, starttime
 
 !-----------------------------------------------------------------------
@@ -158,7 +159,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
            6x,' Number of neighbours = ',i4,/)
 
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
-    if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
+    if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON, please cite Bernard et al. (2026) and Price & Monaghan (2007)'
+    if (implicit_radiation) write(iprint,"(1x,a)") 'Implicit radiation is ON, please cite ' // &
+                                                   'Lau et al. (2025) and Whitehouse & Bate (2006)'
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dust) then
        if (use_dustfrac) then
