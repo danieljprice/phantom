@@ -186,7 +186,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        r_merge_uncond  = h_acc
        use_regnbody    = .true.
        r_neigh         = 5e-2*h_acc
-       f_crit_override = 100.
+       f_crit_override = 3000.
        if (maxvxyzu >= 4) then
           gamma   = 5./3.
           Tfloor  = 6.
@@ -225,6 +225,7 @@ subroutine get_defaults_cluster(icluster,default_cluster)
  integer,          intent(in)  :: icluster
  character(len=*), intent(out) :: default_cluster
 
+ iH2R_in = 0
  select case (icluster)
  case(4)
     ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
@@ -329,6 +330,8 @@ subroutine write_setupfile(filename)
                                     ' [if .in file does not exist]',iunit)
  write(iunit,"(/,a)") '# options for sink particles'
  call write_inopt(Rsink_au,'Rsink_au','sink radius in au',iunit)
+ write(iunit,"(/,a)") '# options for HII feedback'
+ call write_inopt(iH2R_in, 'iH2R_in','HII feedback algorithm id', iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -359,6 +362,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(Temperature,'Temperature',db,errcount=nerr)
  call read_inopt(relax, 'relax',db,errcount=nerr)
  call read_inopt(mu,'mu',db,errcount=nerr)
+ call read_inopt(iH2R_in,'iH2R_in',db,errcount=nerr)
  if (maxvxyzu < 4) call read_inopt(ieos_in,'ieos_in',db,errcount=nerr)
  call read_inopt(Rsink_au,'Rsink_au',db,errcount=nerr)
  call close_db(db)
