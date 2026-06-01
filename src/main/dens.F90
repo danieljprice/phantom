@@ -1000,13 +1000,22 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
  real, intent(in)  :: rmatrix(6)
  real, intent(out) :: dvdx(9)
 
- logical, intent(in) :: use_exact_linear
+ logical, intent(in), optional :: use_exact_linear
  real :: ddenom,gradvxdxi,gradvxdyi,gradvxdzi
  real :: gradvydxi,gradvydyi,gradvydzi,gradvzdxi,gradvzdyi,gradvzdzi
  real :: dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi
 
+ logical :: flag_use_exact_linear
+
+! catch use_exact_linear flag
+ if (.not. present(use_exact_linear)) then
+     flag_use_exact_linear = .false.
+ else
+     flag_use_exact_linear = use_exact_linear
+ endif
+
 ! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
- if (use_exact_linear) then ! do exact linear first derivatives
+ if (flag_use_exact_linear) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                      rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
