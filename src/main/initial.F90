@@ -694,7 +694,7 @@ end subroutine initialise_sink_particle_forces
 !----------------------------------------------------------------
 subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use dim,              only:maxalpha,maxp,nalpha,do_radiation
- use part,             only:npart,fxyzu,eos_vars,alphaind
+ use part,             only:npart,fxyzu,alphaind
  use deriv,            only:get_derivs_global,get_density_global
  use timestep,         only:dtmax
 #ifdef LIVE_ANALYSIS
