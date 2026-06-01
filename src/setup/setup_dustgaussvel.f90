@@ -19,7 +19,7 @@ module setup
  public :: setpart
 
  integer, private :: npartx,ilattice
- integer, private :: ifrag,isnow
+ integer, private :: ifrag,isnow,ivrelkin
  integer, private :: iseed = -123456789
  real,    private :: deltax,polykset,dust_spread,sigma_v
  real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs
@@ -60,12 +60,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
 
- integer :: maxp,maxvxyzu,ndustx
- integer :: i,ngas,ndust,ipart,ind_x,ind_y,ind_z
- real :: totmass
- real :: x0,y0,z0,dx,dy,dz
- real    :: mprev(npart)
- real    :: filfacprev(npart)
+ integer         :: maxp,maxvxyzu,ndustx
+ integer(kind=8) :: i,ipart!,ind_x,ind_y,ind_z
+ integer(kind=8) :: ngas,ndust,ipart
+ real            :: totmass
+ !real            :: x0,y0,z0,dx,dy,dz
+ real            :: mprev(npart)
+ real            :: filfacprev(npart)
 
  !-----------------------
  ! Units and parameters
@@ -92,9 +93,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
 !--dust growth - needed to get vrel
 !
  if (use_dustgrowth) then
-    ifrag = 0
-    isnow = 0
-    vfragSI = 15.
+    ifrag       = 0
+    ivrelkin    = 0
+    isnow       = 0
+    vfragSI     = 15.
     gsizemincgs = 5.e-3
 
     grainsize = 0.1 !random value

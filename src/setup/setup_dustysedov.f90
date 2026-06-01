@@ -23,7 +23,7 @@ module setup
  implicit none
  public :: setpart
 
- integer, private :: ifrag,isnow
+ integer, private :: ifrag,isnow,ivrelkin
  real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs
  real,    private :: grainsize(1),graindens(1)
  real,    private :: grainsizemin,vfrag,vref
@@ -83,8 +83,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--dust growth
 !
  if (use_dustgrowth) then
-    ifrag = 0
-    isnow = 0
+    ifrag    = 0
+    ivrelkin = 0
+    isnow    = 0
  endif
 
  if (use_dustgrowth) then
