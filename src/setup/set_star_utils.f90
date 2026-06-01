@@ -483,7 +483,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  integer, intent(in), optional :: npin
  real,    intent(in), optional :: x0(3)
  integer :: eos_type,cv_type,i,ierr
- real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi,egasrad,eint,mu
+ real    :: hi,presi,densi,tempi,eni,ri,egasrad,eint,mu
  real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),pmassi,dum
  logical :: do_radiation_local
  integer :: i1
@@ -503,7 +503,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &
  !$omp shared(radprop,gmw) &
  !$omp private(i,hi,pmassi,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
- !$omp private(xi,yi,zi,p_on_rhogas,spsoundi,egasrad,eint,mu,u_gasrec) &
+ !$omp private(egasrad,eint,mu,u_gasrec) &
  !$omp private(dum,eos_type,cv_type,ierr,do_radiation_local)
  do i = i1+1,npart
     if (relaxed) then
