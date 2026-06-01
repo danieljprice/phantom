@@ -328,7 +328,6 @@ end subroutine get_growth_rate
 !+
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
- use viscosity,       only:shearparam
  use physcon,         only:Ro,roottwo
  real, intent(in)         :: xyzh(:)
  real, intent(in)         :: dustgasprop(:)
@@ -338,7 +337,7 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  real                     :: Vt,Vrel_micro
  integer                  :: izone
  !--turbulence at micro scales
- Vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ Vt = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
  Vrel_micro = vrelative(dustgasprop,Vt)
 
  !-- Vrel_disp = relative motion from crossing dust particles, average of relative motion between dust particles in the kernel
