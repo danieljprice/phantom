@@ -2568,15 +2568,17 @@ subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
  use subgroup,     only:r_neigh
  use dim,          only:use_sinktree
- use dem,          only:kn_cgs,epsilon_n_dem,ct_dem
+ use dem,          only:kn_cgs,epsilon_n_dem,ct_dem,kt_cgs,coh_gap_max_cgs
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
  call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf,2=dem)',iunit)
  if (isink_potential == 2) then
-    call write_inopt(kn_cgs,'kn_cgs','DEM normal spring constant (dyne/cm)',iunit)
+    call write_inopt(kn_cgs,'kn_cgs','DEM normal spring constant (g/s^2 per cm overlap)',iunit)
     call write_inopt(epsilon_n_dem,'epsilon_n_dem','DEM normal coefficient of restitution [0=inelastic,1=elastic]',iunit)
     call write_inopt(ct_dem,'ct_dem','DEM tangential damping coefficient',iunit)
+    call write_inopt(kt_cgs,'kt_cgs','DEM tensile spring constant (g/s^2 per cm gap; 0=off)',iunit)
+    call write_inopt(coh_gap_max_cgs,'coh_gap_max_cgs','max surface gap for DEM bond (cm; 0=1% of R_i+R_j)',iunit)
  endif
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
@@ -2625,7 +2627,7 @@ subroutine read_options_ptmass(db,nerr)
  use subgroup,     only:r_neigh
  use dim,          only:use_sinktree
  use infile_utils, only:inopts,read_inopt
- use dem,          only:kn_cgs,epsilon_n_dem,ct_dem
+ use dem,          only:kn_cgs,epsilon_n_dem,ct_dem,kt_cgs,coh_gap_max_cgs,dem_cohesion_summary
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter :: label = 'read_infile'
@@ -2635,6 +2637,8 @@ subroutine read_options_ptmass(db,nerr)
  call read_inopt(kn_cgs,'kn_cgs',db,errcount=nerr,min=0.,default=kn_cgs)
  call read_inopt(epsilon_n_dem,'epsilon_n_dem',db,errcount=nerr,min=0.,max=1.,default=epsilon_n_dem)
  call read_inopt(ct_dem,'ct_dem',db,errcount=nerr,min=0.,default=ct_dem)
+ call read_inopt(kt_cgs,'kt_cgs',db,errcount=nerr,min=0.,default=kt_cgs)
+ call read_inopt(coh_gap_max_cgs,'coh_gap_max_cgs',db,errcount=nerr,min=0.,default=coh_gap_max_cgs)
  call read_inopt(rho_crit_cgs,'rho_crit_cgs',db,errcount=nerr,min=0.,default=rho_crit_cgs)
  call read_inopt(r_crit,'r_crit',db,errcount=nerr,min=0.,default=r_crit)
  call read_inopt(h_acc,'h_acc',db,errcount=nerr,min=0.,default=h_acc)
@@ -2659,6 +2663,8 @@ subroutine read_options_ptmass(db,nerr)
  if (f_crit_override > 0.) l_crit_override = .true.
 
  if (icreate_sinks==1 .and. r_merge_uncond < 2.0*h_acc) call warning(label,'Strongly suggest r_merge_uncond >= 2.0*h_acc')
+
+ if (isink_potential == 2) call dem_cohesion_summary
 
 end subroutine read_options_ptmass
 
