@@ -22,9 +22,9 @@ module setup
  integer, private :: ifrag,isnow,ivrelkin
  integer, private :: iseed = -123456789
  real,    private :: deltax,polykset,dust_spread,sigma_v
- real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs
+ !real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs,grainsizemin,vfrag,vref
+ real,    private :: vfragSI,gsizemincgs
  real,    private :: grainsize(1),graindens(1)
- real,    private :: grainsizemin,vfrag,vref
  private
 
 contains
@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  use part,     only:set_particle_type,igas,idust,periodic,&
                     dustprop,dustgasprop,VrelVf,&
                     filfac,probastick,&
-                    iphase,iamdust,&
+                    iamdust,&
                     kill_particle
  use units,    only:set_units
  use physcon,  only:pi,solarm,au,fourpi
@@ -61,8 +61,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  character(len=20), intent(in)    :: fileprefix
 
  integer         :: maxp,maxvxyzu,ndustx
- integer(kind=8) :: i,ipart!,ind_x,ind_y,ind_z
- integer(kind=8) :: ngas,ndust,ipart
+ integer(kind=4) :: i,ipart!,ind_x,ind_y,ind_z
+ integer(kind=4) :: ngas,ndust
  real            :: totmass
  !real            :: x0,y0,z0,dx,dy,dz
  real            :: mprev(npart)
@@ -121,7 +121,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                   hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
- ngas = npart_total
+ ngas = int(npart_total,kind=4)
  do i=1,ngas
    call set_particle_type(i,igas)
 
@@ -140,12 +140,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  !--------------------------------------------------
  ! 2. DUST particles (clustered at one location)
  !--------------------------------------------------
- ndustx = 64  !used npartx*10 for analysis at timestep 0
+ ndustx = 16!64  !used npartx*10 for analysis at timestep 0
  deltax = dxbound/ndustx
  ndust = 0
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
- ndust = npart_total - ngas
+ ndust = int(npart_total,kind=4) - ngas
  !print*,npart_total,ngas,ndust
  ! cluster centre = box centre
 ! x0 = 0.9*xmin!0.5*(xmin+xmax)
