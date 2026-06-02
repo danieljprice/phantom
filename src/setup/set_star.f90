@@ -346,12 +346,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
           ! if a MESA profile is used, we supply the mtab array for the
           ! mass profile in relax_star rather than integrating it manually
           !
-          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+          call relax_star(npts,den,pres,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
                           write_dumps=write_dumps,density_error=rmserr,energy_error=en_err,mtab=mtab)
        else
-          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+          call relax_star(npts,den,pres,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
                           write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
@@ -392,7 +392,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! set the internal energy and temperature
  !
- if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,&
+ if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,&
                        xyzh,vxyzu,rad,eos_vars,relax,use_var_comp,star%initialtemp,&
                        star%polyk,npin=npart_old)
  !

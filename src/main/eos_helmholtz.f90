@@ -26,6 +26,7 @@ module eos_helmholtz
  public :: eos_helmholtz_write_inopt
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
+ public :: eos_helmholtz_energy_from_rhoT  ! invert EOS: get energy from rho, pressure, T
  public :: eos_helmholtz_cv_dpresdt
  public :: eos_helmholtz_get_minrho
  public :: eos_helmholtz_get_maxrho
@@ -404,7 +405,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(out)   :: ponrhoi
  real, intent(out)   :: spsoundi
  real, intent(in)    :: eni
- integer, parameter  :: maxiter = 10
+ integer, parameter  :: maxiter = 30
  real,    parameter  :: tol = 1.0e-4  ! temperature convergence
  logical :: done
  integer :: itercount
@@ -418,6 +419,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 ! dynamical evolution:
 ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
  cgseni = eni * unit_ergg
+
 ! Newton-Raphson iterations
  tprev = tempi
  tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti
@@ -443,8 +445,10 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     tprev = tnew
     ! get new pressure, sound speed, energy for this temperature and density
     call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
+
     ! iterate to new temperature
     tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
+
     ! disallow large temperature changes
     if (tnew > 2.0 * tprev) then
        tnew = 2.0 * tprev
@@ -456,6 +460,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     if (abs(tnew - tprev) < tempi * tol) then
        done = .true.
     endif
+
     ! exit if gas is too cold or too hot
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
     if (tnew > tempmax) then
@@ -473,6 +478,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
  enddo iterations
 ! store new temperature
+
  tempi = tnew
 ! TODO: currently we just use the final temperature from the eos and assume we have converged
 !
@@ -1076,6 +1082,26 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! end of pipeline loop
 end subroutine eos_helmholtz_compute_pres_sound
+
+!----------------------------------------------------------------
+!+
+!  Get internal energy from density and temperature
+!  This routine inverts the EOS to compute energy from
+!  given temperature and density (pressure is not used).
+!  Inputs are in CGS units.
+!+
+!----------------------------------------------------------------
+subroutine eos_helmholtz_energy_from_rhoT(rho, temp, ener)
+ real, intent(in)  :: rho, temp
+ real, intent(out) :: ener
+
+ real :: dummy_pres, dummy_sound, dummy_denerdt
+
+ ! Call the main computation routine with temperature and density
+ ! We discard the pressure and sound speed outputs
+ call eos_helmholtz_compute_pres_sound(temp, rho, dummy_pres, dummy_sound, ener, dummy_denerdt)
+
+end subroutine eos_helmholtz_energy_from_rhoT
 
 !----------------------------------------------------------------
 !+
