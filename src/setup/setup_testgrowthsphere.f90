@@ -22,9 +22,9 @@ module setup
  integer, private :: ifrag,isnow
  integer, private :: iseed = -123456789
  real,    private :: deltax,polykset,dust_spread,sigma_v
- real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs
+ real,    private :: vfragSI,gsizemincgs
  real,    private :: grainsize(1),graindens(1)
- real,    private :: grainsizemin,vfrag,vref
+! real,    private :: grainsizemin,vfrag,vref,grainsizecgs,graindenscgs
  private
 
 contains
@@ -43,7 +43,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  use part,     only:set_particle_type,igas,idust,periodic,&
                     dustprop,dustgasprop,VrelVf,&
                     filfac,probastick,&
-                    iphase,iamdust,&
+                    iamdust,&
                     kill_particle
  use units,    only:set_units
  use physcon,  only:pi,solarm,au,fourpi
@@ -61,9 +61,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  character(len=20), intent(in)    :: fileprefix
 
  integer :: maxp,maxvxyzu,ndustx
- integer :: i,ngas,ndust,ipart,ind_x,ind_y,ind_z,icompt
+ integer :: i,ngas,ndust,ipart,icompt
+!integer :: ind_x,ind_y,ind_z
  real :: totmass
- real :: x0,y0,z0,dx,dy,dz
+ !real :: x0,y0,z0,dx,dy,dz
  real    :: mprev(npart)
  real    :: filfacprev(npart)
  real    :: rmin,rmax
@@ -124,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                   hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
- ngas = npart_total
+ ngas = int(npart_total,kind=4)
  do i=1,ngas
    call set_particle_type(i,igas)
 
@@ -148,7 +149,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  ndust = 0
  call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax, &
                  hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong, rmin=rmin,rmax=rmax)
- ndust = npart_total - ngas
+ ndust = int(npart_total,kind=4) - ngas
 
  icompt = 0
  rcompt = 1e70
@@ -188,7 +189,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  !npart = ngas + ndust
 
  ! Particle at origin with position and velocity of 0
- icompt = npart_total+1
+ icompt = int(npart_total,kind=4)+1
  xyzh(1,icompt)  = 0.
  xyzh(2,icompt)  = 0.
  xyzh(3,icompt)  = 0.
