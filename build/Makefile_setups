@@ -629,7 +629,6 @@ endif
 
 ifeq ($(SETUP), testgrowthsphere)
 #   sphere of particles with purely radial velocities
-    PERIODIC=yes
     SETUPFILE= setup_testgrowthsphere.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes

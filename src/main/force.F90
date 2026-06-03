@@ -3175,9 +3175,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (use_dustgrowth .and. iamdusti) then
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
+          if (dustgasprop(2,i) > 0.) then
           !- interpolations are mass weigthed, divide result by rhog,i
-          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
-          dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
+             dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
+             dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
+          else
+             dustgasprop(4,i) = 0.
+             dustgasprop(1,i) = 0.
+          endif
 
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)
