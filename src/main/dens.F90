@@ -1014,8 +1014,7 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
      flag_use_exact_linear = use_exact_linear
  endif
 
-! if (abs(denom) > tiny(denom)) then ! do exact linear first derivatives
- if (flag_use_exact_linear) then ! do exact linear first derivatives
+ if ((abs(denom) > tiny(denom)) .and. flag_use_exact_linear) then ! do exact linear first derivatives
     ddenom = 1./denom
     call exactlinear(gradvxdxi,gradvxdyi,gradvxdzi, &
                      rhosum(idvxdxi),rhosum(idvxdyi),rhosum(idvxdzi),rmatrix,ddenom)
