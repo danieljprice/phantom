@@ -178,7 +178,7 @@ subroutine eos_helmholtz_init(ierr)
  xmass(4) = xo
  xmass(5) = xne
  xmass(6) = xmg
- if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then
+ if (sum(xmass(:)) > 1.0+1e-6 .or. sum(xmass(:)) < 1.0-1e-6) then
     call warning('eos_helmholtz', 'mass fractions total != 1')
     ierr = 1
     return
@@ -374,12 +374,12 @@ subroutine read_options_eos_helmholtz(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer, intent(inout) :: nerr
 
- call read_inopt(xh ,'xh' ,db,errcount=nerr,min=0.,max=1.)
- call read_inopt(xhe,'xhe',db,errcount=nerr,min=0.,max=1.)
- call read_inopt(xc ,'xc' ,db,errcount=nerr,min=0.,max=1.)
- call read_inopt(xo ,'xo' ,db,errcount=nerr,min=0.,max=1.)
- call read_inopt(xne,'xne',db,errcount=nerr,min=0.,max=1.)
- call read_inopt(xmg,'xmg',db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(xh ,'xh' ,db,errcount=nerr,min=0.,max=1.,default=xh)
+ call read_inopt(xhe,'xhe',db,errcount=nerr,min=0.,max=1.,default=xhe)
+ call read_inopt(xc ,'xc' ,db,errcount=nerr,min=0.,max=1.,default=xc)
+ call read_inopt(xo ,'xo' ,db,errcount=nerr,min=0.,max=1.,default=xo)
+ call read_inopt(xne,'xne',db,errcount=nerr,min=0.,max=1.,default=xne)
+ call read_inopt(xmg,'xmg',db,errcount=nerr,min=0.,max=1.,default=xmg)
 
 end subroutine read_options_eos_helmholtz
 
