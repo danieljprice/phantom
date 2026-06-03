@@ -30,6 +30,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  sink_ind=1
 
+ if (nptmass < sink_ind) then
+    print*,'Selected sink index larger than number of sinks'
+    return
+ endif
+
  do i=1,npart
     xyzh(1:3,i) = xyzh(1:3,i) - xyzmh_ptmass(1:3,sink_ind)
     vxyzu(1:3,i) = vxyzu(1:3,i) - vxyz_ptmass(1:3,sink_ind)
