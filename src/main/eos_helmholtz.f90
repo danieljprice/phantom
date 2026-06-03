@@ -23,7 +23,6 @@ module eos_helmholtz
 
 ! subroutines to read/initialise tables, and get pressure/sound speed
  public :: eos_helmholtz_init
-!  public :: eos_helmholtz_write_inopt
  public :: read_options_eos_helmholtz
  public :: write_options_eos_helmholtz
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
@@ -364,11 +363,6 @@ subroutine write_options_eos_helmholtz(iunit)
  call write_inopt(xmg,'xmg','Magnesium mass fraction',iunit)
 
 end subroutine write_options_eos_helmholtz
-
-! subroutine eos_helmholtz_write_inopt(iunit)
-!  integer, intent(in) :: iunit
-
-! end subroutine eos_helmholtz_write_inopt
 
 !----------------------------------------------------------------
 !+ 
