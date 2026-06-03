@@ -23,7 +23,9 @@ module eos_helmholtz
 
 ! subroutines to read/initialise tables, and get pressure/sound speed
  public :: eos_helmholtz_init
- public :: eos_helmholtz_write_inopt
+!  public :: eos_helmholtz_write_inopt
+ public :: read_options_eos_helmholtz
+ public :: write_options_eos_helmholtz
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
  public :: eos_helmholtz_energy_from_rhoT  ! invert EOS: get energy from rho, pressure, T
@@ -38,8 +40,14 @@ module eos_helmholtz
  private
 
  ! these set the mixture of species
- ! currently hard-coded to 50/50 carbon-oxygen
-
+ ! following elements can be set by user at runtime
+ real :: xh  = 0.0
+ real :: xhe = 0.0
+ real :: xc  = 0.5
+ real :: xo  = 0.5
+ real :: xne = 0.0
+ real :: xmg = 0.0 
+ 
  integer, parameter :: speciesmax = 15
  character(len=10) :: speciesname(speciesmax)
  real :: xmass(speciesmax) ! mass fraction of species
@@ -163,13 +171,14 @@ subroutine eos_helmholtz_init(ierr)
  Aion(14) = 56.0  ;  Zion(14) = 28.0  ! nickel
  Aion(15) = 60.0  ;  Zion(15) = 30.0  ! zinc
 
- ! set the mass weightings of each species
- ! currently hard-coded to 50/50 carbon-oxygen
- ! TODO: update this be set by user at runtime
+ ! set the mass weightings of each species, user sets the mass fractions of each species, and we check that they sum to 1
  xmass(:) = 0.0
- xmass(3) = 0.5
- xmass(4) = 0.5
-
+ xmass(1) = xh
+ xmass(2) = xhe
+ xmass(3) = xc
+ xmass(4) = xo
+ xmass(5) = xne
+ xmass(6) = xmg
  if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then
     call warning('eos_helmholtz', 'mass fractions total != 1')
     ierr = 1
@@ -339,13 +348,47 @@ end subroutine eos_helmholtz_calc_AbarZbar
 
 !----------------------------------------------------------------
 !+
-!  write options to the input file (currently nothing)
+!  write options to the input file (abundances of each species)
 !+
 !----------------------------------------------------------------
-subroutine eos_helmholtz_write_inopt(iunit)
+
+subroutine write_options_eos_helmholtz(iunit)
+ use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
-end subroutine eos_helmholtz_write_inopt
+ call write_inopt(xh ,'xh' ,'Hydrogen mass fraction',iunit)
+ call write_inopt(xhe,'xhe','Helium mass fraction',iunit)
+ call write_inopt(xc ,'xc' ,'Carbon mass fraction',iunit)
+ call write_inopt(xo ,'xo' ,'Oxygen mass fraction',iunit)
+ call write_inopt(xne,'xne','Neon mass fraction',iunit)
+ call write_inopt(xmg,'xmg','Magnesium mass fraction',iunit)
+
+end subroutine write_options_eos_helmholtz
+
+! subroutine eos_helmholtz_write_inopt(iunit)
+!  integer, intent(in) :: iunit
+
+! end subroutine eos_helmholtz_write_inopt
+
+!----------------------------------------------------------------
+!+ 
+!  read options from the input file (abundances of each species)
+!+
+!----------------------------------------------------------------
+subroutine read_options_eos_helmholtz(db,nerr)
+ use infile_utils, only: inopts, read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer, intent(inout) :: nerr
+
+ call read_inopt(xh ,'xh' ,db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(xhe,'xhe',db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(xc ,'xc' ,db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(xo ,'xo' ,db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(xne,'xne',db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(xmg,'xmg',db,errcount=nerr,min=0.,max=1.)
+
+end subroutine read_options_eos_helmholtz
+
 
 ! return min density from table limits in code units
 real function eos_helmholtz_get_minrho()
