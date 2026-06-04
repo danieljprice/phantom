@@ -1724,7 +1724,7 @@ end subroutine read_headeropts_eos
 subroutine write_options_eos(iunit)
  use dim,            only:use_krome,isothermal,mhd
  use infile_utils,   only:write_inopt
- use eos_helmholtz,  only:eos_helmholtz_write_inopt
+ use eos_helmholtz,  only:write_options_eos_helmholtz
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
@@ -1747,7 +1747,7 @@ subroutine write_options_eos(iunit)
     call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
  case(15) ! helmholtz eos
-    call eos_helmholtz_write_inopt(iunit)
+    call write_options_eos_helmholtz(iunit)
  case(20)
     call write_options_eos_gasradrec(iunit)
     if (.not. use_var_comp) then
@@ -1782,6 +1782,7 @@ subroutine read_options_eos(db,nerr)
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
+ use eos_helmholtz,  only:read_options_eos_helmholtz
  use eos_tillotson,  only:read_options_eos_tillotson
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
@@ -1810,6 +1811,7 @@ subroutine read_options_eos(db,nerr)
 
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
  if (ieos== 9) call read_options_eos_piecewise(db,nerr)
+ if (ieos==15) call read_options_eos_helmholtz(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
  if (ieos==23) call read_options_eos_tillotson(db,nerr)
 
