@@ -102,7 +102,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  !
  calc_polyk = .true.
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
-
+ temp = 0.  ! Initialize temperature array for non-file-based profiles
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
  select case(iprofile)
  case(ipoly)
