@@ -294,7 +294,7 @@ subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
                                                     dustgasprop(:,i),probastick(i),rhod,dt,filfacevol,filfacmin)
                    !--if new mass < previous mass, compute the new filling factor due to fragmentation
                 else
-                   call get_filfac_frag(mprev(i),dustprop(:,i),filfac(i),dustgasprop(:,i),rhod,VrelVf(i),dt,filfacevol)
+                   call get_filfac_frag(mprev(i),dustprop(:,i),filfac(i),dustgasprop(:,i),rhod,VrelVf(:,i),dt,filfacevol)
                 endif
                 filfac(i) = filfacevol
 
@@ -408,9 +408,9 @@ end subroutine get_filfac_bounce
 subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filfacfrag)
  use growth,            only:vrelative,get_size,alpha_dg
  use physcon,           only:fourpi
- real, intent(in)  :: mprev,filfac,rhod,VrelVf,dt
- real, intent(in)  :: dustprop(:),dustgasprop(:)
- real, intent(out) :: filfacfrag
+ real, intent(in)          :: mprev,filfac,rhod,dt
+ real, intent(in)          :: dustprop(:),dustgasprop(:),VrelVf(:)
+ real, intent(out)         :: filfacfrag
  real                      :: sdust,vrel,ncoll,vol,deltavol!,compfactor
  real                      :: ekin,pdyn,vt
 
@@ -430,7 +430,7 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
     if (deltavol < 0) deltavol = 0.
     if (deltavol > vol) deltavol = vol
 
-    filfacfrag = filfac *(1./(1.-0.5*exp(1-VrelVf**2.)*deltavol/vol))**ncoll
+    filfacfrag = filfac *(1./(1.-0.5*exp(1-VrelVf(1)**2.)*deltavol/vol))**ncoll
  case default ! (0)
     ! Fragmentation at constant filling factor
     filfacfrag = filfac

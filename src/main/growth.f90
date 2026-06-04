@@ -49,6 +49,7 @@ module growth
  integer, public        :: isnow        = 0
  integer, public        :: ieros        = 0
  integer, public        :: iporosity    = 0        !--0=Off  1=On    (-1=On for checkup, filfac is initialized but does not evolve)
+ integer, public        :: ivrelkin     = 0
  real, public           :: gsizemincgs  = 5.e-3
  real, public           :: tsmincgs     = 1.e5
  real, public           :: rsnow        = 100.
@@ -180,8 +181,8 @@ subroutine print_growthinfo(iprint)
 
  integer, intent(in) :: iprint
 
- if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel*dt    '
- if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel*dt   '
+ if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel    '
+ if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth/frag with Kobayashi fragmentation model '
  if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',alpha_dg
  if (ifrag > 0) then
@@ -205,6 +206,8 @@ subroutine print_growthinfo(iprint)
     write(iprint,"(a)")    ' Using aeolian-erosion model where ds = -fourpi*rhos*rhog*s*(deltav**3)*(dsize**2)/(3*cohacc)*dt    '
     write(iprint,"(2(a,1pg10.3),a)")' dsize = ',dsizecgs,' cm = ',dsize,' (code units)'
  endif
+if (ivrelkin == 0) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence only    '
+if (ivrelkin == 1) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence and dust relative motion at macro scale    '
 
 end subroutine print_growthinfo
 
@@ -215,23 +218,25 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,Vrel_disp)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
                            massoftype,Omega_k,dustfrac,tstop,deltav
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
- real,    intent(in)    :: dustprop(:,:)
- real,    intent(inout) :: dustgasprop(:,:)
- real,    intent(in)    :: xyzh(:,:)
- real,    intent(in)    :: filfac(:)
- real,    intent(inout) :: VrelVf(:),vxyzu(:,:)
- real,    intent(out)   :: dmdt(:)
- integer, intent(in)    :: npart
- !
- real                 :: rhog,rhod,vrel,rho,sdust
- real                 :: mass_min,massgrain,rhograin,filfaci
- integer              :: i,iam
+ use timestep,        only:dtmax
+ real, intent(inout)      :: dustprop(:,:)
+ real, intent(in)         :: Vrel_disp(:)
+ real, intent(inout)      :: dustgasprop(:,:)
+ real, intent(in)         :: xyzh(:,:)
+ real, intent(in)         :: filfac(:)
+ real, intent(inout)      :: VrelVf(:,:),vxyzu(:,:)
+ real, intent(out)        :: dmdt(:)
+ integer, intent(in)      :: npart
+ real                     :: rhog,rhod,vrel,rho,sdust
+ real                     :: massgrain,rhograin,filfaci
+ real                     :: dtarb,frac_masschange,att_factor
+ integer                  :: i,iam
 
  vrel = 0.
  rhod = 0.
@@ -242,10 +247,10 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
 
  !$omp parallel do default(none) &
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
- !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
- !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav) &
+ !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc,dtmax) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
- !$omp private(mass_min,massgrain,rhograin) &
+ !$omp private(massgrain,rhograin,dtarb,frac_masschange,att_factor) &
  !$omp firstprivate(filfaci)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -272,7 +277,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           if (use_porosity) filfaci = filfac(i)
           sdust = get_size(massgrain,rhograin,filfaci)
 
-          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
+          call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(:,i),dustgasprop(:,i),Vrel_disp(i))
 
           !
           !--dustprop(1) = mass, dustprop(2) = intrinsic density,
@@ -280,14 +285,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
           !--if statements to compute dm/dt
           !
           if (ifrag == -1) dmdt(i) = 0.
-          if ((VrelVf(i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
+          if ((VrelVf(1,i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
              dmdt(i) = fourpi*sdust**2*rhod*vrel
-          elseif (VrelVf(i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
+          elseif (VrelVf(1,i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
              select case(ifrag)
              case(1)
                 dmdt(i) = -fourpi*sdust**2*rhod*vrel ! Symmetrical of Stepinski & Valageas
              case(2)
-                dmdt(i) = -fourpi*sdust**2*rhod*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
+                dmdt(i) = -fourpi*sdust**2*rhod*vrel*(VrelVf(1,i)**2)/(1+VrelVf(1,i)**2) ! Kobayashi model
              end select
           endif
           if (ieros == 1) then  !sqrt(0.0123)=0.110905    !1.65 -> surface energy in cgs
@@ -297,17 +302,16 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              endif
           endif
 
-          !--Enforce minimum grain size by limiting dm/dt when approaching minimum
-          if (ifrag > 0 .and. dmdt(i) < 0.) then
-             ! Calculate minimum mass corresponding to minimum grain size
-             mass_min = fourpi/3. * rhograin * filfaci * grainsizemin**3
-
-             ! Check if we're close to minimum size (within 10% of current mass)
-             if (massgrain < 1.1 * mass_min) then
-                ! Limit dm/dt to prevent going below minimum, but allow some evolution
-                ! Use a smooth transition: dm/dt goes to zero as mass approaches minimum
-                dmdt(i) = dmdt(i) * max(0.0, (massgrain - mass_min) / (0.1 * mass_min))
-             endif
+          !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
+          if (ifrag > 0 .and. dmdt(i) < 0. .and. VrelVf(1,i) > 50) then
+              dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
+              if (dustprop(1,i) > tiny(dustprop(1,i))) then
+                  frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
+              else
+                  frac_masschange = 0.
+              endif
+              att_factor = 1-dtarb*frac_masschange    ! attenuation factor
+              dmdt(i) = dmdt(i)*att_factor
           endif
        endif
     else
@@ -323,34 +327,56 @@ end subroutine get_growth_rate
 !  Compute the local ratio vrel/vfrag and vrel
 !+
 !-----------------------------------------------------------------------
-subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop)
+subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  use physcon,         only:Ro,roottwo
- real, intent(in)    :: xyzh(:)
- real, intent(in)    :: dustgasprop(:)
- real, intent(inout) :: vrel,vxyzu(:)
- real, intent(out)   :: VrelVf
- real                 :: Vt
- integer              :: izone
+ real, intent(in)         :: xyzh(:)
+ real, intent(in)         :: dustgasprop(:)
+ real, intent(in)         :: Vrel_disp
+ real, intent(inout)      :: vrel,vxyzu(:)
+ real, intent(out)        :: VrelVf(:)
+ real                     :: Vt,Vrel_micro
+ integer                  :: izone
+ !--turbulence at micro scales
+ Vt = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
+ Vrel_micro = vrelative(dustgasprop,Vt)
 
- !--compute turbulent velocity
- Vt   = sqrt(roottwo*Ro*alpha_dg)*dustgasprop(1)
+ !-- Vrel_disp = relative motion from crossing dust particles, average of relative motion between dust particles in the kernel
+
  !--compute vrel
- vrel = vrelative(dustgasprop,Vt)
+ vrel = 0.
+ if (ivrelkin == 0) vrel = sqrt(Vrel_micro**2)                  ! gas turbulence only
+ if (ivrelkin == 1) vrel = sqrt(Vrel_micro**2 + Vrel_disp**2)   ! gas turbulence + macro-scale dust motion
  !
  !--If statements to compute local ratio vrel/vfrag
  !
- VrelVf = 0. ! default value
+ VrelVf(:) = 0. ! default value
  if (ifrag == 0) then
-    if (vref > 0.) VrelVf = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+    if (vref > 0.) then
+       VrelVf(1) = vrel/vref ! for pure growth, vrel/vfrag gives vrel in m/s
+       VrelVf(2) = Vrel_micro/vref
+       VrelVf(3) = Vrel_disp/vref
+    endif
  elseif (ifrag > 0) then
     call comp_snow_line(xyzh,vxyzu,dustgasprop(2),izone)
     select case(izone)
     case(2)
-       if (vfragout > 0.) VrelVf = vrel/vfragout
+       if (vfragout > 0.) then
+          VrelVf(1) = vrel/vfragout
+          VrelVf(2) = Vrel_micro/vfragout
+          VrelVf(3) = Vrel_disp/vfragout
+       endif
     case(1)
-       if (vfragin > 0.) VrelVf = vrel/vfragin
+        if (vfragin > 0.) then
+           VrelVf(1) = vrel/vfragin
+           VrelVf(2) = Vrel_micro/vfragin
+           VrelVf(3) = Vrel_disp/vfragin
+        endif
     case default
-       if (vfrag > 0.) VrelVf = vrel/vfrag
+        if (vfrag > 0.) then
+           VrelVf(1) = vrel/vfrag
+           VrelVf(2) = Vrel_micro/vfrag
+           VrelVf(3) = Vrel_disp/vfrag
+        endif
     end select
  endif
 
@@ -402,6 +428,7 @@ subroutine write_options_growth(iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit)
+ call write_inopt(ivrelkin,'ivrelkin','vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)',iunit)
  if (ifrag /= 0) then
     if (use_porosity) then
        call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
@@ -447,6 +474,7 @@ subroutine read_options_growth(db,nerr)
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
  call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr,default=0)
+ call read_inopt(ivrelkin,'ivrelkin',db,min=0,max=1,errcount=nerr,default=1)
  use_porosity = (iporosity /= 0)  !--convert to logical flag
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
@@ -495,6 +523,7 @@ subroutine write_growth_setup_options(iunit)
  call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  call write_inopt(iporosity,'iporosity','porosity (0=off,1=on)',iunit)
+ call write_inopt(ivrelkin,'ivrelkin','vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)',iunit)
  call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
  call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
  call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
@@ -523,6 +552,7 @@ subroutine read_growth_setup_options(db,nerr)
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
  call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
  call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
+ call read_inopt(ivrelkin,'ivrelkin',db,min=0,max=1,errcount=nerr)
  use_porosity = (iporosity /= 0)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
@@ -556,17 +586,18 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use part,    only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
- real,    intent(inout) :: dustprop(:,:)
- integer, intent(in)    :: npart
- real,    intent(in)    :: filfac(:),mprev(:),filfacprev(:)
- integer                   :: i,iam
- real                      :: tsnew,sdustprev,sdustmin,sdust
+ use physcon, only:fourpi
+ real, intent(inout)        :: dustprop(:,:)
+ integer, intent(in)        :: npart
+ real, intent(in)           :: filfac(:),mprev(:),filfacprev(:)
+ integer                    :: i,iam
+ real                       :: tsnew,sdustprev,sdustmin,sdust,grainmassmin
 
  !$omp parallel do default(none) &
  !$omp shared(iphase,dustgasprop,use_dustfrac,use_porosity) &
  !$omp shared(npart,ifrag,dustprop,filfac,mprev,filfacprev) &
  !$omp shared(tsmin,grainsizemin) &
- !$omp private(i,iam,tsnew,sdustprev,sdustmin,sdust)
+ !$omp private(i,iam,tsnew,sdustprev,sdustmin,sdust,grainmassmin)
  do i=1,npart
     iam = iamtype(iphase(i))
     if ((iam == idust .or. (use_dustfrac .and. iam == igas))  .and. ifrag > 0 .and. dustprop(1,i) <= mprev(i)) then
@@ -579,9 +610,14 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
              dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
           endif
        else
-          if (dustprop(1,i) < 0.) call fatal('check_dustprop','dust mass < 0.',i)
-          sdust = get_size(dustprop(1,i),dustprop(2,i))
-          if (sdust < grainsizemin) dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3   ! fragmentation at constant density and filling factor
+          !if (dustprop(1,i) < 0.) call fatal('check_dustprop','dust mass < 0.',i) !stop the code
+          if (dustprop(1,i) < 0.) then !put negatives back to minimum grain mass
+             grainmassmin = fourpi/3 * grainsizemin**3 * dustprop(2,i)
+             dustprop(1,i) = grainmassmin
+          else
+             sdust = get_size(dustprop(1,i),dustprop(2,i))
+             if (sdust < grainsizemin) dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3   ! fragmentation at constant density and filling factor
+          endif
        endif
     endif
  enddo
@@ -943,7 +979,9 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
     dustgasprop(2,ipart) = dustgasprop(2,iloc)
     dustgasprop(3,ipart) = dustgasprop(3,iloc)
     dustgasprop(4,ipart) = dustgasprop(4,iloc)
-    VrelVf(ipart)        = VrelVf(iloc)
+    VrelVf(1,ipart)        = VrelVf(1,iloc)
+    VrelVf(2,ipart)        = VrelVf(2,iloc)
+    VrelVf(3,ipart)        = VrelVf(3,iloc)
     if (use_porosity) then
        filfac(ipart)     = filfac(iloc)
     endif
@@ -969,7 +1007,9 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
        dustgasprop(2,j) = 0.
        dustgasprop(3,j) = 0.
        dustgasprop(4,j) = 0.
-       VrelVf(j)        = 0.
+       VrelVf(1,j)      = 0.
+       VrelVf(2,j)      = 0.
+       VrelVf(3,j)      = 0.
        if (use_porosity) then
           filfac(j)     = 0.
        endif

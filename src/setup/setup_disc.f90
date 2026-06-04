@@ -91,7 +91,7 @@ module setup
                             update_externalforce
  use extern_binary,    only:mass2,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
- use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs,iporosity
+ use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs,iporosity,ivrelkin
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid,use_porosity
@@ -475,13 +475,14 @@ subroutine set_default_options()
  R_c_dust           = 150.
 
  !--dust growth
- ifrag = 1
- isnow = 0
- rsnow = 100.
- Tsnow = 150.
- vfragSI = 15.
- vfraginSI = 5.
- vfragoutSI = 15.
+ ifrag       = 1
+ ivrelkin    = 1
+ isnow       = 0
+ rsnow       = 100.
+ Tsnow       = 150.
+ vfragSI     = 15.
+ vfraginSI   = 5.
+ vfragoutSI  = 15.
  gsizemincgs = 5.e-3
 
  !--resolution, default is 1000000 but can be set with --np=N
@@ -1839,10 +1840,10 @@ subroutine initialise_dustprop(npart)
        else
           dustprop(:,i) = 0.
        endif
-       filfac(i) = 0.
-       probastick(i) = 1.
+       filfac(i)        = 0.
+       probastick(i)    = 1.
        dustgasprop(:,i) = 0.
-       VrelVf(i)        = 0.
+       VrelVf(:,i)      = 0.
     enddo
  endif
 

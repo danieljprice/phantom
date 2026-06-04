@@ -19,9 +19,14 @@ module setup
 ! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
 !   prompting, setup_params, unifdis, units
 !
+ use dim,          only:use_dustgrowth
  implicit none
  public :: setpart
 
+ integer, private :: ifrag,isnow,ivrelkin
+ real,    private :: grainsizecgs,graindenscgs,vfragSI,gsizemincgs
+ real,    private :: grainsize(1),graindens(1)
+ real,    private :: grainsizemin,vfrag,vref
  private
 
 contains
@@ -36,9 +41,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis
  use io,           only:master
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:labeltype,set_particle_type,igas,idust,periodic
+ use part,         only:labeltype,set_particle_type,igas,idust,periodic,&
+                        dustprop,dustgasprop,VrelVf,&
+                        filfac,probastick
  use units,        only:umass,utime,unit_density,udist,set_units
- use physcon,      only:pc,solarm,pi
+ use physcon,      only:pc,solarm,pi,fourpi
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
  use mpiutils,     only:bcast_mpi
@@ -72,8 +79,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
  npartoftype(:) = 0
+!
+!--dust growth
+!
+ if (use_dustgrowth) then
+    ifrag    = 0
+    ivrelkin = 0
+    isnow    = 0
+ endif
 
- print*,' uniform cubic setup for dusty Sedov blast wave problem...'
+ if (use_dustgrowth) then
+    print*,' uniform cubic setup for Sedov blast wave problem with growing dust...'
+ else
+    print*,' uniform cubic setup for dusty Sedov blast wave problem...'
+ endif
 
  nfluid = 2
  overtypes: do ifluid=1,nfluid
@@ -126,6 +145,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                               hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
     endif
 
+
+    !--initialise dust-growth-related quantities
+    if (use_dustgrowth) then
+        vfragSI = 15. ! in m
+        print*,' vfrag in physical units = ',vfragSI
+        vfrag = vfragSI/100 / (udist/utime)
+        vref = vfragSI/100 / (udist/utime)
+        print*,' vfrag in code units = ',vfrag
+
+        gsizemincgs = 5.e-11  ! in cm
+        print*,' minimum grain size in physical units = ',gsizemincgs
+        grainsizemin = gsizemincgs / udist
+        print*,' minimum grain size in code units = ',grainsizemin
+
+        grainsizecgs = 1e-10!0.1 ! in cm
+        print*,' initial grain size in physical units = ',grainsizecgs
+        grainsize(1) = grainsizecgs / udist
+        print*,' initial grain size in code units = ',grainsize(1)
+
+        graindenscgs = 3. ! in g cm-3
+        graindens(1) = graindenscgs / (umass/udist**3)
+    endif
+
+
     !--set which type of particle it is
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
@@ -139,6 +182,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           else
              vxyzu(4,i) = spsoundzero/(gam1*gamma)
           endif
+       endif
+       !--set dustprops
+       if (use_dustgrowth) then
+          if (itype == igas) then
+             dustprop(:,i) = 0.
+          else
+             dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3
+             dustprop(2,i) = graindens(1)
+          endif
+          filfac(i) = 0.
+          probastick(i) = 1.
+          dustgasprop(:,i) = 0.
+          VrelVf(:,i)        = 0.
        endif
     enddo
 
