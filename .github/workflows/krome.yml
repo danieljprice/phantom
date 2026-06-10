@@ -42,13 +42,13 @@ jobs:
         run: echo -e "-n=networks/react_umist\n-iRHS\n-noSinkCheck\n-noRecCheck\n-noTlimits\n-unsafe\n-skipODEthermo\n-skipJacobian" > krome.setup && cat krome.setup
 
       - name: "Compile phantom and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${{ github.workspace }}
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${{ github.workspace }}
 
       - name: "Compile phantomsetup and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} setup
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} setup
 
       - name: "Compile phantomanalysis and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} analysis
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} analysis
 
       - name: "Compile phantommoddump and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} moddump
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} moddump
