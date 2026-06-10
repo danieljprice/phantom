@@ -18,8 +18,8 @@ module initial
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, deriv, dim, dust, dust_formation, dynamic_dtmax,
 !   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
-!   growth, growth_coala, inject, io, io_control, io_summary, metric,
-!   metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
+!   growth, growth_coala, inject, io, io_control, io_summary,krome_interface,
+!    metric,metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
 !   mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils, options,
 !   part, partinject, porosity, ptmass, radiation_utils, readwrite_dumps,
 !   readwrite_infile, subgroup, timestep, timestep_ind, timing, units,
@@ -108,6 +108,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
+ use krome_interface,    only:initialise_krome
  use mpibalance,       only:balancedomains
  use mpiutils,         only:reduceall_mpi
  use part,             only:npart,npartoftype,alphaind,ntot,update_npartoftypetot,&
