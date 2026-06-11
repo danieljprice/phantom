@@ -232,7 +232,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  real,    intent(inout) :: dustgasprop(:,:)
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(in)    :: filfac(:)
- real,    intent(inout) :: VrelVf(:),vxyzu(:,:)
+ real,    intent(inout) :: VrelVf(:,:),vxyzu(:,:)
  real,    intent(out)   :: dmdt(:)
  integer, intent(in)    :: npart
  !
@@ -651,7 +651,8 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
  logical, intent(in), optional :: sizedistrib
  real,    intent(in), optional :: pwl_sizedistrib,R_ref,H_R_ref,q_index
  integer                       :: i,iam
- real                          :: r,h
+ real                          :: r,h,grainmassmin
+
 
  do i=1,npart
     iam = iamtype(iphase(i))
@@ -659,11 +660,13 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
 
        if (do_nucleation) then  !used by moddump_nucleationtodustgrowth
            dustprop(2,i) = rho_Cdust / unit_density
-           if (nucleation(2,i) < 1e-30) then !arbitrary threshold
-                dustprop(1,i) = tiny(dustprop(1,i))
+           grainmassmin = fourpi/3 * grainsizemin**3 * dustprop(2,i)
+           if (nucleation(2,i) < 1e-30) then !arbitrary threshold in number of dust grain
+                dustprop(1,i) = grainmassmin !tiny(dustprop(1,i))
            else
                 dustprop(1,i) = a0*nucleation(3,i)/nucleation(2,i)  / udist !avg grain size = a0 K1/K0
                 dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3  ! convert into dust mass
+                if (dustprop(1,i)<grainmassmin) dustprop(1,i) = grainmassmin
            endif
        else
            dustprop(2,i) = graindenscgs / unit_density
