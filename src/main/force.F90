@@ -1385,7 +1385,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           enj = vxyzu(4,j)
           if (eos_is_non_ideal(ieos)) then  ! only do this if eos requires temperature in physical units
              tempj = eos_vars(itemp,j)
-             denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
+             denij = 0.5*(eni/max(tempi,1.) + enj/max(tempj,1.))*(tempi - tempj)  !dU = c_V * dT, but with a floor to avoid issues with very low temperatures
           else
              denij = eni - enj
           endif
