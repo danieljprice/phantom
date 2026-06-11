@@ -42,6 +42,15 @@ module mesa_microphysics
  real, allocatable :: mesa_eos0(:,:,:,:)
  real, allocatable :: mesa_de_data0(:,:,:,:,:)
 
+! EOS tables in entropy and density for GR
+ integer                                 :: mesa_eos_ns, mesa_eos_nrho !, mesa_eos_nvar2
+ real                                    :: mesa_eos_rho1, mesa_eos_s1, mesa_eos_ds, mesa_eos_drho
+ real, allocatable :: mesa_eos_logss(:), mesa_eos_logrhos(:)
+!  integer, allocatable :: mesa_eos_data_exists(:,:)
+ real, allocatable :: mesa_ds_data(:,:,:)
+!  real, allocatable :: mesa_eos0(:,:,:,:)
+ real, allocatable :: mesa_ds_data0(:,:,:,:,:) 
+
  public :: get_opacity_constants_mesa
  public :: read_opacity_mesa
  public :: get_kappa_mesa
@@ -419,12 +428,119 @@ subroutine read_eos_mesa(x,z,ierr)
 
 end subroutine read_eos_mesa
 
+! same as above but for GR tables (entropy and density instead of internal energy and density)
+subroutine read_eos_mesa_gr(x,z,ierr)
+ real,    intent(in)  :: x, z
+ integer, intent(out) :: ierr
+ real, parameter      :: arad=7.5657d-15
+ integer              :: i,j,k,l,m
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ character(len=20)   :: zz, hh
+ integer              :: nz1,nz2,nx1,nx2
+ real                 :: dz,dx
+ integer              :: fnum
+
+ fmt1 = '(F4.2)'
+
+ fnum = 120
+ ierr = 0
+
+ ! following lines to prevent compiler warnings
+ nx1 = 0
+ nx2 = 0
+ dx = 0.
+
+ !Loop over files
+ do i=1,mesa_eos_nz
+    write (zz,fmt1) mesa_eos_z(i) ! Z value as string
+
+    do j=1,mesa_eos_nh
+       write (hh,fmt1) mesa_eos_h(j) ! X value as string
+!!!!!!!!!! have to rename these variables to not conflict with the above subroutine, but I can't be bothered to do that rn, so just ignore the fact that they have the same names as the above subroutine !!!!!!!!!!
+       ! Find the EoS tables
+       filename = trim(mesa_eos_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
+       filename = find_phantom_datafile(filename,'eos/mesa')
+
+       ! Note that the data exists
+       mesa_eos_data_exists(i,j)=1
+
+       ! Read in the size of the tables and the data
+       ! i and j hold the Z and X values respectively
+       ! k, l and m hold the values of V, Eint and the data respectively
+       open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
+       read(fnum) mesa_eos_ns, mesa_eos_nrho, mesa_eos_nvar2
+       read(fnum)(mesa_eos_logrhos(k),k=1,mesa_eos_nrho)
+       read(fnum)(mesa_eos_logss(l),l=1,mesa_eos_ns)
+       do k=1,mesa_eos_nrho
+          do l=1,mesa_eos_ns
+             read(fnum) (mesa_ds_data0(i,j,l,k,m),m=1,mesa_eos_nvar2)
+          enddo
+       enddo
+
+       close(fnum)
+    enddo
+ enddo
+
+ ! Chooses the Z values from the available values which is greater than the input Z
+ nz2=mesa_eos_nz
+ do i=2,mesa_eos_nz-1
+    if (mesa_eos_z(i) >= z) then
+       nz2=i
+       exit
+    endif
+ enddo
+
+ ! Chooses Z values below input Z, and then finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code)
+ nz1 = nz2 - 1
+ dz=(z-mesa_eos_z(nz1))/(mesa_eos_z(nz2)-mesa_eos_z(nz1))
+
+ ! Seems to do the same as above, except for X. I can't quite figure out the weird if statements.
+ do j=2,mesa_eos_nh
+    if (mesa_eos_h(j) > x.or.j==mesa_eos_nh) then
+       nx2=j
+       if (j==2.and.mesa_eos_data_exists(i,j-2)==0) then
+          nx2=3
+       elseif (j==mesa_eos_nh.and.mesa_eos_data_exists(i,mesa_eos_nh-1)==0) then
+          nx2=mesa_eos_nh-1
+       endif
+       exit
+    endif
+ enddo
+ nx1 = nx2 - 1
+ dx = (x-mesa_eos_h(nx1))/(mesa_eos_h(nx2)-mesa_eos_h(nx1))
+
+ ! Bilinear interpolation of values from the four tables (two values each of X and Z)
+ do l=1,mesa_eos_ns
+    do k=1,mesa_eos_nrho
+       do m=1,mesa_eos_nvar2
+          mesa_ds_data(l,k,m)=(1.d0-dx)*(1.d0-dz)*mesa_ds_data0(nz1,nx1,l,k,m)+dz*(1.d0-dx)*mesa_ds_data0(nz2,nx1,l,k,m) &
+               +dx*(1.d0-dz)*mesa_ds_data0(nz1,nx2,l,k,m)+dx*dz*mesa_ds_data0(nz2,nx2,l,k,m)
+       enddo
+    enddo
+ enddo
+
+ ! Save some things to make the interpolation fast
+ mesa_eos_drho=mesa_eos_logrhos(2)-mesa_eos_logrhos(1)
+ mesa_eos_ds=mesa_eos_logss(2)-mesa_eos_logss(1)
+ mesa_eos_rho1=mesa_eos_logrhos(1)
+ mesa_eos_s1=mesa_eos_logss(1)
+
+ !deallocate(mesa_eos0)
+ !deallocate(mesa_ds_data0)
+
+ return
+
+end subroutine read_eos_mesa_gr
+
 ! Get value from the MESA tables given a specific value of density and internal energy
 ! The columns in the data are:
 ! 1. logRho        2. logP          3. logPgas       4. logT
 ! 5. dlnP/dlnrho|e 6. dlnP/dlne|rho 7. dlnT/dlnrho|e 8. dlnT/dlne|rho
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
+
+!!! I don't think a GR version of this is needed, the interpolation is the same.
 pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  real,    intent(in)  :: rho, eint
  real,    intent(out) :: vout
