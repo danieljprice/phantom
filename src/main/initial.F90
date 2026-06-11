@@ -198,11 +198,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  endif
 
-#ifdef KROME
  ! set initial chemical abundance values
  call initialise_krome()
- dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
-#endif
 
  ! calculate initial derivatives (density, SPH forces, etc.)
  call get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)

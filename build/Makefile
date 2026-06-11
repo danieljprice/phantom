@@ -497,9 +497,9 @@ SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f
 SRCRW_DUMPS= readwrite_dumps_common.f90 readwrite_dumps.f90
 
 ifeq ($(KROME), yes)
-    SRCKROME=krome.f90
-else
-    SRCKROME=
+    SRCKROME=krome.F90
+else    
+    SRCKROME=krome.F90
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
