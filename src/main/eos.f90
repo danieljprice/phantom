@@ -103,6 +103,13 @@ module eos
     ierr_units_not_set   = 3, &
     ierr_isink_not_set   = 4
 
+! integer parameters for eos type
+ integer, parameter, public :: &
+    ieos_isothermal = 1, &
+    ieos_adiabatic = 2, &
+    ieos_idealplusrad = 12, &
+    ieos_helmholtz = 15
+
 !
 ! Default temperature prescription for vertical stratification (0=MAPS, 1=Dartois)
 !
@@ -128,7 +135,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use physcon,       only:Rg,radconst,kb_on_mh
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
- use eos_helmholtz, only:eos_helmholtz_pres_sound
+ use eos_helmholtz, only:eos_helmholtz_pres_sound,eos_helmholtz_compute_pres_sound,eos_helmholtz_energy_from_rhoT
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_temp,get_idealplusrad_spsoundi
  use eos_gasradrec,    only:equationofstate_gasradrec
@@ -921,10 +928,11 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  use eos_stamatellos,  only:getintenerg_opdep
- integer, intent(in)    :: eos_type
- real,    intent(in)    :: rho,pres
- real,    intent(inout) :: ene,temp
- integer, intent(out)   :: ierr
+ use eos_helmholtz,   only:eos_helmholtz_energy_from_rhoT
+ integer, intent(in)              :: eos_type
+ real,    intent(in)              :: rho,pres
+ real,    intent(inout)           :: ene,temp
+ integer,    intent(out)             :: ierr
  real,    intent(in),    optional :: guesseint,X_local,Z_local
  logical, intent(in),    optional :: radhydro
  real,    intent(inout), optional :: mu_local
@@ -952,6 +960,8 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
     call get_idealplusrad_enfromtemp(rho,temp,mu,ene)
  case(10) ! MESA EoS
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
+ case(15) ! Helmholtz EOS
+    call eos_helmholtz_energy_from_rhoT(rho,temp,ene)
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr,do_radiation_local)
     if (present(mu_local)) mu_local = mu
@@ -1714,7 +1724,7 @@ end subroutine read_headeropts_eos
 subroutine write_options_eos(iunit)
  use dim,            only:use_krome,isothermal,mhd
  use infile_utils,   only:write_inopt
- use eos_helmholtz,  only:eos_helmholtz_write_inopt
+ use eos_helmholtz,  only:write_options_eos_helmholtz
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
@@ -1737,7 +1747,7 @@ subroutine write_options_eos(iunit)
     call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
  case(15) ! helmholtz eos
-    call eos_helmholtz_write_inopt(iunit)
+    call write_options_eos_helmholtz(iunit)
  case(20)
     call write_options_eos_gasradrec(iunit)
     if (.not. use_var_comp) then
@@ -1772,6 +1782,7 @@ subroutine read_options_eos(db,nerr)
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
+ use eos_helmholtz,  only:read_options_eos_helmholtz
  use eos_tillotson,  only:read_options_eos_tillotson
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
@@ -1800,6 +1811,7 @@ subroutine read_options_eos(db,nerr)
 
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
  if (ieos== 9) call read_options_eos_piecewise(db,nerr)
+ if (ieos==15) call read_options_eos_helmholtz(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
  if (ieos==23) call read_options_eos_tillotson(db,nerr)
 

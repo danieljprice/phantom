@@ -585,7 +585,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
+ logical,         intent(in)    :: got_VrelVf(:),got_dustgasprop(:)
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_sink_sfprop(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
@@ -740,7 +740,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     if (id==master) write(*,"(/,a,/)") 'ERROR! using dustgrowth, but no grain density found in dump file'
     ierr = ierr + 1
  endif
- if (use_dustgrowth .and. .not.got_VrelVf) then
+ if (use_dustgrowth .and. .not.got_VrelVf(1)) then
     if (id==master) write(*,"(/,a,/)") 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
     ierr = ierr + 1
  endif

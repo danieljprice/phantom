@@ -55,7 +55,7 @@ contains
 !    xyzh(:,:) - positions and smoothing lengths of all particles
 !+
 !----------------------------------------------------------------
-subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
+subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
                       iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error,mtab)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
@@ -76,18 +76,18 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
  use neighkdtree,     only:allocate_neigh
- integer,           intent(in)    :: nt,iptmass_core
- integer,           intent(inout) :: npart
- real,              intent(in)    :: rho(nt),pr(nt),r(nt)
- logical,           intent(in)    :: use_var_comp
- real, allocatable, intent(in)    :: Xfrac(:),Yfrac(:),mu(:)
- real,              intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
- integer,           intent(out)   :: ierr
- integer,           intent(in),  optional :: npin
- character(len=*),  intent(in),  optional :: label
- logical,           intent(in),  optional :: write_dumps
- real,              intent(out), optional :: density_error,energy_error
- real,              intent(in),  optional :: mtab(nt)
+ integer, intent(in)    :: nt,iptmass_core
+ integer, intent(inout) :: npart
+ real,    intent(in)    :: rho(nt),pr(nt),temp(nt),r(nt)
+ logical, intent(in)    :: use_var_comp
+ real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
+ real,    intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
+ integer, intent(out)   :: ierr
+ integer, intent(in), optional :: npin
+ character(len=*), intent(in), optional :: label
+ logical, intent(in),  optional :: write_dumps
+ real,    intent(out), optional :: density_error,energy_error
+ real,    intent(in),  optional :: mtab(nt)
  integer :: nits,nerr,nwarn,iunit,i1
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3),mtot
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
@@ -296,7 +296,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
           if (use_var_comp) call set_star_composition(eos_outputs_mu(ieos_prev),&
                                  npart,xyzh,Xfrac,Yfrac,mu,mr,eos_vars,npin=i1,x0=x0)
 
-          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,&
+          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,temp,&
                                 r,nt,npart,xyzh,vxyzu,rad,eos_vars,.true.,&
                                 use_var_comp=.false.,initialtemp=1.e3,polyk_in=polyk,npin=i1,x0=x0)
 

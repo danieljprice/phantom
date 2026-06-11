@@ -73,11 +73,12 @@ module part
 !--storage of dust growth properties
 !
  real, allocatable :: dustprop(:,:)    !- mass and intrinsic density
- real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
- real, allocatable :: VrelVf(:)
+ real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see force.F90)
+ real, allocatable :: VrelVf(:,:)
+ real, allocatable :: Vrel_disp(:)     !- relative velocity due to dust particles with crossing trajectories (see force.F90)
  character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
- character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+ character(len=*), parameter :: VrelVf_label(3) = (/'Vrel/Vfrag  ','Vmicro/Vfrag','Vdisp/Vfrag '/)
 
  !- porosity
  integer, allocatable :: dragreg(:)    !- drag regime
@@ -470,7 +471,8 @@ subroutine allocate_part
  call allocate_array('iseed_sink', iseed_sink, maxp*merge(1,0,inject_parts))
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
- call allocate_array('VrelVf', VrelVf, maxp_growth)
+ call allocate_array('Vrel_disp', Vrel_disp, maxp_growth)
+ call allocate_array('VrelVf', VrelVf, 3, maxp_growth)
  call allocate_array('eosvars', eos_vars, maxeosvars, maxan)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
@@ -565,6 +567,7 @@ subroutine deallocate_part
  if (allocated(iseed_sink))   deallocate(iseed_sink)
  if (allocated(dustprop))     deallocate(dustprop)
  if (allocated(dustgasprop))  deallocate(dustgasprop)
+ if (allocated(Vrel_disp))    deallocate(Vrel_disp)
  if (allocated(VrelVf))       deallocate(VrelVf)
  if (allocated(abundance))    deallocate(abundance)
  if (allocated(eos_vars))     deallocate(eos_vars)
@@ -692,6 +695,7 @@ subroutine init_part
     radprop(ikappa,:) = huge(0.) ! set opacity to infinity
     radprop(ithick,:) = 1.       ! optically thick, i.e. use diffusion approximation
  endif
+ eos_vars(itemp,:) = -1.0 ! initial guess for temperature overridden in eos
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)
@@ -705,7 +709,8 @@ subroutine init_part
  if (use_dustgrowth) then
     dustprop(:,:)    = 0.
     dustgasprop(:,:) = 0.
-    VrelVf(:)        = 0.
+    Vrel_disp(:)     = 0.
+    VrelVf(:,:)      = 0.
  endif
  if (ind_timesteps) then
     ibin(:)       = 0
@@ -1370,7 +1375,8 @@ subroutine copy_particle_all(src,dst,new_part)
        dustprop(:,dst) = dustprop(:,src)
        ddustprop(:,dst) = ddustprop(:,src)
        dustgasprop(:,dst) = dustgasprop(:,src)
-       VrelVf(dst) = VrelVf(src)
+       Vrel_disp(dst) = Vrel_disp(src)
+       VrelVf(:,dst) = VrelVf(:,src)
        dustproppred(:,dst) = dustproppred(:,src)
        filfacpred(dst) = filfacpred(src)
     endif
@@ -1483,7 +1489,8 @@ subroutine combine_two_particles(keep,discard)
        dustprop(:,keep) = 0.5*(dustprop(:,keep) + dustprop(:,discard))
        ddustprop(:,keep) = 0.5*(ddustprop(:,keep) + ddustprop(:,discard))
        dustgasprop(:,keep) = 0.5*(dustgasprop(:,keep) + dustgasprop(:,discard))
-       VrelVf(keep) = 0.5*(VrelVf(keep) + VrelVf(discard))
+       Vrel_disp(keep) = 0.5*(Vrel_disp(keep) + Vrel_disp(discard))
+       VrelVf(:,keep) = 0.5*(VrelVf(:,keep) + VrelVf(:,discard))
        dustproppred(:,keep) = 0.5*(dustproppred(:,keep) + dustproppred(:,discard))
        filfacpred(keep) = 0.5*(filfacpred(keep) + filfacpred(discard))
     endif
@@ -1689,6 +1696,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
           call fill_buffer(xtemp, dustprop(:,i),nbuf)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
+          call fill_buffer(xtemp, Vrel_disp(i),nbuf)
        endif
        call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
        call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
@@ -1776,6 +1784,7 @@ subroutine unfill_buffer(ipart,xbuf)
        dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
+       Vrel_disp(ipart)        = unfill_buf(xbuf,j)
     endif
     fxyz_drag(:,ipart)   = unfill_buf(xbuf,j,3)
     fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)

@@ -585,12 +585,54 @@ ifeq ($(SETUP), dustybox)
     ANALYSIS= analysis_trackbox.f90
 endif
 
+ifeq ($(SETUP), dustygrowbox)
+#   growing dust in a box
+    PERIODIC=yes
+    SETUPFILE= setup_dustybox.f90
+    MODFILE= moddump_dustadd.f90
+    ISOTHERMAL=yes
+    DUST=yes
+    DUSTGROWTH=yes
+    KNOWN_SETUP=yes
+    ANALYSIS= analysis_trackbox.f90
+endif
+
 ifeq ($(SETUP), dustysedov)
 #   Sedov blast wave test with dust
     PERIODIC=yes
     SETUPFILE= setup_dustysedov.f90
     MODFILE= moddump_dustadd.f90
     DUST=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), dustygrowsedov)
+#   Sedov blast wave test with growing dust
+    PERIODIC=yes
+    SETUPFILE= setup_dustysedov.f90
+    MODFILE= moddump_dustadd.f90
+    DUST=yes
+    DUSTGROWTH=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), dustgaussvel)
+#   dustybox with particles following a Gaussian distribution in velocity
+    PERIODIC=yes
+    SETUPFILE= setup_dustgaussvel.f90
+    MODFILE= moddump_dustadd.f90
+    DUST=yes
+    DUSTGROWTH=yes
+    KNOWN_SETUP=yes
+endif
+
+
+ifeq ($(SETUP), testgrowthsphere)
+#   sphere of particles with purely radial velocities
+    SETUPFILE= setup_testgrowthsphere.f90
+    MODFILE= moddump_dustadd.f90
+    DUST=yes
+    DUSTGROWTH=yes
     KNOWN_SETUP=yes
 endif
 
