@@ -1170,8 +1170,8 @@ end subroutine get_rho_from_p_s
 
 !-----------------------------------------------------------------------
 !+
-!  Calculate temperature given density and entropy using Newton-Raphson
-!  method
+!  Calculate temperature and pressure given density and entropy using Newton-Raphson
+!  method (for EOS MESA it is only used in the GR case, and they are only read from the tables)
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
@@ -1196,7 +1196,9 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
-    !!! Ali add things for GR!!!
+    !!! For GR, not tested yet!
+    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgsP,temp)
+
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
@@ -1215,33 +1217,28 @@ end subroutine get_p_from_rho_s
 
 !-----------------------------------------------------------------------
 !+
-!  Calculate temperature given density and entropy using Newton-Raphson
-!  method
+!  Calculate temperature given density and entropy using EOS MESA tables for GR case
 !+
 !-----------------------------------------------------------------------
-subroutine get_u_from_rho_s(ieos,S,rho,mu,u)
- use physcon, only:radconst,Rg,mass_proton_cgs,kboltz
+subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
  use units,   only:unit_density,unit_pressure,unit_ergg
- real,    intent(in)    :: S,mu,rho
+ real,    intent(in)    :: S,rho
  real,    intent(out)   :: u
  integer, intent(in)    :: ieos
- real                :: corr,df,f,cgsrho,cgsp,cgss
- real,    parameter  :: eoserr=1e-12
- integer             :: niter
- integer, parameter  :: nitermax = 1000
+ real                :: cgsrho,cgsp,cgss
 
  ! change to cgs unit
  cgsrho = rho*unit_density
  cgss   = s*unit_ergg
 
- niter = 0
  select case (ieos)
  case(10)
-    !!! Ali add things for GR!!!
+    !!! For GR, not tested yet!
+       call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss,cgsu)
 
  case default
-    cgsP = 0.
+    cgsu = 0.
     call fatal('eos','[get_u_from_rho_s] only implemented for eos 10')
  end select
 
