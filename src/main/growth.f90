@@ -217,10 +217,12 @@ end subroutine print_growthinfo
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
-                           massoftype,Omega_k,dustfrac,tstop,deltav
+                           massoftype,Omega_k,dustfrac,tstop,deltav,&
+                           nucleation
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
+ use dim,          only:do_nucleation
  real,    intent(in)    :: dustprop(:,:)
  real,    intent(inout) :: dustgasprop(:,:)
  real,    intent(in)    :: xyzh(:,:)
@@ -244,6 +246,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav) &
+ !$omp shared(do_nucleation,nucleation) &
  !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
  !$omp private(mass_min,massgrain,rhograin) &
  !$omp firstprivate(filfaci)
@@ -258,7 +261,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              rho              = rhoh(xyzh(4,i),massoftype(igas))
              rhog             = rho*(1-dustfrac(1,i))
              rhod             = rho*dustfrac(1,i)
-             dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
+             if (do_nucleation) then
+                 dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i),nucleation(7,i))
+             else
+                 dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
+             endif
              dustgasprop(2,i) = rhog
              dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
              dustgasprop(4,i) = sqrt(deltav(1,1,i)**2 + deltav(2,1,i)**2 + deltav(3,1,i)**2)
@@ -596,9 +603,11 @@ end subroutine check_dustprop
 !-----------------------------------------------------------------------
 subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
  use dust,    only:grainsizecgs,graindenscgs
- use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick
+ use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick,nucleation
  use physcon, only:fourpi
  use options, only:use_dustfrac
+ use dim,     only:do_nucleation
+ use physcon, only:rho_Cdust,a0
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:)
  logical, intent(in), optional :: sizedistrib
@@ -609,18 +618,29 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
  do i=1,npart
     iam = iamtype(iphase(i))
     if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
-       dustprop(2,i) = graindenscgs / unit_density
-       if (sizedistrib) then
-          r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-          h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
-          dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
-          if (dustprop(1,i) < 2.e-5/udist) then
-             dustprop(1,i) = 2.e-5/udist
-          endif
-          dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
+
+       if (do_nucleation) then  !used by moddump_nucleationtodustgrowth
+           dustprop(2,i) = rho_Cdust / unit_density
+           if (nucleation(2,i) < 1e-30) then !arbitrary threshold
+                dustprop(1,i) = tiny(dustprop(1,i))
+           else
+                dustprop(1,i) = a0*nucleation(3,i)/nucleation(2,i)  / udist !avg grain size = a0 K1/K0
+                dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3  ! convert into dust mass
+           endif
        else
-          dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3
-       endif
+           dustprop(2,i) = graindenscgs / unit_density
+           if (sizedistrib) then
+              r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+              h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
+              dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
+              if (dustprop(1,i) < 2.e-5/udist) then
+                 dustprop(1,i) = 2.e-5/udist
+              endif
+              dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
+           else
+              dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3
+           endif
+        endif
     else
        dustprop(:,i) = 0.
     endif
