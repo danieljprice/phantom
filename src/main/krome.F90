@@ -15,7 +15,7 @@ module krome_interface
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, krome_main, krome_user, part, units
+! :Dependencies: dim, eos, krome_main, krome_user, part, timestep, units
 !
 
  implicit none
@@ -117,7 +117,6 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
  use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
  use krome_main,    only:krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
- 
  real :: T_local, dt_cgs, rho_cgs
 #endif
  real, intent(in)    :: dt,xyzh(4),rho
