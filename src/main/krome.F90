@@ -23,10 +23,12 @@ module krome_interface
  public :: initialise_krome,update_krome,write_KromeSetupFile
 
  private
- real  :: cosmic_ray_rate
+ !real  :: cosmic_ray_rate
+#ifdef KROME
  real  :: H_init, He_init, C_init, N_init, O_init
  real  :: S_init, Fe_init, Si_init, Mg_init
  real  :: Na_init, P_init, F_init
+#endif
 
 contains
 !----------------------------------------------------------------
@@ -37,19 +39,17 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise_krome()
+#ifdef KROME
  use part,       only:abundance,abundance_label,eos_vars,igamma,imu,T_gas_cool
  use dim,        only:maxvxyzu
  use timestep,   only:dtextforce,dtmax
-#ifdef KROME
  use krome_main, only:krome_init
  use krome_user, only:krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,krome_idx_H,&
        krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
-#endif
  real :: wind_temperature
 
-#ifdef KROME
  print *, ""
  print *, "==================================================="
  print *, "=                                                 ="
@@ -112,18 +112,18 @@ subroutine initialise_krome()
 end subroutine initialise_krome
 
 subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
- use units,         only:unit_density,utime
- use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
-#ifdef KROME
- use krome_main,    only:krome
- use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
-#endif
  real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_in,mu_in,xchem(:)
  real, intent(out)   :: T_gas_cool
- real :: T_local, dt_cgs, rho_cgs
 
 #ifdef KROME
+ use units,         only:unit_density,utime
+ use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
+ use krome_main,    only:krome
+ use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
+ 
+ real :: T_local, dt_cgs, rho_cgs
+ 
  dt_cgs  = dt*utime
  rho_cgs = rho*unit_density
  T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_in,mui=mu_in)
@@ -140,6 +140,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
  u = get_local_u_internal(gamma_in,mu_in,T_local)
  ! u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
 #endif
+
 end subroutine update_krome
 
 !----------------------------------------------------------------
