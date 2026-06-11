@@ -1195,6 +1195,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  case (2,5)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
+ case(10)
+    !!! Ali add things for GR!!!
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
@@ -1210,6 +1212,46 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  P = cgspres / unit_pressure
 
 end subroutine get_p_from_rho_s
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate temperature given density and entropy using Newton-Raphson
+!  method
+!+
+!-----------------------------------------------------------------------
+subroutine get_u_from_rho_s(ieos,S,rho,mu,u)
+ use physcon, only:radconst,Rg,mass_proton_cgs,kboltz
+ use io,      only:fatal
+ use units,   only:unit_density,unit_pressure,unit_ergg
+ real,    intent(in)    :: S,mu,rho
+ real,    intent(out)   :: u
+ integer, intent(in)    :: ieos
+ real                :: corr,df,f,cgsrho,cgsp,cgss
+ real,    parameter  :: eoserr=1e-12
+ integer             :: niter
+ integer, parameter  :: nitermax = 1000
+
+ ! change to cgs unit
+ cgsrho = rho*unit_density
+ cgss   = s*unit_ergg
+
+ niter = 0
+ select case (ieos)
+ case(10)
+    !!! Ali add things for GR!!!
+
+ case default
+    cgsP = 0.
+    call fatal('eos','[get_u_from_rho_s] only implemented for eos 10')
+ end select
+
+ ! change back to code unit
+ u = cgsu / unit_ergg
+
+end subroutine get_u_from_rho_s
+
+
+
 
 !-----------------------------------------------------------------------
 !+

@@ -61,6 +61,8 @@ subroutine init_eos_mesa(x,z,ierr)
  call read_eos_mesa(x,z,ierr)
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
+ mesa_eos_prefix="output_rhos_"
+ call read_eos_gr_mesa(x,z,ierr) ! read GR tables
 
 end subroutine init_eos_mesa
 

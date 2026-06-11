@@ -43,10 +43,11 @@ module mesa_microphysics
  real, allocatable :: mesa_de_data0(:,:,:,:,:)
 
 ! EOS tables in entropy and density for GR
- integer                                 :: mesa_eos_ns, mesa_eos_nrho !, mesa_eos_nvar2
+ integer                                 :: mesa_eos_ns, mesa_eos_nrho, mesa_eos_gr_nvar2
  real                                    :: mesa_eos_rho1, mesa_eos_s1, mesa_eos_ds, mesa_eos_drho
+ character(len=200) :: mesa_eos_gr_prefix="eos_gr_" ! prefix for EOS GR table files
  real, allocatable :: mesa_eos_logss(:), mesa_eos_logrhos(:)
-!  integer, allocatable :: mesa_eos_data_exists(:,:)
+ integer, allocatable :: mesa_eos_gr_data_exists(:,:)
  real, allocatable :: mesa_ds_data(:,:,:)
 !  real, allocatable :: mesa_eos0(:,:,:,:)
  real, allocatable :: mesa_ds_data0(:,:,:,:,:) 
@@ -320,6 +321,17 @@ subroutine get_eos_constants_mesa(ierr)
  allocate(mesa_de_data(mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
  allocate(mesa_eos0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv))
  allocate(mesa_de_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
+! allocate GR tables (again, I wonder if it's best to make another subroutine for this)
+ if (ierr /= 0) return
+ read(fnum) mesa_eos_ns, mesa_eos_nrho, mesa_eos_gr_nvar2
+ close(fnum)
+
+ allocate(mesa_eos_logss(mesa_eos_ns), mesa_eos_logrhos(mesa_eos_nrho))
+ allocate(mesa_eos_gr_data_exists(mesa_eos_nz,mesa_eos_nh))
+ allocate(mesa_ds_data(mesa_eos_ns,mesa_eos_nrho,mesa_eos_gr_nvar2))
+ allocate(mesa_ds_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ns,mesa_eos_nrho,mesa_eos_gr_nvar2))
+
+ return
 
 end subroutine get_eos_constants_mesa
 
@@ -459,22 +471,22 @@ subroutine read_eos_mesa_gr(x,z,ierr)
        write (hh,fmt1) mesa_eos_h(j) ! X value as string
 !!!!!!!!!! have to rename these variables to not conflict with the above subroutine, but I can't be bothered to do that rn, so just ignore the fact that they have the same names as the above subroutine !!!!!!!!!!
        ! Find the EoS tables
-       filename = trim(mesa_eos_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
+       filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
        filename = find_phantom_datafile(filename,'eos/mesa')
 
        ! Note that the data exists
-       mesa_eos_data_exists(i,j)=1
+       mesa_eos_gr_data_exists(i,j)=1
 
        ! Read in the size of the tables and the data
        ! i and j hold the Z and X values respectively
        ! k, l and m hold the values of V, Eint and the data respectively
        open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
-       read(fnum) mesa_eos_ns, mesa_eos_nrho, mesa_eos_nvar2
+       read(fnum) mesa_eos_ns, mesa_eos_nrho, mesa_eos_gr_nvar2
        read(fnum)(mesa_eos_logrhos(k),k=1,mesa_eos_nrho)
        read(fnum)(mesa_eos_logss(l),l=1,mesa_eos_ns)
        do k=1,mesa_eos_nrho
           do l=1,mesa_eos_ns
-             read(fnum) (mesa_ds_data0(i,j,l,k,m),m=1,mesa_eos_nvar2)
+             read(fnum) (mesa_ds_data0(i,j,l,k,m),m=1,mesa_eos_gr_nvar2)
           enddo
        enddo
 
@@ -499,9 +511,9 @@ subroutine read_eos_mesa_gr(x,z,ierr)
  do j=2,mesa_eos_nh
     if (mesa_eos_h(j) > x.or.j==mesa_eos_nh) then
        nx2=j
-       if (j==2.and.mesa_eos_data_exists(i,j-2)==0) then
+       if (j==2.and.mesa_eos_gr_data_exists(i,j-2)==0) then
           nx2=3
-       elseif (j==mesa_eos_nh.and.mesa_eos_data_exists(i,mesa_eos_nh-1)==0) then
+       elseif (j==mesa_eos_nh.and.mesa_eos_gr_data_exists(i,mesa_eos_nh-1)==0) then
           nx2=mesa_eos_nh-1
        endif
        exit
@@ -513,7 +525,7 @@ subroutine read_eos_mesa_gr(x,z,ierr)
  ! Bilinear interpolation of values from the four tables (two values each of X and Z)
  do l=1,mesa_eos_ns
     do k=1,mesa_eos_nrho
-       do m=1,mesa_eos_nvar2
+       do m=1,mesa_eos_gr_nvar2
           mesa_ds_data(l,k,m)=(1.d0-dx)*(1.d0-dz)*mesa_ds_data0(nz1,nx1,l,k,m)+dz*(1.d0-dx)*mesa_ds_data0(nz2,nx1,l,k,m) &
                +dx*(1.d0-dz)*mesa_ds_data0(nz1,nx2,l,k,m)+dx*dz*mesa_ds_data0(nz2,nx2,l,k,m)
        enddo
@@ -679,7 +691,15 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_eos0)) deallocate(mesa_eos0)
  if (allocated(mesa_de_data)) deallocate(mesa_de_data)
  if (allocated(mesa_de_data0)) deallocate(mesa_de_data0)
+!eos gr (I wonder if it's best to make another subroutine for deallocating the GR tables)
+ if (allocated(mesa_eos_logss)) deallocate(mesa_eos_logss)
+ if (allocated(mesa_eos_logrhos)) deallocate(mesa_eos_logrhos)
+ if (allocated(mesa_eos_gr_data_exists)) deallocate(mesa_eos_gr_data_exists)
+ if (allocated(mesa_ds_data)) deallocate(mesa_ds_data)
+ if (allocated(mesa_ds_data0)) deallocate(mesa_ds_data0)
+
 
 end subroutine deallocate_arrays_mesa
+
 
 end module mesa_microphysics
