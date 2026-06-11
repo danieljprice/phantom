@@ -136,6 +136,37 @@ subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
 
 end subroutine get_eos_pressure_temp_mesa
 
+!---------------------------------------------------------------- NOT TESTED YET!
+!+
+!  subroutine returns pressure and temperature as
+!  a function of density/entropy for GR tables
+!+
+!----------------------------------------------------------------
+subroutine get_eos_ptemp_from_rhos_mesa_gr(den,s,pres,temp)
+ real, intent(in)  :: den, s
+ real, intent(out) :: pres, temp
+
+ call getvalue_mesa_gr(den,s,1,pres)
+ call getvalue_mesa_gr(den,s,3,temp)
+
+end subroutine get_eos_ptemp_from_rhos_mesa_gr
+
+!---------------------------------------------------------------- NOT TESTED YET!
+!+
+!  subroutine returns internal energy as
+!  a function of density/entropy for GR tables
+!+
+!----------------------------------------------------------------
+subroutine get_eos_u_from_rhos_mesa_gr(den,s,u)
+ real, intent(in)  :: den, s
+ real, intent(out) :: u
+
+ call getvalue_mesa_gr(den,s,2,u)
+
+end subroutine get_eos_u_from_rhos_mesa_gr
+
+
+
 !----------------------------------------------------------------
 !+
 !  subroutine returns internal energy and temperature from

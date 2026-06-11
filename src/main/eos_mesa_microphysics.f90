@@ -63,6 +63,8 @@ module mesa_microphysics
  !public :: getgamma1_mesa
  !public :: getpressure_mesa
  public :: getvalue_mesa
+ public :: read_eos_mesa_gr
+ public :: getvalue_mesa_gr
 
  private :: eos_cubic_spline_mesa
  private :: cubic_spline_mesa
@@ -552,7 +554,6 @@ end subroutine read_eos_mesa_gr
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
 
-!!! I don't think a GR version of this is needed, the interpolation is the same.
 pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  real,    intent(in)  :: rho, eint
  real,    intent(out) :: vout
@@ -598,6 +599,56 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  return
 
 end subroutine getvalue_mesa
+
+! Get value from the MESA tables for GR given a specific value of density and entropy
+! The columns in the data are:
+! 1. logP          2. logu       3. logT         4. Gamma1
+! Note: ivout=1,2,3,4 returns the unlogged quantity
+
+pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
+ real,    intent(in)  :: rho, s
+ real,    intent(out) :: vout
+ integer, intent(in)  :: ivout
+ integer, intent(out), optional :: ierr
+ real :: logs, logrho, ds, drho
+ integer :: ns, nrho
+ real :: dx
+ integer :: nx
+
+ logs = log10(s)
+ logrho = log10(rho)
+
+ ! Get the s and rho indices for looking up the tables
+ ns = 1 + int((logs - mesa_eos_s1) / mesa_eos_ds)
+ nrho = 1 + int((logrho - mesa_eos_rho1) / mesa_eos_drho)
+
+ ! Allow extrapolation
+ if (ns < 1) ns=1
+ if (ns > mesa_eos_ns-1) ns=mesa_eos_ns-1
+ if (nrho < 1) nrho=1
+ if (nrho > mesa_eos_nrho-1) nrho=mesa_eos_nrho-1
+
+ ds = (logs - mesa_eos_logSs(ns)) / mesa_eos_ds
+ drho = (logrho - mesa_eos_logRhos(nrho)) / mesa_eos_drho
+
+ ! If the given S and Rho fall within the limits of the table, then use cubic spline interpolation to find value
+ ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
+ if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_ns-1 .and. nrho < mesa_eos_nrho-1) then
+    call eos_cubic_spline_mesa_gr(ns,nrho,logs,logrho,ivout,vout,nx,dx)
+    if (ivout < 5) vout=10.d0**vout
+    if (present(ierr)) ierr = 0
+ else
+    vout = 10.d0**((1.d0-ds) * (1.d0-drho) * mesa_ds_data(ns,nrho,ivout)   + &
+                         ds  * (1.d0-drho) * mesa_ds_data(ns+1,nrho,ivout) + &
+                   (1.d0-ds) *       drho  * mesa_ds_data(ns,nrho+1,ivout) + &
+                         ds  *       drho  * mesa_ds_data(ns+1,nrho+1,ivout))
+    if (present(ierr)) ierr = 1  ! warn if extrapolating
+ endif
+
+ return
+
+end subroutine getvalue_mesa_gr
+
 
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
@@ -654,6 +705,64 @@ pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
  return
 
 end subroutine eos_cubic_spline_mesa
+
+!Spline for GR: since eos_cubic_spline_mesa has the original tables embedded in it, I have to make a new one for the GR tables.
+! It's basically the same as above but with different variables and using mesa_ds_data instead of mesa_de_data
+! only use if between s(2) < s < s(n_s-1) and rho(2) < rho < rho(n_rho-1)
+
+pure subroutine  eos_cubic_spline_mesa_gr(s1,rho1,s,rho,n_var,z,h1,dh)
+
+! use mesa_eos_logss, mesa_eos_logrhos
+ implicit none
+
+ integer, intent(in) :: s1, rho1, h1, n_var
+ real,    intent(in) :: s, rho, dh
+
+ real, intent(out) :: z
+
+ real :: x0,x1,x2,x3,y0,y1,y2,y3
+ real :: as,bs,tt
+
+ real :: yy(4)
+ integer :: j
+
+ x0=mesa_eos_logss(s1-1)
+ x1=mesa_eos_logss(s1+0)
+ x2=mesa_eos_logss(s1+1)
+ x3=mesa_eos_logss(s1+2)
+
+ tt=(s-x1)/mesa_eos_ds
+
+ do j=1,4
+
+    y0 = mesa_ds_data(s1-1,rho1+j-2,n_var)
+    y1 = mesa_ds_data(s1+0,rho1+j-2,n_var)
+    y2 = mesa_ds_data(s1+1,rho1+j-2,n_var)
+    y3 = mesa_ds_data(s1+2,rho1+j-2,n_var)
+
+    call cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
+    yy(j)=(1.d0-tt)*y1+tt*y2+tt*(1.d0-tt)*(as*(1.d0-tt)+bs*tt)
+
+ enddo
+
+ x0=mesa_eos_logrhos(rho1-1)
+ x1=mesa_eos_logrhos(rho1+0)
+ x2=mesa_eos_logrhos(rho1+1)
+ x3=mesa_eos_logrhos(rho1+2)
+
+ y0=yy(1)
+ y1=yy(2)
+ y2=yy(3)
+ y3=yy(4)
+
+ tt=(rho-x1)/mesa_eos_drho
+
+ call cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
+ z=(1.d0-tt)*y1+tt*y2+tt*(1.d0-tt)*(as*(1.d0-tt)+bs*tt)
+
+ return
+
+end subroutine eos_cubic_spline_mesa_gr
 
 pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
 
