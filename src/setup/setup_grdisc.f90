@@ -179,6 +179,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ! place stars in orbit
        call set_orbit(orbit(i),mhole/umass,star(i)%m_code,r_in,star(i)%hacc_code, &
                      xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
+       if (ierr /= 0) stop 'error setting up orbit'
 
        ! shift the star to the position of the second body
        if (star(i)%iprofile > 0) then
