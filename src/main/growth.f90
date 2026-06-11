@@ -660,7 +660,7 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
 
        if (do_nucleation) then  !used by moddump_nucleationtodustgrowth
            dustprop(2,i) = rho_Cdust / unit_density
-           grainmassmin = fourpi/3 * grainsizemin**3 * dustprop(2,i)
+           grainmassmin = fourpi/3 * (1.e-8/udist)**3 * dustprop(2,i) ! arbitrary threshold
            if (nucleation(2,i) < 1e-30) then !arbitrary threshold in number of dust grain
                 dustprop(1,i) = grainmassmin !tiny(dustprop(1,i))
            else

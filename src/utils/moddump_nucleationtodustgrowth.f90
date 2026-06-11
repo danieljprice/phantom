@@ -26,11 +26,12 @@ use dim,          only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustg
                        update_max_sizes,isothermal
 use part,         only:igas,idust,ndusttypes,ndustsmall,ndustlarge,&
                        grainsize,graindens,dustfrac,&
-                       nucleation
+                       nucleation,dustprop
 use dust_formation, only:mass_per_H
 use set_dust,     only:set_dustfrac,set_dustbinfrac
 use options,      only:use_dustfrac,use_porosity
-use growth,       only:set_dustprop,convert_to_twofluid,iporosity,init_growth,ifrag,gsizemincgs
+use growth,       only:set_dustprop,convert_to_twofluid,iporosity,init_growth,ifrag,gsizemincgs,&
+                       ivrelkin
 use prompting,    only:prompt
 use dust,         only:grainsizecgs,graindenscgs
 use table_utils,  only:logspace
@@ -71,6 +72,7 @@ use cooling_solver, only:excitation_HI
  graindenscgs = 1.
 
  gsizemincgs = 1.e-8
+ ivrelkin = 0  ! relative dust motions from 1-fluid dust velocities not yet available
 
 
 ! Interactive prompts
