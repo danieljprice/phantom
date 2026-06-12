@@ -23,7 +23,7 @@ program phantommoddump
  use eos_stamatellos, only:init_coolra,finish_coolra
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
- use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
+ use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master,fileprefix
  use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
  use moddump,         only:modify_dump,flags=>moddump_flags
@@ -42,7 +42,6 @@ program phantommoddump
  integer :: ierr,nerr,nwarn,iloc
  logical :: idumpsphNG,iexist,ians
  integer, parameter          :: lenprefix = 120
- character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,progname
 
  call set_io_unit_numbers
