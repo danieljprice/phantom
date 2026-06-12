@@ -29,7 +29,7 @@ profile, and so we select
     Case  5 MESA star from file
 
 and choose the desired EoS when prompted. Currently, stars can only be softened
-with (i) Adiabatic/polytropic EoS (ieos = 1), (ii) Ideal gas plus radiation EoS
+with (i) Ideal gas or polytropic EoS (ieos = 2), (ii) Ideal gas plus radiation EoS
 (ieos = 12), and (iii) MESA EoS (ieos = 10). For (i), you will also be prompted
 the adiabatic index, ``gamma``.
 
@@ -95,7 +95,7 @@ The relevant options in the setup file for core softening are
 
     # core softening and sink stellar core options
             isoftcore =           T    ! Soften the core of an input MESA profile
-                 ieos =           2    ! 1=isothermal,2=adiabatic,10=MESA,12=idealplusrad
+                 ieos =           2    ! 1=isothermal,2=idealgas,10=MESA,12=idealplusrad
                 gamma =       1.667    ! adiabatic index
         isofteningopt =           3    ! 1=supply hsoft, 2=supply mcore, 3=supply both
    unsoftened_profile =  profile51.data   ! Path to MESA profile for softening
@@ -107,7 +107,7 @@ The relevant options in the setup file for core softening are
 
 In this example,
 
-* The adiabatic EoS has been chosen (ieos = 2), and so the adiabatic index has also
+* The ideal gas EoS has been chosen (ieos = 2), and so the adiabatic index has also
   been specified (gamma = 1.667).
 
 * Both the softening radius and core mass have been specified (isofteningopt = 3).

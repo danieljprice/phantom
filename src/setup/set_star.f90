@@ -19,7 +19,7 @@ module setstar
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
+!   - ieos              : *1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson*
 !   - irecomb           : *Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
@@ -1125,7 +1125,7 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
  integer :: i
 
  write(iunit,"(/,a)") '# equation of state used to set the thermal energy profile'
- call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson',iunit)
+ call write_inopt(ieos,'ieos','1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson',iunit)
 
  if (any(star(:)%iprofile==imesa)) then
     call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
@@ -1214,7 +1214,7 @@ subroutine set_star_eos_interactive(ieos,star)
  type(star_t), intent(in)    :: star(:)
 
  ! equation of state
- call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)
+ call prompt('Enter the desired EoS (1=isothermal,2=idealgas,10=MESA,12=idealplusrad)',ieos)
  if (any(star(:)%iprofile==imesa)) call prompt('Use variable composition?',use_var_comp)
 
  select case(ieos)
