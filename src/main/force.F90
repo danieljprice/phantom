@@ -1011,9 +1011,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: fmi,fmj,dsofti,dsoftj,hsoft1,hsoft21,q2softi
 #endif
  real    :: phi,phii,phij,fgrav,fgravi,fgravj,termi
-#ifdef KROME
- real    :: gammaj
-#endif
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
