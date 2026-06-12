@@ -1734,7 +1734,7 @@ subroutine write_options_eos(iunit)
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
 
- if (.not. (use_krome .or. eos_outputs_mu(ieos))) then
+ if (.not. (use_krome .or. eos_outputs_mu(ieos) .or. use_var_comp)) then
     call write_inopt(gmw,'mu','mean molecular weight',iunit)
  endif
 
