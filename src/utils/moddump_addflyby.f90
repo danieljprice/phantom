@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! moddump to add a flyby (sink particle on a parabolic orbit)
+! moddump to add a single flyby with general orbital parameters
 !
 ! :References: None
 !
