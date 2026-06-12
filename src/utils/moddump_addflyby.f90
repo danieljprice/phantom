@@ -31,11 +31,10 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:nsinkproperties
- use part,           only:nptmass,xyzmh_ptmass,igas,ihacc
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,igas,ihacc
  use prompting,         only:prompt
  use physcon,           only:au,solarm,pi,years
- use centreofmass,      only:reset_centreofmass,get_centreofmass
- use vectorutils,       only:rotatevec
+ use centreofmass,      only:reset_centreofmass
  use setorbit,          only:set_defaults_orbit,set_orbit,get_orbital_time
  use io,             only:id,master,fatal,fileprefix
  use infile_utils,   only:get_options,infile_exists
@@ -78,7 +77,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call set_orbit(orbit,m1,m2,hacc1,accr2,xyzmh_ptmass_in,vxyz_ptmass_in,&
                         nptmass_in,(id==master),ierr)
  nptmass = nptmass + 1
+ if (nptmass > size(xyzmh_ptmass, 2)) then
+    call fatal('moddump', 'Not enough space in xyzmh_ptmass for another sink particle')
+ endif
  xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,2)
+ vxyz_ptmass(:,nptmass)  = vxyz_ptmass_in(:,2)
+
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  ! set .in parameters below
 
@@ -129,7 +134,6 @@ end subroutine read_interactive_moddumpfile
 subroutine write_moddumpfile(filename)
  use infile_utils,    only:write_inopt
  use setorbit,        only:write_options_orbit
- use orbits,          only:get_T_flyby_par,get_T_flyby_hyp,get_time_between_true_anomalies
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -170,6 +174,7 @@ subroutine read_moddumpfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
  call read_inopt(m2,'m2',db,errcount=nerr,min=0.)
  call read_inopt(accr2,'accr2',db,errcount=nerr,min=0.)
  call read_options_orbit(orbit,m1,m2,db,nerr)
