@@ -238,7 +238,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !
  real                 :: rhog,rhod,vrel,rho,sdust
  real                 :: massgrain,rhograin,filfaci
- real                 :: dtarb,frac_masschange,att_factor
+ real                 :: dtarb,frac_masschange,att_factor,tdyn
  integer              :: i,iam
 
 
@@ -254,12 +254,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc,dtmax) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
  !$omp shared(do_nucleation,nucleation) &
- !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
+ !$omp private(i,iam,rho,rhog,rhod,vrel,sdust,tdyn) &
  !$omp private(massgrain,rhograin,dtarb,frac_masschange,att_factor) &
  !$omp firstprivate(filfaci)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
+
+       call get_dynamical_timescale(i,tdyn)
 
        if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
 
@@ -274,7 +276,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
                  dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
              endif
              dustgasprop(2,i) = rhog
-             dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
+             dustgasprop(3,i) = tstop(1,i) / tdyn
              dustgasprop(4,i) = sqrt(deltav(1,1,i)**2 + deltav(2,1,i)**2 + deltav(3,1,i)**2)
           else
              rhod = rhoh(xyzh(4,i),massoftype(idust))
@@ -1093,5 +1095,25 @@ real function get_size(mass,dens,filfac)
  endif
 
 end function get_size
+
+
+!-----------------------------------------------------------------------
+!+
+!  Compute a characteristic dynamical timescale. Used in growth.f90 to get the St.
+!+
+!-----------------------------------------------------------------------
+ subroutine get_dynamical_timescale(i,tdyn)
+ use part,           only:xyzmh_ptmass,ivwind,iReff,Omega_k
+ use dim,            only:do_nucleation
+ integer,   intent(in)    :: i
+ real,      intent(inout) :: tdyn
+ 
+ if (do_nucleation) then
+    tdyn = 1/(xyzmh_ptmass(ivwind,1)/xyzmh_ptmass(iReff,1))
+ else
+    tdyn = 1/Omega_k(i)
+ endif
+
+ end subroutine get_dynamical_timescale
 
 end module growth
