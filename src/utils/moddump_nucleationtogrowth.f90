@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: does not make any modifications
+! Convert a dust-nucleation file into a dust-growth file. Initial conditions of the dust-growth simulation are provided by the dust-nucleation simulation.
 !
 ! :References: None
 !
@@ -23,13 +23,13 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 use dim,          only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth,&
-                       update_max_sizes,isothermal
-use part,         only:igas,idust,ndusttypes,ndustsmall,ndustlarge,&
+                       update_max_sizes,isothermal,do_nucleation
+use part,         only:igas,idust,ndusttypes,ndustsmall,&
                        grainsize,graindens,dustfrac,&
-                       nucleation,dustprop
+                       nucleation
 use dust_formation, only:mass_per_H
 use set_dust,     only:set_dustfrac,set_dustbinfrac
-use options,      only:use_dustfrac,use_porosity
+use options,      only:use_dustfrac
 use growth,       only:set_dustprop,convert_to_twofluid,iporosity,init_growth,ifrag,gsizemincgs,&
                        ivrelkin
 use prompting,    only:prompt
@@ -42,66 +42,60 @@ use cooling_solver, only:excitation_HI
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i,ierr,j,itype,ipart,iloc,dust_method,np_ratio,np_gas,np_dust,maxdust
- real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes),udens
- real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
+ integer :: i,dust_method,np_ratio,np_gas,maxdust
+ real    :: dust_to_gas,smincgs,smaxcgs,sindex,udens
+ real    :: pwl_sizedistrib,R_ref,H_R_ref,q_index
  logical :: sizedistrib
 
 
-! cooling values
+! Add flag for dust nucleation
+ if (.not. (do_nucleation .and. use_dustgrowth .and. (.not. isothermal))) then
+    print*,' DOING NOTHING: COMPILE WITH DUSTGROWTH=yes DUST_NUCLEATION=yes ISOTHERMAL=no'
+    stop
+ endif
+
+! units
+ udens = umass/(udist**3)
+
+! parameters
+ ndusttypes = 1              ! growth can only work with 1 dust population
+
+! cooling
  excitation_HI = 1
 
-! dust default values
- udens = umass/(udist**3)
- dust_method = 1
- np_ratio = 5
- dust_to_gas = 0.01
- ndusttypes = 1
+! dust
+ dust_method = 1             ! 1:dust as a mxiture ; 2:dust as particles (not working yet)
+ np_ratio = 5                ! np_dust/np_gas if dust_method=2
+ dust_to_gas = 0.01          ! only to inialise the variable, changed later
+
+ sizedistrib = .false.       ! initial grain size distribution
  smincgs = 1.e-5
  smaxcgs = 1.
  sindex = 3.5
- dustbinfrac = 0.
- pwl_sizedistrib = -2
+
+ pwl_sizedistrib = -2        ! spatial distribution of dust, if sizedistrib = .true.
  R_ref = 100
  H_R_ref = 0.0895
  q_index = 0.25
 
- sizedistrib = .false.
+ gsizemincgs = 1.e-8         ! minimum allowed grainsize in cm
+ ivrelkin = 0                ! keep 0 until relative dust motions from 1-fluid are available
 
- grainsizecgs = 1. !dummy
+ grainsizecgs = 1.           !dummies but need definition to be used by dust.f90
  graindenscgs = 1.
-
- gsizemincgs = 1.e-8
- ivrelkin = 0  ! relative dust motions from 1-fluid dust velocities not yet available
 
 
 ! Interactive prompts
-!call prompt('Which dust method do you want? (1=one fluid,2=two fluid)',dust_method,1,2)
-dust_method = 1
 if (dust_method==1) then
     maxdust = maxdustsmall
 elseif (dust_method==2) then
-    maxdust = maxdustlarge
-    call prompt('Enter ratio between number of gas particles and dust particles',np_ratio,1)
+    print*,' DOING NOTHING: NOT YET READY WITH DUST AS PARTICLES'
+    stop
       !--We do not care if modulo(npart,np_ratio) is stricly zero, since npart can
       !  be a weird value depdending on the simulation it comes from.
    endif
 
-! call prompt('Enter total dust to gas ratio',dust_to_gas,0.) computed from nuc.
-   
-!call prompt('How many grain sizes do you want?',ndusttypes,1,maxdust)
 ndusttypes = 1
-!   if (ndusttypes > 1) then  !uncomment if several dust populations
-!      !--grainsizes
-!      call prompt('Enter minimum grain size in cm',smincgs,0.)
-!      call prompt('Enter maximum grain size in cm',smaxcgs,0.)
-!      !--mass distribution
-!      call prompt('Enter power-law index, e.g. MRN',sindex)
-!      call set_dustbinfrac(smincgs/udist,smaxcgs/udist,sindex,dustbinfrac(1:ndusttypes),grainsize(1:ndusttypes))
-!      !--grain density
-!      call prompt('Enter grain density in g/cm^3',graindens(1),0.)
-!      graindens = graindens(1)/udens
-!   else
 if (use_dustgrowth) then
     ifrag = 1
     iporosity = 0 !turn on use_porosity if you change that
@@ -118,7 +112,7 @@ if (dust_method == 1) then
 
   do i=1,np_gas
      if (ndusttypes > 1) then
-        dustfrac(1:ndusttypes,i) = dust_to_gas*dustbinfrac(1:ndusttypes)
+        print*,' DOING NOTHING: GROWTH NOT WORKING FOR MORE THAN 1 DUST POPULATION'
      else
         if (nucleation(5,i)<tiny(nucleation(5,i))) then
             dust_to_gas = tiny(dust_to_gas)
