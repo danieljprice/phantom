@@ -340,6 +340,60 @@ subroutine get_eos_constants_mesa(ierr)
 
 end subroutine get_eos_constants_mesa
 
+
+! Get the constants to be used in the MESA EoS for GR
+subroutine get_eos_constants_mesa_gr(ierr)
+ integer, intent(out) :: ierr
+ character(len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ integer              :: fnum, i
+
+ ! Allocate the arrays to carry X and Z values.
+ allocate(mesa_eos_gr_z(mesa_eos_gr_nz), mesa_eos_gr_h(mesa_eos_gr_nh))
+
+ ! Assigning the X and Z values of the EoS tables to be read in (based on parameters at the beginning of the file.
+ mesa_eos_gr_z(1)=mesa_eos_gr_z1
+ mesa_eos_gr_h(1)=mesa_eos_gr_h1
+
+ do i=2,mesa_eos_gr_nz
+    mesa_eos_gr_z(i)=mesa_eos_gr_z(i-1)+mesa_eos_gr_dz
+ enddo
+
+ do i=2,mesa_eos_gr_nh
+    mesa_eos_gr_h(i)=mesa_eos_gr_h(i-1)+mesa_eos_gr_dh
+ enddo
+
+ fmt1 = '(F4.2)' !
+
+ fnum=126
+
+ ! Convert first X and Z to string
+ write (zz,fmt1) mesa_eos_gr_z1
+ write (hh,fmt1) mesa_eos_gr_h1
+
+ ! Find the first EoS tables
+ filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
+ filename = find_phantom_datafile(filename,'eos/mesa')
+
+ ! Read constants from the header of first EoS tables
+ open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
+! allocate GR tables (again, I wonder if it's best to make another subroutine for this)
+ if (ierr /= 0) return
+ read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
+ close(fnum)
+
+ allocate(mesa_eos_gr_logSs(mesa_eos_gr_ns), mesa_eos_gr_logrhos(mesa_eos_gr_nrho))
+ allocate(mesa_eos_gr_data_exists(mesa_eos_gr_nz,mesa_eos_gr_nh))
+ allocate(mesa_gr_ds_data(mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
+ allocate(mesa_eos_gr0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho))
+ allocate(mesa_gr_ds_data0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
+
+ return
+
+end subroutine get_eos_constants_mesa_gr
+
+
 ! Read MESA EoS tables, and then construct a new array for the specific values of X and Z
 subroutine read_eos_mesa(x,z,ierr)
  real,    intent(in)  :: x, z
