@@ -43,14 +43,16 @@ module mesa_microphysics
  real, allocatable :: mesa_de_data0(:,:,:,:,:)
 
 ! EOS tables in entropy and density for GR
- integer                                 :: mesa_eos_ns, mesa_eos_nrho, mesa_eos_gr_nvar2
- real                                    :: mesa_eos_rho1, mesa_eos_s1, mesa_eos_ds, mesa_eos_drho
+ integer            :: mesa_eos_gr_nz=3, mesa_eos_gr_nh=5   !Number of Z values in EOS tables, number of hydrogen values in EOS tables
+ real               :: mesa_eos_gr_z1=0.d0, mesa_eos_gr_h1=0.d0, mesa_eos_gr_dz=0.02d0, mesa_eos_gr_dh=0.2d0 !lowest Z, lowest H, delta Z, delta H in EOS tables
+ integer                                 :: mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
+ real                                    :: mesa_eos_gr_rho1, mesa_eos_gr_s1, mesa_eos_gr_ds, mesa_eos_gr_drho
  character(len=200) :: mesa_eos_gr_prefix="eos_gr_" ! prefix for EOS GR table files
- real, allocatable :: mesa_eos_logss(:), mesa_eos_logrhos(:)
+ real, allocatable :: mesa_eos_gr_z(:), mesa_eos_gr_h(:),mesa_eos_gr_logSs(:), mesa_eos_gr_logrhos(:)
  integer, allocatable :: mesa_eos_gr_data_exists(:,:)
- real, allocatable :: mesa_ds_data(:,:,:)
-!  real, allocatable :: mesa_eos0(:,:,:,:)
- real, allocatable :: mesa_ds_data0(:,:,:,:,:) 
+ real, allocatable :: mesa_gr_ds_data(:,:,:)
+ real, allocatable :: mesa_eos_gr0(:,:,:,:)
+ real, allocatable :: mesa_gr_ds_data0(:,:,:,:,:) 
 
  public :: get_opacity_constants_mesa
  public :: read_opacity_mesa
@@ -325,13 +327,14 @@ subroutine get_eos_constants_mesa(ierr)
  allocate(mesa_de_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
 ! allocate GR tables (again, I wonder if it's best to make another subroutine for this)
  if (ierr /= 0) return
- read(fnum) mesa_eos_ns, mesa_eos_nrho, mesa_eos_gr_nvar2
+ read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
  close(fnum)
 
- allocate(mesa_eos_logss(mesa_eos_ns), mesa_eos_logrhos(mesa_eos_nrho))
- allocate(mesa_eos_gr_data_exists(mesa_eos_nz,mesa_eos_nh))
- allocate(mesa_ds_data(mesa_eos_ns,mesa_eos_nrho,mesa_eos_gr_nvar2))
- allocate(mesa_ds_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ns,mesa_eos_nrho,mesa_eos_gr_nvar2))
+ allocate(mesa_eos_gr_logss(mesa_eos_gr_ns), mesa_eos_gr_logrhos(mesa_eos_gr_nrho))
+ allocate(mesa_eos_gr_data_exists(mesa_eos_gr_nz,mesa_eos_gr_nh))
+ allocate(mesa_gr_ds_data(mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
+ allocate(mesa_eos_gr0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho))
+ allocate(mesa_gr_ds_data0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
 
  return
 
@@ -460,7 +463,7 @@ subroutine read_eos_mesa_gr(x,z,ierr)
 
  fmt1 = '(F4.2)'
 
- fnum = 124
+ fnum = 126
  ierr = 0
 
  ! following lines to prevent compiler warnings
@@ -469,11 +472,11 @@ subroutine read_eos_mesa_gr(x,z,ierr)
  dx = 0.
 
  !Loop over files
- do i=1,mesa_eos_nz
-    write (zz,fmt1) mesa_eos_z(i) ! Z value as string
+ do i=1,mesa_eos_gr_nz
+    write (zz,fmt1) mesa_eos_gr_z(i) ! Z value as string
 
-    do j=1,mesa_eos_nh
-       write (hh,fmt1) mesa_eos_h(j) ! X value as string
+    do j=1,mesa_eos_gr_nh
+       write (hh,fmt1) mesa_eos_gr_h(j) ! X value as string
 !!!!!!!!!! have to rename these variables to not conflict with the above subroutine, but I can't be bothered to do that rn, so just ignore the fact that they have the same names as the above subroutine !!!!!!!!!!
        ! Find the EoS tables
        filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
@@ -487,12 +490,12 @@ subroutine read_eos_mesa_gr(x,z,ierr)
        ! k, l and m hold the values of V, Eint and the data respectively
        write(*,*) "OPENING UNIT ", fnum, " FILE ", trim(filename)
        open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
-       read(fnum) mesa_eos_ns, mesa_eos_nrho, mesa_eos_gr_nvar2
-       read(fnum)(mesa_eos_logrhos(k),k=1,mesa_eos_nrho)
-       read(fnum)(mesa_eos_logss(l),l=1,mesa_eos_ns)
-       do k=1,mesa_eos_nrho
-          do l=1,mesa_eos_ns
-             read(fnum) (mesa_ds_data0(i,j,l,k,m),m=1,mesa_eos_gr_nvar2)
+       read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
+       read(fnum)(mesa_eos_gr_logrhos(k),k=1,mesa_eos_gr_nrho)
+       read(fnum)(mesa_eos_gr_logss(l),l=1,mesa_eos_gr_ns)
+       do k=1,mesa_eos_gr_nrho
+          do l=1,mesa_eos_gr_ns
+             read(fnum) (mesa_gr_ds_data0(i,j,l,k,m),m=1,mesa_eos_gr_nvar2)
           enddo
        enddo
 
@@ -501,9 +504,9 @@ subroutine read_eos_mesa_gr(x,z,ierr)
  enddo
 
  ! Chooses the Z values from the available values which is greater than the input Z
- nz2=mesa_eos_nz
- do i=2,mesa_eos_nz-1
-    if (mesa_eos_z(i) >= z) then
+ nz2=mesa_eos_gr_nz
+ do i=2,mesa_eos_gr_nz-1
+    if (mesa_eos_gr_z(i) >= z) then
        nz2=i
        exit
     endif
@@ -511,41 +514,41 @@ subroutine read_eos_mesa_gr(x,z,ierr)
 
  ! Chooses Z values below input Z, and then finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code)
  nz1 = nz2 - 1
- dz=(z-mesa_eos_z(nz1))/(mesa_eos_z(nz2)-mesa_eos_z(nz1))
+ dz=(z-mesa_eos_gr_z(nz1))/(mesa_eos_gr_z(nz2)-mesa_eos_gr_z(nz1))
 
  ! Seems to do the same as above, except for X. I can't quite figure out the weird if statements.
- do j=2,mesa_eos_nh
-    if (mesa_eos_h(j) > x.or.j==mesa_eos_nh) then
+ do j=2,mesa_eos_gr_nh
+    if (mesa_eos_gr_h(j) > x.or.j==mesa_eos_gr_nh) then
        nx2=j
        if (j==2.and.mesa_eos_gr_data_exists(i,j-2)==0) then
           nx2=3
-       elseif (j==mesa_eos_nh.and.mesa_eos_gr_data_exists(i,mesa_eos_nh-1)==0) then
-          nx2=mesa_eos_nh-1
+       elseif (j==mesa_eos_gr_nh.and.mesa_eos_gr_data_exists(i,mesa_eos_gr_nh-1)==0) then
+          nx2=mesa_eos_gr_nh-1
        endif
        exit
     endif
  enddo
  nx1 = nx2 - 1
- dx = (x-mesa_eos_h(nx1))/(mesa_eos_h(nx2)-mesa_eos_h(nx1))
+ dx = (x-mesa_eos_gr_h(nx1))/(mesa_eos_gr_h(nx2)-mesa_eos_gr_h(nx1))
 
  ! Bilinear interpolation of values from the four tables (two values each of X and Z)
- do l=1,mesa_eos_ns
-    do k=1,mesa_eos_nrho
+ do l=1,mesa_eos_gr_ns
+    do k=1,mesa_eos_gr_nrho
        do m=1,mesa_eos_gr_nvar2
-          mesa_ds_data(l,k,m)=(1.d0-dx)*(1.d0-dz)*mesa_ds_data0(nz1,nx1,l,k,m)+dz*(1.d0-dx)*mesa_ds_data0(nz2,nx1,l,k,m) &
-               +dx*(1.d0-dz)*mesa_ds_data0(nz1,nx2,l,k,m)+dx*dz*mesa_ds_data0(nz2,nx2,l,k,m)
+          mesa_gr_ds_data(l,k,m)=(1.d0-dx)*(1.d0-dz)*mesa_gr_ds_data0(nz1,nx1,l,k,m)+dz*(1.d0-dx)*mesa_gr_ds_data0(nz2,nx1,l,k,m) &
+               +dx*(1.d0-dz)*mesa_gr_ds_data0(nz1,nx2,l,k,m)+dx*dz*mesa_gr_ds_data0(nz2,nx2,l,k,m)
        enddo
     enddo
  enddo
 
  ! Save some things to make the interpolation fast
- mesa_eos_drho=mesa_eos_logrhos(2)-mesa_eos_logrhos(1)
- mesa_eos_ds=mesa_eos_logss(2)-mesa_eos_logss(1)
- mesa_eos_rho1=mesa_eos_logrhos(1)
- mesa_eos_s1=mesa_eos_logss(1)
+ mesa_eos_gr_drho=mesa_eos_gr_logrhos(2)-mesa_eos_gr_logrhos(1)
+ mesa_eos_gr_ds=mesa_eos_gr_logss(2)-mesa_eos_gr_logss(1)
+ mesa_eos_gr_rho1=mesa_eos_gr_logrhos(1)
+ mesa_eos_gr_s1=mesa_eos_gr_logss(1)
 
- !deallocate(mesa_eos0)
- !deallocate(mesa_ds_data0)
+ !deallocate(mesa_eos_gr0)
+ !deallocate(mesa_gr_ds_data0)
 
  return
 
@@ -623,29 +626,29 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  logrho = log10(rho)
 
  ! Get the s and rho indices for looking up the tables
- ns = 1 + int((logs - mesa_eos_s1) / mesa_eos_ds)
- nrho = 1 + int((logrho - mesa_eos_rho1) / mesa_eos_drho)
+ ns = 1 + int((logs - mesa_eos_gr_s1) / mesa_eos_gr_ds)
+ nrho = 1 + int((logrho - mesa_eos_gr_rho1) / mesa_eos_gr_drho)
 
  ! Allow extrapolation
  if (ns < 1) ns=1
- if (ns > mesa_eos_ns-1) ns=mesa_eos_ns-1
+ if (ns > mesa_eos_gr_ns-1) ns=mesa_eos_gr_ns-1
  if (nrho < 1) nrho=1
- if (nrho > mesa_eos_nrho-1) nrho=mesa_eos_nrho-1
+ if (nrho > mesa_eos_gr_nrho-1) nrho=mesa_eos_gr_nrho-1
 
- ds = (logs - mesa_eos_logSs(ns)) / mesa_eos_ds
- drho = (logrho - mesa_eos_logRhos(nrho)) / mesa_eos_drho
+ ds = (logs - mesa_eos_gr_logSs(ns)) / mesa_eos_gr_ds
+ drho = (logrho - mesa_eos_gr_logRhos(nrho)) / mesa_eos_gr_drho
 
  ! If the given S and Rho fall within the limits of the table, then use cubic spline interpolation to find value
  ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
- if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_ns-1 .and. nrho < mesa_eos_nrho-1) then
+ if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_gr_ns-1 .and. nrho < mesa_eos_gr_nrho-1) then
     call eos_cubic_spline_mesa_gr(ns,nrho,logs,logrho,ivout,vout,nx,dx)
     if (ivout < 5) vout=10.d0**vout
     if (present(ierr)) ierr = 0
  else
-    vout = 10.d0**((1.d0-ds) * (1.d0-drho) * mesa_ds_data(ns,nrho,ivout)   + &
-                         ds  * (1.d0-drho) * mesa_ds_data(ns+1,nrho,ivout) + &
-                   (1.d0-ds) *       drho  * mesa_ds_data(ns,nrho+1,ivout) + &
-                         ds  *       drho  * mesa_ds_data(ns+1,nrho+1,ivout))
+    vout = 10.d0**((1.d0-ds) * (1.d0-drho) * mesa_gr_ds_data(ns,nrho,ivout)   + &
+                         ds  * (1.d0-drho) * mesa_gr_ds_data(ns+1,nrho,ivout) + &
+                   (1.d0-ds) *       drho  * mesa_gr_ds_data(ns,nrho+1,ivout) + &
+                         ds  *       drho  * mesa_gr_ds_data(ns+1,nrho+1,ivout))
     if (present(ierr)) ierr = 1  ! warn if extrapolating
  endif
 
@@ -711,12 +714,12 @@ pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
 end subroutine eos_cubic_spline_mesa
 
 !Spline for GR: since eos_cubic_spline_mesa has the original tables embedded in it, I have to make a new one for the GR tables.
-! It's basically the same as above but with different variables and using mesa_ds_data instead of mesa_de_data
+! It's basically the same as above but with different variables and using mesa_gr_ds_data instead of mesa_de_data
 ! only use if between s(2) < s < s(n_s-1) and rho(2) < rho < rho(n_rho-1)
 
 pure subroutine  eos_cubic_spline_mesa_gr(s1,rho1,s,rho,n_var,z,h1,dh)
 
-! use mesa_eos_logss, mesa_eos_logrhos
+! use mesa_eos_gr_logss, mesa_eos_gr_logrhos
  implicit none
 
  integer, intent(in) :: s1, rho1, h1, n_var
@@ -730,36 +733,36 @@ pure subroutine  eos_cubic_spline_mesa_gr(s1,rho1,s,rho,n_var,z,h1,dh)
  real :: yy(4)
  integer :: j
 
- x0=mesa_eos_logss(s1-1)
- x1=mesa_eos_logss(s1+0)
- x2=mesa_eos_logss(s1+1)
- x3=mesa_eos_logss(s1+2)
+ x0=mesa_eos_gr_logss(s1-1)
+ x1=mesa_eos_gr_logss(s1+0)
+ x2=mesa_eos_gr_logss(s1+1)
+ x3=mesa_eos_gr_logss(s1+2)
 
- tt=(s-x1)/mesa_eos_ds
+ tt=(s-x1)/mesa_eos_gr_ds
 
  do j=1,4
 
-    y0 = mesa_ds_data(s1-1,rho1+j-2,n_var)
-    y1 = mesa_ds_data(s1+0,rho1+j-2,n_var)
-    y2 = mesa_ds_data(s1+1,rho1+j-2,n_var)
-    y3 = mesa_ds_data(s1+2,rho1+j-2,n_var)
+    y0 = mesa_gr_ds_data(s1-1,rho1+j-2,n_var)
+    y1 = mesa_gr_ds_data(s1+0,rho1+j-2,n_var)
+    y2 = mesa_gr_ds_data(s1+1,rho1+j-2,n_var)
+    y3 = mesa_gr_ds_data(s1+2,rho1+j-2,n_var)
 
     call cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
     yy(j)=(1.d0-tt)*y1+tt*y2+tt*(1.d0-tt)*(as*(1.d0-tt)+bs*tt)
 
  enddo
 
- x0=mesa_eos_logrhos(rho1-1)
- x1=mesa_eos_logrhos(rho1+0)
- x2=mesa_eos_logrhos(rho1+1)
- x3=mesa_eos_logrhos(rho1+2)
+ x0=mesa_eos_gr_logrhos(rho1-1)
+ x1=mesa_eos_gr_logrhos(rho1+0)
+ x2=mesa_eos_gr_logrhos(rho1+1)
+ x3=mesa_eos_gr_logrhos(rho1+2)
 
  y0=yy(1)
  y1=yy(2)
  y2=yy(3)
  y3=yy(4)
 
- tt=(rho-x1)/mesa_eos_drho
+ tt=(rho-x1)/mesa_eos_gr_drho
 
  call cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
  z=(1.d0-tt)*y1+tt*y2+tt*(1.d0-tt)*(as*(1.d0-tt)+bs*tt)
@@ -805,11 +808,12 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_de_data)) deallocate(mesa_de_data)
  if (allocated(mesa_de_data0)) deallocate(mesa_de_data0)
 !eos gr (I wonder if it's best to make another subroutine for deallocating the GR tables)
- if (allocated(mesa_eos_logss)) deallocate(mesa_eos_logss)
- if (allocated(mesa_eos_logrhos)) deallocate(mesa_eos_logrhos)
+ if (allocated(mesa_eos_gr0)) deallocate(mesa_eos_gr0)
+ if (allocated(mesa_eos_gr_logss)) deallocate(mesa_eos_gr_logss)
+ if (allocated(mesa_eos_gr_logrhos)) deallocate(mesa_eos_gr_logrhos)
  if (allocated(mesa_eos_gr_data_exists)) deallocate(mesa_eos_gr_data_exists)
- if (allocated(mesa_ds_data)) deallocate(mesa_ds_data)
- if (allocated(mesa_ds_data0)) deallocate(mesa_ds_data0)
+ if (allocated(mesa_gr_ds_data)) deallocate(mesa_gr_ds_data)
+ if (allocated(mesa_gr_ds_data0)) deallocate(mesa_gr_ds_data0)
 
 
 end subroutine deallocate_arrays_mesa
