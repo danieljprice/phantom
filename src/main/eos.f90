@@ -9,7 +9,7 @@ module eos
 ! This module contains stuff to do with the equation of state
 !  Current options:
 !     1 = isothermal eos
-!     2 = adiabatic/polytropic eos
+!     2 = Ideal gas or polytropic eos
 !     3 = eos for a locally isothermal disc as in Lodato & Pringle (2007)
 !     4 = GR isothermal
 !     5 = polytropic EOS with varying mu and gamma depending on H2 formation
@@ -106,7 +106,7 @@ module eos
 ! integer parameters for eos type
  integer, parameter, public :: &
     ieos_isothermal = 1, &
-    ieos_adiabatic = 2, &
+    ieos_idealgas = 2, &
     ieos_idealplusrad = 12, &
     ieos_helmholtz = 15
 
@@ -192,7 +192,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(2,5)
 !
-!--Adiabatic equation of state (code default)
+!--Ideal gas equation of state (code default)
 !
 !  :math:`P = (\gamma - 1) \rho u`
 !
@@ -202,7 +202,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  where K is a global constant specified in the dump header
 !
-    if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
+    if (gammai < tiny(gammai)) call fatal('eos','gamma not set for ideal gas eos',var='gamma',val=gammai)
 
     if (gr) then
        if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
@@ -643,7 +643,7 @@ subroutine init_eos(eos_type,ierr)
        ierr = ierr_option_conflict
        return
     endif
-    
+
     if (iopacity_type==1) then
        write(*,'(1x,a,f7.5,a,f7.5)') 'Using radiation with MESA opacities. Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
        call init_eos_mesa(X_in,Z_in,ierr_mesakapp)
@@ -1300,7 +1300,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
 
  case(2,5,22)
 !
-!--adiabatic/polytropic eos
+!--ideal gas or polytropic eos
 !  this routine is ONLY called if utherm is NOT stored, so polyk matters
 !
     if (id==master) write(iprint,*) 'Using polytropic equation of state, gamma = ',gamma
@@ -1581,7 +1581,7 @@ subroutine eosinfo(eos_type,iprint)
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
  case(2)
     if (maxvxyzu >= 4) then
-       write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state: P = (gamma-1)*rho*u, gamma = ',&
+       write(iprint,"(/,a,f10.6,a,f10.6)") ' Ideal gas equation of state: P = (gamma-1)*rho*u, gamma = ',&
                                               gamma,' gmw = ',gmw
     else
        write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma,' gmw = ',gmw
@@ -1734,7 +1734,7 @@ subroutine write_options_eos(iunit)
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
 
- if (.not. (use_krome .or. eos_outputs_mu(ieos))) then
+ if (.not. (use_krome .or. eos_outputs_mu(ieos) .or. use_var_comp)) then
     call write_inopt(gmw,'mu','mean molecular weight',iunit)
  endif
 
