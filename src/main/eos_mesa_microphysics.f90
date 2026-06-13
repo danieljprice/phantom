@@ -369,8 +369,9 @@ subroutine read_eos_mesa(x,z,ierr)
 
        ! Find the EoS tables
        filename = trim(mesa_eos_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
+       print *, 'RAW filename: ', trim(filename)
        filename = find_phantom_datafile(filename,'eos/mesa')
-
+       print *, 'RESOLVED filename: ', trim(filename)
        ! Note that the data exists
        mesa_eos_data_exists(i,j)=1
 
@@ -457,7 +458,7 @@ subroutine read_eos_mesa_gr(x,z,ierr)
 
  fmt1 = '(F4.2)'
 
- fnum = 120
+ fnum = 124
  ierr = 0
 
  ! following lines to prevent compiler warnings

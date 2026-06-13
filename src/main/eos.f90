@@ -68,7 +68,7 @@ module eos
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
- public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
+ public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
@@ -1177,7 +1177,12 @@ end subroutine get_rho_from_p_s
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  use physcon, only:Rg,mass_proton_cgs
  use io,      only:fatal
+<<<<<<< HEAD
  use eos_idealplusrad, only:get_idealplusrad_tempfromrhoS
+=======
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
+ use eos_mesa,          only: get_eos_ptemp_from_rhos_mesa_gr
+>>>>>>> d30372cf7 (just saving for a second to compare with main branch)
  use units,   only:unit_density,unit_pressure,unit_ergg
  real,    intent(in)    :: S,mu,rho
  real,    intent(inout) :: temp
@@ -1223,10 +1228,11 @@ end subroutine get_p_from_rho_s
 subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
  use units,   only:unit_density,unit_pressure,unit_ergg
+ use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
  real,    intent(in)    :: S,rho
  real,    intent(out)   :: u
  integer, intent(in)    :: ieos
- real                :: cgsrho,cgsp,cgss
+ real                :: cgsrho,cgsp,cgss, cgsu
 
  ! change to cgs unit
  cgsrho = rho*unit_density
@@ -1246,8 +1252,6 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
  u = cgsu / unit_ergg
 
 end subroutine get_u_from_rho_s
-
-
 
 
 !-----------------------------------------------------------------------
