@@ -135,7 +135,7 @@ end subroutine primitive2conservative
 subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
  use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
- use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
+ use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,get_u_from_rho_s,gamma_global=>gamma
  use io,           only:fatal
  use physcon,      only:radconst,Rg
  use units,        only:unit_density,unit_ergg
