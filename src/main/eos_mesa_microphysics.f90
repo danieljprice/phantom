@@ -325,16 +325,6 @@ subroutine get_eos_constants_mesa(ierr)
  allocate(mesa_de_data(mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
  allocate(mesa_eos0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv))
  allocate(mesa_de_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
-! allocate GR tables (again, I wonder if it's best to make another subroutine for this)
- if (ierr /= 0) return
- read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
- close(fnum)
-
- allocate(mesa_eos_gr_logss(mesa_eos_gr_ns), mesa_eos_gr_logrhos(mesa_eos_gr_nrho))
- allocate(mesa_eos_gr_data_exists(mesa_eos_gr_nz,mesa_eos_gr_nh))
- allocate(mesa_gr_ds_data(mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
- allocate(mesa_eos_gr0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho))
- allocate(mesa_gr_ds_data0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
 
  return
 
