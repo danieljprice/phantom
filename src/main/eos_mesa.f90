@@ -57,12 +57,13 @@ subroutine init_eos_mesa(x,z,ierr)
 
  call get_eos_constants_mesa(ierr)
  if (ierr /= 0) return
+  mesa_eos_gr_prefix="output_rhos_"
+
  call get_eos_constants_mesa_gr(ierr)
  if (ierr /= 0) return
  call read_eos_mesa(x,z,ierr)
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
- mesa_eos_gr_prefix="output_rhos_"
  call read_eos_mesa_gr(x,z,ierr) ! read GR tables
 
 end subroutine init_eos_mesa
