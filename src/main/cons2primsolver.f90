@@ -215,7 +215,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
           endif
        case (2)
        case default
-          call fatal('cons2primsolver','only implemented for eos 2 and 12')
+          call fatal('cons2primsolver','only implemented for eos 2,10 and 12')
        end select
     else
        p = en*dens**gamma
