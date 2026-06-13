@@ -198,6 +198,9 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        temp_eos = temp
        have_eos_cache = .true.
        select case(ieos)
+       case (10)
+         ! inputs and outputs are all in code units
+         call get_u_from_rho_s(ieos,ent,dens,u)
        case (12)
           cgsdens = dens * unit_density
           cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
@@ -261,6 +264,9 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
     endif
     select case(ieos)
+    case (10)
+      ! inputs and outputs are all in code units
+       call get_u_from_rho_s(ieos,ent,dens,u)
     case (12)
        cgsdens = dens * unit_density
        cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
