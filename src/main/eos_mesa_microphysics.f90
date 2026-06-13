@@ -416,16 +416,13 @@ subroutine read_eos_mesa(x,z,ierr)
 
        ! Find the EoS tables
        filename = trim(mesa_eos_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
-       write(*,*) 'RAW filename: ', trim(filename)
        filename = find_phantom_datafile(filename,'eos/mesa')
-       write(*,*) 'RESOLVED filename: ', trim(filename)
        ! Note that the data exists
        mesa_eos_data_exists(i,j)=1
 
        ! Read in the size of the tables and the data
        ! i and j hold the Z and X values respectively
        ! k, l and m hold the values of V, Eint and the data respectively
-       write(*,*) "OPENING UNIT ", fnum, " FILE ", trim(filename)
 
        open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
        read(fnum) mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
@@ -532,7 +529,6 @@ subroutine read_eos_mesa_gr(x,z,ierr)
        ! Read in the size of the tables and the data
        ! i and j hold the Z and X values respectively
        ! k, l and m hold the values of V, Eint and the data respectively
-       write(*,*) "OPENING UNIT ", fnum, " FILE ", trim(filename)
        open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
        read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
        read(fnum)(mesa_eos_gr_logrhos(k),k=1,mesa_eos_gr_nrho)
