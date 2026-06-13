@@ -164,7 +164,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
- if (gr .and. .not.any((/2,4,11,12/)==eos_type)) then
+ if (gr .and. .not.any((/2,4,10,11,12/)==eos_type)) then
     ponrhoi = 0.; spsoundi = 0. ! avoid compiler warning
     call fatal('eos','GR currently only works for ieos=2,12 or 11',&
          var='eos_type',val=real(eos_type))
