@@ -15,7 +15,7 @@ module krome_interface
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, krome_main, krome_user, part, units
+! :Dependencies: dim, eos, krome_main, krome_user, part, timestep, units
 !
 
  implicit none
@@ -23,10 +23,12 @@ module krome_interface
  public :: initialise_krome,update_krome,write_KromeSetupFile
 
  private
- real  :: cosmic_ray_rate
+ !real  :: cosmic_ray_rate
+#ifdef KROME
  real  :: H_init, He_init, C_init, N_init, O_init
  real  :: S_init, Fe_init, Si_init, Mg_init
  real  :: Na_init, P_init, F_init
+#endif
 
 contains
 !----------------------------------------------------------------
@@ -37,14 +39,15 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise_krome()
-
+#ifdef KROME
+ use part,       only:abundance,abundance_label,eos_vars,igamma,imu,T_gas_cool
+ use dim,        only:maxvxyzu
+ use timestep,   only:dtextforce,dtmax
  use krome_main, only:krome_init
  use krome_user, only:krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,krome_idx_H,&
        krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
- use part,       only:abundance,abundance_label,eos_vars,igamma,imu,T_gas_cool
- use dim,        only:maxvxyzu
  real :: wind_temperature
 
  print *, ""
@@ -103,36 +106,46 @@ subroutine initialise_krome()
  if (maxvxyzu < 4) then
     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
  endif
+ dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
+#endif
 
 end subroutine initialise_krome
 
 subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
-
- use krome_main,    only:krome
- use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
+#ifdef KROME
  use units,         only:unit_density,utime
  use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
-
+ use krome_main,    only:krome
+ use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
+ real :: T_local, dt_cgs, rho_cgs
+#endif
  real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_in,mu_in,xchem(:)
  real, intent(out)   :: T_gas_cool
- real :: T_local, dt_cgs, rho_cgs
 
+#ifdef KROME
  dt_cgs  = dt*utime
  rho_cgs = rho*unit_density
  T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_in,mui=mu_in)
  T_local = max(T_local,20.0d0)
-! evolve the chemistry and update the abundances
+ ! evolve the chemistry and update the abundances
  call krome(xchem,T_local,dt_cgs)
-! update the particle's mean molecular weight
+ ! update the particle's mean molecular weight
  mu_in =  krome_get_mu_x(xchem)
-! update the particle's adiabatic index
+ ! update the particle's adiabatic index
  gamma_in = krome_get_gamma_x(xchem,T_local)
-! update the particle's temperature
+ ! update the particle's temperature
  T_gas_cool = T_local
-! get the new internal energy
+ ! get the new internal energy
  u = get_local_u_internal(gamma_in,mu_in,T_local)
-! u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
+ ! u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
+#else
+ if (.false.) then
+   ! dummy statement to avoid compiler warning about unused variables
+   T_gas_cool = 0.0
+   print*, dt,xyzh,rho,u,gamma_in,mu_in,xchem,T_gas_cool
+ end if
+#endif
 
 end subroutine update_krome
 

@@ -1053,7 +1053,7 @@ end subroutine get_force
 !------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
- use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
+ use dim,             only:h2chemistry,use_krome
  use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp,rhoh
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
@@ -1064,7 +1064,10 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only:update_krome
- real                       :: ui
+ real                        :: ui
+#else
+ use dim,             only:do_nucleation,update_muGamma,store_dust_temperature
+ real                        :: pH,pH_tot
 #endif
  real,         intent(inout) :: vxyzu(:,:),xyzh(:,:)
  real,         intent(inout) :: eos_vars(:,:),abundance(:,:)
@@ -1075,7 +1078,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real,         intent(in)    :: dt,pmassi
  integer,      intent(in)    :: i
 
- real :: dudtcool,rhoi,dphot,pH,pH_tot
+ real :: dudtcool,rhoi,dphot
  real :: abundi(nabn)
 
  dudtcool = 0.
