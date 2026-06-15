@@ -14,9 +14,10 @@ module testgr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
-!   io, metric, metric_tools, part, physcon, ptmass, substepping,
-!   testutils, timestep_ind, units, utils_gr, vectorutils
+! :Dependencies: cons2prim, cons2primsolver, eos, eos_idealplusrad,
+!   extern_gr, inverse4x4, io, metric, metric_tools, part, physcon, ptmass,
+!   substepping, testutils, timestep_ind, timing, units, utils_gr,
+!   vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -437,6 +438,8 @@ subroutine test_combinations(ntests,npass)
  if (nfaild==0)          npass = npass + 1
  if (nfail_cons2prim==0) npass = npass + 1
 
+ if (ieos == 12) call benchmark_cons2prim_entropy()
+
 end subroutine test_combinations
 
 !----------------------------------------------------------------
@@ -602,5 +605,69 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  enddo over_energy_variables
 
 end subroutine test_cons2prim_i
+
+!----------------------------------------------------------------
+!+
+!  Benchmark cons2prim for ideal gas + radiation with entropy
+!+
+!----------------------------------------------------------------
+subroutine benchmark_cons2prim_entropy()
+ use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use part,            only:ien_entropy_s
+ use metric_tools,    only:pack_metric
+ use eos,             only:ieos,gmw
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
+ use timing,          only:print_time
+ use units,           only:unit_density,unit_pressure,unit_ergg
+ use io,              only:id,master
+ real :: metrici(0:3,0:3,2)
+ real :: x(3),v(3),dens,u,p,temp,gamma,rho,pmom(3),en
+ real :: v_out(3),dens_out,u_out,p_out,gamma_out
+ real :: rhocgs,ucgs,prescgs,mu,t1,t2
+ integer :: ierr,i,nfail,nrepeat
+ integer, parameter :: nrepeat_default = 1000
+
+ if (ieos /= 12) return
+ if (id /= master) return
+
+ mu = gmw
+ nrepeat = nrepeat_default
+ nfail = 0
+
+ x    = (/10.,0.1,0.2/)
+ v    = (/0.1,0.2,0.05/)
+ dens = 1.
+ temp = 1.e7
+ rhocgs  = dens*unit_density
+ call get_idealplusrad_enfromtemp(rhocgs,temp,mu,ucgs)
+ call get_idealplusrad_pres(rhocgs,temp,mu,prescgs)
+ u = ucgs/unit_ergg
+ p = prescgs/unit_pressure
+ gamma = 1. + p/(dens*u)
+
+ call pack_metric(x,metrici)
+ call primitive2conservative(x,metrici,v,dens,u,p,rho,pmom,en,ien_entropy_s)
+
+ v_out    = v
+ dens_out = 0.9*dens
+ u_out    = u
+ p_out    = 0.9*p
+ gamma_out = gamma
+ temp     = 0.9*temp
+
+ call cpu_time(t1)
+ do i=1,nrepeat
+    ierr = 0
+    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,&
+                               rho,pmom,en,ierr,ien_entropy_s)
+    if (ierr /= 0) nfail = nfail + 1
+ enddo
+ call cpu_time(t2)
+
+ write(*,'(/,a)') '--> benchmark: cons2prim with ien_entropy_s (ieos=12)'
+ if (nfail > 0) write(*,'(a,i0,a,i0)') '   convergence failures: ',nfail,' / ',nrepeat
+ call print_time(real((t2-t1)/nrepeat,kind=4),'conservative2primitive')
+
+end subroutine benchmark_cons2prim_entropy
 
 end module testgr

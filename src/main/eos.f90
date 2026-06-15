@@ -636,7 +636,7 @@ subroutine init_eos(eos_type,ierr)
        ierr = ierr_option_conflict
        return
     endif
-    
+
     if (iopacity_type==1) then
        write(*,'(1x,a,f7.5,a,f7.5)') 'Using radiation with MESA opacities. Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
        call init_eos_mesa(X_in,Z_in,ierr_mesakapp)
@@ -1137,7 +1137,7 @@ end subroutine get_rho_from_p_s
 !  method
 !+
 !-----------------------------------------------------------------------
-subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
+subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  use physcon, only:radconst,Rg,mass_proton_cgs,kboltz
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
@@ -1146,8 +1146,9 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
  integer, intent(in)    :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
- real,    parameter  :: eoserr=1e-12
+ integer, intent(out), optional :: niter_out
+ real                :: corr,df,f,temp_new,temp_gas,temp_rad,temp_ic,cgsrho,cgsp,cgss
+ real,    parameter  :: eoserr=1e-13
  integer             :: niter
  integer, parameter  :: nitermax = 1000
 
@@ -1161,11 +1162,31 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgsP = cgsrho*Rg*temp / mu
  case (12)
-    corr = huge(corr)
-    do while (abs(corr) > eoserr .and. niter < nitermax)
-       f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
-       df = 1.5 / (mu*temp*mass_proton_cgs) + 4.*radconst*temp**2 / (cgsrho*kboltz)
-       corr = f/df
+    temp_gas = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
+    temp_rad = (3.*cgss*cgsrho*kboltz/(4.*radconst))**(1./3.)
+    temp_ic  = temp_gas
+    f = 1. / (mu*mass_proton_cgs) * log(temp_ic**1.5/cgsrho) &
+        + 4.*radconst*temp_ic**3 / (3.*cgsrho*kboltz) - cgss
+    corr = abs(f)
+    if (temp_rad > 0.) then
+       f = 1. / (mu*mass_proton_cgs) * log(temp_rad**1.5/cgsrho) &
+           + 4.*radconst*temp_rad**3 / (3.*cgsrho*kboltz) - cgss
+       if (abs(f) < corr) then
+          temp_ic = temp_rad
+          corr = abs(f)
+       endif
+    endif
+    if (temp > 0.) then
+       f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) &
+           + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
+       if (abs(f) < corr) temp_ic = temp
+    endif
+    temp = temp_ic
+    f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) &
+        + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
+    df = 1.5 / (mu*temp*mass_proton_cgs) + 4.*radconst*temp**2 / (cgsrho*kboltz)
+    corr = f/df
+    do while ((abs(corr) > eoserr*temp .or. abs(f) > eoserr*abs(cgss)) .and. niter < nitermax)
        temp_new = temp - corr
        if (temp_new > 1.2 * temp) then
           temp = 1.2 * temp
@@ -1175,6 +1196,10 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
           temp = temp_new
        endif
        niter = niter + 1
+       f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) &
+           + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
+       df = 1.5 / (mu*temp*mass_proton_cgs) + 4.*radconst*temp**2 / (cgsrho*kboltz)
+       corr = f/df
     enddo
     call get_idealplusrad_pres(cgsrho,temp,mu,cgsP)
  case default
@@ -1188,6 +1213,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
 
  ! change back to code unit
  P = cgsP / unit_pressure
+
+ if (present(niter_out)) niter_out = niter
 
 end subroutine get_p_from_rho_s
 
