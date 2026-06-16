@@ -206,13 +206,11 @@ subroutine test_idealplusrad(ntests, npass)
  use units,            only:unit_density,unit_pressure,unit_ergg
  use physcon,          only:Rg
  integer, intent(inout) :: ntests,npass
- integer                :: npts,ieos,ierr,i,j,iwarm,ibench,niter
+ integer                :: npts,ieos,ierr,i,j,iwarm,niter
  integer                :: nfail(8),ncheck(8)
  real                   :: rhocodei,gamma,presi,dum,csound,eni,temp,ponrhoi,mu,tol
  real                   :: errmax(8),pres2,code_eni,pres_code,p_rec,temp_guess,s_code
  real                   :: tol_s
- logical                :: warm,entropy
- character(len=40)      :: label
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing ideal gas + radiation equation of state'
