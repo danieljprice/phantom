@@ -154,6 +154,7 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
  best_f    = huge(best_f)
  temp_ic   = 0.
  corr_ic   = 0.
+ f_ic      = best_f
 
  ! below we try three possible guesses to accelerate convergence
  ! first guess is the input temperature
@@ -165,7 +166,7 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
        if (present(niter_out)) niter_out = niter
        return
     endif
-    temp_ic = temp; corr_ic = corr; f_ic    = f
+    temp_ic = temp; corr_ic = corr; f_ic = f
     best_f  = abs(f)
  endif
 
@@ -180,11 +181,13 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
     endif
  endif
 
- ! third guess is the gas temperature
- temp_gas = (rho*exp(mu*s*mass_proton_cgs))**(2./3.)
- call entropy_fdf(temp_gas,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
- if (abs(f) < best_f) then
-    temp_ic = temp_gas; corr_ic = f/df; f_ic = f
+ ! third guess is the gas temperature (skip expensive exp if IC already good)
+ if (best_f > cgss_tol .or. temp_ic <= 0.) then
+    temp_gas = (rho*exp(mu*s*mass_proton_cgs))**(2./3.)
+    call entropy_fdf(temp_gas,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+    if (abs(f) < best_f) then
+       temp_ic = temp_gas; corr_ic = f/df; f_ic = f
+    endif
  endif
 
  temp = temp_ic
