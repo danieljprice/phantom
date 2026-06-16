@@ -18,7 +18,7 @@ module eos_zerotemp
  real :: mu_e ! mean molecular weight per free electron
 
 
- public :: eos_zerotemp_init,eos_zerotemp_read_options,write_eos_zerotemp_options,&
+ public :: eos_zerotemp_init,read_options_eos_zerotemp,write_options_eos_zerotemp,&
            f_chandra,get_zerotemp_pressure,get_zerotemp_u,get_zerotemp_spsoundi,&
            get_zerotemp_rhofrompres,eos_zerotemp_calc_mu_e,eos_zerotemp_eosinfo
 
@@ -98,27 +98,27 @@ end subroutine eos_zerotemp_init
 !  read options from input file
 !+
 !----------------------------------------------------------------
-subroutine eos_zerotemp_read_options(db,nerr)
+subroutine read_options_eos_zerotemp(db,nerr)
 
  use infile_utils, only: inopts, read_inopt
  type(inopts), intent(inout) :: db(:)
  integer, intent(inout) :: nerr
 
- call read_inopt(xh ,'xh' ,'Hydrogen mass fraction',db,errcount=nerr,min=0.,max=1.,default=xh)
- call read_inopt(xhe,'xhe','Helium mass fraction',db,errcount=nerr,min=0.,max=1.,default=xhe)
- call read_inopt(xc ,'xc' ,'Carbon mass fraction',db,errcount=nerr,min=0.,max=1.,default=xc)
- call read_inopt(xo ,'xo' ,'Oxygen mass fraction',db,errcount=nerr,min=0.,max=1.,default=xo)
- call read_inopt(xne,'xne','Neon mass fraction',db,errcount=nerr,min=0.,max=1.,default=xne)
- call read_inopt(xmg,'xmg','Magnesium mass fraction',db,errcount=nerr,min=0.,max=1.,default=xmg)
+ call read_inopt(xh ,'xh',db,nerr)
+ call read_inopt(xhe,'xhe',db,nerr)
+ call read_inopt(xc ,'xc',db,nerr)
+ call read_inopt(xo ,'xo',db,nerr)
+ call read_inopt(xne,'xne',db,nerr)
+ call read_inopt(xmg,'xmg',db,nerr)
 
-end subroutine eos_zerotemp_read_options
+end subroutine read_options_eos_zerotemp
 
 !----------------------------------------------------------------
 !+
 !  write options to input file
 !+
 !----------------------------------------------------------------
-subroutine write_eos_zerotemp_options(iunit)
+subroutine write_options_eos_zerotemp(iunit)
 
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
@@ -130,7 +130,7 @@ subroutine write_eos_zerotemp_options(iunit)
  call write_inopt(xne,'xne','Neon mass fraction',iunit)
  call write_inopt(xmg,'xmg','Magnesium mass fraction',iunit)
 
-end subroutine write_eos_zerotemp_options
+end subroutine write_options_eos_zerotemp
 !----------------------------------------------------------------
 !+
 !  print eos information

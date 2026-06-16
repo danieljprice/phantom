@@ -1595,6 +1595,7 @@ subroutine eosinfo(eos_type,iprint)
  use eos_gasradrec,  only:eos_info_gasradrec
  use eos_stamatellos,only:eos_file
  use eos_tillotson,  only:eos_info_tillotson
+ use eos_zerotemp,   only:eos_zerotemp_eosinfo
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1760,7 +1761,7 @@ subroutine write_options_eos(iunit)
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
  use eos_tillotson,  only:write_options_eos_tillotson
- use eos_zerotemp,   only:write_eos_zerotemp_options
+ use eos_zerotemp,   only:write_options_eos_zerotemp
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -1789,7 +1790,7 @@ subroutine write_options_eos(iunit)
  case(23)
     call write_options_eos_tillotson(iunit)
  case(25)
-   call write_eos_zerotemp_options(iunit)
+   call write_options_eos_zerotemp(iunit)
  end select
 
  if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then
@@ -1818,7 +1819,7 @@ subroutine read_options_eos(db,nerr)
  use eos_gasradrec,  only:read_options_eos_gasradrec
  use eos_helmholtz,  only:read_options_eos_helmholtz
  use eos_tillotson,  only:read_options_eos_tillotson
- use eos_zerotemp,   only:eos_zerotemp_read_options
+ use eos_zerotemp,   only:read_options_eos_zerotemp
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter  :: label = 'read_infile'
