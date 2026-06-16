@@ -10,7 +10,7 @@ module eos_zerotemp
 !
 ! :References: Kippenhahn & Weigert, Stellar Structure and Evolution, section 15.2
 !
-! :Dependencies: infile_utils, io, units, physcon
+! :Dependencies: physcon
 !
  use units, only:unit_density,unit_velocity
  use physcon,  only:pi,atomic_mass_unit, mass_electron_cgs, planckh, c
@@ -18,18 +18,33 @@ module eos_zerotemp
  real, parameter :: mu_e = 2 ! mean molecular weight per free electron
 
 
- public :: f_chandra
+ public :: f_chandra, get_zerotemp_Pressure,get_zerotemp_u, get_zerotemp_spsoundi,&
+           get_zerotemp_rhofrompres
 
  private
 
 contains
+
+!----------------------------------------------------------------
+!+
+!  Chandrasekhar's EOS function
+!+
+!----------------------------------------------------------------
+
+real function f_chandra(x) result(fx)
+ real, intent(in) :: x
+
+ fx = x*(2*x**2 - 3)*sqrt(1+x**2) + 3*log(x + sqrt(1+x**2))
+end function f_chandra
+
+
 
 ! ----------------------------------------------------------------
 !+
 !  Calculates the zero temperature pressure for a fully degenerate electron gas, i.e. a
 !  white dwarf. See Kippenhahn & Weigert, Stellar Structure and Evolution, section 15.2
 !  Note that this is only the electron degeneracy pressure, so does not include the ion
-!+
+!+ input/output is cgs
 ! ----------------------------------------------------------------
 
 subroutine get_zerotemp_Pressure(rhoi,presi)
@@ -57,7 +72,7 @@ end subroutine get_zerotemp_Pressure
 !+!  Inputs and outputs in cgs units
 !+!  get internal energy from density for zero temperature EOS
 !-----------------------------------------------------------------------
-subroutine get_zerotemp_u_from_rho(rhoi,u)
+subroutine get_zerotemp_u(rhoi,u)
  real,    intent(in)    :: rhoi
  real,    intent(out)   :: u
  real :: ne, x, gx
@@ -70,25 +85,12 @@ subroutine get_zerotemp_u_from_rho(rhoi,u)
     gx = (8*x**3)*(sqrt(x**2 + 1)-1)-f_chandra(x)
     u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
 
-end subroutine calc_uT_from_rhoP_gasradrec
-
-!----------------------------------------------------------------
-!+
-!  Chandrasekhar's EOS function
-!+
-!----------------------------------------------------------------
-
-real function f_chandra(x) result(fx)
- real, intent(in) :: x
-
- fx = x*(2*x**2 - 3)*sqrt(1+x**2) + 3*log(x + sqrt(1+x**2))
-end function f_chandra
-
+end subroutine get_zerotemp_u
 
 
 !----------------------------------------------------------------
 !+
-!  Calculates sound speed from density (derivative of f(x), analytically found)
+!  Calculates sound speed from density (derivative of f(x), analytically found), input output in cgs
 !+
 !----------------------------------------------------------------
 
@@ -108,47 +110,57 @@ end subroutine get_zerotemp_spsoundi
 
 !----------------------------------------------------------------
 !+
-!  Calculates density from pressure (involves the bisection method)
+!  Calculates density from pressure (involves the bisection method), input output in cgs
 !+
 !----------------------------------------------------------------
 subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
- real, intent(in)  :: presi
- real, intent(out) :: densi
- integer, intent(out)   :: ierr
 
- real :: ne, x, fx
- integer, parameter  :: iter_max = 1000 ! it shouldn't need more than 100
- real, parameter :: tolerance = 1.e-12
+   real, intent(in)  :: presi
+   real, intent(out) :: densi
+   integer, intent(out) :: ierr
 
- fx = P * (3.0*planckh**3)/(pi * mass_electron_cgs**4 * c**5)
-         ! bracket
- xlo = 0.0
- xhi = 1.0
+   real :: ne, x, fx
+   real :: xlo, xhi, xmid
+   integer :: iter
 
- ierr = 0
- iter = 0
+   integer, parameter :: iter_max = 1000
+   real,    parameter :: tolerance = 1.e-12
 
- while f_chandra(xhi) < fx:
-     xhi = 2.0*xhi
+   fx = presi * (3.0*planckh**3) / &
+        (pi*mass_electron_cgs**4*c**5)
 
-    ! bisection
-    do while (iter<iter_max)
-        xmid = 0.5*(xlo + xhi)
+   ! Initial bracket
+   xlo = 0.0
+   xhi = 1.0
 
-        if f_x(xmid) > fx:
-            xhi = xmid
-        else:
-            xlo = xmid
+   do while (f_chandra(xhi) < fx)
+      xhi = 2.0*xhi
+   end do
 
-        if abs(xhi - xlo)/(xmid + 1.0e-300) < tol(1.e-12):
-            break
-        iter
-    x = 0.5*(xlo + xhi)
-    ! print("fx tolerance=",(f_x(x)-fx)/fx)
-    ne = (8*np.pi*m_e**3*c**3/(3*h**3)) * x**3
-    rho_out[j] = ne*(mu_e * m_u)
+   ierr = 0
 
-    if (iter >= iter_max) ierr = 1
+   do iter = 1, iter_max
+
+      xmid = 0.5*(xlo + xhi)
+
+      if (f_chandra(xmid) > fx) then
+         xhi = xmid
+      else
+         xlo = xmid
+      end if
+
+      if (abs(xhi-xlo)/(xmid+1.e-300) < tolerance) exit
+
+   end do
+
+   if (iter == iter_max) ierr = 1
+
+   x = 0.5*(xlo + xhi)
+
+   ne = (8.0*pi*mass_electron_cgs**3*c**3 / &
+        (3.0*planckh**3)) * x**3
+
+   densi = ne * mu_e * atomic_mass_unit
 
 end subroutine get_zerotemp_rhofrompres
 
