@@ -794,7 +794,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: fonrmaxi,phii,dtphi2i
  real                 :: dkdt,extrapfac
  real                 :: densi,uui,pri,tempi,vxyz(3),fext_gr(3),xyz(3)
- logical              :: extrap,last,do_recompute_gr
+ logical              :: extrap,last,do_recompute_gr,do_skip_metric_update
 
  allocate(merge_ij(nptmass))
  allocate(ponsubg(nptmass))
@@ -819,6 +819,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  last          = (force_count == n_force_order)
  do_recompute_gr = .false.
  if (present(recompute_gr_force)) do_recompute_gr = recompute_gr_force
+ do_skip_metric_update = .false.
+ if (present(skip_metric_update)) do_skip_metric_update = skip_metric_update
 
  !
  ! cached min GR timestep from kickdrift_gr (global scalar, not per-particle)
@@ -831,7 +833,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  ! update time-dependent external forces
  !
  call calc_damp(timei, damp_fac)
- if (.not.present(skip_metric_update) .or. .not.skip_metric_update) then
+ if (.not.do_skip_metric_update) then
     call update_externalforce(iexternalforce,timei,dmdt)
  endif
  !
