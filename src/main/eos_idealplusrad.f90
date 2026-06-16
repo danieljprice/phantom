@@ -12,7 +12,7 @@ module eos_idealplusrad
 ! :References: Stellar Structure and Evolution (2nd Edition) (Kippenhahn,
 !              Weigert, Weiss)
 !
-! :Owner: Mike Lau
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

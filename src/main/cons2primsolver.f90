@@ -254,7 +254,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  elseif (ieos==4) then
     p = (gamma-1.)*dens*polyk
  elseif (ien_type == ien_entropy_s) then
-    if (have_eos_cache .and. abs(dens-dens_eos)/dens <= dens_eps) then
+    if (have_eos_cache .and. abs(dens-dens_eos) <= dens_eps*dens) then
        P    = p_eos
        temp = temp_eos
     else

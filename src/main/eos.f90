@@ -1152,6 +1152,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  ! change to cgs unit
  cgsrho = rho*unit_density
  cgss   = s*unit_ergg
+ if (present(niter_out)) niter_out = 0
 
  select case (ieos)
  case (2,5)
