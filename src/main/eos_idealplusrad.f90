@@ -170,14 +170,16 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
     best_f  = abs(f)
  endif
 
- ! second guess is the radiation temperature
+ ! second guess is the radiation temperature (radiation-dominated limit, s > 0)
  ! we take this if the residual is lower than the best so far
- temp_rad = (3.*s*rho*kboltz/(4.*radconst))**one_third
- if (temp_rad > 0.) then
-    call entropy_fdf(temp_rad,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
-    if (abs(f) < best_f) then
-       temp_ic = temp_rad; corr_ic = f/df; f_ic = f
-       best_f  = abs(f)
+ if (s > 0.) then
+    temp_rad = (3.*s*rho*kboltz/(4.*radconst))**one_third
+    if (temp_rad > 0.) then
+       call entropy_fdf(temp_rad,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+       if (abs(f) < best_f) then
+          temp_ic = temp_rad; corr_ic = f/df; f_ic = f
+          best_f  = abs(f)
+       endif
     endif
  endif
 
