@@ -38,7 +38,6 @@ module eos_zerotemp
  real :: xmass(speciesmax) ! mass fraction of species
  real :: Aion(speciesmax)  ! number of nucleons
  real :: Zion(speciesmax)  ! number of protons
- real :: abar, zbar
 contains
 
 
@@ -51,7 +50,6 @@ subroutine eos_zerotemp_init(ierr)
 
  use io, only: warning, fatal
  integer, intent(out) :: ierr
- integer :: i
 
  ierr = 0
 
@@ -233,15 +231,19 @@ end subroutine get_zerotemp_u
 subroutine get_zerotemp_spsoundi(rhoi,spsoundi)
  real, intent(in)  :: rhoi
  real, intent(out) :: spsoundi
- real :: ne, x, constants_cs
+ real :: ne, x
+
+ if (rhoi <= 0.0) then
+    spsoundi = 0.0
+    return
+ endif
 
  ne = rhoi / (mu_e * atomic_mass_unit)
 
  x = ( (3.0 * ne * planckh**3) / &
         (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
 
- constants_cs = (mass_electron_cgs * c**2 / (24.0* atomic_mass_unit*mu_e))
- spsoundi = sqrt(constants_cs * ((6.0 * x**2 - 3.0)*sqrt(1.0 + x**2) + (2.0 * x**4 - 3.0*x**2 +3.0)/sqrt(1.0+x**2))/x**2)
+ spsoundi = sqrt((mass_electron_cgs * c**2 * x**2) / (3.0 * atomic_mass_unit * mu_e * sqrt(1.0 + x**2)))
 end subroutine get_zerotemp_spsoundi
 
 !----------------------------------------------------------------
