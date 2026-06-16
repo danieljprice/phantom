@@ -13,17 +13,153 @@ module eos_zerotemp
 ! :Dependencies: physcon
 !
  use units, only:unit_density,unit_velocity
- use physcon,  only:pi,atomic_mass_unit, mass_electron_cgs, planckh, c
+ use physcon,  only:pi,atomic_mass_unit,mass_electron_cgs,planckh,c
  implicit none
- real, parameter :: mu_e = 2 ! mean molecular weight per free electron
+ real :: mu_e ! mean molecular weight per free electron
 
 
- public :: f_chandra, get_zerotemp_pressure,get_zerotemp_u, get_zerotemp_spsoundi,&
-           get_zerotemp_rhofrompres
+ public :: eos_zerotemp_init,eos_zerotemp_read_options,write_eos_zerotemp_options,&
+           f_chandra,get_zerotemp_pressure,get_zerotemp_u,get_zerotemp_spsoundi,&
+           get_zerotemp_rhofrompres,eos_zerotemp_calc_mu_e,eos_zerotemp_eosinfo
 
  private
 
+  ! these set the mixture of species
+ ! following elements can be set by user at runtime
+ real :: xh  = 0.0
+ real :: xhe = 0.0
+ real :: xc  = 0.5
+ real :: xo  = 0.5
+ real :: xne = 0.0
+ real :: xmg = 0.0 
+ 
+ integer, parameter :: speciesmax = 6
+ character(len=10) :: speciesname(speciesmax)
+ real :: xmass(speciesmax) ! mass fraction of species
+ real :: Aion(speciesmax)  ! number of nucleons
+ real :: Zion(speciesmax)  ! number of protons
+ real :: abar, zbar
 contains
+
+
+!----------------------------------------------------------------
+!+
+!  initialise zero-temperature EOS composition
+!+
+!----------------------------------------------------------------
+subroutine eos_zerotemp_init(ierr)
+
+ use io, only: warning, fatal
+ integer, intent(out) :: ierr
+ integer :: i
+
+ ierr = 0
+
+ !----------------------------
+ ! species definitions
+ !----------------------------
+ speciesname(1) = "hydrogen"
+ speciesname(2) = "helium"
+ speciesname(3) = "carbon"
+ speciesname(4) = "oxygen"
+ speciesname(5) = "neon"
+ speciesname(6) = "magnesium"
+
+ Aion(1) = 1.0   ; Zion(1) = 1.0
+ Aion(2) = 4.0   ; Zion(2) = 2.0
+ Aion(3) = 12.0  ; Zion(3) = 6.0
+ Aion(4) = 16.0  ; Zion(4) = 8.0
+ Aion(5) = 20.0  ; Zion(5) = 10.0
+ Aion(6) = 24.0  ; Zion(6) = 12.0
+
+ !----------------------------
+ ! pack mass fractions
+ !----------------------------
+ xmass(:) = 0.0
+ xmass(1) = xh
+ xmass(2) = xhe
+ xmass(3) = xc
+ xmass(4) = xo
+ xmass(5) = xne
+ xmass(6) = xmg
+
+ if (abs(sum(xmass(:)) - 1.0) > 1e-6) then
+    call warning('eos_zerotemp_init','mass fractions do not sum to 1')
+    ierr = 1
+    return
+ endif
+
+ call eos_zerotemp_calc_mu_e()
+ write(*,'(a,f10.7)') 'mean mu_e = ', mu_e
+end subroutine eos_zerotemp_init
+
+!----------------------------------------------------------------
+!+
+!  read options from input file
+!+
+!----------------------------------------------------------------
+subroutine eos_zerotemp_read_options(db,nerr)
+
+ use infile_utils, only: inopts, read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer, intent(inout) :: nerr
+
+ call read_inopt(xh ,'xh' ,'Hydrogen mass fraction',db,errcount=nerr,min=0.,max=1.,default=xh)
+ call read_inopt(xhe,'xhe','Helium mass fraction',db,errcount=nerr,min=0.,max=1.,default=xhe)
+ call read_inopt(xc ,'xc' ,'Carbon mass fraction',db,errcount=nerr,min=0.,max=1.,default=xc)
+ call read_inopt(xo ,'xo' ,'Oxygen mass fraction',db,errcount=nerr,min=0.,max=1.,default=xo)
+ call read_inopt(xne,'xne','Neon mass fraction',db,errcount=nerr,min=0.,max=1.,default=xne)
+ call read_inopt(xmg,'xmg','Magnesium mass fraction',db,errcount=nerr,min=0.,max=1.,default=xmg)
+
+end subroutine eos_zerotemp_read_options
+
+!----------------------------------------------------------------
+!+
+!  write options to input file
+!+
+!----------------------------------------------------------------
+subroutine write_eos_zerotemp_options(iunit)
+
+ use infile_utils, only: write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(xh ,'xh' ,'Hydrogen mass fraction',iunit)
+ call write_inopt(xhe,'xhe','Helium mass fraction',iunit)
+ call write_inopt(xc ,'xc' ,'Carbon mass fraction',iunit)
+ call write_inopt(xo ,'xo' ,'Oxygen mass fraction',iunit)
+ call write_inopt(xne,'xne','Neon mass fraction',iunit)
+ call write_inopt(xmg,'xmg','Magnesium mass fraction',iunit)
+
+end subroutine write_eos_zerotemp_options
+!----------------------------------------------------------------
+!+
+!  print eos information
+!+
+!----------------------------------------------------------------
+subroutine eos_zerotemp_eosinfo(iprint)
+ integer, intent(in) :: iprint
+ integer :: i
+
+ write(iprint,"(/,a)") ' Zero temperature equation of state'
+ write(iprint,"(a)") '   mass fractions of each species:'
+ do i=1,speciesmax
+    if (xmass(i) > 0.0) then
+       write(iprint,"(a,a,a,f5.3)") '     ', speciesname(i), ': ', xmass(i)
+    endif
+ enddo
+ write(iprint,'(a,f10.7)') '   mu_e = ', mu_e
+end subroutine eos_zerotemp_eosinfo
+
+!----------------------------------------------------------------
+!+
+!  compute mean molecular weight per electron
+!+
+!----------------------------------------------------------------
+subroutine eos_zerotemp_calc_mu_e()
+
+ mu_e = 1.0 / sum(xmass(:) * Zion(:) / Aion(:))
+
+end subroutine eos_zerotemp_calc_mu_e
 
 !----------------------------------------------------------------
 !+

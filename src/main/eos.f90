@@ -567,6 +567,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  use eos_tillotson,  only:init_eos_tillotson
+ use eos_zerotemp,   only:eos_zerotemp_init
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  integer              :: ierr_mesakapp,ierr_ra
@@ -651,7 +652,7 @@ subroutine init_eos(eos_type,ierr)
     !
     ! zero temperature
     !
-    write(*,*) 'Using zero temperature EoS (assuming mu_electron=2) '
+    call eos_zerotemp_init(ierr)
 
  end select
  done_init_eos = .true.
@@ -1647,7 +1648,7 @@ subroutine eosinfo(eos_type,iprint)
  case(24)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  case(25)
-    write(*,'(1x,a,i1,a)') 'Using zero temperature EoS, assuming mu_electron=2'
+    call eos_zerotemp_eosinfo(iprint)
 
  end select
  write(iprint,*)
@@ -1759,6 +1760,7 @@ subroutine write_options_eos(iunit)
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
  use eos_tillotson,  only:write_options_eos_tillotson
+ use eos_zerotemp,   only:write_eos_zerotemp_options
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -1786,6 +1788,8 @@ subroutine write_options_eos(iunit)
     endif
  case(23)
     call write_options_eos_tillotson(iunit)
+ case(25)
+   call write_eos_zerotemp_options(iunit)
  end select
 
  if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then
@@ -1814,6 +1818,7 @@ subroutine read_options_eos(db,nerr)
  use eos_gasradrec,  only:read_options_eos_gasradrec
  use eos_helmholtz,  only:read_options_eos_helmholtz
  use eos_tillotson,  only:read_options_eos_tillotson
+ use eos_zerotemp,   only:eos_zerotemp_read_options
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter  :: label = 'read_infile'
@@ -1844,6 +1849,7 @@ subroutine read_options_eos(db,nerr)
  if (ieos==15) call read_options_eos_helmholtz(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
  if (ieos==23) call read_options_eos_tillotson(db,nerr)
+ if (ieos==25) call read_options_eos_zerotemp(db,nerr)
 
 end subroutine read_options_eos
 
