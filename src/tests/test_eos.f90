@@ -199,14 +199,18 @@ end subroutine test_u_from_Prho
 !----------------------------------------------------------------------------
 subroutine test_idealplusrad(ntests, npass)
  use io,               only:id,master,stdout
- use eos,              only:init_eos,equationofstate
- use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
+ use eos,              only:init_eos,equationofstate,get_entropy,get_p_from_rho_s
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres,&
+                            get_idealgasplusrad_tempfrompres
  use testutils,        only:checkval,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use units,            only:unit_density,unit_pressure,unit_ergg
  use physcon,          only:Rg
  integer, intent(inout) :: ntests,npass
- integer                :: npts,ieos,ierr,i,j,nfail(2),ncheck(2)
- real                   :: rhocodei,gamma,presi,dum,csound,eni,temp,ponrhoi,mu,tol,errmax(2),pres2,code_eni
+ integer                :: npts,ieos,ierr,i,j,iwarm,niter
+ integer                :: nfail(8),ncheck(8)
+ real                   :: rhocodei,gamma,presi,dum,csound,eni,temp,ponrhoi,mu,tol
+ real                   :: errmax(8),pres2,code_eni,pres_code,p_rec,temp_guess,s_code
+ real                   :: tol_s
  real, allocatable      :: rhogrid(:),Tgrid(:)
 
  if (id==master) write(*,"(/,a)") '--> testing ideal gas + radiation equation of state'
@@ -217,30 +221,129 @@ subroutine test_idealplusrad(ntests, npass)
  call get_rhoT_grid(npts,rhogrid,Tgrid)
  dum = 0.
  tol = 2.e-15
+ tol_s = 1.e-12
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
  do i=1,npts
     do j=1,npts
-       ! Get u, P from rho, T
        call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,eni)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
-       ! Recalculate T, P, from rho, u
+       rhocodei  = rhogrid(i)/unit_density
+       pres_code = presi/unit_pressure
+
        code_eni = eni/unit_ergg
-       temp = eni*mu/Rg ! guess
-       rhocodei = rhogrid(i)/unit_density
+       temp = eni*mu/Rg
        call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,temp,code_eni,mu_local=mu,gamma_local=gamma)
        pres2 = ponrhoi * rhocodei * unit_pressure
 
        call checkvalbuf(temp,Tgrid(j),tol,'T from rho, u',nfail(1),ncheck(1),errmax(1),use_rel_tol)
        call checkvalbuf(pres2,presi,tol,'P from rho, u',nfail(2),ncheck(2),errmax(2),use_rel_tol)
+
+       do iwarm=0,1
+          temp_guess = 1.
+          if (iwarm==1) temp_guess = Tgrid(j)
+          call get_idealgasplusrad_tempfrompres(presi,rhogrid(i),mu,temp_guess)
+          call checkvalbuf(temp_guess,Tgrid(j),tol,'T from rho, P',nfail(3+iwarm),ncheck(3+iwarm),errmax(3+iwarm),use_rel_tol)
+       enddo
+
+       s_code = get_entropy(rhocodei,pres_code,mu,ieos)
+       do iwarm=0,1
+          temp_guess = 1.
+          if (iwarm==1) temp_guess = Tgrid(j)
+          call get_p_from_rho_s(ieos,s_code,rhocodei,mu,p_rec,temp_guess,niter_out=niter)
+          call checkvalbuf(temp_guess,Tgrid(j),tol_s,'T from rho, S',nfail(5+iwarm),ncheck(5+iwarm),errmax(5+iwarm),use_rel_tol)
+          call checkvalbuf(p_rec,pres_code,tol_s,'P from rho, S',nfail(7+iwarm),ncheck(7+iwarm),errmax(7+iwarm),use_rel_tol)
+       enddo
     enddo
  enddo
  call checkvalbuf_end('T from rho, u',ncheck(1),nfail(1),errmax(1),tol)
  call checkvalbuf_end('P from rho, u',ncheck(2),nfail(2),errmax(2),tol)
+ call checkvalbuf_end('T from rho, P (cold)',ncheck(3),nfail(3),errmax(3),tol)
+ call checkvalbuf_end('T from rho, P (warm)',ncheck(4),nfail(4),errmax(4),tol)
+ call checkvalbuf_end('T from rho, S (cold)',ncheck(5),nfail(5),errmax(5),tol_s)
+ call checkvalbuf_end('T from rho, S (warm)',ncheck(6),nfail(6),errmax(6),tol_s)
+ call checkvalbuf_end('P from rho, S (cold)',ncheck(7),nfail(7),errmax(7),tol_s)
+ call checkvalbuf_end('P from rho, S (warm)',ncheck(8),nfail(8),errmax(8),tol_s)
  call update_test_scores(ntests,nfail,npass)
 
+ if (id==master) then
+    call benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,.true.,.false.,'get_idealgasplusrad_tempfrompres (cold)')
+    call benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,.false.,.false.,'get_idealgasplusrad_tempfrompres (warm)')
+    call benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,.true.,.true.,'get_p_from_rho_s (cold)')
+    call benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,.false.,.true.,'get_p_from_rho_s (warm)')
+ endif
+
+ deallocate(rhogrid,Tgrid)
+
 end subroutine test_idealplusrad
+
+!----------------------------------------------------------------------------
+!+
+!  Benchmark one ideal gas + radiation kernel over the rho-T grid
+!+
+!----------------------------------------------------------------------------
+subroutine benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,warm,entropy,label)
+ use io,               only:id,master
+ use eos,              only:get_entropy,get_p_from_rho_s
+ use eos_idealplusrad, only:get_idealplusrad_pres,get_idealgasplusrad_tempfrompres
+ use units,            only:unit_density,unit_pressure
+ integer, intent(in)           :: npts,ieos
+ real,    intent(in)           :: rhogrid(npts),Tgrid(npts),mu
+ logical, intent(in)           :: warm,entropy
+ character(len=*), intent(in) :: label
+ integer, parameter            :: nrepeat = 10
+ integer                       :: i,j,irep,ncall,niter,niter_sum,niter_max
+ integer                       :: n_zero
+ real                          :: t1,t2,temp_guess,p_rec,us_per_call,p_code
+ real, allocatable             :: pres_cgs(:,:),rhocode(:,:),s_code(:,:)
+
+ if (id /= master) return
+
+ allocate(pres_cgs(npts,npts),rhocode(npts,npts),s_code(npts,npts))
+ do i=1,npts
+    do j=1,npts
+       rhocode(i,j) = rhogrid(i)/unit_density
+       call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,pres_cgs(i,j))
+       p_code = pres_cgs(i,j)/unit_pressure
+       if (entropy) s_code(i,j) = get_entropy(rhocode(i,j),p_code,mu,ieos)
+    enddo
+ enddo
+
+ ncall = npts*npts*nrepeat
+ niter_sum = 0
+ niter_max = 0
+ n_zero = 0
+ call cpu_time(t1)
+ do irep=1,nrepeat
+    do i=1,npts
+       do j=1,npts
+          niter = 0
+          temp_guess = 1.
+          if (warm) temp_guess = Tgrid(j)
+          if (entropy) then
+             call get_p_from_rho_s(ieos,s_code(i,j),rhocode(i,j),mu,p_rec,temp_guess,niter_out=niter)
+             if (niter==0) n_zero = n_zero + 1
+          else
+             call get_idealgasplusrad_tempfrompres(pres_cgs(i,j),rhogrid(i),mu,temp_guess)
+          endif
+          niter_sum = niter_sum + niter
+          niter_max = max(niter_max,niter)
+       enddo
+    enddo
+ enddo
+ call cpu_time(t2)
+
+ us_per_call = (t2-t1)/real(ncall)*1.e6
+ if (entropy) then
+    write(*,'(a,f12.6,a,i0,a,i0,a,i0)') '   mean niter = ',real(niter_sum)/real(ncall),'  max niter = ',niter_max,&
+         '  niter=0 on ',n_zero,'/',ncall
+ endif
+ write(*,'(1x,a,1x,f10.2,a)') trim(label),us_per_call,' us/call'
+
+ deallocate(pres_cgs,rhocode,s_code)
+
+end subroutine benchmark_idealplusrad_kernel
 
 !----------------------------------------------------------------------------
 !+

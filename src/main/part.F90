@@ -190,12 +190,15 @@ module part
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
  real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
  real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
+! cached GR metric-gradient force from kickdrift_gr (reused in get_force)
+ real, allocatable :: fgr(:,:)       ! fgr(3,maxgr)
 !
 !--sink particles in General relativity
 !
  real, allocatable :: pxyzu_ptmass(:,:) !pxyz_ptmass(maxvxyzu,maxgr)
  real, allocatable :: metrics_ptmass(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs_ptmass(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+ real, allocatable :: fgr_ptmass(:,:)       ! fgr_ptmass(3,maxptmassgr)
 !
 !--sink particles
 !
@@ -490,6 +493,10 @@ subroutine allocate_part
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
  call allocate_array('tmunus', tmunus, 4, 4, maxgr)
  call allocate_array('sqrtgs', sqrtgs, maxgr)
+ if (gr) then
+    call allocate_array('fgr', fgr, 3, maxgr)
+    call allocate_array('fgr_ptmass', fgr_ptmass, 3, maxptmassgr)
+ endif
  call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
  call allocate_array('metrics_ptmass', metrics_ptmass, 4, 4, 2, maxptmassgr)
  call allocate_array('metricderivs_ptmass', metricderivs_ptmass, 4, 4, 3, maxptmassgr)
@@ -587,6 +594,8 @@ subroutine deallocate_part
  if (allocated(metricderivs)) deallocate(metricderivs)
  if (allocated(tmunus))       deallocate(tmunus)
  if (allocated(sqrtgs))       deallocate(sqrtgs)
+ if (allocated(fgr))          deallocate(fgr)
+ if (allocated(fgr_ptmass))     deallocate(fgr_ptmass)
  if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
  if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
  if (allocated(metricderivs_ptmass))  deallocate(metricderivs_ptmass)
@@ -719,7 +728,6 @@ subroutine init_part
     dt_in(:)      = 0.
     twas(:)       = 0.
  endif
-
  if (use_sinktree) iphase(maxpsph+1:maxp) = isink
 
  ideadhead = 0
@@ -1262,7 +1270,10 @@ subroutine copy_particle(src,dst,new_part)
     rad(:,dst) = rad(:,src)
     radprop(:,dst) = radprop(:,src)
  endif
- if (gr) pxyzu(:,dst) = pxyzu(:,src)
+ if (gr) then
+    pxyzu(:,dst) = pxyzu(:,src)
+    if (allocated(fgr)) fgr(:,dst) = fgr(:,src)
+ endif
  divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
@@ -1344,6 +1355,7 @@ subroutine copy_particle_all(src,dst,new_part)
        ppred(:,dst) = ppred(:,src)
     endif
     dens(dst) = dens(src)
+    if (allocated(fgr)) fgr(:,dst) = fgr(:,src)
  endif
 
  divcurlv(:,dst) = divcurlv(:,src)

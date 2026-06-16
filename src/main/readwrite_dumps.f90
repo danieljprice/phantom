@@ -212,7 +212,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,nerr)
           if (imetric==imet_et .or. imetric==imet_binarybh) then
              ! Output metric if imetric=iet
-             call init_metric(npart,xyzh,metrics,metricderivs)
+             call init_metric(npart,xyzh,metrics,metricderivs,time=t)
              call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,nerr)

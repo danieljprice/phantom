@@ -148,11 +148,13 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  real :: gammaijUP(1:3,1:3)
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,sqrt_gamma
+ real :: dens_eos,p_eos,temp_eos
  real(kind=8) :: cgsdens,cgsu
  integer :: niter, i
  real, parameter :: tol = 1.e-12
+ real, parameter :: dens_eps = 1.e-12
  integer, parameter :: nitermax = 100
- logical :: converged
+ logical :: converged,have_eos_cache
  real    :: gcov(0:3,0:3)
  ierr = 0
 
@@ -172,6 +174,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
 
  niter = 0
  converged = .false.
+ have_eos_cache = .false.
  call get_sqrt_gamma(gcov,sqrt_gamma)
  sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
  term = rho*sqrt_gamma_inv
@@ -190,6 +193,10 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = (gamma-1.)*dens*polyk
     elseif (ien_type == ien_entropy_s) then
        call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+       dens_eos = dens
+       p_eos    = P
+       temp_eos = temp
+       have_eos_cache = .true.
        select case(ieos)
        case (12)
           cgsdens = dens * unit_density
@@ -247,7 +254,12 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  elseif (ieos==4) then
     p = (gamma-1.)*dens*polyk
  elseif (ien_type == ien_entropy_s) then
-    call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+    if (have_eos_cache .and. abs(dens-dens_eos) <= dens_eps*dens) then
+       P    = p_eos
+       temp = temp_eos
+    else
+       call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+    endif
     select case(ieos)
     case (12)
        cgsdens = dens * unit_density

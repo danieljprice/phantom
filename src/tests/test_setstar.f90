@@ -14,9 +14,9 @@ module testsetstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, dim, eos, io, mpidomain, options, part,
-!   physcon, setstar, setstar_utils, sortutils, table_utils, testutils,
-!   units
+! :Dependencies: checksetup, datafiles, dim, eos, io, mpidomain, options,
+!   part, physcon, radiation_utils, readwrite_mesa, relaxstar, setstar,
+!   setstar_utils, sortutils, table_utils, testutils, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -199,10 +199,9 @@ subroutine test_polytrope(ntests,npass)
 
 end subroutine test_polytrope
 
-
 !-----------------------------------------------------------------------
 !+
-!   test that we can successfully relax a red supergiant star from 
+!   test that we can successfully relax a red supergiant star from
 !   Lau et al. (2022a,b)
 !+
 !-----------------------------------------------------------------------
@@ -309,7 +308,7 @@ subroutine test_redsupergiant(ntests,npass)
     call check_setup(nerror,nwarn,restart=.false.)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
     call update_test_scores(ntests,nfail,npass)
-   
+
     call checkval(rmserr,0.0,0.04,nfail(1),'error in density profile')
     call update_test_scores(ntests,nfail,npass)
 

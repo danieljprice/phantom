@@ -15,9 +15,9 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, boundary, boundary_dyn, centreofmass, dim,
-!   dust, eos, externalforces, inject, io, metric_tools, nicil, options,
-!   part, physcon, ptmass, ptmass_radiation, sortutils, timestep, units,
-!   utils_gr
+!   dust, dust_formation, eos, externalforces, inject, io, metric_tools,
+!   nicil, options, part, physcon, ptmass, ptmass_radiation, sortutils,
+!   timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -1121,7 +1121,7 @@ subroutine check_cooling(xcom,vcom,nerror)
  use part,            only:nptmass
  use eos,             only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  integer, intent(inout) :: nerror
- real,intent(in)        :: xcom(ndim),vcom(ndim)
+ real,    intent(in)    :: xcom(ndim),vcom(ndim)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then

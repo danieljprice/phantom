@@ -1147,48 +1147,31 @@ end subroutine get_rho_from_p_s
 !  method
 !+
 !-----------------------------------------------------------------------
-subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
- use physcon, only:radconst,Rg,mass_proton_cgs,kboltz
+subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
+ use physcon, only:Rg,mass_proton_cgs
  use io,      only:fatal
- use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
+ use eos_idealplusrad, only:get_idealplusrad_tempfromrhoS
  use units,   only:unit_density,unit_pressure,unit_ergg
  real,    intent(in)    :: S,mu,rho
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
  integer, intent(in)    :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
- real,    parameter  :: eoserr=1e-12
- integer             :: niter
- integer, parameter  :: nitermax = 1000
+ integer, intent(out), optional :: niter_out
+ real :: cgsrho,cgspres,cgss
 
  ! change to cgs unit
  cgsrho = rho*unit_density
  cgss   = s*unit_ergg
+ if (present(niter_out)) niter_out = 0
 
- niter = 0
  select case (ieos)
  case (2,5)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
-    cgsP = cgsrho*Rg*temp / mu
+    cgspres = cgsrho*Rg*temp / mu
  case (12)
-    corr = huge(corr)
-    do while (abs(corr) > eoserr .and. niter < nitermax)
-       f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
-       df = 1.5 / (mu*temp*mass_proton_cgs) + 4.*radconst*temp**2 / (cgsrho*kboltz)
-       corr = f/df
-       temp_new = temp - corr
-       if (temp_new > 1.2 * temp) then
-          temp = 1.2 * temp
-       elseif (temp_new < 0.8 * temp) then
-          temp = 0.8 * temp
-       else
-          temp = temp_new
-       endif
-       niter = niter + 1
-    enddo
-    call get_idealplusrad_pres(cgsrho,temp,mu,cgsP)
+    call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
-    cgsP = 0.
+    cgspres = 0.
     call fatal('eos','[get_p_from_rho_s] only implemented for eos 2 and 12')
  end select
 
@@ -1197,7 +1180,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
                                  ' suggest to reduce C_ent for one dump')
 
  ! change back to code unit
- P = cgsP / unit_pressure
+ P = cgspres / unit_pressure
 
 end subroutine get_p_from_rho_s
 

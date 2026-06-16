@@ -114,8 +114,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call build_tree(npart,nactive,xyzh,vxyzu)
 
     if (gr) then
-       ! Recalculate the metric after moving particles to their new tasks
-       call init_metric(npart,xyzh,metrics)
+       ! update time-dependent metric (e.g. binary BH) and repack at particle positions
+       call init_metric(npart,xyzh,metrics,time=time)
     endif
 
     if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
@@ -256,8 +256,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  real,         intent(in),  optional :: dt  ! optional argument needed to test implicit radiation routine
  integer,      intent(in),  optional :: icall
  real(kind=4) :: t1,t2
- real    :: dtnew
- real    :: time,dti
+ real    :: dtnew,dti,time
  integer :: icalli
 
  time = 0.
@@ -268,7 +267,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  call getused(t1)
  ! update conserved quantities in the GR code
  if (gr) then
-    call init_metric(npart,xyzh,metrics)
+    call init_metric(npart,xyzh,metrics,time=time)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  endif
 
