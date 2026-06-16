@@ -295,7 +295,7 @@ subroutine benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,warm,entropy
  integer, parameter            :: nrepeat = 10
  integer                       :: i,j,irep,ncall,niter,niter_sum,niter_max
  integer                       :: n_zero
- real                          :: t1,t2,temp_guess,p_rec,us_per_call
+ real                          :: t1,t2,temp_guess,p_rec,us_per_call,p_code
  real, allocatable             :: pres_cgs(:,:),rhocode(:,:),s_code(:,:)
 
  if (id /= master) return
@@ -305,7 +305,8 @@ subroutine benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,warm,entropy
     do j=1,npts
        rhocode(i,j) = rhogrid(i)/unit_density
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,pres_cgs(i,j))
-       if (entropy) s_code(i,j) = get_entropy(rhocode(i,j),pres_cgs(i,j)/unit_pressure,mu,ieos)
+       p_code = pres_cgs(i,j)/unit_pressure
+       if (entropy) s_code(i,j) = get_entropy(rhocode(i,j),p_code,mu,ieos)
     enddo
  enddo
 
