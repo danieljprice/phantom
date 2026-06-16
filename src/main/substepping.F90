@@ -793,7 +793,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real                 :: fonrmaxi,phii,dtphi2i
  real                 :: dkdt,extrapfac
- real                 :: densi,uui,pri,tempi,vxyz(3),fext_gr(3),xyz(3)
+ real                 :: densi,uui,pri,vxyz(3),fext_gr(3),xyz(3)
  logical              :: extrap,last,do_recompute_gr,do_skip_metric_update
 
  allocate(merge_ij(nptmass))
