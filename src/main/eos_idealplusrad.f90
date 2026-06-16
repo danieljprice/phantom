@@ -140,7 +140,7 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
  real,    intent(out)   :: pres
  integer, intent(out), optional :: niter_out
  real                :: corr,corr_ic,df,f,f_ic,temp_new,temp_gas,temp_rad,temp_ic
- real                :: inv_mu_mh,coeff_rad,log_rho,cgss_tol,best_f,t2
+ real                :: inv_mu_mh,coeff_rad,log_rho,cgss_tol,best_f,t2,term
  real, parameter     :: eoserr = 1.e-13
  real, parameter     :: one_third = 1./3.
  integer             :: niter
@@ -183,10 +183,13 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
 
  ! third guess is the gas temperature (skip expensive exp if IC already good)
  if (best_f > cgss_tol .or. temp_ic <= 0.) then
-    temp_gas = (rho*exp(mu*s*mass_proton_cgs))**(2./3.)
-    call entropy_fdf(temp_gas,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
-    if (abs(f) < best_f) then
-       temp_ic = temp_gas; corr_ic = f/df; f_ic = f
+    term = mu*s*mass_proton_cgs
+    if (term < 100.) then
+       temp_gas = (rho*exp(mu*s*mass_proton_cgs))**(2./3.)
+       call entropy_fdf(temp_gas,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+       if (abs(f) < best_f) then
+          temp_ic = temp_gas; corr_ic = f/df; f_ic = f
+       endif
     endif
  endif
 
