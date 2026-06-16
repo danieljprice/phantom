@@ -13,13 +13,12 @@ module eos_zerotemp
 ! :Dependencies: infile_utils, io, units, physcon
 !
  use units, only:unit_density,unit_velocity
- use physcon,  only:pi,atomic_mass_unit, mass_electron_cgs, planckh, c, 
+ use physcon,  only:pi,atomic_mass_unit, mass_electron_cgs, planckh, c
  implicit none
- real, parameter :: tolerance = 1.e-15
+ real, parameter :: mu_e = 2 ! mean molecular weight per free electron
 
- public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
-           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp,&
-           get_idealplusrad_rhofrompresT,egas_from_rhoT,erad_from_rhoT
+
+ public :: f_chandra
 
  private
 
@@ -33,53 +32,125 @@ contains
 !+
 ! ----------------------------------------------------------------
 
-subroutine get_zerotemp_Pressure(rhoi,mu,presi)
- real, intent(in)  :: rhoi,mu
+subroutine get_zerotemp_Pressure(rhoi,presi)
+ real, intent(in)  :: rhoi
  real, intent(out) :: presi
+ real :: ne, x
 
  ! This is the zero temperature pressure for a fully degenerate electron gas, i.e. a white dwarf. See Kippenhahn & Weigert, Stellar Structure and Evolution, section 15.2
- ! Note that this is only the electron degeneracy pressure, so does not include the ion contribution to the pressure. This is a good approximation for white dwarfs where the electrons are highly degenerate but the ions are not.
- ! Note also that this assumes a fully ionised gas, so mu is the mean molecular weight per free electron (e.g. mu=2 for a pure helium gas)
+ ! Note that this is only the electron degeneracy pressure, so does not include the ion contribution to the pressure.
+ ! This is a good approximation for white dwarfs where the electrons are highly degenerate but the ions are not.
+ ! Note also that this assumes a fully ionised gas, so mu is the mean molecular weight per free electron
 
- real :: x
 
-    ! Convert rho to number density of electrons
-    n_e = rhoi / (mu_e * atomic_mass_unit)
+    ne = rhoi / (mu_e * atomic_mass_unit)
 
-    x = cbrt(3*n_e * planckh**3 / (8 * pi * mass_electron_cgs**3 * c**3))
-    fx= x*(2*x**2 - 3)*np.sqrt(x**2 + 1) + 3*np.log(x + np.sqrt(x**2 + 1))
-    presi = (pi*(mass_electron_cgs)**4)*(c**5) * fx/ (3 * planckh**3) 
+    x = ( (3.0 * ne * planckh**3) / &
+        (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
+
+    presi = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
 
 end subroutine get_zerotemp_Pressure
 
 
+!-----------------------------------------------------------------------
+!+!  Inputs and outputs in cgs units
+!+!  get internal energy from density for zero temperature EOS
+!-----------------------------------------------------------------------
+subroutine get_zerotemp_u_from_rho(rhoi,u)
+ real,    intent(in)    :: rhoi
+ real,    intent(out)   :: u
+ real :: ne, x, gx
+
+    ne = rhoi / (mu_e * atomic_mass_unit)
+
+    x = ( (3.0 * ne * planckh**3) / &
+        (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
+
+    gx = (8*x**3)*(sqrt(x**2 + 1)-1)-f_chandra(x)
+    u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
+
+end subroutine calc_uT_from_rhoP_gasradrec
+
 !----------------------------------------------------------------
 !+
-!  Calculates sound speed from density (do we need gamma?)
+!  Chandrasekhar's EOS function
 !+
 !----------------------------------------------------------------
 
+real function f_chandra(x) result(fx)
+ real, intent(in) :: x
 
-subroutine get_zerotemp_spsoundi(rhoi,presi,spsoundi,gammai)
- real, intent(in)  :: rhoi,presi
- real, intent(out) :: spsoundi,gammai
+ fx = x*(2*x**2 - 3)*sqrt(1+x**2) + 3*log(x + sqrt(1+x**2))
+end function f_chandra
 
- gammai = 1. + presi/(eni*rhoi) ! what should I put this?
- spsoundi = sqrt(gammai*presi/rhoi)
 
+
+!----------------------------------------------------------------
+!+
+!  Calculates sound speed from density (derivative of f(x), analytically found)
+!+
+!----------------------------------------------------------------
+
+subroutine get_zerotemp_spsoundi(rhoi,spsoundi)
+ real, intent(in)  :: rhoi
+ real, intent(out) :: spsoundi
+ real :: ne, x
+
+ ne = rhoi / (mu_e * atomic_mass_unit)
+
+ x = ( (3.0 * ne * planckh**3) / &
+        (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
+
+ constants_cs = (mass_electron_cgs * c**2 / (24.0* atomic_mass_unit*mu_e))
+ spsoundi = sqrt(constants_cs * ((6.0 * x**2 - 3.0)*sqrt(1.0 + x**2) + (2.0 * x**4 - 3.0*x**2 +3.0)/sqrt(1.0+x**2))/x**2)
 end subroutine get_zerotemp_spsoundi
 
 !----------------------------------------------------------------
 !+
-!  Calculates density from pressure (under construction)
+!  Calculates density from pressure (involves the bisection method)
 !+
 !----------------------------------------------------------------
-subroutine get_zerotemp_rhofrompres(presi,tempi,mu,densi)
- real, intent(in)  :: presi,tempi,mu
+subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
+ real, intent(in)  :: presi
  real, intent(out) :: densi
+ integer, intent(out)   :: ierr
 
- densi = (presi - radconst*tempi**4 /3.) * mu / (Rg*tempi)
+ real :: ne, x, fx
+ integer, parameter  :: iter_max = 1000 ! it shouldn't need more than 100
+ real, parameter :: tolerance = 1.e-12
+
+ fx = P * (3.0*planckh**3)/(pi * mass_electron_cgs**4 * c**5)
+         ! bracket
+ xlo = 0.0
+ xhi = 1.0
+
+ ierr = 0
+ iter = 0
+
+ while f_chandra(xhi) < fx:
+     xhi = 2.0*xhi
+
+    ! bisection
+    do while (iter<iter_max)
+        xmid = 0.5*(xlo + xhi)
+
+        if f_x(xmid) > fx:
+            xhi = xmid
+        else:
+            xlo = xmid
+
+        if abs(xhi - xlo)/(xmid + 1.0e-300) < tol(1.e-12):
+            break
+        iter
+    x = 0.5*(xlo + xhi)
+    ! print("fx tolerance=",(f_x(x)-fx)/fx)
+    ne = (8*np.pi*m_e**3*c**3/(3*h**3)) * x**3
+    rho_out[j] = ne*(mu_e * m_u)
+
+    if (iter >= iter_max) ierr = 1
 
 end subroutine get_zerotemp_rhofrompres
+
 
 end module eos_zerotemp
