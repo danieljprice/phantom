@@ -52,6 +52,12 @@ module metric
  character(len=128), public :: trajectory_file = 'cbwaves.txt'
  logical, private :: metric_initialised = .false.
 
+ ! in-memory cache of the black hole trajectory, read once from file. Caching is
+ ! essential because update_metric is called at every geodesic sub-step (see
+ ! kickdrift_gr), so re-reading the file each time would be prohibitively slow.
+ integer, private :: ntraj = 0
+ real, allocatable, private :: traj(:,:)   ! traj(0:12,ntraj): t,x1(3),x2(3),v1(3),v2(3)
+
 contains
 
 !-------------------------------------------------------------------------------
@@ -100,17 +106,50 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  real,    intent(in)  :: time
  real,    intent(out) :: x1(3),x2(3),v1(3),v2(3)
  integer, intent(out) :: ierr
- integer :: iu,nlines
- real :: t_prev,t_next
- real :: x1_prev(3),x2_prev(3),v1_prev(3),v2_prev(3)
- real :: x1_next(3),x2_next(3),v1_next(3),v2_next(3)
- real :: frac
+ integer :: k
+ real    :: frac
 
- t_prev = 0.
- x1 = [0.,0.,0.]
- x2 = [0.,0.,0.]
- v1 = [0.,0.,0.]
- v2 = [0.,0.,0.]
+ ierr = 0
+
+ ! load the trajectory into memory on first use
+ if (ntraj == 0) call load_trajectory(ierr)
+ if (ierr /= 0 .or. ntraj == 0) return
+
+ ! before the start of the table: use the first entry
+ if (time <= traj(0,1)) then
+    x1 = traj(1:3,1); x2 = traj(4:6,1); v1 = traj(7:9,1); v2 = traj(10:12,1)
+    return
+ endif
+
+ ! linear interpolation in time between bracketing table entries
+ do k=2,ntraj
+    if (time <= traj(0,k)) then
+       frac = (time - traj(0,k-1)) / (traj(0,k) - traj(0,k-1))
+       x1 = traj(1:3 ,k-1) + frac*(traj(1:3 ,k) - traj(1:3 ,k-1))
+       x2 = traj(4:6 ,k-1) + frac*(traj(4:6 ,k) - traj(4:6 ,k-1))
+       v1 = traj(7:9 ,k-1) + frac*(traj(7:9 ,k) - traj(7:9 ,k-1))
+       v2 = traj(10:12,k-1) + frac*(traj(10:12,k) - traj(10:12,k-1))
+       return
+    endif
+ enddo
+
+ ! beyond the end of the table
+ call error('metric_binarybh','time beyond range of trajectory file: '//trim(trajectory_file))
+ x1 = traj(1:3,ntraj); x2 = traj(4:6,ntraj); v1 = traj(7:9,ntraj); v2 = traj(10:12,ntraj)
+
+end subroutine get_trajectory_from_file
+
+!----------------------------------------------------------------
+!+
+!  Read the entire black hole trajectory from file into memory.
+!  The file format is a header line with the number of entries,
+!  followed by one line per entry: t, x1(3), x2(3), v1(3), v2(3).
+!+
+!----------------------------------------------------------------
+subroutine load_trajectory(ierr)
+ use io, only:error
+ integer, intent(out) :: ierr
+ integer :: iu,nlines,k
 
  open(newunit=iu,file=trajectory_file,status='old',action='read',iostat=ierr)
  if (ierr /= 0) then
@@ -118,44 +157,34 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
     return
  endif
  read(iu,*,iostat=ierr) nlines
- if (ierr /= 0) then
+ if (ierr /= 0 .or. nlines < 1) then
     call error('metric_binarybh','could not read nlines from '//trim(trajectory_file))
- endif
- read(iu,*,iostat=ierr) t_prev,x1_prev,x2_prev,v1_prev,v2_prev
- if (ierr /= 0) then
-    call error('metric_binarybh','could not read first trajectory line from '//trim(trajectory_file))
-    return
- endif
- if (time <= t_prev) then
-    x1 = x1_prev
-    x2 = x2_prev
-    v1 = v1_prev
-    v2 = v2_prev
     close(iu)
     return
  endif
- do
-    read(iu,*,iostat=ierr) t_next,x1_next,x2_next,v1_next,v2_next
-    if (ierr /= 0) then
-       call error('metric_binarybh','time beyond range of trajectory file: '//trim(trajectory_file))
-    endif
-    if (time <= t_next) then
-       frac = (time - t_prev) / (t_next - t_prev)
-       x1 = x1_prev + frac * (x1_next - x1_prev)
-       x2 = x2_prev + frac * (x2_next - x2_prev)
-       v1 = v1_prev + frac * (v1_next - v1_prev)
-       v2 = v2_prev + frac * (v2_next - v2_prev)
+ if (allocated(traj)) deallocate(traj)
+ allocate(traj(0:12,nlines))
+ ! read up to nlines entries, but stop gracefully at end-of-file: the header count
+ ! is not always exact, so ntraj records the number of entries actually read
+ ntraj = 0
+ do k=1,nlines
+    read(iu,*,iostat=ierr) traj(0,k),traj(1:3,k),traj(4:6,k),traj(7:9,k),traj(10:12,k)
+    if (ierr < 0) then
+       ierr = 0   ! end of file: fewer entries than the header claimed
+       exit
+    elseif (ierr > 0) then
+       call error('metric_binarybh','could not read trajectory line from '//trim(trajectory_file))
        close(iu)
+       deallocate(traj)
+       ntraj = 0
        return
     endif
-    t_prev = t_next
-    x1_prev = x1_next
-    x2_prev = x2_next
-    v1_prev = v1_next
-    v2_prev = v2_next
+    ntraj = k
  enddo
+ close(iu)
+ if (ntraj < 1) call error('metric_binarybh','no trajectory entries read from '//trim(trajectory_file))
 
-end subroutine get_trajectory_from_file
+end subroutine load_trajectory
 
 !----------------------------------------------------------------
 !+
