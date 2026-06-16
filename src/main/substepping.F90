@@ -924,7 +924,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(fgr,do_recompute_gr) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
- !$omp private(densi,uui,pri,tempi,xyz,vxyz,fext_gr) &
+ !$omp private(densi,uui,pri,xyz,vxyz,fext_gr) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
