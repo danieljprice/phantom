@@ -169,15 +169,21 @@ end subroutine print_metricinfo
 
 !-------------------------------------------------------------------------------
 !+
-!  initialise arrays for the metric and metric derivatives
+!  initialise arrays for the metric and metric derivatives;
+!  optionally update time-dependent metric inputs (e.g. binary BH trajectory)
+!  before repacking at particle positions
 !+
 !-------------------------------------------------------------------------------
-subroutine init_metric(npart,xyzh,metrics,metricderivs)
+subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
+ use metric, only:update_metric
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: metrics(:,:,:,:)
  real,    intent(out), optional :: metricderivs(:,:,:,:)
+ real,    intent(in),  optional :: time
  integer :: i
+
+ if (present(time)) call update_metric(time)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics) &
