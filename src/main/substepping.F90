@@ -116,7 +116,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
  use part,           only:fxyz_ptmass_sinksink,ndptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use ptmass,         only:dk,ptmass_check_stars,icreate_sinks
- use timing,         only:get_timings,increment_timer,itimer_kick,itimer_drift
+ use timing,         only:get_timings,increment_timer,itimer_kick,itimer_drift,itimer_kickdrift
  integer,         intent(in)    :: npart,ntypes
  integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
  integer,         intent(inout) :: group_info(:,:)
@@ -163,8 +163,11 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
        write(iprint,"(a,f14.6)") '> external/ptmass forces only (GR) : t=',timei
     endif
 
+    call get_timings(t1,tcpu1)
     call kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_kickdrift,t2-t1,tcpu2-tcpu1)
 
     ! we call get_force but with ext_vdep_flag = .false. because in GR we compute the
     ! velocity-dependent force in the predictor step according to equations 70-72
