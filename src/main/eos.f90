@@ -28,6 +28,7 @@ module eos
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !    23 = Hypervelocity Impact of solids-fluids from Tillotson EOS (Tillotson 1962 - implemented by Brundage A. 2013
 !    24 = read tabulated eos (for use with icooling == 9)
+!    25 = zero temperature eos (simplified eos for white dwarfs, Helmholtz is the better choice)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -56,7 +57,7 @@ module eos
  use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 24
+ integer, parameter, public :: maxeos = 25
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  real,               public :: cs_min = 0.0
@@ -145,6 +146,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
  use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_zerotemp,     only:get_zerotemp_pressure,get_zerotemp_spsoundi
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -527,6 +529,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
     spsoundi = sqrt(gammai*ponrhoi)
+   case (25) ! zero temperature EOS (under construction)
+    cgsrhoi = rhoi * unit_density
+
+    call get_zerotemp_pressure(cgsrhoi,cgspresi)
+    call get_zerotemp_spsoundi(cgsrhoi,cgsspsoundi)
+
+    presi = cgspresi/unit_pressure
+    ponrhoi = presi/rhoi
+    spsoundi = cgsspsoundi / unit_velocity
+
+   !  tempi    =  0  !we don't need a temperature
+
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -634,6 +648,14 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr_ra)
     if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_coolra
+
+
+ case(25)
+    !
+    ! zero temperature (do we need this?)
+    !
+    write(*,*) 'Using zero temperature EoS (assuming mu_electron=2) '
+
  end select
  done_init_eos = .true.
 
@@ -968,6 +990,9 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(24) ! Stamatellos
     temp = pres /(rho * Rg) * mu
     call getintenerg_opdep(temp, rho, ene)
+ case(25) ! zero temp eos (Ali: should I add this here? not sure...)
+    call get_zerotemp_u(rho,ene)
+    temp = 0
  case default
     ierr = 1
  end select
@@ -1010,6 +1035,7 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
     rho = pres / (temp * Rg) * mu
  case(12) ! Ideal gas + radiation
     call get_idealplusrad_rhofrompresT(pres,temp,mu,rho)
+ case(25) ! zero temperature eos (not sure if this should be here since it doesn't take in temperature)
  case default
     ierr = 1
  end select
@@ -1485,7 +1511,7 @@ logical function eos_requires_isothermal(ieos)
  case(1,3,6,7,8,13,14,21)
     eos_requires_isothermal = .true.
  case default
-    !case(2,5,4,10,11,12,15,16,20,22,23,24,9)
+    !case(2,5,4,10,11,12,15,16,20,22,23,24,25,9)
     eos_requires_isothermal = .false.
  end select
 
@@ -1501,7 +1527,7 @@ logical function eos_allows_shock_and_work(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(2,5,10,12,15,16,21,22,24)
+ case(2,5,10,12,15,16,21,22,24,25) !does eos zero temp allow for it?
     eos_allows_shock_and_work = .true.
  case default
     eos_allows_shock_and_work = .false.
@@ -1528,7 +1554,7 @@ end function eos_requires_polyk
 !  a non-zero pressure even if no thermal energy is set
 !+
 !-----------------------------------------------------------------------
-logical function eos_has_pressure_without_u(ieos)
+logical function eos_has_pressure_without_u(ieos) !! not sure if zero temp needs this ali
  integer, intent(in) :: ieos
 
  eos_has_pressure_without_u = eos_requires_isothermal(ieos) .or. &
@@ -1619,6 +1645,9 @@ subroutine eosinfo(eos_type,iprint)
 
  case(24)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
+ case(25)
+    write(*,'(1x,a,i1,a)') 'Using zero temperature EoS, assuming mu_electron=2'
+
  end select
  write(iprint,*)
 

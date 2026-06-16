@@ -18,7 +18,7 @@ module eos_zerotemp
  real, parameter :: mu_e = 2 ! mean molecular weight per free electron
 
 
- public :: f_chandra, get_zerotemp_Pressure,get_zerotemp_u, get_zerotemp_spsoundi,&
+ public :: f_chandra, get_zerotemp_pressure,get_zerotemp_u, get_zerotemp_spsoundi,&
            get_zerotemp_rhofrompres
 
  private
@@ -47,7 +47,7 @@ end function f_chandra
 !+ input/output is cgs
 ! ----------------------------------------------------------------
 
-subroutine get_zerotemp_Pressure(rhoi,presi)
+subroutine get_zerotemp_pressure(rhoi,presi)
  real, intent(in)  :: rhoi
  real, intent(out) :: presi
  real :: ne, x
@@ -65,7 +65,7 @@ subroutine get_zerotemp_Pressure(rhoi,presi)
 
     presi = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
 
-end subroutine get_zerotemp_Pressure
+end subroutine get_zerotemp_pressure
 
 
 !-----------------------------------------------------------------------
