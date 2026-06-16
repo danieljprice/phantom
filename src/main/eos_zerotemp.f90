@@ -83,8 +83,8 @@ subroutine get_zerotemp_u(rhoi,u)
         (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
 
     gx = (8*x**3)*(sqrt(x**2 + 1)-1)-f_chandra(x)
-    u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
-
+    u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * gx
+    u = u/rhoi !previous equation is erg/cm^3 so here I convert it
 end subroutine get_zerotemp_u
 
 
@@ -97,7 +97,7 @@ end subroutine get_zerotemp_u
 subroutine get_zerotemp_spsoundi(rhoi,spsoundi)
  real, intent(in)  :: rhoi
  real, intent(out) :: spsoundi
- real :: ne, x
+ real :: ne, x, constants_cs
 
  ne = rhoi / (mu_e * atomic_mass_unit)
 

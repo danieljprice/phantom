@@ -937,7 +937,7 @@ end function get_u_from_rhoT
 !
 !  Note on composition:
 !  For ieos=2, 5 and 12, mu_local is an input, X & Z are not used
-!  For ieos=10, mu_local is not used
+!  For ieos=10,25 mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !-----------------------------------------------------------------------
@@ -1004,7 +1004,7 @@ end subroutine calc_temp_and_ene
 !
 !  Note on composition:
 !  For ieos=2, 5 and 12, mu_local is an input, X & Z are not used
-!  For ieos=10, mu_local is not used
+!  For ieos=10,25 mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !-----------------------------------------------------------------------
@@ -1013,6 +1013,7 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
  use eos_idealplusrad, only:get_idealplusrad_rhofrompresT
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ use eos_zerotemp,     only:get_zerotemp_rhofrompres
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: pres,temp
  real,    intent(inout) :: rho
