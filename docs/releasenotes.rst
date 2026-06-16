@@ -95,7 +95,7 @@ Other
 - Reduced number of #ifdefs in the code (#691, #714, #715)
 - Authorship guidelines added (thanks to Rebecca Nealon; #692)
 - Improved documentation on conservation checks (thanks to Jacksen Narvaez; #665)
-- Improved developer documentation (thanks to Camille Landry; #705)
+- Improved developer documentation (thanks to Camille Landri; #705)
 - CI on pull requests cancels previous job if more commits added (thanks to Timothée David--Cléris; #717)
 - Enforce no compiler warnings with all compilers in github actions workflow (#681, #695)
 - Added build checks for all moddump, analysis and kernel modules (#769)

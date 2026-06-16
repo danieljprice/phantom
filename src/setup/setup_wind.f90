@@ -29,6 +29,7 @@ module setup
 !   - mass_of_particles   : *particle mass (Msun, overwritten if iwind_resolution <>0)*
 !   - primary_Reff        : *primary star effective radius (au)*
 !   - primary_Teff        : *primary star effective temperature (K)*
+!   - primary_alpha       : *primary alpha parameter*
 !   - primary_lum         : *primary star luminosity (Lsun)*
 !   - primary_mass        : *primary star mass (Msun)*
 !   - primary_mdot        : *primary wind mass loss rate (in Msun/yr)*
@@ -39,12 +40,12 @@ module setup
 !   - primary_veq         : *primary equatorial velocity (in km/s)*
 !   - primary_vwind       : *primary wind velocity (in km/s)*
 !   - primary_wind_temp   : *primary wind temperature (K)*
-!   - primary_alpha       : *primary alpha wind parameter*
 !   - q2                  : *tight binary mass ratio*
 !   - racc2a              : *tight binary primary accretion radius*
 !   - racc2b              : *tight binary secondary accretion radius*
 !   - secondary_Reff      : *secondary star effective radius (au)*
 !   - secondary_Teff      : *secondary star effective temperature)*
+!   - secondary_alpha     : *secondary alpha parameter*
 !   - secondary_lum       : *secondary star luminosity (Lsun)*
 !   - secondary_mass      : *secondary star mass (Msun)*
 !   - secondary_mdot      : *secondary wind mass loss rate (in Msun/yr)*
@@ -55,7 +56,6 @@ module setup
 !   - secondary_veq       : *secondary equatorial velocity (in km/s)*
 !   - secondary_vwind     : *secondary wind velocity (in km/s)*
 !   - secondary_wind_temp : *secondary wind temperature (K)*
-!   - secondary_alpha     : *secondary alpha wind parameter*
 !   - semi_major_axis     : *semi-major axis of the binary system (au)*
 !   - subst               : *star to substitute*
 !   - temp_exponent       : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*

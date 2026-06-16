@@ -20,6 +20,7 @@ module setup
 !   - Rsink_au    : *sink radius in au*
 !   - Temperature : *Temperature*
 !   - dist_fac    : *distance unit in pc*
+!   - iH2R_in     : *HII feedback algorithm id*
 !   - ieos_in     : *eq. of state (1: isothermal, 8: barotropic, 21: HII region)*
 !   - mass_fac    : *mass unit in Msun*
 !   - mu          : *mean molecular weight*
