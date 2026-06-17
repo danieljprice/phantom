@@ -52,6 +52,10 @@ subroutine test_setstar(ntests,npass)
  ! test red supergiant
  call test_redsupergiant(ntests,npass)
 
+
+ ! test white dwarf
+ call test_whitedwarf(ntests,npass)
+
 end subroutine test_setstar
 
 !-----------------------------------------------------------------------
@@ -379,7 +383,7 @@ subroutine test_whitedwarf(ntests,npass)
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm
- use eos,       only:init_eos,gamma,gmw,X_in,Z_in,irecomb,eos_works_with_radiation
+ use eos,       only:init_eos,gamma,X_in,Z_in,irecomb,eos_works_with_radiation
  use setstar,   only:star_t,set_star,set_defaults_star,imesa,ierr_radiation_conflict
  use units,     only:set_units
  use relaxstar, only:maxits
@@ -408,6 +412,9 @@ subroutine test_whitedwarf(ntests,npass)
 
  iverbose = 0
  call set_units(dist=solarr,mass=solarm,G=1.d0)
+ gamma = 5./3.
+ X_in = 0.
+ Z_in = 1.
  relax_star = .true.
  maxits = 2000
  var_comp = .false.
