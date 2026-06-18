@@ -383,8 +383,8 @@ subroutine test_whitedwarf(ntests,npass)
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm
- use eos,       only:init_eos,gamma,X_in,Z_in,irecomb,eos_works_with_radiation
- use setstar,   only:star_t,set_star,set_defaults_star,imesa,ierr_radiation_conflict
+ use eos,       only:init_eos,gamma,X_in,Z_in
+ use setstar,   only:star_t,set_star,set_defaults_star,imesa
  use units,     only:set_units
  use relaxstar, only:maxits
  use checksetup,  only:check_setup
