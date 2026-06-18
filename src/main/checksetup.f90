@@ -44,8 +44,8 @@ subroutine check_setup(nerror,nwarn,restart)
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
-                remove_particle_from_npartoftype,ien_type,ien_etotal,gr
- use eos,             only:gamma,polyk,eos_is_non_ideal,eos_requires_polyk
+                remove_particle_from_npartoftype,ien_type,ien_etotal,gr,eos_vars,itemp
+ use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
@@ -252,6 +252,22 @@ subroutine check_setup(nerror,nwarn,restart)
        print*,'*** Resetting gamma to 1, gamma = ',gamma
        nwarn = nwarn + 1
     endif
+ endif
+ !
+ !--check that temperature guess is set if using Helmholtz EOS
+ !
+ if (ieos==ieos_helmholtz) then
+      nbad = 0
+      do i=1,npart
+         if (eos_vars(itemp,i) <= 0.) then
+            nbad = nbad + 1
+            if (nbad <= 10) print*,' particle ',i,' temperature guess = ',eos_vars(itemp,i)
+         endif
+      enddo
+      if (nbad > 0) then
+         print*,'ERROR: Using Helmholtz EOS but temperature guess not set on ',nbad,' of ',npart,' particles'
+         nerror = nerror + 1
+      endif
  endif
 !
 !--check that mass of each type has been set

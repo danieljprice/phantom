@@ -15,7 +15,8 @@ else
     $(info WARNING: KROME is not parallelised for this compiler. Please consider using ifort or ifx.)
 endif
 
-FFLAGS += -Wl,-rpath=${KROME_BUILD_DIR} -L${KROME_BUILD_DIR} -lkrome
+FFLAGS += -Wl,-rpath,${KROME_BUILD_DIR} 
+LDFLAGS += -L${KROME_BUILD_DIR} -lkrome
 PASSED=0
 
 NETFILE=${shell cat $(RUNDIR)/krome.setup | grep '^\-n=' | sed s/-n=networks\\///g }

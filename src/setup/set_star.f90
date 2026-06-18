@@ -19,7 +19,7 @@ module setstar
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
+!   - ieos              : *1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson*
 !   - irecomb           : *Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
@@ -346,12 +346,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
           ! if a MESA profile is used, we supply the mtab array for the
           ! mass profile in relax_star rather than integrating it manually
           !
-          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+          call relax_star(npts,den,pres,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
                           write_dumps=write_dumps,density_error=rmserr,energy_error=en_err,mtab=mtab)
        else
-          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+          call relax_star(npts,den,pres,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
                           write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
@@ -392,7 +392,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! set the internal energy and temperature
  !
- if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,&
+ if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,&
                        xyzh,vxyzu,rad,eos_vars,relax,use_var_comp,star%initialtemp,&
                        star%polyk,npin=npart_old)
  !
@@ -1125,7 +1125,7 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
  integer :: i
 
  write(iunit,"(/,a)") '# equation of state used to set the thermal energy profile'
- call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson',iunit)
+ call write_inopt(ieos,'ieos','1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson',iunit)
 
  if (any(star(:)%iprofile==imesa)) then
     call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
@@ -1214,7 +1214,7 @@ subroutine set_star_eos_interactive(ieos,star)
  type(star_t), intent(in)    :: star(:)
 
  ! equation of state
- call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)
+ call prompt('Enter the desired EoS (1=isothermal,2=idealgas,10=MESA,12=idealplusrad)',ieos)
  if (any(star(:)%iprofile==imesa)) call prompt('Use variable composition?',use_var_comp)
 
  select case(ieos)

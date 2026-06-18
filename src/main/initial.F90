@@ -18,12 +18,12 @@ module initial
 !   centreofmass, checkconserved, checkoptions, checksetup, cons2prim,
 !   cooling, cpuinfo, deriv, dim, dust, dust_formation, dynamic_dtmax,
 !   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
-!   growth, growth_coala, inject, io, io_control, io_summary, metric,
-!   metric_et_utils, metric_tools, mf_write, mpibalance, mpidomain,
-!   mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils, options,
-!   part, partinject, porosity, ptmass, radiation_utils, readwrite_dumps,
-!   readwrite_infile, subgroup, timestep, timestep_ind, timing, units,
-!   utils_subgroup, writeheader
+!   growth, growth_coala, inject, io, io_control, io_summary,
+!   krome_interface, metric, metric_et_utils, metric_tools, mf_write,
+!   mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup,
+!   omputils, options, part, partinject, porosity, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
+!   timing, units, utils_subgroup, writeheader
 !
 
  implicit none
@@ -108,6 +108,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
  use inject,           only:init_inject,inject_particles
+ use krome_interface,  only:initialise_krome
  use mpibalance,       only:balancedomains
  use mpiutils,         only:reduceall_mpi
  use part,             only:npart,npartoftype,alphaind,ntot,update_npartoftypetot,&
@@ -197,11 +198,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  endif
 
-#ifdef KROME
  ! set initial chemical abundance values
  call initialise_krome()
- dtextforce = min(dtextforce,dtmax/2.0**10)  ! Required since a cooling timestep is not initialised for implicit cooling
-#endif
 
  ! calculate initial derivatives (density, SPH forces, etc.)
  call get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
@@ -694,7 +692,7 @@ end subroutine initialise_sink_particle_forces
 !----------------------------------------------------------------
 subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  use dim,              only:maxalpha,maxp,nalpha,do_radiation
- use part,             only:npart,fxyzu,eos_vars,alphaind
+ use part,             only:npart,fxyzu,alphaind
  use deriv,            only:get_derivs_global,get_density_global
  use timestep,         only:dtmax
 #ifdef LIVE_ANALYSIS
@@ -718,10 +716,9 @@ subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
 
  !$omp parallel do default(none) &
- !$omp shared(npart,eos_vars,fxyzu) &
+ !$omp shared(npart,fxyzu) &
  !$omp private(i)
  do i=1,npart
-    eos_vars(3,i) = -1.0 ! initial guess for temperature overridden in eos
     fxyzu(:,i) = 0.      ! so that div_a is 0 in first call to viscosity switch
  enddo
  !$omp end parallel do

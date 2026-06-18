@@ -496,11 +496,6 @@ SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f
 
 SRCRW_DUMPS= readwrite_dumps_common.f90 readwrite_dumps.f90
 
-ifeq ($(KROME), yes)
-    SRCKROME=krome.f90
-else
-    SRCKROME=
-endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.f90 utils_cpuinfo.f90 \
@@ -519,7 +514,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
-         ${SRCKROME} memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
+         krome.F90 memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
          H2regions.f90 subgroup.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
@@ -857,7 +852,7 @@ phantomanalysis: checksystem checkparams libphantom $(OBJA)
 	@echo ""
 	@echo "phantomanalysis: we live to serve you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) $(LDFLAGS) $(LIBS) $(LIBPHANTOM)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) $(LIBPHANTOM) $(LDFLAGS) $(LIBS)
 
 analysis: phantomanalysis
 

@@ -23,9 +23,11 @@ module eos_helmholtz
 
 ! subroutines to read/initialise tables, and get pressure/sound speed
  public :: eos_helmholtz_init
- public :: eos_helmholtz_write_inopt
+ public :: read_options_eos_helmholtz
+ public :: write_options_eos_helmholtz
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
+ public :: eos_helmholtz_energy_from_rhoT  ! invert EOS: get energy from rho, pressure, T
  public :: eos_helmholtz_cv_dpresdt
  public :: eos_helmholtz_get_minrho
  public :: eos_helmholtz_get_maxrho
@@ -37,8 +39,14 @@ module eos_helmholtz
  private
 
  ! these set the mixture of species
- ! currently hard-coded to 50/50 carbon-oxygen
-
+ ! following elements can be set by user at runtime
+ real :: xh  = 0.0
+ real :: xhe = 0.0
+ real :: xc  = 0.5
+ real :: xo  = 0.5
+ real :: xne = 0.0
+ real :: xmg = 0.0 
+ 
  integer, parameter :: speciesmax = 15
  character(len=10) :: speciesname(speciesmax)
  real :: xmass(speciesmax) ! mass fraction of species
@@ -162,14 +170,15 @@ subroutine eos_helmholtz_init(ierr)
  Aion(14) = 56.0  ;  Zion(14) = 28.0  ! nickel
  Aion(15) = 60.0  ;  Zion(15) = 30.0  ! zinc
 
- ! set the mass weightings of each species
- ! currently hard-coded to 50/50 carbon-oxygen
- ! TODO: update this be set by user at runtime
+ ! set the mass weightings of each species, user sets the mass fractions of each species, and we check that they sum to 1
  xmass(:) = 0.0
- xmass(3) = 0.5
- xmass(4) = 0.5
-
- if (sum(xmass(:)) > 1.0+tiny(xmass) .or. sum(xmass(:)) < 1.0-tiny(xmass)) then
+ xmass(1) = xh
+ xmass(2) = xhe
+ xmass(3) = xc
+ xmass(4) = xo
+ xmass(5) = xne
+ xmass(6) = xmg
+ if (sum(xmass(:)) > 1.0+1e-6 .or. sum(xmass(:)) < 1.0-1e-6) then
     call warning('eos_helmholtz', 'mass fractions total != 1')
     ierr = 1
     return
@@ -338,13 +347,42 @@ end subroutine eos_helmholtz_calc_AbarZbar
 
 !----------------------------------------------------------------
 !+
-!  write options to the input file (currently nothing)
+!  write options to the input file (abundances of each species)
 !+
 !----------------------------------------------------------------
-subroutine eos_helmholtz_write_inopt(iunit)
+
+subroutine write_options_eos_helmholtz(iunit)
+ use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
-end subroutine eos_helmholtz_write_inopt
+ call write_inopt(xh ,'xh' ,'Hydrogen mass fraction',iunit)
+ call write_inopt(xhe,'xhe','Helium mass fraction',iunit)
+ call write_inopt(xc ,'xc' ,'Carbon mass fraction',iunit)
+ call write_inopt(xo ,'xo' ,'Oxygen mass fraction',iunit)
+ call write_inopt(xne,'xne','Neon mass fraction',iunit)
+ call write_inopt(xmg,'xmg','Magnesium mass fraction',iunit)
+
+end subroutine write_options_eos_helmholtz
+
+!----------------------------------------------------------------
+!+ 
+!  read options from the input file (abundances of each species)
+!+
+!----------------------------------------------------------------
+subroutine read_options_eos_helmholtz(db,nerr)
+ use infile_utils, only: inopts, read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer, intent(inout) :: nerr
+
+ call read_inopt(xh ,'xh' ,db,errcount=nerr,min=0.,max=1.,default=xh)
+ call read_inopt(xhe,'xhe',db,errcount=nerr,min=0.,max=1.,default=xhe)
+ call read_inopt(xc ,'xc' ,db,errcount=nerr,min=0.,max=1.,default=xc)
+ call read_inopt(xo ,'xo' ,db,errcount=nerr,min=0.,max=1.,default=xo)
+ call read_inopt(xne,'xne',db,errcount=nerr,min=0.,max=1.,default=xne)
+ call read_inopt(xmg,'xmg',db,errcount=nerr,min=0.,max=1.,default=xmg)
+
+end subroutine read_options_eos_helmholtz
+
 
 ! return min density from table limits in code units
 real function eos_helmholtz_get_minrho()
@@ -404,7 +442,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(out)   :: ponrhoi
  real, intent(out)   :: spsoundi
  real, intent(in)    :: eni
- integer, parameter  :: maxiter = 10
+ integer, parameter  :: maxiter = 30
  real,    parameter  :: tol = 1.0e-4  ! temperature convergence
  logical :: done
  integer :: itercount
@@ -418,6 +456,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 ! dynamical evolution:
 ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
  cgseni = eni * unit_ergg
+
 ! Newton-Raphson iterations
  tprev = tempi
  tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti
@@ -443,8 +482,10 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     tprev = tnew
     ! get new pressure, sound speed, energy for this temperature and density
     call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
+
     ! iterate to new temperature
     tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
+
     ! disallow large temperature changes
     if (tnew > 2.0 * tprev) then
        tnew = 2.0 * tprev
@@ -456,6 +497,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     if (abs(tnew - tprev) < tempi * tol) then
        done = .true.
     endif
+
     ! exit if gas is too cold or too hot
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
     if (tnew > tempmax) then
@@ -473,6 +515,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
     endif
  enddo iterations
 ! store new temperature
+
  tempi = tnew
 ! TODO: currently we just use the final temperature from the eos and assume we have converged
 !
@@ -1076,6 +1119,26 @@ subroutine eos_helmholtz_compute_pres_sound(temp,den,pres,sound,ener,denerdt)
 
 ! end of pipeline loop
 end subroutine eos_helmholtz_compute_pres_sound
+
+!----------------------------------------------------------------
+!+
+!  Get internal energy from density and temperature
+!  This routine inverts the EOS to compute energy from
+!  given temperature and density (pressure is not used).
+!  Inputs are in CGS units.
+!+
+!----------------------------------------------------------------
+subroutine eos_helmholtz_energy_from_rhoT(rho, temp, ener)
+ real, intent(in)  :: rho, temp
+ real, intent(out) :: ener
+
+ real :: dummy_pres, dummy_sound, dummy_denerdt
+
+ ! Call the main computation routine with temperature and density
+ ! We discard the pressure and sound speed outputs
+ call eos_helmholtz_compute_pres_sound(temp, rho, dummy_pres, dummy_sound, ener, dummy_denerdt)
+
+end subroutine eos_helmholtz_energy_from_rhoT
 
 !----------------------------------------------------------------
 !+

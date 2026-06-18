@@ -102,7 +102,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  !
  calc_polyk = .true.
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
-
+ temp = 0.  ! Initialize temperature array for non-file-based profiles
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
  select case(iprofile)
  case(ipoly)
@@ -463,7 +463,7 @@ end subroutine set_star_composition
 !  Set the thermal energy profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
+subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
  use part,            only:rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi,icv,&
                            aprmassoftype,apr_level,radprop
@@ -475,7 +475,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  use physcon,         only:Rg,radconst
  use io,              only:fatal
  integer, intent(in)    :: ieos,npart,npts
- real,    intent(in)    :: den(:), pres(:), r(:)  ! density and pressure tables
+ real,    intent(in)    :: den(:),pres(:),temp(:),r(:)  ! density, pressure, and temperature tables
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),eos_vars(:,:),rad(:,:)
  logical, intent(in)    :: relaxed,use_var_comp
@@ -483,7 +483,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  integer, intent(in), optional :: npin
  real,    intent(in), optional :: x0(3)
  integer :: eos_type,cv_type,i,ierr
- real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi,egasrad,eint,mu
+ real    :: hi,presi,densi,tempi,eni,ri,egasrad,eint,mu
  real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),pmassi,dum
  logical :: do_radiation_local
  integer :: i1
@@ -497,13 +497,13 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  if (present(x0)) xorigin = x0
 
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,r,npts) &
+ !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,temp,r,npts) &
  !$omp shared(relaxed,use_var_comp,apr_level,aprmassoftype) &
  !$omp shared(massoftype,ieos,initialtemp,polyk_in) &
  !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &
  !$omp shared(radprop,gmw) &
  !$omp private(i,hi,pmassi,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
- !$omp private(xi,yi,zi,p_on_rhogas,spsoundi,egasrad,eint,mu,u_gasrec) &
+ !$omp private(egasrad,eint,mu,u_gasrec) &
  !$omp private(dum,eos_type,cv_type,ierr,do_radiation_local)
  do i = i1+1,npart
     if (relaxed) then
@@ -522,11 +522,15 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
 
-    if (do_radiation) then
-       rho_cgs = densi*unit_density
-       p_cgs = presi*unit_pressure
+    rho_cgs = densi*unit_density
+    p_cgs = presi*unit_pressure
+    if (ieos==15 .and. temp(1) > 0.) then       ! should really be a check if we actually have the temperature table
+       tempi = yinterp(temp(1:npts),r(1:npts),ri)  ! use MESA temperature as initial guess for Helmholtz
+    else
        tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
+    endif
 
+    if (do_radiation) then
        select case(ieos)
        case(2)
           eos_type = 12  ! Calculate temperature from both gas and radiation pressure
@@ -558,25 +562,13 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        eos_vars(itemp,i) = tempi
        vxyzu(4,i) = radprop(icv,i)*tempi
-
     else
        select case(ieos)
        case(23) ! Tillotson
           vxyzu(4,i) = 1.5*polyk_in
        case(16) ! Shen EoS
           vxyzu(4,i) = initialtemp
-       case(15) ! Helmholtz EoS
-          xi    = xyzh(1,i) - xorigin(1)
-          yi    = xyzh(2,i) - xorigin(2)
-          zi    = xyzh(3,i) - xorigin(3)
-          tempi = initialtemp
-          call equationofstate(ieos,p_on_rhogas,spsoundi,densi,xi,yi,zi,tempi,eni)
-          vxyzu(4,i) = eni
-          eos_vars(itemp,i) = initialtemp
        case default ! Recalculate eint and temp for each particle according to EoS
-          rho_cgs = densi*unit_density
-          p_cgs = presi*unit_pressure
-          tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
           if (use_var_comp) then
              call calc_temp_and_ene(ieos,rho_cgs,p_cgs,eni,tempi,ierr,&
                                     mu_local=eos_vars(imu,i),X_local=eos_vars(iX,i),Z_local=eos_vars(iZ,i))
@@ -588,7 +580,6 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
           eos_vars(itemp,i) = tempi
           vxyzu(4,i) = eni / unit_ergg
        end select
-
     endif
  enddo
  !$omp end parallel do
