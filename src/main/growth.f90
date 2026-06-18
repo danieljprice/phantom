@@ -220,23 +220,27 @@ end subroutine print_growthinfo
 !-----------------------------------------------------------------------
 subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,Vrel_disp)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
-                           massoftype,Omega_k,dustfrac,tstop,deltav
+                           massoftype,Omega_k,dustfrac,tstop,deltav,&
+                           nucleation
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
  use timestep,        only:dtmax
- real, intent(inout)      :: dustprop(:,:)
- real, intent(in)         :: Vrel_disp(:)
- real, intent(inout)      :: dustgasprop(:,:)
- real, intent(in)         :: xyzh(:,:)
- real, intent(in)         :: filfac(:)
- real, intent(inout)      :: VrelVf(:,:),vxyzu(:,:)
- real, intent(out)        :: dmdt(:)
- integer, intent(in)      :: npart
- real                     :: rhog,rhod,vrel,rho,sdust
- real                     :: massgrain,rhograin,filfaci
- real                     :: dtarb,frac_masschange,att_factor
- integer                  :: i,iam
+ use dim,             only:do_nucleation
+ real,    intent(in)    :: dustprop(:,:)
+ real, intent(in)       :: Vrel_disp(:)
+ real,    intent(inout) :: dustgasprop(:,:)
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: filfac(:)
+ real,    intent(inout) :: VrelVf(:,:),vxyzu(:,:)
+ real,    intent(out)   :: dmdt(:)
+ integer, intent(in)    :: npart
+ !
+ real                 :: rhog,rhod,vrel,rho,sdust
+ real                 :: massgrain,rhograin,filfaci
+ real                 :: dtarb,frac_masschange,att_factor,tdyn
+ integer              :: i,iam
+
 
  vrel = 0.
  rhod = 0.
@@ -249,12 +253,15 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc,dtmax) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
- !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
+ !$omp shared(do_nucleation,nucleation) &
+ !$omp private(i,iam,rho,rhog,rhod,vrel,sdust,tdyn) &
  !$omp private(massgrain,rhograin,dtarb,frac_masschange,att_factor) &
  !$omp firstprivate(filfaci)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
+
+       call get_dynamical_timescale(i,tdyn)
 
        if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
 
@@ -263,9 +270,13 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              rho              = rhoh(xyzh(4,i),massoftype(igas))
              rhog             = rho*(1-dustfrac(1,i))
              rhod             = rho*dustfrac(1,i)
-             dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
+             if (do_nucleation) then
+                 dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i),nucleation(7,i))
+             else
+                 dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
+             endif
              dustgasprop(2,i) = rhog
-             dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
+             dustgasprop(3,i) = tstop(1,i) / tdyn
              dustgasprop(4,i) = sqrt(deltav(1,1,i)**2 + deltav(2,1,i)**2 + deltav(3,1,i)**2)
           else
              rhod = rhoh(xyzh(4,i),massoftype(idust))
@@ -632,31 +643,47 @@ end subroutine check_dustprop
 !-----------------------------------------------------------------------
 subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
  use dust,    only:grainsizecgs,graindenscgs
- use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick
+ use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick,nucleation
  use physcon, only:fourpi
  use options, only:use_dustfrac
+ use dim,     only:do_nucleation
+ use physcon, only:rho_Cdust,a0
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:)
  logical, intent(in), optional :: sizedistrib
  real,    intent(in), optional :: pwl_sizedistrib,R_ref,H_R_ref,q_index
  integer                       :: i,iam
- real                          :: r,h
+ real                          :: r,h,grainmassmin
+
 
  do i=1,npart
     iam = iamtype(iphase(i))
     if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
-       dustprop(2,i) = graindenscgs / unit_density
-       if (sizedistrib) then
-          r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-          h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
-          dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
-          if (dustprop(1,i) < 2.e-5/udist) then
-             dustprop(1,i) = 2.e-5/udist
-          endif
-          dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
+
+       if (do_nucleation) then  !used by moddump_nucleationtodustgrowth
+           dustprop(2,i) = rho_Cdust / unit_density
+           grainmassmin = fourpi/3 * (1.e-8/udist)**3 * dustprop(2,i) ! arbitrary threshold
+           if (nucleation(2,i) < 1e-30) then !arbitrary threshold in number of dust grain
+                dustprop(1,i) = grainmassmin !tiny(dustprop(1,i))
+           else
+                dustprop(1,i) = a0*nucleation(3,i)/nucleation(2,i)  / udist !avg grain size = a0 K1/K0
+                dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3  ! convert into dust mass
+                if (dustprop(1,i)<grainmassmin) dustprop(1,i) = grainmassmin
+           endif
        else
-          dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3
-       endif
+           dustprop(2,i) = graindenscgs / unit_density
+           if (sizedistrib) then
+              r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+              h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
+              dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
+              if (dustprop(1,i) < 2.e-5/udist) then
+                 dustprop(1,i) = 2.e-5/udist
+              endif
+              dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
+           else
+              dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3
+           endif
+        endif
     else
        dustprop(:,i) = 0.
     endif
@@ -1068,5 +1095,25 @@ real function get_size(mass,dens,filfac)
  endif
 
 end function get_size
+
+
+!-----------------------------------------------------------------------
+!+
+!  Compute a characteristic dynamical timescale. Used in growth.f90 to get the St.
+!+
+!-----------------------------------------------------------------------
+ subroutine get_dynamical_timescale(i,tdyn)
+ use part,           only:xyzmh_ptmass,ivwind,iReff,Omega_k
+ use dim,            only:do_nucleation
+ integer,   intent(in)    :: i
+ real,      intent(inout) :: tdyn
+ 
+ if (do_nucleation) then
+    tdyn = 1/(xyzmh_ptmass(ivwind,1)/xyzmh_ptmass(iReff,1))
+ else
+    tdyn = 1/Omega_k(i)
+ endif
+
+ end subroutine get_dynamical_timescale
 
 end module growth

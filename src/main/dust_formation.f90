@@ -25,11 +25,12 @@ module dust_formation
 !
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
- use physcon, only:kboltz,pi,atomic_mass_unit,mass_proton_cgs,patm
+ use physcon, only:kboltz,pi,atomic_mass_unit,mass_proton_cgs,patm,rho_Cdust,a0,mc
  use dim,     only:nElements
 
  implicit none
  integer, public :: idust_opacity = 0
+! real, public    :: rho_Cdust = 2.62, a0 = 1.28e-8, mc = 12.*atomic_mass_unit  !cgs
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,&
       calc_kappa_bowen,chemical_equilibrium_light,psat_C,calc_nucleation,&
@@ -233,7 +234,6 @@ pure real function calc_kappa_dust(K3, Tdust, rho_cgs)
  real, intent(in) :: K3, Tdust, rho_cgs
 
  real :: kappa_cgs, fac
- real, parameter :: rho_Cdust = 2.62, mc = 12.*atomic_mass_unit
  real, parameter :: Qplanck_abs = 1.6846124267740528e+04
  real, parameter :: Qross_ext = 9473.2722815583311
 

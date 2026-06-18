@@ -101,4 +101,8 @@ module physcon
 !
  real(kind=8), parameter :: eVtoK = 1.1604519d4                 !Degrees kelvin per eV     K/eV
 
+!
+!--Dust nucleation
+!
+real(kind=8), parameter :: rho_Cdust = 2.62, a0 = 1.28e-8, mc = 12.*atomic_mass_unit
 end module physcon
