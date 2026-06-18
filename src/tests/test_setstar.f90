@@ -397,7 +397,7 @@ subroutine test_whitedwarf(ntests,npass)
  real :: rhozero,rmserr,ekin,x0(3),errmax(2)
  real :: Mstar,tolprof,rhoj,rhoj_mesa,rj
  integer(kind=8) :: ntot
- integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
+ integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit
  logical :: relax_star,var_comp
  real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:)
 
