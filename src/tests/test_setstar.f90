@@ -394,7 +394,7 @@ subroutine test_whitedwarf(ntests,npass)
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
  character(len=500) :: filepath
- real :: rhozero,rmserr,rmserr_mu,ekin,x0(3),errmax(2)
+ real :: rhozero,rmserr,ekin,x0(3),errmax(2)
  real :: Mstar,tolprof,rhoj,rhoj_mesa,rj
  integer(kind=8) :: ntot
  integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
@@ -473,8 +473,6 @@ subroutine test_whitedwarf(ntests,npass)
     enddo
     rmserr = sqrt(rmserr/npart)  ! root mean square relative error
     call checkval(rmserr,0.,tolprof,nfail(1),'density matches MESA profile')
-    call update_test_scores(ntests,nfail,npass)
-
     call update_test_scores(ntests,nfail,npass)
 
  enddo
