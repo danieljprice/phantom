@@ -394,7 +394,7 @@ subroutine test_whitedwarf(ntests,npass)
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
  character(len=500) :: filepath
- real :: rhozero,rmserr,rmserr_mu,rmserr_X,rmserr_Z,ekin,x0(3),errmax(2)
+ real :: rhozero,rmserr,rmserr_mu,ekin,x0(3),errmax(2)
  real :: Mstar,tolprof,rhoj,rhoj_mesa,rj
  integer(kind=8) :: ntot
  integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
