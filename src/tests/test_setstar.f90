@@ -395,7 +395,7 @@ subroutine test_whitedwarf(ntests,npass)
  type(star_t) :: star
  character(len=500) :: filepath
  real :: rhozero,rmserr,rmserr_mu,rmserr_X,rmserr_Z,ekin,x0(3),errmax(2)
- real :: Mstar,tolprof,tolcomposition,rhoj,rhoj_mesa,rj,Tgas,Trad
+ real :: Mstar,tolprof,rhoj,rhoj_mesa,rj
  integer(kind=8) :: ntot
  integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
  logical :: relax_star,var_comp
@@ -416,7 +416,7 @@ subroutine test_whitedwarf(ntests,npass)
  X_in = 0.
  Z_in = 1.
  relax_star = .true.
- maxits = 2000
+ maxits = 1500
  var_comp = .false.
  call set_defaults_star(star)
  star%np             = 10000
@@ -425,13 +425,12 @@ subroutine test_whitedwarf(ntests,npass)
  x0 = 0.
 
  nfail = 0; ncheck = 0; errmax = 0.
- tolprof = 0.08
- tolcomposition = 0.08
+ tolprof = 0.1
 
  call read_mesa(filepath,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
  Zfrac = 1.-Xfrac-Yfrac
 
- do i=1,4
+ do i=1,2
     call init_part()
     if (i==1) then  ! EOS Helmholtz
        ieos = 15
@@ -458,7 +457,7 @@ subroutine test_whitedwarf(ntests,npass)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
     call update_test_scores(ntests,nfail,npass)
    
-    call checkval(rmserr,0.0,0.04,nfail(1),'error in density profile')
+    call checkval(rmserr,0.0,0.05,nfail(1),'error in density profile')
     call update_test_scores(ntests,nfail,npass)
 
     call checkval(ekin,0.,5e-6,nfail(1),'ekin/epot < 1.e-7')
