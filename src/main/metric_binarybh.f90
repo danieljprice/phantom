@@ -86,7 +86,7 @@ subroutine update_metric(time)
     if (id==master) print "(a)",' Reading black hole trajectory from '//trim(trajectory_file)
  endif
  call get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
- if (ierr /= 0) call fatal('metric_binarybh','could not open trajectory file '//trim(trajectory_file))
+ if (ierr /= 0) call fatal('metric_binarybh','failed to read binary black hole trajectory from '//trim(trajectory_file))
  !if (id==master) print*,' time = ',time,' binary separation = ',sqrt(dot_product(x1 - x2,x1 - x2))
 
  metric_params(1:3) = x1
@@ -118,9 +118,10 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
 
  ! load the trajectory into memory on first use
  if (ntraj == 0) call load_trajectory(ierr)
- if (ierr /= 0 .or. ntraj == 0) return
+ if (ierr == 0 .and. ntraj == 0) ierr = 1
+ if (ierr /= 0) return
 
- ! before the start of the table: use the first entry
+ ! before the start of the table: clamp to the first entry
  if (time <= traj(0,1)) then
     x1 = traj(1:3,1); x2 = traj(4:6,1); v1 = traj(7:9,1); v2 = traj(10:12,1)
     return
@@ -140,7 +141,8 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
 
  ! beyond the end of the table
  call error('metric_binarybh','time beyond range of trajectory file: '//trim(trajectory_file))
- x1 = traj(1:3,ntraj); x2 = traj(4:6,ntraj); v1 = traj(7:9,ntraj); v2 = traj(10:12,ntraj)
+ ierr = 1
+ return
 
 end subroutine get_trajectory_from_file
 
@@ -187,7 +189,12 @@ subroutine load_trajectory(ierr)
     ntraj = k
  enddo
  close(iu)
- if (ntraj < 1) call error('metric_binarybh','no trajectory entries read from '//trim(trajectory_file))
+ if (ntraj < 1) then
+    call error('metric_binarybh','no trajectory entries read from '//trim(trajectory_file))
+    ierr = 1
+ else
+    ierr = 0
+ endif
 
 end subroutine load_trajectory
 
