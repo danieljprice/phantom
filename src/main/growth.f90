@@ -200,7 +200,7 @@ subroutine print_growthinfo(iprint)
        write(iprint,"(2(a,1pg10.3),a)") ' vfrag = ',vfragSI,' m/s = ',vfrag ,' (code units)'
     else
        write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfraginSI,' m/s = ',vfragin,' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragoutSI,' m/s = ',vfragout,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") ' vfragout = ',vfragoutSI,' m/s = ',vfragout,' (code units)'
     endif
  endif
  if (ieros == 1) then
