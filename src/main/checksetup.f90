@@ -257,17 +257,17 @@ subroutine check_setup(nerror,nwarn,restart)
  !--check that temperature guess is set if using Helmholtz EOS
  !
  if (ieos==ieos_helmholtz) then
-      nbad = 0
-      do i=1,npart
-         if (eos_vars(itemp,i) <= 0.) then
-            nbad = nbad + 1
-            if (nbad <= 10) print*,' particle ',i,' temperature guess = ',eos_vars(itemp,i)
-         endif
-      enddo
-      if (nbad > 0) then
-         print*,'ERROR: Using Helmholtz EOS but temperature guess not set on ',nbad,' of ',npart,' particles'
-         nerror = nerror + 1
-      endif
+    nbad = 0
+    do i=1,npart
+       if (eos_vars(itemp,i) <= 0.) then
+          nbad = nbad + 1
+          if (nbad <= 10) print*,' particle ',i,' temperature guess = ',eos_vars(itemp,i)
+       endif
+    enddo
+    if (nbad > 0) then
+       print*,'ERROR: Using Helmholtz EOS but temperature guess not set on ',nbad,' of ',npart,' particles'
+       nerror = nerror + 1
+    endif
  endif
 !
 !--check that mass of each type has been set
@@ -980,8 +980,8 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
 
  if (imetric==imet_rn) then
     if (abs(mass1-1.) > tiny(0.)) then
-        print*, ' mass1 in code units shall be unity for proper interpretation'
-        nerror = nerror + 1
+       print*, ' mass1 in code units shall be unity for proper interpretation'
+       nerror = nerror + 1
     endif
  elseif (abs(charge) > 0.) then
     print*,' charge should be zero for this metric'

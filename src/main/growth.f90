@@ -207,8 +207,8 @@ subroutine print_growthinfo(iprint)
     write(iprint,"(a)")    ' Using aeolian-erosion model where ds = -fourpi*rhos*rhog*s*(deltav**3)*(dsize**2)/(3*cohacc)*dt    '
     write(iprint,"(2(a,1pg10.3),a)")' dsize = ',dsizecgs,' cm = ',dsize,' (code units)'
  endif
-if (ivrelkin == 0) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence only    '
-if (ivrelkin == 1) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence and dust relative motion at macro scale    '
+ if (ivrelkin == 0) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence only    '
+ if (ivrelkin == 1) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence and dust relative motion at macro scale    '
 
 end subroutine print_growthinfo
 
@@ -305,14 +305,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
 
           !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
           if (ifrag > 0 .and. dmdt(i) < 0. .and. VrelVf(1,i) > 50) then
-              dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
-              if (dustprop(1,i) > tiny(dustprop(1,i))) then
-                  frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
-              else
-                  frac_masschange = 0.
-              endif
-              att_factor = 1-dtarb*frac_masschange    ! attenuation factor
-              dmdt(i) = dmdt(i)*att_factor
+             dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
+             if (dustprop(1,i) > tiny(dustprop(1,i))) then
+                frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
+             else
+                frac_masschange = 0.
+             endif
+             att_factor = 1-dtarb*frac_masschange    ! attenuation factor
+             dmdt(i) = dmdt(i)*att_factor
           endif
        endif
     else
@@ -367,17 +367,17 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
           VrelVf(3) = Vrel_disp/vfragout
        endif
     case(1)
-        if (vfragin > 0.) then
-           VrelVf(1) = vrel/vfragin
-           VrelVf(2) = Vrel_micro/vfragin
-           VrelVf(3) = Vrel_disp/vfragin
-        endif
+       if (vfragin > 0.) then
+          VrelVf(1) = vrel/vfragin
+          VrelVf(2) = Vrel_micro/vfragin
+          VrelVf(3) = Vrel_disp/vfragin
+       endif
     case default
-        if (vfrag > 0.) then
-           VrelVf(1) = vrel/vfrag
-           VrelVf(2) = Vrel_micro/vfrag
-           VrelVf(3) = Vrel_disp/vfrag
-        endif
+       if (vfrag > 0.) then
+          VrelVf(1) = vrel/vfrag
+          VrelVf(2) = Vrel_micro/vfrag
+          VrelVf(3) = Vrel_disp/vfrag
+       endif
     end select
  endif
 

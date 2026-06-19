@@ -147,24 +147,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     !--initialise dust-growth-related quantities
     if (use_dustgrowth) then
-        vfragSI = 15. ! in m
-        print*,' vfrag in physical units = ',vfragSI
-        vfrag = vfragSI/100 / (udist/utime)
-        vref = vfragSI/100 / (udist/utime)
-        print*,' vfrag in code units = ',vfrag
+       vfragSI = 15. ! in m
+       print*,' vfrag in physical units = ',vfragSI
+       vfrag = vfragSI/100 / (udist/utime)
+       vref = vfragSI/100 / (udist/utime)
+       print*,' vfrag in code units = ',vfrag
 
-        gsizemincgs = 5.e-11  ! in cm
-        print*,' minimum grain size in physical units = ',gsizemincgs
-        grainsizemin = gsizemincgs / udist
-        print*,' minimum grain size in code units = ',grainsizemin
+       gsizemincgs = 5.e-11  ! in cm
+       print*,' minimum grain size in physical units = ',gsizemincgs
+       grainsizemin = gsizemincgs / udist
+       print*,' minimum grain size in code units = ',grainsizemin
 
-        grainsizecgs = 1e-10!0.1 ! in cm
-        print*,' initial grain size in physical units = ',grainsizecgs
-        grainsize(1) = grainsizecgs / udist
-        print*,' initial grain size in code units = ',grainsize(1)
+       grainsizecgs = 1e-10!0.1 ! in cm
+       print*,' initial grain size in physical units = ',grainsizecgs
+       grainsize(1) = grainsizecgs / udist
+       print*,' initial grain size in code units = ',grainsize(1)
 
-        graindenscgs = 3. ! in g cm-3
-        graindens(1) = graindenscgs / (umass/udist**3)
+       graindenscgs = 3. ! in g cm-3
+       graindens(1) = graindenscgs / (umass/udist**3)
     endif
 
     !--set which type of particle it is

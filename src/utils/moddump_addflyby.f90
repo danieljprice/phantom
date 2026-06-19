@@ -22,14 +22,14 @@ module moddump
 !   prompting, setorbit, timestep, units
 !
 
-use setorbit,      only:orbit_t
-implicit none
+ use setorbit,      only:orbit_t
+ implicit none
 
-type(orbit_t) :: orbit
-real    :: deltat,accr2,m2,m1
-integer :: norbits
+ type(orbit_t) :: orbit
+ real    :: deltat,accr2,m2,m1
+ integer :: norbits
 
-character(len=*), parameter, public :: moddump_flags = ''
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -102,32 +102,32 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 subroutine read_interactive_moddumpfile()
-   use prompting,         only:prompt
+ use prompting,         only:prompt
 
-   call prompt('Do you want to specify the flyby orbit as bound (elliptic) or'// &
+ call prompt('Do you want to specify the flyby orbit as bound (elliptic) or'// &
                   ' unbound (parabolic/hyperbolic) or as observed dx,dv?'//new_line('A')// &
                   ' 0=bound'//new_line('A')//' 1=unbound'//new_line('A')// &
                   ' 2=orbit reconstructor'//new_line('A')// '3=observed dx,dv'//new_line('A'),orbit%input_type,0,4)
-   select case (orbit%input_type)
-      case (0)
-         !--bound
-         m2       = 0.2
-         orbit%elems%a = '10.'
-         accr2    = 1.0
-      case default
-         !--unbound (flyby)
-         m2       = 1.
-         accr2    = 1.
-         !
-         ! the following is only if we want to override defaults in set_defaults_orbit
-         ! so for input_type=2 or 3 we will just get those defaults
-         !
-         if (orbit%input_type >= 1) then
-            orbit%flyby%rp = '200.'
-            orbit%flyby%d = '2000.'
-         endif
-         orbit%e = 2.0
-   end select
+ select case (orbit%input_type)
+ case (0)
+    !--bound
+    m2       = 0.2
+    orbit%elems%a = '10.'
+    accr2    = 1.0
+ case default
+    !--unbound (flyby)
+    m2       = 1.
+    accr2    = 1.
+    !
+    ! the following is only if we want to override defaults in set_defaults_orbit
+    ! so for input_type=2 or 3 we will just get those defaults
+    !
+    if (orbit%input_type >= 1) then
+       orbit%flyby%rp = '200.'
+       orbit%flyby%d = '2000.'
+    endif
+    orbit%e = 2.0
+ end select
 end subroutine read_interactive_moddumpfile
 
 !----------------------------------------------------------------

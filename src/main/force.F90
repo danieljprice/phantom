@@ -3175,7 +3175,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
           if (dustgasprop(2,i) > 0.) then
-          !- interpolations are mass weigthed, divide result by rhog,i
+             !- interpolations are mass weigthed, divide result by rhog,i
              dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
              dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
           else

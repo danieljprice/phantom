@@ -185,27 +185,27 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  rs_on_r3 = rs/r3
 
  !  dx
-      dgcovdx(0,0) = x*(2*charge**2 - r*rs)/r**4
-      dgcovdx(1,1) = x*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)* &
+ dgcovdx(0,0) = x*(2*charge**2 - r*rs)/r**4
+ dgcovdx(1,1) = x*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)* &
  (y**2 + z**2)) - (4*charge**2 - 3*r*rs)*(y**2 + z**2)*(charge**2        &
  + r**2 - r*rs))/(r**4*(charge**2 + r**2 - r*rs)**2)
-      dgcovdx(2,2) = x*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)* &
+ dgcovdx(2,2) = x*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)* &
  (x**2 + z**2)) + (2*r**2*(charge**2 - r*rs) - (4*charge**2 - 3*r*       &
  rs)*(x**2 + z**2))*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +        &
  r**2 - r*rs)**2)
-      dgcovdx(3,3) = x*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)* &
+ dgcovdx(3,3) = x*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)* &
  (x**2 + y**2)) + (2*r**2*(charge**2 - r*rs) - (4*charge**2 - 3*r*       &
  rs)*(x**2 + y**2))*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +        &
  r**2 - r*rs)**2)
-      dgcovdx(1,2) = y*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*  &
+ dgcovdx(1,2) = y*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*  &
  rs) - x**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + x**2*(4*           &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +       &
  r**2 - r*rs)**2)
-      dgcovdx(1,3) = z*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*  &
+ dgcovdx(1,3) = z*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*  &
  rs) - x**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + x**2*(4*           &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +       &
  r**2 - r*rs)**2)
-      dgcovdx(2,3) = x*y*z*(-(charge**2 - r*rs)*(2*charge**2 - r*rs) + ( &
+ dgcovdx(2,3) = x*y*z*(-(charge**2 - r*rs)*(2*charge**2 - r*rs) + ( &
  4*charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2       &
  + r**2 - r*rs)**2)
 
@@ -227,26 +227,26 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  dgcovdy(0,2) = 0.
  dgcovdy(0,3) = 0.
 
-       dgcovdy(0,0) = y*(2*charge**2 - r*rs)/r**4
-      dgcovdy(1,1) = y*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
+ dgcovdy(0,0) = y*(2*charge**2 - r*rs)/r**4
+ dgcovdy(1,1) = y*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
  (y**2 + z**2)) + (2*r**2*(charge**2 - r*rs) - (4*charge**2 - 3*r*          &
  rs)*(y**2 + z**2))*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +           &
  r**2 - r*rs)**2)
-      dgcovdy(2,2) = y*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
+ dgcovdy(2,2) = y*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
  (x**2 + z**2)) - (4*charge**2 - 3*r*rs)*(x**2 + z**2)*(charge**2           &
  + r**2 - r*rs))/(r**4*(charge**2 + r**2 - r*rs)**2)
-      dgcovdy(3,3) = y*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
+ dgcovdy(3,3) = y*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
  (x**2 + y**2)) + (2*r**2*(charge**2 - r*rs) - (4*charge**2 - 3*r*          &
  rs)*(x**2 + y**2))*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +           &
  r**2 - r*rs)**2)
-      dgcovdy(1,2) = x*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
+ dgcovdy(1,2) = x*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
  rs) - y**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + y**2*(4*              &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +          &
  r**2 - r*rs)**2)
-      dgcovdy(1,3) = x*y*z*(-(charge**2 - r*rs)*(2*charge**2 - r*rs) + (    &
+ dgcovdy(1,3) = x*y*z*(-(charge**2 - r*rs)*(2*charge**2 - r*rs) + (    &
  4*charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2          &
  + r**2 - r*rs)**2)
-      dgcovdy(2,3) = z*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
+ dgcovdy(2,3) = z*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
  rs) - y**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + y**2*(4*              &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +          &
  r**2 - r*rs)**2)
@@ -263,26 +263,26 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  dgcovdz(0,2) = 0.
  dgcovdz(0,3) = 0.
 
-      dgcovdz(0,0) = z*(2*charge**2 - r*rs)/r**4
-      dgcovdz(1,1) = z*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
+ dgcovdz(0,0) = z*(2*charge**2 - r*rs)/r**4
+ dgcovdz(1,1) = z*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
  (y**2 + z**2)) + (2*r**2*(charge**2 - r*rs) - (4*charge**2 - 3*r*          &
  rs)*(y**2 + z**2))*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +           &
  r**2 - r*rs)**2)
-      dgcovdz(2,2) = z*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
+ dgcovdz(2,2) = z*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
  (x**2 + z**2)) + (2*r**2*(charge**2 - r*rs) - (4*charge**2 - 3*r*          &
  rs)*(x**2 + z**2))*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +           &
  r**2 - r*rs)**2)
-      dgcovdz(3,3) = z*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
+ dgcovdz(3,3) = z*((2*charge**2 - r*rs)*(r**4 + (charge**2 - r*rs)*    &
  (x**2 + y**2)) - (4*charge**2 - 3*r*rs)*(x**2 + y**2)*(charge**2           &
  + r**2 - r*rs))/(r**4*(charge**2 + r**2 - r*rs)**2)
-      dgcovdz(1,2) = x*y*z*(-(charge**2 - r*rs)*(2*charge**2 - r*rs) + (    &
+ dgcovdz(1,2) = x*y*z*(-(charge**2 - r*rs)*(2*charge**2 - r*rs) + (    &
  4*charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2          &
  + r**2 - r*rs)**2)
-      dgcovdz(1,3) = x*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
+ dgcovdz(1,3) = x*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
  rs) - z**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + z**2*(4*              &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +          &
  r**2 - r*rs)**2)
-      dgcovdz(2,3) = y*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
+ dgcovdz(2,3) = y*(-r**2*(charge**2 - r*rs)*(charge**2 + r**2 - r*     &
  rs) - z**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + z**2*(4*              &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +          &
  r**2 - r*rs)**2)

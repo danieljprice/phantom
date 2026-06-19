@@ -42,15 +42,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !rho_threshold = rho_threshold * udist*udist*udist / umass   !code units
  compt = 0
  do i=1,npart
-     hi = xyzh(4,i)
-     pmassi = massoftype(igas)
-     rhoi = rhoh(hi,pmassi)
-     ! write(*,*) rhoi      ! uncomment to have an idea of the density
-     if (rhoi < rho_threshold) then
-         call kill_particle(i,npartoftype)
-         compt = compt+1
-         !xyzh(4,i) = -abs(hi)    !call kill_particle(i,npoftype)
-     endif
+    hi = xyzh(4,i)
+    pmassi = massoftype(igas)
+    rhoi = rhoh(hi,pmassi)
+    ! write(*,*) rhoi      ! uncomment to have an idea of the density
+    if (rhoi < rho_threshold) then
+       call kill_particle(i,npartoftype)
+       compt = compt+1
+       !xyzh(4,i) = -abs(hi)    !call kill_particle(i,npoftype)
+    endif
  enddo
  write(*,*) 'Particles deleted :', compt
  call shuffle_part(npart)

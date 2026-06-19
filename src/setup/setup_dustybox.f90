@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:labeltype,set_particle_type,igas,idust,periodic,&
                         dustprop,dustgasprop,VrelVf,&
                         filfac,probastick!,&
-                        !iphase,iamdust
+ !iphase,iamdust
  use physcon,      only:pi,solarm,au,fourpi
  use units,        only:set_units
  use mpidomain,    only:i_belong
@@ -93,19 +93,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--dust growth
 !
-if (use_dustgrowth) then
-   ifrag = 0
-   ivrelkin = 0
-   isnow = 0
-   vfragSI = 15.
-   gsizemincgs = 5.e-3
+ if (use_dustgrowth) then
+    ifrag = 0
+    ivrelkin = 0
+    isnow = 0
+    vfragSI = 15.
+    gsizemincgs = 5.e-3
 
-   grainsizecgs = 0.1
-   graindenscgs = 3.
+    grainsizecgs = 0.1
+    graindenscgs = 3.
 
-   mprev(:) = 99.
-   filfacprev(:) = 99.
-endif
+    mprev(:) = 99.
+    filfacprev(:) = 99.
+ endif
 
  ! read setup parameters from file
  if (use_dustgrowth) then
@@ -229,13 +229,13 @@ subroutine write_setupfile(filename)
  call write_inopt(polykset,'polykset','sound speed in code units (sets polyk)',iunit)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  if (use_dustgrowth) then
-     call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
-     call write_inopt(ivrelkin,'ivrelkin','vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)',iunit)
-     call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
-     if (ifrag /= 0) then
-        call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
-     endif
-     if (isnow == 0) call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
+    call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
+    call write_inopt(ivrelkin,'ivrelkin','vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)',iunit)
+    call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
+    if (ifrag /= 0) then
+       call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
+    endif
+    if (isnow == 0) call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
  endif
  close(iunit)
 
@@ -263,18 +263,18 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(polykset,'polykset',db,min=0.,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  if (use_dustgrowth) then
-     call read_inopt(ifrag,'ifrag',db,min=0,errcount=nerr)
-     call read_inopt(ivrelkin,'ivrelkin',db,min=0,errcount=nerr)
-     call read_inopt(grainsizecgs,'grainsize',db,min=0.,errcount=nerr)
-     grainsize(1) = grainsizecgs/udist
-     graindens(1) = graindenscgs/unit_density
-     if (ifrag /= 0) then
-        call read_inopt(gsizemincgs,'grainsizemin',db,min=0.,errcount=nerr)
-        grainsizemin = gsizemincgs / udist
-     endif
-     if (isnow == 0) call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
-     vfrag = vfragSI * 100 / unit_velocity
-     vref  = vfragSI * 100 / unit_velocity
+    call read_inopt(ifrag,'ifrag',db,min=0,errcount=nerr)
+    call read_inopt(ivrelkin,'ivrelkin',db,min=0,errcount=nerr)
+    call read_inopt(grainsizecgs,'grainsize',db,min=0.,errcount=nerr)
+    grainsize(1) = grainsizecgs/udist
+    graindens(1) = graindenscgs/unit_density
+    if (ifrag /= 0) then
+       call read_inopt(gsizemincgs,'grainsizemin',db,min=0.,errcount=nerr)
+       grainsizemin = gsizemincgs / udist
+    endif
+    if (isnow == 0) call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
+    vfrag = vfragSI * 100 / unit_velocity
+    vref  = vfragSI * 100 / unit_velocity
  endif
  call close_db(db)
  if (nerr > 0) then

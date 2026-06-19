@@ -132,18 +132,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
 
  ngas = int(npart_total,kind=4)
  do i=1,ngas
-   call set_particle_type(i,igas)
+    call set_particle_type(i,igas)
 
-   ! gas at rest
-   vxyzu(1,i) = 0.
-   vxyzu(2,i) = 0.
-   vxyzu(3,i) = 0.
+    ! gas at rest
+    vxyzu(1,i) = 0.
+    vxyzu(2,i) = 0.
+    vxyzu(3,i) = 0.
 
-   if (xyzh(1,i)==0 .and. xyzh(2,i)==0 .and. xyzh(3,i)==0) then !assign random pos in case of stacking at origin
-      xyzh(1,i) = gauss_random(iseed)*0.01
-      xyzh(2,i) = gauss_random(iseed)*0.01
-      xyzh(3,i) = gauss_random(iseed)*0.01
-   endif
+    if (xyzh(1,i)==0 .and. xyzh(2,i)==0 .and. xyzh(3,i)==0) then !assign random pos in case of stacking at origin
+       xyzh(1,i) = gauss_random(iseed)*0.01
+       xyzh(2,i) = gauss_random(iseed)*0.01
+       xyzh(3,i) = gauss_random(iseed)*0.01
+    endif
  enddo
 
  !--------------------------------------------------
@@ -160,34 +160,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  rcompt = 1e70
  do i=1,ndust
 
-   ipart = ngas + i
-   call set_particle_type(ipart,idust)
+    ipart = ngas + i
+    call set_particle_type(ipart,idust)
 
-   ! Velocity pointing towards origin with magnitude of 1
-   x = xyzh(1,ipart)
-   y = xyzh(2,ipart)
-   z = xyzh(3,ipart)
-   r = sqrt( x**2 + y**2 + z**2 )
-   vxyzu(1,ipart) = -x/r
-   vxyzu(2,ipart) = -y/r
-   vxyzu(3,ipart) = -z/r
+    ! Velocity pointing towards origin with magnitude of 1
+    x = xyzh(1,ipart)
+    y = xyzh(2,ipart)
+    z = xyzh(3,ipart)
+    r = sqrt( x**2 + y**2 + z**2 )
+    vxyzu(1,ipart) = -x/r
+    vxyzu(2,ipart) = -y/r
+    vxyzu(3,ipart) = -z/r
 
-   ! Look for particle at origin
-   if (r<rcompt) then
-      rcompt = r
-      icompt = ipart
-   endif
+    ! Look for particle at origin
+    if (r<rcompt) then
+       rcompt = r
+       icompt = ipart
+    endif
 
-   !--set dustprops
-   if (use_dustgrowth) then
-      !dustprop(:,i) = 0.
-      dustprop(1,ipart) = fourpi/3.*graindens(1)*grainsize(1)**3
-      dustprop(2,ipart) = graindens(1)
-      filfac(ipart) = 0.
-      probastick(ipart) = 1.
-      dustgasprop(:,ipart) = 0.
-      VrelVf(:,ipart)        = 0.
-   endif
+    !--set dustprops
+    if (use_dustgrowth) then
+       !dustprop(:,i) = 0.
+       dustprop(1,ipart) = fourpi/3.*graindens(1)*grainsize(1)**3
+       dustprop(2,ipart) = graindens(1)
+       filfac(ipart) = 0.
+       probastick(ipart) = 1.
+       dustgasprop(:,ipart) = 0.
+       VrelVf(:,ipart)        = 0.
+    endif
  enddo
 
  !npart = ngas + ndust
