@@ -29,8 +29,32 @@
 # real,    intent(inout), optional :: a,b,c
 # integer, intent(in),    optional :: i,j,k
 #
+# parameter declarations are left at their original positions; only intent()
+# lines are moved ahead of other local subroutine variables.
+#
 use Text::Balanced qw<extract_bracketed>;
 my $type_pattern = qr/(?:real|integer|logical|character|complex|double\s+precision|type|class)\b/i;
+
+sub format_decl {
+   my ($entry,$padlen,$padleni,$padleni_nonopt,$optlen) = @_;
+   if ( exists $entry->{raw} ) {
+      return $entry->{raw};
+   }
+   my $vari = $entry->{vari};
+   my $base = $entry->{base};
+   my $rest = $entry->{rest};
+   my $intent_width = $entry->{optional} ? $padleni : $padleni_nonopt;
+   my $base_str = sprintf("%-*s %-*s",$padlen,$vari,$intent_width,$base);
+   (my $base_trim = $base_str) =~ s/\s+$//;
+   if ( $entry->{optional} ) {
+      my $pad_spaces = $optlen - length($base_trim);
+      $pad_spaces = 0 if $pad_spaces < 0;
+      my $opt_str = ', ' . (' ' x $pad_spaces) . 'optional';
+      return sprintf("%s%s %s\n",$base_trim,$opt_str,$rest);
+   }
+   return sprintf("%s %s\n",$base_str,$rest);
+}
+
 my @file = '';
 while (<STDIN>) {
   my @block = ();
@@ -220,32 +244,23 @@ while (<STDIN>) {
        if ($baselen > $optlen) { $optlen = $baselen; }
      }
 
+     foreach my $entry (@parsed) {
+       if ( exists $entry->{raw} && $entry->{raw} =~ /\bparameter\b/i ) {
+          $entry->{parameter} = 1;
+       }
+     }
+
      my @nonopt = grep { !exists $_->{raw} && !$_->{optional} } @parsed;
      my @opt    = grep { !exists $_->{raw} &&  $_->{optional} } @parsed;
-     my @param  = grep {  exists $_->{raw} && $_->{raw} =~ /\bparameter\b/i } @parsed;
-     my @raw    = grep {  exists $_->{raw} && $_->{raw} !~ /\bparameter\b/i } @parsed;
+     my @local  = grep { exists $_->{raw} && !$_->{parameter} } @parsed;
+     my @queue  = (@nonopt, @opt, @local);
 
-     foreach my $entry (@param, @nonopt, @opt, @raw) {
-       my $newline = '';
-       if ( exists $entry->{raw} ) {
-          $newline = $entry->{raw};
-       } else {
-          my $vari = $entry->{vari};
-          my $base = $entry->{base};
-          my $rest = $entry->{rest};
-          my $intent_width = $entry->{optional} ? $padleni : $padleni_nonopt;
-          my $base_str = sprintf("%-*s %-*s",$padlen,$vari,$intent_width,$base);
-          (my $base_trim = $base_str) =~ s/\s+$//;
-          if ( $entry->{optional} ) {
-             my $pad_spaces = $optlen - length($base_trim);
-             $pad_spaces = 0 if $pad_spaces < 0;
-             my $opt_str = ', ' . (' ' x $pad_spaces) . 'optional';
-             $newline = sprintf("%s%s %s\n",$base_trim,$opt_str,$rest);
-          } else {
-             $newline = sprintf("%s %s\n",$base_str,$rest);
-          }
+     foreach my $entry (@parsed) {
+       my $out_entry = $entry;
+       if ( !exists $entry->{parameter} ) {
+          $out_entry = shift @queue;
        }
-       push @newblock, $newline;
+       push @newblock, format_decl($out_entry,$padlen,$padleni,$padleni_nonopt,$optlen);
      }
 
      push @file, @newblock;
