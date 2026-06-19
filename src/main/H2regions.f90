@@ -187,10 +187,10 @@ end subroutine update_ionrate
 !+
 !-----------------------------------------------------------------------
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
- integer,          intent(in)    :: nptmass,npart
- real,             intent(in)    :: xyzh(:,:)
- real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- real,             intent(inout) :: eos_vars(:,:)
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,    intent(inout) :: eos_vars(:,:)
  select case(iH2R)
  case(1)
     call HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
@@ -213,10 +213,10 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use physcon,    only:pc,pi
  use dim,        only:maxvxyzu
  use io,         only:iverbose,iprint,warning,id,master
- integer,          intent(in)    :: nptmass,npart
- real,             intent(in)    :: xyzh(:,:)
- real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- real,             intent(inout) :: eos_vars(:,:)
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,    intent(inout) :: eos_vars(:,:)
  integer, parameter :: maxc  = 128
  real, save :: xyzcache(3,maxc)
  integer            :: i,k,j,npartin,nneigh,itypej,its
@@ -357,10 +357,10 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                     iphase,get_partinfo,noverlap,rhoh,itemp,imu
  use dim,      only:maxvxyzu
  use io,         only:iverbose,iprint,id,master
- integer,          intent(in)    :: nptmass,npart
- real,             intent(in)    :: xyzh(:,:)
- real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- real,             intent(inout) :: eos_vars(:,:)
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,    intent(inout) :: eos_vars(:,:)
  real, save         :: xyzcache(4,maxcache)
  real               :: pmass,log_Qi,fluxi,xj,yj,zj,rsrci
  logical            :: isactive,isgas,isdust
@@ -430,13 +430,13 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
  use kernel,   only:radkern
  use physcon,  only:fourpi
  use units,    only:utime
- integer,        intent(in)    :: itarg
- integer,        intent(in)    :: noverlap(:)
- real,           intent(in)    :: xyzh(:,:)
- real,           intent(inout) :: xyzcache(:,:)
+ integer, intent(in)    :: itarg
+ integer, intent(in)    :: noverlap(:)
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: xyzcache(:,:)
 
- real,           intent(in)    :: srcpos(3),pmass,log_Q
- real,           intent(out)   :: flux,rsrc
+ real, intent(in)  :: srcpos(3),pmass,log_Q
+ real, intent(out) :: flux,rsrc
  real, parameter :: thetalim2 = 0.0025
  real            :: rayx,rayy,rayz,drisrc1,drisrc,dr,hpmass1,lumS,recvol
  real            :: xij,yij,zij,xi,yi,zi,hi,hj,drproj,dr2toray,icoeff

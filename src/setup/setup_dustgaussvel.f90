@@ -6,11 +6,16 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Dust + gas setup:
-! - gas particles on uniform lattice, v = 0
-! - dust particles initially at same location (tiny offsets between them)
-! - dust velocities from Gaussian distribution
-! - explicit Gaussian RNG (Box–Muller)
+! setup
+!
+! :References: None
+!
+! :Owner: Antoine Alaguero
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dust, io, mpidomain, part, physcon, random,
+!   setup_params, unifdis, units
 !
  use setup_params, only:rhozero,npart_total
  use dim,          only:use_dustgrowth
@@ -123,18 +128,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
 
  ngas = int(npart_total,kind=4)
  do i=1,ngas
-   call set_particle_type(i,igas)
+    call set_particle_type(i,igas)
 
-   ! gas at rest
-   vxyzu(1,i) = 0.
-   vxyzu(2,i) = 0.
-   vxyzu(3,i) = 0.
+    ! gas at rest
+    vxyzu(1,i) = 0.
+    vxyzu(2,i) = 0.
+    vxyzu(3,i) = 0.
 
-   if (xyzh(1,i)==0 .and. xyzh(2,i)==0 .and. xyzh(3,i)==0) then !assign random pos in case of stacking at origin
-      xyzh(1,i) = gauss_random(iseed)*0.01
-      xyzh(2,i) = gauss_random(iseed)*0.01
-      xyzh(3,i) = gauss_random(iseed)*0.01
-   endif
+    if (xyzh(1,i)==0 .and. xyzh(2,i)==0 .and. xyzh(3,i)==0) then !assign random pos in case of stacking at origin
+       xyzh(1,i) = gauss_random(iseed)*0.01
+       xyzh(2,i) = gauss_random(iseed)*0.01
+       xyzh(3,i) = gauss_random(iseed)*0.01
+    endif
  enddo
 
  !--------------------------------------------------
@@ -162,10 +167,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
 ! ind_z = 0
  do i=1,ndust
 
-   ipart = ngas + i
-   call set_particle_type(ipart,idust)
+    ipart = ngas + i
+    call set_particle_type(ipart,idust)
 
-   ! get inds
+    ! get inds
 !   if (MOD(i,3)==0) then
 !      ind_x = ind_x + 1
 !   elseif (MOD(i,3)==1) then
@@ -174,39 +179,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
 !      ind_z = ind_z + 1
 !   endif
 
-   !dx = dust_spread*gauss_random(iseed)
-   !dy = dust_spread*gauss_random(iseed)
-   !dz = dust_spread*gauss_random(iseed)
-   !if (mod(ipart,2)==1) dx=-dx
+    !dx = dust_spread*gauss_random(iseed)
+    !dy = dust_spread*gauss_random(iseed)
+    !dz = dust_spread*gauss_random(iseed)
+    !if (mod(ipart,2)==1) dx=-dx
 
-   ! all dust at same location + tiny offsets
-   !xyzh(1,ipart) = x0 + dx*ind_x
-   !xyzh(2,ipart) = y0 + dy*ind_y
-   !xyzh(3,ipart) = z0 + dz*ind_z
+    ! all dust at same location + tiny offsets
+    !xyzh(1,ipart) = x0 + dx*ind_x
+    !xyzh(2,ipart) = y0 + dy*ind_y
+    !xyzh(3,ipart) = z0 + dz*ind_z
 
-   ! smoothing length
-   !xyzh(4,ipart) = 2. !xyzh(4,1) ! articficial to bypass warnings
+    ! smoothing length
+    !xyzh(4,ipart) = 2. !xyzh(4,1) ! articficial to bypass warnings
 
-   !call set_particle_type(ipart,idust)
+    !call set_particle_type(ipart,idust)
 
-   ! Gaussian velocity
-   vxyzu(1,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
-   vxyzu(2,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
-   vxyzu(3,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
+    ! Gaussian velocity
+    vxyzu(1,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
+    vxyzu(2,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
+    vxyzu(3,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
 
-
-   !--set dustprops
-   if (use_dustgrowth) then
-      !dustprop(:,i) = 0.
-      dustprop(1,ipart) = fourpi/3.*graindens(1)*grainsize(1)**3
-      dustprop(2,ipart) = graindens(1)
-      filfac(ipart) = 0.
-      probastick(ipart) = 1.
-      dustgasprop(:,ipart) = 0.
-      VrelVf(:,ipart)        = 0.
-   endif
+    !--set dustprops
+    if (use_dustgrowth) then
+       !dustprop(:,i) = 0.
+       dustprop(1,ipart) = fourpi/3.*graindens(1)*grainsize(1)**3
+       dustprop(2,ipart) = graindens(1)
+       filfac(ipart) = 0.
+       probastick(ipart) = 1.
+       dustgasprop(:,ipart) = 0.
+       VrelVf(:,ipart)        = 0.
+    endif
  enddo
-
 
  !npart = ngas + ndust
 

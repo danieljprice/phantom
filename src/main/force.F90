@@ -239,28 +239,28 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use omputils,     only:omp_thread_num,omp_num_threads
  use eos,          only:iresistive_heating
 
- integer,      intent(in)    :: icall,npart
- integer(kind=1), intent(in) :: apr_level(:)
- real,         intent(in)    :: xyzh(:,:)
- real,         intent(inout) :: vxyzu(:,:)
- real,         intent(in)    :: dustfrac(:,:)
- real,         intent(in)    :: dustprop(:,:)
- real,         intent(inout) :: dustgasprop(:,:)
- real,         intent(out)   :: Vrel_disp(:)
- real,         intent(in)    :: fext(:,:)
- real,         intent(inout) :: fxyz_drag(:,:)
- real,         intent(in)    :: eos_vars(:,:)
- real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:)
- real,         intent(in)    :: Bevol(:,:)
- real,         intent(out)   :: dBevol(:,:)
- real(kind=4), intent(inout) :: divcurlv(:,:)
- real(kind=4), intent(in)    :: divcurlB(:,:)
- real,         intent(in)    :: dt,stressmax
- integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
- real,         intent(in)    :: rad(:,:)
- real,         intent(out)   :: drad(:,:)
- real,         intent(inout) :: radprop(:,:)
- real,         intent(in)    :: dens(:), metrics(:,:,:,:)
+ integer,         intent(in)    :: icall,npart
+ integer(kind=1), intent(in)    :: apr_level(:)
+ real,            intent(in)    :: xyzh(:,:)
+ real,            intent(inout) :: vxyzu(:,:)
+ real,            intent(in)    :: dustfrac(:,:)
+ real,            intent(in)    :: dustprop(:,:)
+ real,            intent(inout) :: dustgasprop(:,:)
+ real,            intent(out)   :: Vrel_disp(:)
+ real,            intent(in)    :: fext(:,:)
+ real,            intent(inout) :: fxyz_drag(:,:)
+ real,            intent(in)    :: eos_vars(:,:)
+ real,            intent(out)   :: fxyzu(:,:),ddustevol(:,:)
+ real,            intent(in)    :: Bevol(:,:)
+ real,            intent(out)   :: dBevol(:,:)
+ real(kind=4),    intent(inout) :: divcurlv(:,:)
+ real(kind=4),    intent(in)    :: divcurlB(:,:)
+ real,            intent(in)    :: dt,stressmax
+ integer,         intent(out)   :: ipart_rhomax ! test this particle for point mass creation
+ real,            intent(in)    :: rad(:,:)
+ real,            intent(out)   :: drad(:,:)
+ real,            intent(inout) :: radprop(:,:)
+ real,            intent(in)    :: dens(:), metrics(:,:,:,:)
  real, save :: xyzcache(4,maxcellcache)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
@@ -2700,27 +2700,27 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use io,             only:warning
  use physcon,        only:c,kboltz
  use eos_stamatellos,only:duSPH
- integer,            intent(in)    :: icall
- type(cellforce),    intent(inout) :: cell
- real,               intent(inout) :: fxyzu(:,:)
- real,               intent(in)    :: xyzh(:,:)
- real,               intent(inout) :: vxyzu(:,:)
- real,               intent(in)    :: dt
- real(kind=4),       intent(in)    :: dvdx(:,:)
- real(kind=4),       intent(out)   :: poten(:)
- real(kind=4),       intent(out)   :: divBsymm(:)
- real(kind=4),       intent(out)   :: divcurlv(:,:)
- real,               intent(out)   :: dBevol(:,:)
- real,               intent(out)   :: ddustevol(:,:)
- real,               intent(out)   :: deltav(:,:,:)
- real,               intent(out)   :: dustgasprop(:,:)
- real,               intent(out)   :: Vrel_disp(:)
- real,               intent(in)    :: filfac(:)
- integer,            intent(out)   :: dragreg(:)
- real,               intent(inout) :: fxyz_drag(:,:)
- real,               intent(in)    :: fext(:,:)
- real,               intent(inout) :: dtcourant,dtforce,dtvisc
- real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
+ integer,         intent(in)    :: icall
+ type(cellforce), intent(inout) :: cell
+ real,            intent(inout) :: fxyzu(:,:)
+ real,            intent(in)    :: xyzh(:,:)
+ real,            intent(inout) :: vxyzu(:,:)
+ real,            intent(in)    :: dt
+ real(kind=4),    intent(in)    :: dvdx(:,:)
+ real(kind=4),    intent(out)   :: poten(:)
+ real(kind=4),    intent(out)   :: divBsymm(:)
+ real(kind=4),    intent(out)   :: divcurlv(:,:)
+ real,            intent(out)   :: dBevol(:,:)
+ real,            intent(out)   :: ddustevol(:,:)
+ real,            intent(out)   :: deltav(:,:,:)
+ real,            intent(out)   :: dustgasprop(:,:)
+ real,            intent(out)   :: Vrel_disp(:)
+ real,            intent(in)    :: filfac(:)
+ integer,         intent(out)   :: dragreg(:)
+ real,            intent(inout) :: fxyz_drag(:,:)
+ real,            intent(in)    :: fext(:,:)
+ real,            intent(inout) :: dtcourant,dtforce,dtvisc
+ real,            intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
 #ifdef IND_TIMESTEPS
  integer, intent(inout) :: nbinmaxnew,ncheckbin
  integer, intent(inout) :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
@@ -3175,7 +3175,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
           if (dustgasprop(2,i) > 0.) then
-          !- interpolations are mass weigthed, divide result by rhog,i
+             !- interpolations are mass weigthed, divide result by rhog,i
              dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
              dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
           else
@@ -3324,7 +3324,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     dtmini  = min(dtmini,dti)
     dtmaxi  = max(dtmaxi,dti)
     dtrad   = min(dtrad,dtradi)
-
 
 #endif
  enddo over_parts

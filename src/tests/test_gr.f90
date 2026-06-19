@@ -43,30 +43,32 @@ subroutine test_gr(ntests,npass)
  call test_combinations_all(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
+ call test_rn_charged(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
 
 !-----------------------------------------------------------------------
 !+
-!   Test of orbital precession in the Kerr metric
+!   Test of orbital precession in the Kerr/Schwarzschild/RN metric
 !+
 !-----------------------------------------------------------------------
 subroutine test_precession(ntests,npass)
- use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
- use metric,       only:a
+ use metric_tools, only:imetric,imet_kerr,imet_schwarzschild,imet_rn
+ use metric,       only:a,charge
  integer, intent(inout) :: ntests,npass
  integer :: nerr(6),norbits,nstepsperorbit,itest
  real    :: dt,period,x0,vy0,tmax,angtol,postol
  real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
 
  write(*,'(/,a)') '--> testing substep_gr (precession)'
- if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild) then
-    write(*,'(/,a)') '   Skipping test! Metric is not Kerr (or Schwarzschild).'
+ if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild .and. imetric /= imet_rn) then
+    write(*,'(/,a)') '   Skipping test! Metric is not Kerr, Schwarzschild or RN.'
     return
  endif
 
  a              = 0.
+ charge         = 0.
  x0             = 90.
  vy0            = 0.0521157
  period         = 2390. ! approximate
@@ -669,5 +671,66 @@ subroutine benchmark_cons2prim_entropy()
  call print_time(real((t2-t1)/nrepeat,kind=4),'conservative2primitive')
 
 end subroutine benchmark_cons2prim_entropy
+
+!-----------------------------------------------------------------------
+!+
+!   Test of circular orbits in the Reissner-Nordstrom metric
+!   with various charges (Q/M = 0, 0.5, 0.9, 1.1)
+!+
+!-----------------------------------------------------------------------
+subroutine test_rn_charged(ntests,npass)
+ use io,           only:id,master
+ use metric_tools, only:imetric,imet_rn
+ use metric,       only:mass1,charge
+ integer, intent(inout) :: ntests,npass
+ integer :: nerr(6),itest,iq
+ real    :: dt,period,tmax,r0,v0,mass_val,charge_val
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
+ real    :: charges_to_test(4)
+ real, parameter :: postol = 1.e-5, angtol = 1.e-10
+
+ if (id==master) write(*,'(/,a)') '--> testing RN charged orbits'
+
+ if (imetric /= imet_rn) then
+    if (id==master) write(*,'(/,a)') '   Skipping test! Metric is not RN.'
+    return
+ endif
+
+ ! Q/M ratios to test: Schwarzschild-like, Sub-extremal, Near-extremal, Naked Singularity
+ charges_to_test = (/0.0, 0.5, 0.9, 1.1/)
+ mass_val = 1.0
+ r0 = 10.0
+
+ do iq=1,size(charges_to_test)
+    charge_val = charges_to_test(iq)
+    charge = charge_val
+    mass1  = mass_val
+
+    ! Circular orbit coordinate velocity for RN metric:
+    ! v_circ = sqrt( M/r - Q^2/r^2 )
+    v0 = sqrt( mass_val/r0 - charge_val**2/r0**2 )
+
+    period = 2.0 * 3.14159265358979 * r0 / v0
+    tmax = 1.0 * period
+    dt = period / 1000.0
+
+    if (id==master) write(*,'(a,F4.1,a,F4.2)') '   testing Q/M = ', charge_val/mass_val, ' v0 = ', v0
+
+    do itest=1,2
+       xyz  = (/r0, 0., 0./)
+       vxyz = (/0., v0, 0./)
+       call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
+
+       nerr = 0
+       call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
+       call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
+       call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
+       call checkval(sqrt(dot_product(xyz,xyz)), r0, postol, nerr(4),'error in final r position')
+
+       call update_test_scores(ntests,nerr,npass)
+    enddo
+ enddo
+
+end subroutine test_rn_charged
 
 end module testgr

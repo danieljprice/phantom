@@ -28,6 +28,7 @@ module growth
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
 !   - iporosity     : *porosity (0=off,1=on)*
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
+!   - ivrelkin      : *vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - tsmincgs      : *minimum allowed stopping time*
@@ -36,7 +37,7 @@ module growth
 !   - vfragout      : *outward fragmentation threshold in m/s*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
-!   part, physcon, table_utils, units, viscosity
+!   part, physcon, table_utils, timestep, units, viscosity
 !
  use units,        only:udist,umass,utime,unit_density,unit_velocity
  use physcon,      only:au,Ro
@@ -199,15 +200,15 @@ subroutine print_growthinfo(iprint)
        write(iprint,"(2(a,1pg10.3),a)") ' vfrag = ',vfragSI,' m/s = ',vfrag ,' (code units)'
     else
        write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfraginSI,' m/s = ',vfragin,' (code units)'
-       write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragoutSI,' m/s = ',vfragout,' (code units)'
+       write(iprint,"(2(a,1pg10.3),a)") ' vfragout = ',vfragoutSI,' m/s = ',vfragout,' (code units)'
     endif
  endif
  if (ieros == 1) then
     write(iprint,"(a)")    ' Using aeolian-erosion model where ds = -fourpi*rhos*rhog*s*(deltav**3)*(dsize**2)/(3*cohacc)*dt    '
     write(iprint,"(2(a,1pg10.3),a)")' dsize = ',dsizecgs,' cm = ',dsize,' (code units)'
  endif
-if (ivrelkin == 0) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence only    '
-if (ivrelkin == 1) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence and dust relative motion at macro scale    '
+ if (ivrelkin == 0) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence only    '
+ if (ivrelkin == 1) write(iprint,"(a)")   ' Vrel is computed from gas micro-turbulence and dust relative motion at macro scale    '
 
 end subroutine print_growthinfo
 
@@ -225,14 +226,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
  use timestep,        only:dtmax
- real, intent(inout)      :: dustprop(:,:)
- real, intent(in)         :: Vrel_disp(:)
- real, intent(inout)      :: dustgasprop(:,:)
- real, intent(in)         :: xyzh(:,:)
- real, intent(in)         :: filfac(:)
- real, intent(inout)      :: VrelVf(:,:),vxyzu(:,:)
- real, intent(out)        :: dmdt(:)
- integer, intent(in)      :: npart
+ real,    intent(inout) :: dustprop(:,:)
+ real,    intent(in)    :: Vrel_disp(:)
+ real,    intent(inout) :: dustgasprop(:,:)
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: filfac(:)
+ real,    intent(inout) :: VrelVf(:,:),vxyzu(:,:)
+ real,    intent(out)   :: dmdt(:)
+ integer, intent(in)    :: npart
  real                     :: rhog,rhod,vrel,rho,sdust
  real                     :: massgrain,rhograin,filfaci
  real                     :: dtarb,frac_masschange,att_factor
@@ -304,14 +305,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
 
           !--Smooth out dm/dt if fragmentation is too severe, applies when fragmentation occurs and becomes efficient when dm/dt is very large
           if (ifrag > 0 .and. dmdt(i) < 0. .and. VrelVf(1,i) > 50) then
-              dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
-              if (dustprop(1,i) > tiny(dustprop(1,i))) then
-                  frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
-              else
-                  frac_masschange = 0.
-              endif
-              att_factor = 1-dtarb*frac_masschange    ! attenuation factor
-              dmdt(i) = dmdt(i)*att_factor
+             dtarb = dtmax/(2**20)                   ! arbitrary timestep, only needs to be small enough
+             if (dustprop(1,i) > tiny(dustprop(1,i))) then
+                frac_masschange = dmdt(i)/dustprop(1,i) ! fractional change in mass over a timestep
+             else
+                frac_masschange = 0.
+             endif
+             att_factor = 1-dtarb*frac_masschange    ! attenuation factor
+             dmdt(i) = dmdt(i)*att_factor
           endif
        endif
     else
@@ -329,11 +330,11 @@ end subroutine get_growth_rate
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  use physcon,         only:Ro,roottwo
- real, intent(in)         :: xyzh(:)
- real, intent(in)         :: dustgasprop(:)
- real, intent(in)         :: Vrel_disp
- real, intent(inout)      :: vrel,vxyzu(:)
- real, intent(out)        :: VrelVf(:)
+ real, intent(in)    :: xyzh(:)
+ real, intent(in)    :: dustgasprop(:)
+ real, intent(in)    :: Vrel_disp
+ real, intent(inout) :: vrel,vxyzu(:)
+ real, intent(out)   :: VrelVf(:)
  real                     :: Vt,Vrel_micro
  integer                  :: izone
  !--turbulence at micro scales
@@ -366,17 +367,17 @@ subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
           VrelVf(3) = Vrel_disp/vfragout
        endif
     case(1)
-        if (vfragin > 0.) then
-           VrelVf(1) = vrel/vfragin
-           VrelVf(2) = Vrel_micro/vfragin
-           VrelVf(3) = Vrel_disp/vfragin
-        endif
+       if (vfragin > 0.) then
+          VrelVf(1) = vrel/vfragin
+          VrelVf(2) = Vrel_micro/vfragin
+          VrelVf(3) = Vrel_disp/vfragin
+       endif
     case default
-        if (vfrag > 0.) then
-           VrelVf(1) = vrel/vfrag
-           VrelVf(2) = Vrel_micro/vfrag
-           VrelVf(3) = Vrel_disp/vfrag
-        endif
+       if (vfrag > 0.) then
+          VrelVf(1) = vrel/vfrag
+          VrelVf(2) = Vrel_micro/vfrag
+          VrelVf(3) = Vrel_disp/vfrag
+       endif
     end select
  endif
 
@@ -587,9 +588,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
  use physcon, only:fourpi
- real, intent(inout)        :: dustprop(:,:)
- integer, intent(in)        :: npart
- real, intent(in)           :: filfac(:),mprev(:),filfacprev(:)
+ real,    intent(inout) :: dustprop(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: filfac(:),mprev(:),filfacprev(:)
  integer                    :: i,iam
  real                       :: tsnew,sdustprev,sdustmin,sdust,grainmassmin
 

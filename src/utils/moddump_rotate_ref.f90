@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: part, physcon, vectorutils
 !
  implicit none
 
@@ -37,8 +37,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                   :: temp(3),temp_v(3)
  integer                :: j
 
-
-
  ! Angles of the current disc in deg
  incl = 50.864
  Omega = 34.36 !38.5
@@ -47,8 +45,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ref_incl = 54.6
  ref_Omega = 53    ! Omega in code units
 
-
- 
  ! Rotation angles & coeffs
  alpha = (ref_incl - incl) *pi/180    !about x
  gamma = (ref_Omega - Omega) *pi/180     !about z
@@ -103,7 +99,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
 
  do j = 1,nptmass
-    
+
     temp(1) = xyzmh_ptmass(1,j)
     temp(2) = xyzmh_ptmass(2,j)
     temp(3) = xyzmh_ptmass(3,j)
@@ -115,7 +111,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     temp_v(3) = vxyz_ptmass(3,j)
     call rotatevec(temp_v, (/1.0,0.,0./), alpha)
     call rotatevec(temp_v, (/0.,0.,1.0/), gamma)
-
 
     temp_x = temp(1)
     temp_y = temp(2)
@@ -149,7 +144,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !
  enddo
 
- return
 end subroutine modify_dump
 
 end module moddump

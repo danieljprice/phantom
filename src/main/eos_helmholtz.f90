@@ -15,9 +15,15 @@ module eos_helmholtz
 !
 ! :Owner: Terrence Tricco
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - xc  : *Carbon mass fraction*
+!   - xh  : *Hydrogen mass fraction*
+!   - xhe : *Helium mass fraction*
+!   - xmg : *Magnesium mass fraction*
+!   - xne : *Neon mass fraction*
+!   - xo  : *Oxygen mass fraction*
 !
-! :Dependencies: datafiles, io, physcon, units
+! :Dependencies: datafiles, infile_utils, io, physcon, units
 !
  implicit none
 
@@ -45,8 +51,8 @@ module eos_helmholtz
  real :: xc  = 0.5
  real :: xo  = 0.5
  real :: xne = 0.0
- real :: xmg = 0.0 
- 
+ real :: xmg = 0.0
+
  integer, parameter :: speciesmax = 15
  character(len=10) :: speciesname(speciesmax)
  real :: xmass(speciesmax) ! mass fraction of species
@@ -352,7 +358,7 @@ end subroutine eos_helmholtz_calc_AbarZbar
 !----------------------------------------------------------------
 
 subroutine write_options_eos_helmholtz(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  call write_inopt(xh ,'xh' ,'Hydrogen mass fraction',iunit)
@@ -365,14 +371,14 @@ subroutine write_options_eos_helmholtz(iunit)
 end subroutine write_options_eos_helmholtz
 
 !----------------------------------------------------------------
-!+ 
+!+
 !  read options from the input file (abundances of each species)
 !+
 !----------------------------------------------------------------
 subroutine read_options_eos_helmholtz(db,nerr)
- use infile_utils, only: inopts, read_inopt
+ use infile_utils, only:inopts, read_inopt
  type(inopts), intent(inout) :: db(:)
- integer, intent(inout) :: nerr
+ integer,      intent(inout) :: nerr
 
  call read_inopt(xh ,'xh' ,db,errcount=nerr,min=0.,max=1.,default=xh)
  call read_inopt(xhe,'xhe',db,errcount=nerr,min=0.,max=1.,default=xhe)
@@ -382,7 +388,6 @@ subroutine read_options_eos_helmholtz(db,nerr)
  call read_inopt(xmg,'xmg',db,errcount=nerr,min=0.,max=1.,default=xmg)
 
 end subroutine read_options_eos_helmholtz
-
 
 ! return min density from table limits in code units
 real function eos_helmholtz_get_minrho()

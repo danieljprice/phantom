@@ -288,9 +288,9 @@ subroutine benchmark_idealplusrad_kernel(npts,rhogrid,Tgrid,mu,ieos,warm,entropy
  use eos,              only:get_entropy,get_p_from_rho_s
  use eos_idealplusrad, only:get_idealplusrad_pres,get_idealgasplusrad_tempfrompres
  use units,            only:unit_density,unit_pressure
- integer, intent(in)           :: npts,ieos
- real,    intent(in)           :: rhogrid(npts),Tgrid(npts),mu
- logical, intent(in)           :: warm,entropy
+ integer,          intent(in) :: npts,ieos
+ real,             intent(in) :: rhogrid(npts),Tgrid(npts),mu
+ logical,          intent(in) :: warm,entropy
  character(len=*), intent(in) :: label
  integer, parameter            :: nrepeat = 10
  integer                       :: i,j,irep,ncall,niter,niter_sum,niter_max

@@ -140,7 +140,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        ! if fast_divcurlB = .false., then all additional quantities are calculated during the previous call
        call densityiterate(3,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
                            stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
-    ! put a similar flag for pressure calculation from dens: call cons2primall/everyhting and densityiterate(3. Import pressure from eos_vars in dens and use it to calculate delta_v
+       ! put a similar flag for pressure calculation from dens: call cons2primall/everyhting and densityiterate(3. Import pressure from eos_vars in dens and use it to calculate delta_v
     endif
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)

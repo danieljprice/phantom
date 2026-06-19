@@ -141,10 +141,10 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
  ! u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
 #else
  if (.false.) then
-   ! dummy statement to avoid compiler warning about unused variables
-   T_gas_cool = 0.0
-   print*, dt,xyzh,rho,u,gamma_in,mu_in,xchem,T_gas_cool
- end if
+    ! dummy statement to avoid compiler warning about unused variables
+    T_gas_cool = 0.0
+    print*, dt,xyzh,rho,u,gamma_in,mu_in,xchem,T_gas_cool
+ endif
 #endif
 
 end subroutine update_krome

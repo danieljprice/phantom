@@ -24,7 +24,7 @@ module setorbit
 !
  implicit none
  public :: set_orbit
- public :: set_defaults_orbit,write_options_orbit,read_options_orbit
+ public :: set_defaults_orbit,write_options_orbit,read_options_orbit,get_orbital_time
  public :: orbit_t,write_trajectory_to_file,set_orbit_elements
 !
  ! define data types with options needed

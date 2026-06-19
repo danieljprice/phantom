@@ -10,11 +10,11 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Antoine Alaguero
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, infile_utils, io, part, physcon
+! :Dependencies: growth, infile_utils, io, part, physcon, units
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc'
@@ -31,10 +31,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use infile_utils, only:open_db_from_file,read_inopt,close_db,inopts
  use units, only:unit_density
  use growth, only:get_size
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunit,numfile
+ integer,          intent(in)    :: npart,iunit,numfile
  real :: dens,maxquant,xmax,ymax,zmax
  integer :: imax,i,outunit
  character(len=25) :: filename
@@ -59,7 +59,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  outunit = 99
  !write(filename,'("maxgrainsize_",I0,".txt")') numfile
  write(filename,'("maxdustdenss_",I0,".txt")') numfile
- open(unit=outunit, file=filename, status='unknown', action='write')
+ open(unit=outunit,file=filename,status='unknown',action='write')
 
  write(outunit,*) maxquant
  write(outunit,*) xmax

@@ -118,7 +118,7 @@ end subroutine get_grforce_all
 !---------------------------------------------------------------------------
 subroutine dt_grforce(xyzh,fext,dtf)
  use physcon,      only:pi
- use metric_tools, only:imetric,imet_schwarzschild,imet_kerr
+ use metric_tools, only:imetric,imet_schwarzschild,imet_kerr,imet_rn
  use metric,       only:mass1
  real, intent(in)  :: xyzh(4),fext(3)
  real, intent(out) :: dtf
@@ -133,7 +133,7 @@ subroutine dt_grforce(xyzh,fext,dtf)
  endif
 
  select case (imetric)
- case (imet_schwarzschild,imet_kerr)
+ case (imet_schwarzschild,imet_kerr,imet_rn)
     r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
     r    = sqrt(r2)
     omega = sqrt(mass1/(r2*r))

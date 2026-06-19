@@ -1009,9 +1009,9 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
 
 ! catch use_exact_linear flag
  if (.not. present(use_exact_linear)) then
-     flag_use_exact_linear = .false.
+    flag_use_exact_linear = .false.
  else
-     flag_use_exact_linear = use_exact_linear
+    flag_use_exact_linear = use_exact_linear
  endif
 
  if ((abs(denom) > tiny(denom)) .and. flag_use_exact_linear) then ! do exact linear first derivatives
@@ -1050,7 +1050,6 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
  dvdx(:) = (/dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi/)
 
 end subroutine calculate_strain_from_sums
-
 
 !----------------------------------------------------------------
 !+

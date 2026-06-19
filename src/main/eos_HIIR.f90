@@ -20,8 +20,8 @@ module eos_HIIR
 
  public :: get_eos_HIIR_iso,get_eos_HIIR_adiab,init_eos_HIIR
 
- real, public,parameter :: Tion = 10000.
- real, public,parameter :: muion = 0.5
+ real, public, parameter :: Tion = 10000.
+ real, public, parameter :: muion = 0.5
  real, public           :: polykion
  real, public           :: csion
  real, public           :: uIon
@@ -94,9 +94,9 @@ end subroutine get_eos_HIIR_iso
  !-----------------------------------------------------------------------
 subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi)
  use io, only:fatal
- real,    intent(in)              :: polyk,temperature_coef,rhoi,gammai,mui
- real,    intent(out)             :: ponrhoi,spsoundi,tempi
- real,    intent(in),    optional :: eni
+ real, intent(in)  :: polyk,temperature_coef,rhoi,gammai,mui
+ real, intent(out) :: ponrhoi,spsoundi,tempi
+ real, intent(in), optional :: eni
 
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
