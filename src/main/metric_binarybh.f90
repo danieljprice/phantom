@@ -111,6 +111,10 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  real    :: frac
 
  ierr = 0
+ x1 = 0.
+ x2 = 0.
+ v1 = 0.
+ v2 = 0.
 
  ! load the trajectory into memory on first use
  if (ntraj == 0) call load_trajectory(ierr)

@@ -979,7 +979,7 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  endif
 
  if (imetric==imet_rn) then
-    if (abs(mass1-1.) > tiny(0.)) then
+    if (abs(mass1-1.) > epsilon(mass1)) then
        print*, ' mass1 in code units shall be unity for proper interpretation'
        nerror = nerror + 1
     endif
