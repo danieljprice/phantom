@@ -932,7 +932,8 @@ end subroutine check_setup_dustfrac
 !+
 !------------------------------------------------------------------
 subroutine check_gr(npart,nerror,xyzh,vxyzu)
- use metric_tools, only:pack_metric,unpack_metric
+ use metric_tools, only:pack_metric,unpack_metric,imet_rn,imetric
+ use metric,       only:charge,mass1
  use utils_gr,     only:get_u0
  use part,         only:isdead_or_accreted,ien_type,ien_entropy,ien_etotal,ien_entropy_s
  use units,        only:in_geometric_units,get_G_code,get_c_code
@@ -974,6 +975,16 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
     print "(/,a,i1,a,i1,a,i3,/)",' ERROR: ien_type is incorrect for GR, need ', &
                                  ien_entropy, ', ', ien_etotal, ' or ', ien_entropy_s, &
                                  ' but get ', ien_type
+    nerror = nerror + 1
+ endif
+
+ if (imetric==imet_rn) then
+    if (abs(mass1-1.) > tiny(0.)) then
+        print*, ' mass1 in code units shall be unity for proper interpretation'
+        nerror = nerror + 1
+    endif
+ elseif (abs(charge) > 0.) then
+    print*,' charge should be zero for this metric'
     nerror = nerror + 1
  endif
 
