@@ -49,6 +49,7 @@ module metric
  real, public :: mass2 = 0.5
  real, public  :: a = 0.       ! black hole 1 spin
  real, private :: a_bh2 = 0.   ! black hole 2 spin
+ real, public :: charge = 0.   ! for compatibility with other metrics
  character(len=128), public :: trajectory_file = 'cbwaves.txt'
  logical, private :: metric_initialised = .false.
 
