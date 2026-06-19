@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module metric
 !
-! None
+! Reissner-Nordstrom metric for a charged, non-rotating black hole
 !
-! :References: None
+! :References:
+!    https://en.wikipedia.org/wiki/Reissner-Nordstrom_metric
 !
 ! :Owner: Angelos Karakonstantakis
 !

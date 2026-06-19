@@ -46,6 +46,7 @@ module setup
  use setstar,        only:star_t
  use setorbit,       only:orbit_t
  use externalforces, only:mass1,a,charge
+ use metric_tools,   only:imet,imet_rn
  implicit none
  public :: setpart
 
@@ -222,7 +223,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1 = accradius1_hard
 
  a         = 0.
- charge    = 0.
  theta_bh  = theta_bh*pi/180.
 
  if (id==master) then
@@ -384,7 +384,7 @@ subroutine write_setupfile(filename)
 
  write(iunit,"(/,a)") '# options for central object'
  call write_inopt(mhole,  'mhole', 'mass of black hole (solar mass)',  iunit)
- call write_inopt(charge, 'charge', 'charge of black hole', iunit)
+ if (imet == imet_rn) call write_inopt(charge, 'charge', 'charge of black hole', iunit)
  call write_inopt(racc, 'racc', 'accretion radius for the central object (code units or e.g. 1*km)', iunit)
  call write_options_stars(star,relax,write_profile,ieos,iunit,nstar)
 
@@ -445,7 +445,7 @@ subroutine read_setupfile(filename,ierr)
  !--read black hole mass in solar masses
  !
  call read_inopt(mhole,'mhole',db,min=0.,errcount=nerr)
- call read_inopt(charge,'charge',db,errcount=nerr)
+ if (imet == imet_rn) call read_inopt(charge,'charge',db,errcount=nerr)
  call read_inopt(racc, 'racc', db,errcount=nerr)
  mass1 = mhole*solarm/umass
  !
