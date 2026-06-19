@@ -408,9 +408,9 @@ end subroutine get_filfac_bounce
 subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filfacfrag)
  use growth,            only:vrelative,get_size,alpha_dg
  use physcon,           only:fourpi
- real, intent(in)          :: mprev,filfac,rhod,dt
- real, intent(in)          :: dustprop(:),dustgasprop(:),VrelVf(:)
- real, intent(out)         :: filfacfrag
+ real, intent(in)  :: mprev,filfac,rhod,dt
+ real, intent(in)  :: dustprop(:),dustgasprop(:),VrelVf(:)
+ real, intent(out) :: filfacfrag
  real                      :: sdust,vrel,ncoll,vol,deltavol!,compfactor
  real                      :: ekin,pdyn,vt
 

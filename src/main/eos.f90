@@ -929,10 +929,10 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  use eos_stamatellos,  only:getintenerg_opdep
  use eos_helmholtz,   only:eos_helmholtz_energy_from_rhoT
- integer, intent(in)              :: eos_type
- real,    intent(in)              :: rho,pres
- real,    intent(inout)           :: ene,temp
- integer,    intent(out)             :: ierr
+ integer, intent(in)    :: eos_type
+ real,    intent(in)    :: rho,pres
+ real,    intent(inout) :: ene,temp
+ integer, intent(out)   :: ierr
  real,    intent(in),    optional :: guesseint,X_local,Z_local
  logical, intent(in),    optional :: radhydro
  real,    intent(inout), optional :: mu_local

@@ -378,7 +378,7 @@ end subroutine write_options_eos_helmholtz
 subroutine read_options_eos_helmholtz(db,nerr)
  use infile_utils, only:inopts, read_inopt
  type(inopts), intent(inout) :: db(:)
- integer, intent(inout) :: nerr
+ integer,      intent(inout) :: nerr
 
  call read_inopt(xh ,'xh' ,db,errcount=nerr,min=0.,max=1.,default=xh)
  call read_inopt(xhe,'xhe',db,errcount=nerr,min=0.,max=1.,default=xhe)

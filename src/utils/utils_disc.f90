@@ -521,19 +521,19 @@ subroutine discgrow_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,
  use options,        only:iexternalforce
  use vectorutils,    only:rotatevec
  use prompting,      only:prompt
- real, intent(inout)              :: xyzh(:,:),vxyz(:,:),pmass,time
- integer, intent(in)              :: nbin,npart
- real, intent(in)                 :: rmin,rmax,G,M_star
- real, intent(in)                 :: VrelVf(:,:)
- logical, intent(in)              :: assume_Ltot_is_same_as_zaxis
- real, optional, intent(inout)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, optional, intent(inout) :: nptmass
- real, intent(out)                :: Lx(nbin),Ly(nbin),Lz(nbin),bin(nbin),unitly(nbin)
- real, intent(out)                :: tilt(nbin),tilt_acc(nbin),twistprev(nbin)
- real, intent(out)                :: psi(nbin),H(nbin),ecc(nbin),unitlz(nbin)
- real, intent(out)                :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
- real, intent(out)                :: VrelVfragbin(nbin),VmicroVfragbin(nbin),VdispVfragbin(nbin)
- integer, intent(out)             :: ninbin(nbin)
+ real,    intent(inout) :: xyzh(:,:),vxyz(:,:),pmass,time
+ integer, intent(in)    :: nbin,npart
+ real,    intent(in)    :: rmin,rmax,G,M_star
+ real,    intent(in)    :: VrelVf(:,:)
+ logical, intent(in)    :: assume_Ltot_is_same_as_zaxis
+ real,    intent(out)   :: Lx(nbin),Ly(nbin),Lz(nbin),bin(nbin),unitly(nbin)
+ real,    intent(out)   :: tilt(nbin),tilt_acc(nbin),twistprev(nbin)
+ real,    intent(out)   :: psi(nbin),H(nbin),ecc(nbin),unitlz(nbin)
+ real,    intent(out)   :: sigma(nbin),h_smooth(nbin),unitlx(nbin)
+ real,    intent(out)   :: VrelVfragbin(nbin),VmicroVfragbin(nbin),VdispVfragbin(nbin)
+ integer, intent(out)   :: ninbin(nbin)
+ real,    intent(inout), optional :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout), optional :: nptmass
  real                             :: dbin,angx,angy,angz,unitangz
  real                             :: angtot,Ltot
  real                             :: rsphi,rcyli,area,Ei,mu,term,ecci

@@ -226,14 +226,14 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
  use timestep,        only:dtmax
- real, intent(inout)      :: dustprop(:,:)
- real, intent(in)         :: Vrel_disp(:)
- real, intent(inout)      :: dustgasprop(:,:)
- real, intent(in)         :: xyzh(:,:)
- real, intent(in)         :: filfac(:)
- real, intent(inout)      :: VrelVf(:,:),vxyzu(:,:)
- real, intent(out)        :: dmdt(:)
- integer, intent(in)      :: npart
+ real,    intent(inout) :: dustprop(:,:)
+ real,    intent(in)    :: Vrel_disp(:)
+ real,    intent(inout) :: dustgasprop(:,:)
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: filfac(:)
+ real,    intent(inout) :: VrelVf(:,:),vxyzu(:,:)
+ real,    intent(out)   :: dmdt(:)
+ integer, intent(in)    :: npart
  real                     :: rhog,rhod,vrel,rho,sdust
  real                     :: massgrain,rhograin,filfaci
  real                     :: dtarb,frac_masschange,att_factor
@@ -330,11 +330,11 @@ end subroutine get_growth_rate
 !-----------------------------------------------------------------------
 subroutine get_vrelonvfrag(xyzh,vxyzu,vrel,VrelVf,dustgasprop,Vrel_disp)
  use physcon,         only:Ro,roottwo
- real, intent(in)         :: xyzh(:)
- real, intent(in)         :: dustgasprop(:)
- real, intent(in)         :: Vrel_disp
- real, intent(inout)      :: vrel,vxyzu(:)
- real, intent(out)        :: VrelVf(:)
+ real, intent(in)    :: xyzh(:)
+ real, intent(in)    :: dustgasprop(:)
+ real, intent(in)    :: Vrel_disp
+ real, intent(inout) :: vrel,vxyzu(:)
+ real, intent(out)   :: VrelVf(:)
  real                     :: Vt,Vrel_micro
  integer                  :: izone
  !--turbulence at micro scales
@@ -588,9 +588,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  use options, only:use_dustfrac,use_porosity
  use io,      only:fatal
  use physcon, only:fourpi
- real, intent(inout)        :: dustprop(:,:)
- integer, intent(in)        :: npart
- real, intent(in)           :: filfac(:),mprev(:),filfacprev(:)
+ real,    intent(inout) :: dustprop(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in)    :: filfac(:),mprev(:),filfacprev(:)
  integer                    :: i,iam
  real                       :: tsnew,sdustprev,sdustmin,sdust,grainmassmin
 

@@ -76,18 +76,18 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  use apr,             only:init_apr,update_apr
  use neighkdtree,     only:allocate_neigh
- integer, intent(in)    :: nt,iptmass_core
- integer, intent(inout) :: npart
- real,    intent(in)    :: rho(nt),pr(nt),temp(nt),r(nt)
- logical, intent(in)    :: use_var_comp
- real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
- real,    intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
- integer, intent(out)   :: ierr
- integer, intent(in), optional :: npin
- character(len=*), intent(in), optional :: label
- logical, intent(in),  optional :: write_dumps
- real,    intent(out), optional :: density_error,energy_error
- real,    intent(in),  optional :: mtab(nt)
+ integer,           intent(in)    :: nt,iptmass_core
+ integer,           intent(inout) :: npart
+ real,              intent(in)    :: rho(nt),pr(nt),temp(nt),r(nt)
+ logical,           intent(in)    :: use_var_comp
+ real, allocatable, intent(in)    :: Xfrac(:),Yfrac(:),mu(:)
+ real,              intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
+ integer,           intent(out)   :: ierr
+ integer,           intent(in),  optional :: npin
+ character(len=*),  intent(in),  optional :: label
+ logical,           intent(in),  optional :: write_dumps
+ real,              intent(out), optional :: density_error,energy_error
+ real,              intent(in),  optional :: mtab(nt)
  integer :: nits,nerr,nwarn,iunit,i1
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3),mtot
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
