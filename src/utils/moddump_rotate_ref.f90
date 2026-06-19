@@ -144,7 +144,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 !
  enddo
 
- return
 end subroutine modify_dump
 
 end module moddump
