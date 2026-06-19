@@ -10,12 +10,16 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Cristiano Longarini
+! :Owner: Arcelia Hermosillo Ruiz
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - accr2   : *accretion radius of secondary*
+!   - deltat  : *output interval as fraction of binary period*
+!   - m2      : *mass of secondary (in code units)*
+!   - norbits : *maximum number of binary orbits*
 !
-! :Dependencies: centreofmass, orbits, part, physcon, prompting, units,
-!   vectorutils
+! :Dependencies: centreofmass, dim, infile_utils, io, part, physcon,
+!   prompting, setorbit, timestep, units
 !
 
 use setorbit,      only:orbit_t

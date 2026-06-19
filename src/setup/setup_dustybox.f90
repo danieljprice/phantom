@@ -13,13 +13,18 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - ilattice : *lattice type (1=cubic, 2=closepacked)*
-!   - npartx   : *number of particles in x direction*
-!   - polykset : *sound speed in code units (sets polyk)*
-!   - rhozero  : *initial density (gives particle mass)*
+!   - grainsize    : *Initial grain size in cm*
+!   - grainsizemin : *minimum grain size in cm*
+!   - ifrag        : *dust fragmentation (0=off,1=on,2=Kobayashi)*
+!   - ilattice     : *lattice type (1=cubic, 2=closepacked)*
+!   - ivrelkin     : *vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)*
+!   - npartx       : *number of particles in x direction*
+!   - polykset     : *sound speed in code units (sets polyk)*
+!   - rhozero      : *initial density (gives particle mass)*
+!   - vfrag        : *uniform fragmentation threshold in m/s*
 !
-! :Dependencies: boundary, infile_utils, io, mpidomain, part, physcon,
-!   prompting, setup_params, unifdis, units
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, part, physcon,
+!   prompting, set_dust_options, setup_params, unifdis, units
 !
  use setup_params, only:rhozero
  use dim,          only:use_dustgrowth

@@ -15,9 +15,15 @@ module eos_helmholtz
 !
 ! :Owner: Terrence Tricco
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - xc  : *Carbon mass fraction*
+!   - xh  : *Hydrogen mass fraction*
+!   - xhe : *Helium mass fraction*
+!   - xmg : *Magnesium mass fraction*
+!   - xne : *Neon mass fraction*
+!   - xo  : *Oxygen mass fraction*
 !
-! :Dependencies: datafiles, io, physcon, units
+! :Dependencies: datafiles, infile_utils, io, physcon, units
 !
  implicit none
 

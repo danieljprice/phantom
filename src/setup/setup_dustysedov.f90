@@ -16,7 +16,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, io, mpidomain, mpiutils, part, physcon,
+! :Dependencies: boundary, dim, io, mpidomain, mpiutils, part, physcon,
 !   prompting, setup_params, unifdis, units
 !
  use dim,          only:use_dustgrowth

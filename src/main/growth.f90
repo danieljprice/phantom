@@ -28,6 +28,7 @@ module growth
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
 !   - iporosity     : *porosity (0=off,1=on)*
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
+!   - ivrelkin      : *vrel calculation (0=gas turbulence,1=gas turbulence+dust motion)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - tsmincgs      : *minimum allowed stopping time*
@@ -36,7 +37,7 @@ module growth
 !   - vfragout      : *outward fragmentation threshold in m/s*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
-!   part, physcon, table_utils, units, viscosity
+!   part, physcon, table_utils, timestep, units, viscosity
 !
  use units,        only:udist,umass,utime,unit_density,unit_velocity
  use physcon,      only:au,Ro

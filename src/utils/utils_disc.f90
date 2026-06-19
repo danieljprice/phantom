@@ -11,7 +11,7 @@ module discanalysisutils
 !
 ! :References:
 !
-! :Owner: Rebecca Nealon
+! :Owner: Antoine Alaguero
 !
 ! :Runtime parameters: None
 !

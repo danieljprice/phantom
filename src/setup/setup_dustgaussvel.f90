@@ -6,11 +6,16 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Dust + gas setup:
-! - gas particles on uniform lattice, v = 0
-! - dust particles initially at same location (tiny offsets between them)
-! - dust velocities from Gaussian distribution
-! - explicit Gaussian RNG (Box–Muller)
+! setup
+!
+! :References: None
+!
+! :Owner: Antoine Alaguero
+!
+! :Runtime parameters: None
+!
+! :Dependencies: boundary, dim, dust, io, mpidomain, part, physcon, random,
+!   setup_params, unifdis, units
 !
  use setup_params, only:rhozero,npart_total
  use dim,          only:use_dustgrowth

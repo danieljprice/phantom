@@ -10,11 +10,11 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Antoine Alaguero
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, infile_utils, io, part, physcon
+! :Dependencies: growth, infile_utils, io, part, physcon, units
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc'

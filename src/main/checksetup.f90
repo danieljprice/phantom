@@ -15,9 +15,9 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, boundary, boundary_dyn, centreofmass, dim,
-!   dust, dust_formation, eos, externalforces, inject, io, metric_tools,
-!   nicil, options, part, physcon, ptmass, ptmass_radiation, sortutils,
-!   timestep, units, utils_gr
+!   dust, dust_formation, eos, externalforces, inject, io, metric,
+!   metric_tools, nicil, options, part, physcon, ptmass, ptmass_radiation,
+!   sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup

@@ -14,6 +14,7 @@ module setup
 !
 ! :Runtime parameters:
 !   - beta           : *penetration factor*
+!   - charge         : *charge of black hole*
 !   - dumpsperorbit  : *number of dumps per orbit*
 !   - ecc_bh         : *eccentricity (1 for parabolic)*
 !   - mhole          : *mass of black hole (solar mass)*

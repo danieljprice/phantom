@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,15 +10,13 @@ module metric
 !
 ! :References: None
 !
-! :Owner: 
-!   - David Liptai
-!   - modified for Reissner-Nordstrom metric by Angelos Karakonstantakis
+! :Owner: Angelos Karakonstantakis
 !
 ! :Runtime parameters:
-!   - mass1 : *black hole mass in code units*
-!   - charge : *black hole charge*
+!   - charge : *charge parameter for Reissner-Nordstrom metric*
+!   - mass1  : *black hole mass in code units*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: dump_utils, infile_utils, io
 !
  implicit none
  character(len=*), parameter :: metric_type = 'RN'
