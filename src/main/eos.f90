@@ -28,6 +28,7 @@ module eos
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !    23 = Hypervelocity Impact of solids-fluids from Tillotson EOS (Tillotson 1962 - implemented by Brundage A. 2013
 !    24 = read tabulated eos (for use with icooling == 9)
+!    25 = zero temperature eos (simplified eos for white dwarfs, Helmholtz is the better choice)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -56,7 +57,7 @@ module eos
  use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
- integer, parameter, public :: maxeos = 24
+ integer, parameter, public :: maxeos = 25
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  real,               public :: cs_min = 0.0
@@ -145,6 +146,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
  use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_zerotemp,     only:get_zerotemp_pressure,get_zerotemp_spsoundi
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -527,7 +529,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
     spsoundi = sqrt(gammai*ponrhoi)
+   case (25) ! zero temperature EOS 
+    cgsrhoi = rhoi * unit_density
 
+    call get_zerotemp_pressure(cgsrhoi,cgspresi)
+    call get_zerotemp_spsoundi(cgsrhoi,cgsspsoundi)
+
+    presi = cgspresi/unit_pressure
+    ponrhoi = presi/rhoi
+    spsoundi = cgsspsoundi / unit_velocity
+    tempi = 0. 
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -556,6 +567,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  use eos_tillotson,  only:init_eos_tillotson
+ use eos_zerotemp,   only:eos_zerotemp_init
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  integer              :: ierr_mesakapp,ierr_ra
@@ -634,6 +646,14 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr_ra)
     if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_coolra
+
+
+ case(25)
+    !
+    ! zero temperature
+    !
+    call eos_zerotemp_init(ierr)
+
  end select
  done_init_eos = .true.
 
@@ -918,7 +938,7 @@ end function get_u_from_rhoT
 !
 !  Note on composition:
 !  For ieos=2, 5 and 12, mu_local is an input, X & Z are not used
-!  For ieos=10, mu_local is not used
+!  For ieos=10,25 mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !-----------------------------------------------------------------------
@@ -929,6 +949,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  use eos_stamatellos,  only:getintenerg_opdep
  use eos_helmholtz,   only:eos_helmholtz_energy_from_rhoT
+ use eos_zerotemp,    only:get_zerotemp_u
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rho,pres
  real,    intent(inout) :: ene,temp
@@ -968,6 +989,9 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(24) ! Stamatellos
     temp = pres /(rho * Rg) * mu
     call getintenerg_opdep(temp, rho, ene)
+ case(25) ! zero temp eos 
+    call get_zerotemp_u(rho,ene)
+    temp = 0
  case default
     ierr = 1
  end select
@@ -981,7 +1005,7 @@ end subroutine calc_temp_and_ene
 !
 !  Note on composition:
 !  For ieos=2, 5 and 12, mu_local is an input, X & Z are not used
-!  For ieos=10, mu_local is not used
+!  For ieos=10,25 mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
 !-----------------------------------------------------------------------
@@ -990,6 +1014,7 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
  use eos_idealplusrad, only:get_idealplusrad_rhofrompresT
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ use eos_zerotemp,     only:get_zerotemp_rhofrompres
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: pres,temp
  real,    intent(inout) :: rho
@@ -1010,6 +1035,8 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
     rho = pres / (temp * Rg) * mu
  case(12) ! Ideal gas + radiation
     call get_idealplusrad_rhofrompresT(pres,temp,mu,rho)
+ case(25) ! zero temperature eos 
+    call get_zerotemp_rhofrompres(pres,rho,ierr)
  case default
     ierr = 1
  end select
@@ -1361,7 +1388,7 @@ logical function eos_is_non_ideal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(10,12,15,20)
+ case(10,12,15,20,25)
     eos_is_non_ideal = .true.
  case default
     eos_is_non_ideal = .false.
@@ -1468,7 +1495,7 @@ logical function eos_requires_isothermal(ieos)
  case(1,3,6,7,8,13,14,21)
     eos_requires_isothermal = .true.
  case default
-    !case(2,5,4,10,11,12,15,16,20,22,23,24,9)
+    !case(2,5,4,10,11,12,15,16,20,22,23,24,25,9)
     eos_requires_isothermal = .false.
  end select
 
@@ -1484,7 +1511,7 @@ logical function eos_allows_shock_and_work(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(2,5,10,12,15,16,21,22,24)
+ case(2,5,10,12,15,16,21,22,24,25) 
     eos_allows_shock_and_work = .true.
  case default
     eos_allows_shock_and_work = .false.
@@ -1511,11 +1538,12 @@ end function eos_requires_polyk
 !  a non-zero pressure even if no thermal energy is set
 !+
 !-----------------------------------------------------------------------
-logical function eos_has_pressure_without_u(ieos)
+logical function eos_has_pressure_without_u(ieos) 
  integer, intent(in) :: ieos
 
  eos_has_pressure_without_u = eos_requires_isothermal(ieos) .or. &
-                              ieos==9 .or. ieos==16 .or. ieos == 23
+                              ieos==9 .or. ieos==16 .or. &
+                              ieos == 23 .or. ieos == 25
 
 end function eos_has_pressure_without_u
 
@@ -1550,6 +1578,7 @@ subroutine eosinfo(eos_type,iprint)
  use eos_gasradrec,  only:eos_info_gasradrec
  use eos_stamatellos,only:eos_file
  use eos_tillotson,  only:eos_info_tillotson
+ use eos_zerotemp,   only:eos_zerotemp_eosinfo
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1602,6 +1631,9 @@ subroutine eosinfo(eos_type,iprint)
 
  case(24)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
+ case(25)
+    call eos_zerotemp_eosinfo(iprint)
+
  end select
  write(iprint,*)
 
@@ -1712,6 +1744,7 @@ subroutine write_options_eos(iunit)
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
  use eos_tillotson,  only:write_options_eos_tillotson
+ use eos_zerotemp,   only:write_options_eos_zerotemp
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
@@ -1739,6 +1772,8 @@ subroutine write_options_eos(iunit)
     endif
  case(23)
     call write_options_eos_tillotson(iunit)
+ case(25)
+   call write_options_eos_zerotemp(iunit)
  end select
 
  if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then
@@ -1767,6 +1802,7 @@ subroutine read_options_eos(db,nerr)
  use eos_gasradrec,  only:read_options_eos_gasradrec
  use eos_helmholtz,  only:read_options_eos_helmholtz
  use eos_tillotson,  only:read_options_eos_tillotson
+ use eos_zerotemp,   only:read_options_eos_zerotemp
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter  :: label = 'read_infile'
@@ -1797,6 +1833,7 @@ subroutine read_options_eos(db,nerr)
  if (ieos==15) call read_options_eos_helmholtz(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
  if (ieos==23) call read_options_eos_tillotson(db,nerr)
+ if (ieos==25) call read_options_eos_zerotemp(db,nerr)
 
 end subroutine read_options_eos
 
