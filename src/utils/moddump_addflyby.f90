@@ -52,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real :: hacc1,period
  integer :: nptmass_in,ierr
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
- 
+
  if (nptmass > 0) then
     m1 = xyzmh_ptmass(4,1)
     hacc1 = xyzmh_ptmass(ihacc,1)
@@ -65,7 +65,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call set_defaults_orbit(orbit)
  orbit%input_type = 1
  m2 = 0.1
- accr2 = 1.0 
+ accr2 = 1.0
  norbits = 100
  deltat = 0.1
 
@@ -103,7 +103,7 @@ end subroutine modify_dump
 
 subroutine read_interactive_moddumpfile()
    use prompting,         only:prompt
-   
+
    call prompt('Do you want to specify the flyby orbit as bound (elliptic) or'// &
                   ' unbound (parabolic/hyperbolic) or as observed dx,dv?'//new_line('A')// &
                   ' 0=bound'//new_line('A')//' 1=unbound'//new_line('A')// &
@@ -193,7 +193,6 @@ subroutine read_moddumpfile(filename,ierr)
  endif
 
 end subroutine read_moddumpfile
-
 
 end module moddump
 

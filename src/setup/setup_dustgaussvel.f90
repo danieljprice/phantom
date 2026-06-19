@@ -199,7 +199,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
    vxyzu(2,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
    vxyzu(3,ipart) = sigma_v * gauss_random(iseed) !+ 3.0
 
-
    !--set dustprops
    if (use_dustgrowth) then
       !dustprop(:,i) = 0.
@@ -211,7 +210,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
       VrelVf(:,ipart)        = 0.
    endif
  enddo
-
 
  !npart = ngas + ndust
 

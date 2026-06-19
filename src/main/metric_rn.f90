@@ -250,11 +250,11 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  rs) - y**2*(charge**2 - r*rs)*(2*charge**2 - r*rs) + y**2*(4*              &
  charge**2 - 3*r*rs)*(charge**2 + r**2 - r*rs))/(r**4*(charge**2 +          &
  r**2 - r*rs)**2)
- 
- dgcovdy(2,1) = dgcovdy(1,2)  
- dgcovdy(3,1) = dgcovdy(1,3)  
- dgcovdy(3,2) = dgcovdy(2,3)  
- 
+
+ dgcovdy(2,1) = dgcovdy(1,2)
+ dgcovdy(3,1) = dgcovdy(1,3)
+ dgcovdy(3,2) = dgcovdy(2,3)
+
  ! dz
  dgcovdz(1,0) = 0.
  dgcovdz(2,0) = 0.
@@ -304,10 +304,10 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
 
  r = position(1)
  theta = position(2)
- 
+
  r2 = r*r
  r3 = r2*r
- charge2_on_r = charge2 / r 
+ charge2_on_r = charge2 / r
 
  dgcovdr = 0.
  dgcovdtheta = 0.

@@ -145,7 +145,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                               hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
     endif
 
-
     !--initialise dust-growth-related quantities
     if (use_dustgrowth) then
         vfragSI = 15. ! in m
@@ -167,7 +166,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
         graindenscgs = 3. ! in g cm-3
         graindens(1) = graindenscgs / (umass/udist**3)
     endif
-
 
     !--set which type of particle it is
     do i=npart_previous+1,npart

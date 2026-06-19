@@ -51,8 +51,8 @@ module eos_helmholtz
  real :: xc  = 0.5
  real :: xo  = 0.5
  real :: xne = 0.0
- real :: xmg = 0.0 
- 
+ real :: xmg = 0.0
+
  integer, parameter :: speciesmax = 15
  character(len=10) :: speciesname(speciesmax)
  real :: xmass(speciesmax) ! mass fraction of species
@@ -371,7 +371,7 @@ subroutine write_options_eos_helmholtz(iunit)
 end subroutine write_options_eos_helmholtz
 
 !----------------------------------------------------------------
-!+ 
+!+
 !  read options from the input file (abundances of each species)
 !+
 !----------------------------------------------------------------
@@ -388,7 +388,6 @@ subroutine read_options_eos_helmholtz(db,nerr)
  call read_inopt(xmg,'xmg',db,errcount=nerr,min=0.,max=1.,default=xmg)
 
 end subroutine read_options_eos_helmholtz
-
 
 ! return min density from table limits in code units
 real function eos_helmholtz_get_minrho()

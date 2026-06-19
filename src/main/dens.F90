@@ -1051,7 +1051,6 @@ subroutine calculate_strain_from_sums(rhosum,termnorm,denom,rmatrix,dvdx,use_exa
 
 end subroutine calculate_strain_from_sums
 
-
 !----------------------------------------------------------------
 !+
 !  Internal subroutine to get maximum of stress tensor

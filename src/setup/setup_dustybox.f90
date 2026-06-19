@@ -107,7 +107,6 @@ if (use_dustgrowth) then
    filfacprev(:) = 99.
 endif
 
-
  ! read setup parameters from file
  if (use_dustgrowth) then
     if (id==master) print "(/,a,/)",'  >>> Setting up dustybox problem with growing dust <<<'

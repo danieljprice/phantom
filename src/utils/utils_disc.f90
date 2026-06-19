@@ -503,7 +503,6 @@ subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G,out
 
 end subroutine get_binary_params
 
-
 !----------------------------------------------------------------
 !+
 !  Disc analysis routine - so that this can be called externally
@@ -832,6 +831,5 @@ subroutine discgrow_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,
  endif
 
 end subroutine discgrow_analysis
-
 
 end module discanalysisutils

@@ -38,7 +38,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  rho_threshold    = 5e-8     !in code units
 
-
  !rho_threshold = rho_threshold * 1000 / (100*100*100)  !cgs
  !rho_threshold = rho_threshold * udist*udist*udist / umass   !code units
  compt = 0
@@ -56,7 +55,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,*) 'Particles deleted :', compt
  call shuffle_part(npart)
  if (npart /= sum(npartoftype)) call fatal('del_dead_part_dens','particles not conserved')
-
 
 end subroutine modify_dump
 

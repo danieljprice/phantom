@@ -190,7 +190,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
    endif
  enddo
 
-
  !npart = ngas + ndust
 
  ! Particle at origin with position and velocity of 0
@@ -212,7 +211,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu, &
  npart_total = npart_total+1
  ndust = ndust+1
  npart = npart+1
-
 
  !--------------------------------------------------
  ! masses

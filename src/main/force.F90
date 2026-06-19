@@ -3325,7 +3325,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     dtmaxi  = max(dtmaxi,dti)
     dtrad   = min(dtrad,dtradi)
 
-
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
