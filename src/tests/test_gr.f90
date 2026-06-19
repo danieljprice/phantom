@@ -608,7 +608,6 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
 
 end subroutine test_cons2prim_i
 
-<<<<<<< HEAD
 !----------------------------------------------------------------
 !+
 !  Benchmark cons2prim for ideal gas + radiation with entropy
@@ -672,7 +671,7 @@ subroutine benchmark_cons2prim_entropy()
  call print_time(real((t2-t1)/nrepeat,kind=4),'conservative2primitive')
 
 end subroutine benchmark_cons2prim_entropy
-=======
+
 !-----------------------------------------------------------------------
 !+
 !   Test of circular orbits in the Reissner-Nordstrom metric
@@ -733,6 +732,5 @@ subroutine test_rn_charged(ntests,npass)
  enddo
 
 end subroutine test_rn_charged
->>>>>>> 5751f0c658f613bf352518c075fd368cf46237e2
 
 end module testgr
