@@ -358,7 +358,7 @@ end subroutine eos_helmholtz_calc_AbarZbar
 !----------------------------------------------------------------
 
 subroutine write_options_eos_helmholtz(iunit)
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  call write_inopt(xh ,'xh' ,'Hydrogen mass fraction',iunit)
@@ -376,7 +376,7 @@ end subroutine write_options_eos_helmholtz
 !+
 !----------------------------------------------------------------
 subroutine read_options_eos_helmholtz(db,nerr)
- use infile_utils, only: inopts, read_inopt
+ use infile_utils, only:inopts, read_inopt
  type(inopts), intent(inout) :: db(:)
  integer, intent(inout) :: nerr
 

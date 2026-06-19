@@ -59,7 +59,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  outunit = 99
  !write(filename,'("maxgrainsize_",I0,".txt")') numfile
  write(filename,'("maxdustdenss_",I0,".txt")') numfile
- open(unit=outunit, file=filename, status='unknown', action='write')
+ open(unit=outunit,file=filename,status='unknown',action='write')
 
  write(outunit,*) maxquant
  write(outunit,*) xmax

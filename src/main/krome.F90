@@ -144,7 +144,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
    ! dummy statement to avoid compiler warning about unused variables
    T_gas_cool = 0.0
    print*, dt,xyzh,rho,u,gamma_in,mu_in,xchem,T_gas_cool
- end if
+ endif
 #endif
 
 end subroutine update_krome
