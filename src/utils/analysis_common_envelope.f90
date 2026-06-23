@@ -35,7 +35,8 @@ module analysis
  use ptmass,        only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,        only:kernel_softening,radkern,wkern,cnormk
  use ionization_mod,only:calc_thermal_energy
- use eos,           only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,done_init_eos,use_var_comp
+ use eos,           only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,&
+                         done_init_eos,use_var_comp
  use eos_gasradrec, only:irecomb
  use setbinary,     only:Rochelobe_estimate,L1_point
  use sortutils,     only:set_r2func_origin,r2func_origin,indexxfunc
@@ -586,13 +587,12 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  E_HeII = 0.25*Yfrac*0.027536 * particlemass
 
  do i = 1,npart
-    if (use_var_comp) then
-       mui = eos_vars(imu,i)
-    else
-       mui = gmw
-    endif
-
     if (.not. isdead_or_accreted(xyzh(4,i))) then
+       if (use_var_comp) then
+          mui = eos_vars(imu,i)
+       else
+          mui = gmw
+       endif
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,&
                               egasi,eradi,ereci,etoti,mui=mui)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum1,dum2,dum3,phii)
