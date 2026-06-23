@@ -35,7 +35,7 @@ module analysis
  use ptmass,        only:get_accel_sink_gas,get_accel_sink_sink
  use kernel,        only:kernel_softening,radkern,wkern,cnormk
  use ionization_mod,only:calc_thermal_energy
- use eos,           only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,done_init_eos
+ use eos,           only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,done_init_eos,use_var_comp
  use eos_gasradrec, only:irecomb
  use setbinary,     only:Rochelobe_estimate,L1_point
  use sortutils,     only:set_r2func_origin,r2func_origin,indexxfunc
@@ -515,7 +515,7 @@ end subroutine m_vs_t
 !+
 !----------------------------------------------------------------
 subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
- use part,           only:eos_vars,itemp
+ use part,           only:eos_vars,itemp,imu
  use ptmass,         only:get_accel_sink_gas
  use vectorutils,    only:cross_product3D
  integer, intent(in)    :: npart
@@ -524,7 +524,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  real                           :: etoti,ekini,epoti,phii,ereci,egasi,eradi,ethi
  real                           :: E_H2,E_HI,E_HeI,E_HeII
  real, save                     :: Xfrac,Yfrac,Zfrac
- real                           :: rhopart,ponrhoi,spsoundi,tempi,dum1,dum2,dum3
+ real                           :: rhopart,ponrhoi,spsoundi,tempi,mui,dum1,dum2,dum3
  real :: rcrossmv(3)
  real :: bound(28)
  integer                        :: i,bound_i,ncols
@@ -586,13 +586,19 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  E_HeII = 0.25*Yfrac*0.027536 * particlemass
 
  do i = 1,npart
+    if (use_var_comp) then
+       mui = eos_vars(imu,i)
+    else
+       mui = gmw
+    endif
+
     if (.not. isdead_or_accreted(xyzh(4,i))) then
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,&
-                              egasi,eradi,ereci,etoti)
+                              egasi,eradi,ereci,etoti,mui=mui)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum1,dum2,dum3,phii)
        rhopart = rhoh(xyzh(4,i), particlemass)
        tempi = eos_vars(itemp,i)
-       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i),mu_local=mui)
        call cross_product3D(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv)  ! Angular momentum w.r.t. CoM
        call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,ethi,rad(:,i))
        etoti = ekini + epoti + ethi ! Overwrite etoti outputted by calc_gas_energies to use ethi instead of einti
@@ -3665,11 +3671,12 @@ end subroutine get_gas_omega
 !+
 !  Calculate kinetic, gravitational potential (gas-gas and sink-gas),
 !  and other energies of a gas particle.
+!
+!  Warning: Summing epoti or etoti to obtain a total energy would
+!           lead to double counting
 !+
 !----------------------------------------------------------------
-subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,etoti)
- ! Warning: Do not sum epoti or etoti as it is to obtain a total energy; this would not give the correct
- !          total energy due to complications related to double-counting.
+subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,etoti,mui)
  use ptmass,           only:get_accel_sink_gas
  use part,             only:nptmass,iradxi,itemp
  use eos_idealplusrad, only:get_idealplusrad_temp,egas_from_rhoT,erad_from_rhoT
@@ -3678,8 +3685,9 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  real(4), intent(in)  :: poten
  real,    intent(in)  :: xyzh(:),vxyzu(:),rad(:)
  real,    intent(in)  :: xyzmh_ptmass(5,nptmass)
+ real, intent(in), optional :: mui
  real,    intent(out) :: phii,epoti,ekini,egasi,eradi,ereci,etoti
- real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff
+ real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff,mu_local
  integer                                :: ierr
 
  rhoi = rhoh(xyzh(4),particlemass)
@@ -3697,6 +3705,12 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
     eradi = 0.
  endif
 
+ if (present(mui)) then
+    mu_local = mui
+ else
+    mu_local = gmw
+ endif
+
  select case (ieos)
  case(2)
     egasi = vxyzu(4)*particlemass
@@ -3709,8 +3723,8 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
     call calc_thermal_energy(particlemass,10,xyzh,vxyzu,presi,tempi,egasradi,rad)
     ereci = vxyzu(4)*particlemass - egasradi
  case(12)
-    call get_idealplusrad_temp(rho_cgs,vxyzu(4)*unit_ergg,gmw,tempi,ierr)
-    egasi = egas_from_rhoT(tempi,gmw)/unit_ergg*particlemass
+    call get_idealplusrad_temp(rho_cgs,vxyzu(4)*unit_ergg,mu_local,tempi,ierr)
+    egasi = egas_from_rhoT(tempi,mu_local)/unit_ergg*particlemass
     eradi = erad_from_rhoT(rho_cgs,tempi)/unit_ergg*particlemass
     egasradi = egasi + eradi
  case(20)
@@ -4394,7 +4408,7 @@ subroutine set_eos_options(analysis_to_perform)
     gamma = 5./3.
     call prompt('Enter gamma:',gamma,0.)
     gmw = 0.618212823
-    call prompt('Enter mean molecular weight:',gmw,0.)
+    if (.not. use_var_comp) call prompt('Enter mean molecular weight:',gmw,0.)
  case(10,20)
     gamma = 5./3.
     X_in = 0.69843
