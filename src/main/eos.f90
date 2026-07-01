@@ -1179,7 +1179,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  use physcon, only:Rg,mass_proton_cgs
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealplusrad_tempfromrhoS
- use units,   only:unit_density,unit_pressure,unit_ergg
+ use units,   only:unit_density,unit_pressure,unit_ergg,umass
  real,    intent(in)    :: S,mu,rho
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
@@ -1189,7 +1189,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
 
  ! change to cgs unit
  cgsrho = rho*unit_density
- cgss   = s*unit_ergg
+ cgss   = s/umass
  if (present(niter_out)) niter_out = 0
 
  select case (ieos)
