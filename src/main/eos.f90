@@ -1116,6 +1116,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
 
 end function entropy
 
+! input and output are in code units. entropy is in erg/g/K 
 real function get_entropy(rho,pres,mu_in,ieos)
  use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz
@@ -1133,8 +1134,8 @@ real function get_entropy(rho,pres,mu_in,ieos)
  case default
     cgss = entropy(cgsrho,cgspres,mu_in,1)
  end select
- cgss = cgss/kboltz ! s/kb
- get_entropy = cgss/unit_ergg
+!  cgss = cgss/kboltz ! s/kb
+ get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
 
 end function get_entropy
 
@@ -1189,8 +1190,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
 
  ! change to cgs unit
  cgsrho = rho*unit_density
- cgss   = s*unit_ergg
- if (present(niter_out)) niter_out = 0
+ cgss   = S*unit_ergg
 
  select case (ieos)
  case (2,5)
@@ -1223,7 +1223,7 @@ end subroutine get_p_from_rho_s
 !-----------------------------------------------------------------------
 subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
- use units,   only:unit_density,unit_pressure,unit_ergg,umass
+ use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz,avogadro
  use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
  real,    intent(in)    :: S,rho
@@ -1233,7 +1233,7 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
 
  ! change to cgs unit
  cgsrho = rho*unit_density
- cgss   = s*unit_ergg
+ cgss   = S*unit_ergg
 
  select case (ieos)
  case(10)
