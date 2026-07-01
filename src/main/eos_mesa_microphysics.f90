@@ -633,7 +633,7 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
  if (ne > 1 .and. nv > 1 .and. ne < mesa_eos_ne-1 .and. nv < mesa_eos_nv-1) then
     call eos_cubic_spline_mesa(ne,nv,loge,logv,ivout,vout,nx,dx)
-    if (ivout < 5) vout=10.d0**vout
+    if (ivout < 5) vout=10.d0**vout. ! this is applied only for the first four columns of the data which are stored in log10 form.
     if (present(ierr)) ierr = 0
  else
     vout = 10.d0**((1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout)   + &
@@ -651,8 +651,9 @@ end subroutine getvalue_mesa
 ! The columns in the data are:
 ! 1. logP          2. logu       3. logT         4. Gamma1
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
-
+! inputted s should be in cgs units, then it has to be converted to log10(S/(k_B*N_A)) in cgs units (because the MESA tables are in these units)
 pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
+ use physcon, only: kboltz,avogadro
  real,    intent(in)  :: rho, s
  real,    intent(out) :: vout
  integer, intent(in)  :: ivout
@@ -662,7 +663,7 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  real :: dx
  integer :: nx
 
- logs = log10(s)
+ logs = log10(s/(kboltz*avogadro))  ! convert to log10(S/(k_B*N_A)) in cgs units (because the MESA tables are in these units)
  logrho = log10(rho)
 
  ! Get the s and rho indices for looking up the tables
@@ -682,7 +683,7 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
  if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_gr_ns-1 .and. nrho < mesa_eos_gr_nrho-1) then
     call eos_cubic_spline_mesa_gr(ns,nrho,logs,logrho,ivout,vout,nx,dx)
-    if (ivout < 5) vout=10.d0**vout
+    if (ivout < 4) vout=10.d0**vout ! this is applied only for the first three columns of the data which are stored in log10 form.
     if (present(ierr)) ierr = 0
  else
     vout = 10.d0**((1.d0-ds) * (1.d0-drho) * mesa_gr_ds_data(ns,nrho,ivout)   + &
