@@ -1116,8 +1116,9 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
 
 end function entropy
 
+! ---- input and output in code units
 real function get_entropy(rho,pres,mu_in,ieos)
- use units,   only:unit_density,unit_pressure,unit_ergg
+ use units,   only:unit_density,unit_pressure,umass
  use physcon, only:kboltz
  integer, intent(in) :: ieos
  real,    intent(in) :: rho,pres,mu_in
@@ -1133,8 +1134,8 @@ real function get_entropy(rho,pres,mu_in,ieos)
  case default
     cgss = entropy(cgsrho,cgspres,mu_in,1)
  end select
- cgss = cgss/kboltz ! s/kb
- get_entropy = cgss/unit_ergg
+ cgss = cgss/kboltz ! s/kb: units are 1/g
+ get_entropy = cgss*umass 
 
 end function get_entropy
 
