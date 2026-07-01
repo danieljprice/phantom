@@ -1223,7 +1223,8 @@ end subroutine get_p_from_rho_s
 !-----------------------------------------------------------------------
 subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
- use units,   only:unit_density,unit_pressure,unit_ergg
+ use units,   only:unit_density,unit_pressure,unit_ergg,umass
+ use physcon, only:kboltz,avogadro
  use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
  real,    intent(in)    :: S,rho
  real,    intent(out)   :: u
