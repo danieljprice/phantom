@@ -164,7 +164,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
- if (gr .and. .not.any((/2,4,10,11,12/)==eos_type)) then
+ if (gr .and. .not.any((/2,4,11,12/)==eos_type)) then
     ponrhoi = 0.; spsoundi = 0. ! avoid compiler warning
     call fatal('eos','GR currently only works for ieos=2,12 or 11',&
          var='eos_type',val=real(eos_type))
@@ -1116,7 +1116,6 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
 
 end function entropy
 
-! input is in cgs units, output is in cgss/(kb*unit_ergg)
 real function get_entropy(rho,pres,mu_in,ieos)
  use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz
@@ -1178,12 +1177,8 @@ end subroutine get_rho_from_p_s
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  use physcon, only:Rg,mass_proton_cgs
  use io,      only:fatal
-<<<<<<< HEAD
- use eos_idealplusrad, only:get_idealplusrad_tempfromrhoS
-=======
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
  use eos_mesa,          only: get_eos_ptemp_from_rhos_mesa_gr
->>>>>>> d30372cf7 (just saving for a second to compare with main branch)
  use units,   only:unit_density,unit_pressure,unit_ergg
  real,    intent(in)    :: S,mu,rho
  real,    intent(inout) :: temp
