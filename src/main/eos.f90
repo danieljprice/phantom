@@ -1116,6 +1116,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
 
 end function entropy
 
+! input is in cgs units, output is in cgss/(kb*unit_ergg)
 real function get_entropy(rho,pres,mu_in,ieos)
  use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz
