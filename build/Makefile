@@ -266,6 +266,7 @@ ifeq ($(SINKTREE), yes)
 endif
 
 ifeq ($(KROME), yes)
+    HDF5 := yes
     FPPFLAGS += -DKROME
     LDFLAGS  += -llapack
 endif
