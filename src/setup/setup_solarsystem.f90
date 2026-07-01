@@ -18,7 +18,8 @@ module setup
 !   - epoch      : *epoch to query ephemeris, YYYY-MMM-DD HH:MM:SS.fff, blank = today*
 !   - np_apophis : *number of particles used to represent apophis (0=none; 1=sink; n=gas)*
 !   - tmax_in    : *end time of simulation (e.g. 3 days)*
-!   - apophis_spin_period : *Apophis spin period in seconds (0=no spin)*
+!   - scale_pos  : *scaling factor for apophis initial position (heliocentric)*
+!   - scale_earth_sep : *scale geocentric Earth–Apophis separation (1=ephemeris; requires apophis_only=F)*
 !   - apophis_spin_axis_x/y/z : *Apophis spin axis direction (normalized)*
 !
 ! :Dependencies: centreofmass, eos_tillotson, infile_utils, io, kernel,
@@ -38,6 +39,7 @@ character(len=256) :: apophis_shape_file
 
  real :: scale_vel
  real :: scale_pos
+ real :: scale_earth_sep
  real :: scale_r_apophis
  real :: scale_rho
  real :: apophis_spin_period
@@ -66,6 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use shape,         only:set_shape
  use options,       only:ieos
  use setup_params,  only:npart_total
+ use orbits,        only:get_pericentre_distance,get_eccentricity
  use infile_utils,  only:get_options
  use ptmass,        only:isink_potential
  integer,           intent(in)    :: id
@@ -78,9 +81,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer :: ierr,i,nerr,n_apophis_part,i_apophis_first,i_apophis_last
+ integer, parameter :: iearth = 4  ! Earth sink index when apophis_only=F
  !integer :: values(8),year,month,day
  real    :: period,semia,mtot,dx
  real    :: r_apophis,m_apophis,rtidal,spsoundmin
+ real    :: dr(3),sep_km,sep_re,rperi,rperi_km,rperi_re,ecc,vrel_kms
+ real    :: dv(3)
 !
 ! default runtime parameters
 !
@@ -97,6 +103,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  epoch='2029-04-10'   ! encounter is on Friday 13th April
  scale_vel=1.
  scale_pos=1.
+ scale_earth_sep=1.
  scale_r_apophis=1.
  scale_rho=1.
  apophis_shape_file='apophis.shape'
@@ -191,9 +198,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
                             ' g or ',m_apophis*umass/ceresm,' ceres masses'
     print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis**3)*unit_density,' g/cm^3'
-    print "(a,1pg10.3,a)",' Apophis-Earth relative velocity = ',&
-                            in_units(sqrt(sum((vxyz_ptmass(1:3,nptmass)-vxyz_ptmass(1:3,4))**2)),'km/s'),' km/s'
-
     rtidal = r_apophis*(earthm/umass/m_apophis)**(1./3.)
     print "(3(a,1pg10.3),a)",' r_tidal is ',rtidal,' au,',rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
 
@@ -202,6 +206,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,nptmass)*scale_pos
     print "(a,1pg10.3)",' initial position of apophis scaled by ',scale_pos
+
+    if (.not.apophis_only .and. nptmass >= iearth) then
+       if (abs(scale_earth_sep - 1.0) > 1.0e-6) then
+          dr = xyzmh_ptmass(1:3,nptmass) - xyzmh_ptmass(1:3,iearth)
+          xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,iearth) + scale_earth_sep*dr
+          print "(a,1pg10.3)",' Earth-Apophis separation scaled by ',scale_earth_sep
+       endif
+       dr = xyzmh_ptmass(1:3,nptmass) - xyzmh_ptmass(1:3,iearth)
+       dv = vxyz_ptmass(1:3,nptmass) - vxyz_ptmass(1:3,iearth)
+       rperi = get_pericentre_distance(xyzmh_ptmass(4,iearth),dr,dv)
+       ecc = get_eccentricity(xyzmh_ptmass(4,iearth),dr,dv)
+       rperi_km = rperi*udist/km
+       rperi_re = rperi_km/(earthr/km)
+       sep_km = sqrt(dot_product(dr,dr))*udist/km
+       sep_re = sep_km/(earthr/km)
+       vrel_kms = in_units(sqrt(dot_product(dv,dv)),'km/s')
+       print "(a,1pg10.3,a,1pg10.3,a)",' pericentre distance = ',rperi_km,' km (',rperi_re,' R_Earth)'
+       print "(a,1pg10.3)",' geocentric eccentricity = ',ecc
+       print "(a,1pg10.3,a,1pg10.3,a)",' geocentric separation (initial) = ',sep_km,' km (',sep_re,' R_Earth)'
+       print "(a,1pg10.3,a)",' Apophis-Earth relative velocity = ',vrel_kms,' km/s'
+    elseif (abs(scale_earth_sep - 1.0) > 1.0e-6) then
+       call warning('setup_solarsystem','scale_earth_sep ignored when apophis_only=T (Earth absent)')
+    endif
 
 
     if (np_apophis > 1) then
@@ -453,7 +480,9 @@ subroutine write_setupfile(filename)
  call write_inopt(add_mars_moons,'add_mars_moons','add Phobos and Deimos as point masses',iunit)
 
  call write_inopt(scale_vel,'scale_vel','scaling factor for apophis velocity',iunit)
- call write_inopt(scale_pos,'scale_pos','scaling factor for apophis initial position',iunit)
+ call write_inopt(scale_pos,'scale_pos','scaling factor for apophis initial position (heliocentric)',iunit)
+ call write_inopt(scale_earth_sep,'scale_earth_sep',&
+   'scale geocentric Earth-Apophis distance (1=ephemeris; apophis_only=F)',iunit)
  call write_inopt(scale_r_apophis,'scale_r_apophis','scaling factor for apophis radius',iunit)
  call write_inopt(scale_rho,'scale_rho','scaling factor for apophis bulk density',iunit)
  call write_inopt(apophis_shape_file,'apophis_shape_file','shape config file for lattice cropping',iunit)
@@ -495,6 +524,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_inopt(scale_vel,'scale_vel',db,default=1.0,errcount=nerr)
  call read_inopt(scale_pos,'scale_pos',db,default=1.0,errcount=nerr)
+ call read_inopt(scale_earth_sep,'scale_earth_sep',db,default=1.0,errcount=nerr)
  call read_inopt(scale_r_apophis,'scale_r_apophis',db,default=1.0,errcount=nerr)
  call read_inopt(scale_rho,'scale_rho',db,default=1.0,errcount=nerr)
  call read_inopt(apophis_shape_file,'apophis_shape_file',db,default='apophis.shape',errcount=nerr)
