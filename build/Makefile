@@ -405,7 +405,7 @@ ifeq (X$(HDF5LIB), X)
 endif
     FFLAGS+= -I$(HDF5INCLUDE)
     CCFLAGS+= -I$(HDF5INCLUDE)
-    LDFLAGS+= -L$(HDF5_DIR)/lib -lhdf5 -lhdf5_fortran
+    LDFLAGS+= -L$(HDF5LIB) -Wl,-rpath,$(HDF5LIB) -lhdf5 -lhdf5_fortran
 endif
 
 IDFLAGS=$(FPPFLAGS)
