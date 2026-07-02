@@ -633,7 +633,7 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
  if (ne > 1 .and. nv > 1 .and. ne < mesa_eos_ne-1 .and. nv < mesa_eos_nv-1) then
     call eos_cubic_spline_mesa(ne,nv,loge,logv,ivout,vout,nx,dx)
-    if (ivout < 5) vout=10.d0**vout. ! this is applied only for the first four columns of the data which are stored in log10 form.
+    if (ivout < 5) vout=10.d0**vout ! this is applied only for the first four columns of the data which are stored in log10 form.
     if (present(ierr)) ierr = 0
  else
     vout = 10.d0**((1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout)   + &

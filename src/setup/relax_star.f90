@@ -273,6 +273,7 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
           print "(a,i0,a,i0,a,2pf6.2,2(a,1pg11.3))",&
                 ' Relaxing star: Iter ',nits,'/',maxits, &
                 ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
+          write(*,*) 'Ali: maxvxyzu = ', maxvxyzu, ' ieos = ', ieos, ' ieos_prev = ', ieos_prev
        endif
     endif
     !

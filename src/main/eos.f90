@@ -1123,7 +1123,8 @@ real function get_entropy(rho,pres,mu_in,ieos)
  integer, intent(in) :: ieos
  real,    intent(in) :: rho,pres,mu_in
  real                :: cgsrho,cgspres,cgss
-
+ 
+!  write(*,*) 'ALI: GET_ENTROPY Called: ieos = ',ieos
  cgsrho = rho * unit_density
  cgspres = pres * unit_pressure
  select case (ieos)
@@ -1134,7 +1135,7 @@ real function get_entropy(rho,pres,mu_in,ieos)
  case default
     cgss = entropy(cgsrho,cgspres,mu_in,1)
  end select
-!  cgss = cgss/kboltz ! s/kb
+ cgss = cgss/kboltz ! s/kb
  get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
 
 end function get_entropy
@@ -1200,7 +1201,6 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
     !!! For GR, not tested yet!
-    mesas = cgss/(kboltz*avogadro) ! the MESA tables are specific entropy divided by (avo*kerg).
     call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgsP,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)

@@ -465,9 +465,10 @@ end subroutine set_star_composition
 !-----------------------------------------------------------------------
 subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
- use part,            only:rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi,icv,&
-                           aprmassoftype,apr_level,radprop
- use eos,             only:equationofstate,calc_temp_and_ene,eos_outputs_mu,get_cv,gmw
+ use part,            only:rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi,icv,ientrop,&
+                           aprmassoftype,apr_level,radprop,ien_type,ien_entropy_s ! added some stuff ALI
+ use eos,             only:equationofstate,calc_temp_and_ene,eos_outputs_mu,get_cv,gmw,&
+                           get_entropy
  use radiation_utils, only:radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
@@ -579,6 +580,18 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
           endif
           eos_vars(itemp,i) = tempi
           vxyzu(4,i) = eni / unit_ergg
+
+         ! ALI: ADDED: set entropy for ieos=10 EOS MESA for GR, under construction
+         ! mu won't be used by entropy( for eos_mesa anyway  
+          if (ien_type == ien_entropy_s) then
+             if (use_var_comp) then
+                mu = eos_vars(imu,i)
+             else
+                mu = gmw
+             endif
+             eos_vars(ientrop,i) = get_entropy(densi,presi,mu,ieos)
+          endif
+
        end select
     endif
  enddo
