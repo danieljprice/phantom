@@ -885,7 +885,7 @@ allanalysis:
           analysis_structurefn.f90) \
              analysisfile="utils_timing.f90 io_structurefn.f90 utils_sort.f90 random.f90 struct_part.f90 $$analysisfile"; \
           ;; \
-          analysis_krome.f90|analysis_mcfost.f90) \
+          analysis_krome.F90|analysis_mcfost.f90) \
              continue; \
           ;; \
        esac; \
