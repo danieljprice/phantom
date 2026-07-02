@@ -157,7 +157,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  logical :: converged,have_eos_cache
  real    :: gcov(0:3,0:3)
  ierr = 0
-
+ write(*,*) 'ALI: DEBUG ieos=', ieos, ' ien_type=', ien_type
  ! Get metric components from metric array
  call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
@@ -193,14 +193,15 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = (gamma-1.)*dens*polyk
     elseif (ien_type == ien_entropy_s) then
        call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
-       dens_eos = dens
-       p_eos    = P
-       temp_eos = temp
-       have_eos_cache = .true.
+      !  write(*,*) 'ALI, en = ',en,' dens = ',dens,' P = ',P,' temp = ',temp
+      !  write(*,*) 'ENTER entropy branch'
+      !  write(*,*) 'ieos=', ieos
        select case(ieos)
        case (10)
          ! inputs and outputs are all in code units
          call get_u_from_rho_s(ieos,en,dens,u)
+         write(*,*) 'ALI 1, went into case 10 EOS MESA tables'
+
        case (12)
           cgsdens = dens * unit_density
           cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
@@ -267,6 +268,8 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     case (10)
       ! inputs and outputs are all in code units
        call get_u_from_rho_s(ieos,en,dens,u)
+       write(*,*) 'ALI 2, went into case 10 EOS MESA tables'
+
     case (12)
        cgsdens = dens * unit_density
        cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens

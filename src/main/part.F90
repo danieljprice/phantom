@@ -159,9 +159,10 @@ module part
                        iX    = 5, &
                        iZ    = 6, &
                        igamma = 7, &
-                       maxeosvars = 7
+                       ientr = 8, &
+                       maxeosvars = 8
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      ','entropy    '/)
 
 !
 !--energy_variables
