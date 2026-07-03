@@ -56,12 +56,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real          :: dt_cgs, rho_cgs, rholist(maxp), Tlist(maxp), mulist(maxp), Auvlist(maxp), xilist(maxp)
  real          :: numberdensity, T_gas, gammai, mui, AUV, xi
  real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
- real          :: max_radius, radius
+ real          :: max_radius, radius, t_start, t_stop
  integer       :: i, j, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
  
 #ifdef __GFORTRAN__ 
    print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
    call omp_set_num_threads(1)
+#else
+   print*, "running with ", omp_get_max_threads(), " threads"
 #endif
 
  if (.not.done_init) then
@@ -116,8 +118,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    else
     dt_cgs = (time - tprev)*utime
     completed_iterations = 0
-    print*, dumpfile, ": not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
-
+    print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
+    print*, "Calculating column density"
+    call cpu_time(t_start)
     xyzmh_ptmass(iReff,1) = 2.
     npart_copy = npart
     xyzh_copy = xyzh(:,:npart)
@@ -135,13 +138,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo
     column_density = column_density + rhoh(xyzh(4,i_radius),particlemass)*unit_density * max_radius * udist
+    call cpu_time(t_stop)
+    print*, "        - Took ", t_stop - t_start, " seconds"
 
-    rholist = 0.
-      Tlist = 0.
-     mulist = 0.
-    Auvlist = 0.
-     xilist = 0.
-
+    print*, "Running KROME"
+    call cpu_time(t_start)
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev,iverbose) &
     !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist) &
@@ -151,7 +152,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-
           inner: do j=1,nprev
              if (iorig(i) == iorig_old(j)) then
                 iprev(i) = j
@@ -200,10 +200,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*, 'Completed ', completed_iterations, ' of ', npart
        endif
     enddo outer
-   call write_chem(npart, dumpfile)
- endif
+   call cpu_time(t_stop)
+   print*, "        - Took ", (t_stop - t_start)/omp_get_max_threads(), " seconds"
 
+   call cpu_time(t_start)
+   call write_chem(npart, dumpfile)
+   call cpu_time(t_stop)
+   print*, "        - Took ", t_stop - t_start, " seconds"
+ endif
  
+ ! keep track of previous abundances for next dump
  nprev = npart
  tprev = time
  iorig_old(1:npart) = iorig(1:npart)
