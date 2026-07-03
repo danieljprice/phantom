@@ -57,7 +57,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real          :: numberdensity, T_gas, gammai, mui, AUV, xi
  real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
  real          :: max_radius, radius
- integer       :: i, j, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
+ integer       :: i, j, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
  
 #ifdef __GFORTRAN__ 
    print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
@@ -66,6 +66,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (.not.done_init) then
     done_init = .true.
+
+   ! initialize HDF5
+   call h5open_f(hdferr)
+   if (hdferr /= 0) then
+      print*,'ERROR: Failed to initialize HDF5'
+      return
+   endif
 
     print*, "initialising KROME"
     call krome_init()
@@ -83,27 +90,28 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     allocate(iprev(maxp))
     iprev = 0
 
-    print*, "setting abundances"
-    !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
-    !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-    !$omp shared(ieos,rho_cgs,T_gas,j) &
-    !$omp private(i,abundance_part)
-    do i=1, npart
-       if (.not.isdead_or_accreted(xyzh(4,i))) then
-          call chem_init(abundance_part)
-          abundance(:,i) = abundance_part
-       endif
-    enddo
+    !check if a file with abundances already exists, if so read it in and use it as initial abundances
+    inquire(file=trim(dumpfile)//'.h5', size=isize)
+    if (isize > 0) then
+         print*, "Found existing abundance file, reading in abundances"
+         call read_chem(npart, dumpfile)
+    else
+       print*, "setting abundances"
+       !$omp parallel do default(none) &
+       !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
+       !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
+       !$omp shared(ieos,rho_cgs,T_gas,j) &
+       !$omp private(i,abundance_part)
+       do i=1, npart
+          if (.not.isdead_or_accreted(xyzh(4,i))) then
+             call chem_init(abundance_part)
+             abundance(:,i) = abundance_part
+          endif
+       enddo
+       call write_chem(npart, dumpfile)
+    endif
     call init_eos(ieos, ierr)
     if (ierr /= 0) call fatal(analysistype, "Failed to initialise EOS")
-
-   ! initialize HDF5
-   call h5open_f(hdferr)
-   if (hdferr /= 0) then
-      print*,'ERROR: Failed to initialize HDF5'
-      return
-   endif
 
    else
     dt_cgs = (time - tprev)*utime
@@ -192,9 +200,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*, 'Completed ', completed_iterations, ' of ', npart
        endif
     enddo outer
+   call write_chem(npart, dumpfile)
  endif
 
- call write_chem(npart, dumpfile)
+ 
  nprev = npart
  tprev = time
  iorig_old(1:npart) = iorig(1:npart)
@@ -277,9 +286,56 @@ subroutine write_chem(npart, dumpfile)
  call h5sclose_f(dspace_id, hdferr)
  call h5gclose_f(group_id, hdferr)
  call h5fclose_f(file_id, hdferr)
- 
-
 end subroutine write_chem
+
+subroutine read_chem(npart, dumpfile)
+ use krome_user, only:krome_idx_He
+ integer,          intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
+ integer                      :: hdferr
+ integer :: i
+ integer(hid_t) :: file_id, dset_id, group_id, filespace_id
+ integer(hsize_t) :: max_dims(1), file_dims(1)
+
+ ! open HDF5 file
+ print "(1x,a)",'Reading from '//trim(dumpfile)//'.h5'
+ call h5fopen_f(trim(dumpfile)//'.h5', H5F_ACC_RDONLY_F, file_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to open HDF5 file'
+    return
+ endif
+
+  ! open group for particle data
+ call h5gopen_f(file_id, 'chemistry', group_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to open HDF5 group'
+    return
+ endif
+
+
+
+ do i=1,krome_nmols
+   ! open dataset for each abundance
+    call h5dopen_f(group_id, trim(adjustl(abundance_label(i))), dset_id, hdferr)
+   ! check number of particles in file
+    call h5dget_space_f(dset_id, filespace_id, hdferr)
+    call h5sget_simple_extent_dims_f(filespace_id, file_dims, max_dims, hdferr)
+    if (file_dims(1) /= npart) then
+       print*,'ERROR: Number of particles in HDF5 file does not match current dump'
+       return
+    endif
+    ! read abundance data from dataset
+    call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, abundance(i,1:npart), file_dims, hdferr)
+    if (hdferr /= 0) then
+       print*,'ERROR: Failed to open/read dataset for '//trim(adjustl(abundance_label(i)))
+       return
+    endif
+    call h5dclose_f(dset_id, hdferr)
+    call h5sclose_f(filespace_id, hdferr)
+ enddo
+ call h5gclose_f(group_id, hdferr)
+ call h5fclose_f(file_id, hdferr)
+end subroutine read_chem
 
 subroutine chem_init(abundance_part)
  use krome_user, only:krome_idx_H2,krome_idx_He,krome_idx_CO,krome_idx_C2H2,&
