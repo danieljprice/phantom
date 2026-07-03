@@ -179,11 +179,11 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- write(*,*) 'Ali before entropy set: ieos = ', ieos
- if (ieos == 10) then
+ write(*,*) 'Ali before entropy set: ieos_prev = ', ieos_prev
+ if (ieos_prev == 10) then
 
-    call get_entropy_vec(rho, pr, gmw_dummy, ieos, entrop)
-    call get_u_from_rho_s_vec(ieos, entrop, rho, utherm, nt)
+    call get_entropy_vec(rho, pr, gmw_dummy, ieos_prev, entrop)
+    call get_u_from_rho_s_vec(ieos_prev, entrop, rho, utherm, nt)
 
  else
 
@@ -545,7 +545,10 @@ subroutine set_options_for_relaxation(tdyn)
  !
  ! turn on settings appropriate to relaxation
  !
- if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
+ if (ieos /= 10) then
+    if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
+ endif
+!  if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
  if (tdyn > 0.) then
     idamp = 2
     tdyn_s = tdyn*utime

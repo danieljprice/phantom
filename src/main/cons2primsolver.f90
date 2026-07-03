@@ -157,7 +157,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  logical :: converged,have_eos_cache
  real    :: gcov(0:3,0:3)
  ierr = 0
- write(*,*) 'ALI: DEBUG ieos=', ieos, ' ien_type=', ien_type
+!  write(*,*) 'ALI: DEBUG ieos=', ieos, ' ien_type=', ien_type
  ! Get metric components from metric array
  call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
@@ -200,7 +200,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        case (10)
          ! inputs and outputs are all in code units
          call get_u_from_rho_s(ieos,en,dens,u)
-         write(*,*) 'ALI 1, went into case 10 EOS MESA tables'
+         ! write(*,*) 'ALI 1, went into case 10 EOS MESA tables'
 
        case (12)
           cgsdens = dens * unit_density
@@ -268,7 +268,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     case (10)
       ! inputs and outputs are all in code units
        call get_u_from_rho_s(ieos,en,dens,u)
-       write(*,*) 'ALI 2, went into case 10 EOS MESA tables'
+      !  write(*,*) 'ALI 2, went into case 10 EOS MESA tables'
 
     case (12)
        cgsdens = dens * unit_density
