@@ -69,8 +69,7 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  use io,              only:error,warning,fatal,id,master
  use fileutils,       only:getnextfilename
  use readwrite_dumps, only:write_fulldump
- use eos,             only:gamma,eos_outputs_mu,ieos,eos_has_pressure_without_u,polyk,&
-                           get_entropy_vec, get_u_from_rho_s_vec !Ali
+ use eos,             only:gamma,eos_outputs_mu,ieos,eos_has_pressure_without_u,polyk
  use physcon,         only:pi
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
@@ -96,8 +95,6 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
  logical :: write_files
  character(len=20) :: filename,mylabel
- real :: gmw_dummy ! Ali
- gmw_dummy = 1.0 ! Ali
 
  i1 = 0
  if (present(npin)) i1 = npin  ! starting position in particle array
@@ -179,24 +176,13 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- write(*,*) 'Ali before entropy set: ieos_prev = ', ieos_prev
- if (ieos_prev == 10) then
-
-    call get_entropy_vec(rho, pr, gmw_dummy, ieos_prev, entrop)
-    call get_u_from_rho_s_vec(ieos_prev, entrop, rho, utherm, nt)
-
- else
-
-    where (rho > epsilon(0.) .and. gamma > 1.)
-       entrop  = pr / rho**gamma
-       utherm  = pr / (rho*(gamma-1.))
-    elsewhere
-       entrop  = 0.
-       utherm  = 0.
-    end where
-
- endif
-
+ where (rho > epsilon(0.) .and. gamma > 1.)
+    entrop = pr/rho**gamma
+    utherm = pr/(rho*(gamma-1.))
+ elsewhere
+    entrop = 0.
+    utherm = 0.
+ end where
 
  if (any(utherm(1:nt-1) <= 0.) .and. .not.eos_has_pressure_without_u(ieos)) then
     call error('relax_star','relax-o-matic needs non-zero pressure array set in order to work')
@@ -287,7 +273,6 @@ subroutine relax_star(nt,rho,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
           print "(a,i0,a,i0,a,2pf6.2,2(a,1pg11.3))",&
                 ' Relaxing star: Iter ',nits,'/',maxits, &
                 ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
-          write(*,*) 'Ali: maxvxyzu = ', maxvxyzu, ' ieos = ', ieos, ' ieos_prev = ', ieos_prev
        endif
     endif
     !
@@ -545,10 +530,7 @@ subroutine set_options_for_relaxation(tdyn)
  !
  ! turn on settings appropriate to relaxation
  !
- if (ieos /= 10) then
-    if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
- endif
-!  if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
+ if (maxvxyzu >= 4 .and. .not.eos_has_pressure_without_u(ieos)) ieos = 2
  if (tdyn > 0.) then
     idamp = 2
     tdyn_s = tdyn*utime
