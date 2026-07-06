@@ -334,6 +334,18 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(gamma_local)) gamma_local = gam1 ! gamma is an output
     if (present(mu_local)) mu_local = 1./get_eos_1overmu_mesa(cgsrhoi,cgseni)
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
+    if (ierr /= 0) then
+       write(*,'(A)') '*** MESA EOS extrapolating off tables ***'
+      !  write(*,'(A,ES15.7)') 'rho (code units): ', rhoi
+       write(*,'(A,ES15.7)') 'rho (cgs):        ', cgsrhoi
+      !  write(*,'(A,ES15.7)') 'u (code units):   ', eni
+       write(*,'(A,ES15.7)') 'u (cgs):          ', cgseni
+      !  write(*,'(A,ES15.7)') 'P (code units):   ', presi
+       write(*,'(A,ES15.7)') 'P (cgs):          ', cgspresi
+       write(*,'(A,F12.6)')  'gamma1:           ', gam1
+       write(*,'(A,ES15.7)') 'Temperature (K):  ', temperaturei
+       call warning('eos_mesa','extrapolating off tables')
+    endif
 
  case(11)
 !
@@ -1101,14 +1113,15 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
        call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
     endif
 
-    ! Get entropy from rho and eint from MESA tables
+    ! Get entropy from rho and eint from MESA tables (output is not logs, 
+    ! because for vars >5 in the tables the log becomes the actual value)
     if (present(ierr)) then
-       call getvalue_mesa(rho,eint,9,logentropy,ierr)
+       call getvalue_mesa(rho,eint,9,entropy,ierr)
     else
-       call getvalue_mesa(rho,eint,9,logentropy)
+       call getvalue_mesa(rho,eint,9,entropy)
     endif
-    entropy = 10.**logentropy
-
+    entropy = entropy * kboltz*avogadro ! the MESA tables are specific entropy divided by (avo*kerg).
+    ! the units of entropy with cgs inputs should be erg/g/K now
  case default
     entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
@@ -1135,8 +1148,12 @@ real function get_entropy(rho,pres,mu_in,ieos)
  case default
     cgss = entropy(cgsrho,cgspres,mu_in,1)
  end select
+!  write(*,'(A,ES15.7)') 'ALI: 1 GET_ENTROPY: cgsS = ',cgss
  cgss = cgss/kboltz ! s/kb
+!  write(*,'(A,ES15.7)') 'ALI: 2 GET_ENTROPY: cgsS/kb = ',cgss
+
  get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
+!  write(*,'(A,ES15.7)') 'ALI: 3 GET_ENTROPY/kb/unit_ergg code units= ',get_entropy
 
 end function get_entropy
 
