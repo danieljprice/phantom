@@ -334,18 +334,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(gamma_local)) gamma_local = gam1 ! gamma is an output
     if (present(mu_local)) mu_local = 1./get_eos_1overmu_mesa(cgsrhoi,cgseni)
     if (ierr /= 0) call warning('eos_mesa','extrapolating off tables')
-    if (ierr /= 0) then
-       write(*,'(A)') '*** MESA EOS extrapolating off tables ***'
-      !  write(*,'(A,ES15.7)') 'rho (code units): ', rhoi
-       write(*,'(A,ES15.7)') 'rho (cgs):        ', cgsrhoi
-      !  write(*,'(A,ES15.7)') 'u (code units):   ', eni
-       write(*,'(A,ES15.7)') 'u (cgs):          ', cgseni
-      !  write(*,'(A,ES15.7)') 'P (code units):   ', presi
-       write(*,'(A,ES15.7)') 'P (cgs):          ', cgspresi
-       write(*,'(A,F12.6)')  'gamma1:           ', gam1
-       write(*,'(A,ES15.7)') 'Temperature (K):  ', temperaturei
-       call warning('eos_mesa','extrapolating off tables')
-    endif
 
  case(11)
 !
@@ -1137,7 +1125,6 @@ real function get_entropy(rho,pres,mu_in,ieos)
  real,    intent(in) :: rho,pres,mu_in
  real                :: cgsrho,cgspres,cgss
  
-!  write(*,*) 'ALI: GET_ENTROPY Called: ieos = ',ieos
  cgsrho = rho * unit_density
  cgspres = pres * unit_pressure
  select case (ieos)
@@ -1148,12 +1135,9 @@ real function get_entropy(rho,pres,mu_in,ieos)
  case default
     cgss = entropy(cgsrho,cgspres,mu_in,1)
  end select
-!  write(*,'(A,ES15.7)') 'ALI: 1 GET_ENTROPY: cgsS = ',cgss
  cgss = cgss/kboltz ! s/kb
-!  write(*,'(A,ES15.7)') 'ALI: 2 GET_ENTROPY: cgsS/kb = ',cgss
 
  get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
-!  write(*,'(A,ES15.7)') 'ALI: 3 GET_ENTROPY/kb/unit_ergg code units= ',get_entropy
 
 end function get_entropy
 
