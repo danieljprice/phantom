@@ -78,6 +78,7 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use metric_tools, only:unpack_metric
  use io,           only:error
  use eos,          only:gmw,get_entropy
+ use units,        only:unit_density,unit_ergg ! ali added
  real,    intent(in)  :: x(1:3),metrici(:,:,:)
  real,    intent(in)  :: dens,v(1:3),u,P
  real,    intent(out) :: rho,pmom(1:3),en
@@ -113,7 +114,12 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  if (ien_type == ien_etotal) then
     en = U0*enth*gvv + (1.+u)/U0
  elseif (ien_type == ien_entropy_s) then
+   !  write(*,'(A,ES15.7)') 'before get_entropy in cons2primsolver:entropy (code units):         ', en
     en = get_entropy(dens,P,gmw,ieos)
+   !  write(*,'(A,ES15.7)') 'after get_entropy in cons2primsolver:entropy (code units):          ', en
+   !  write(*,'(A,ES15.7)') 'get_entropy:rho (cgs):        ', dens*unit_density
+   !  write(*,'(A,ES15.7)') 'get_entropy:P (cgs):          ', P*unit_ergg/unit_density
+   !  write(*,'(A,ES15.7)') 'get_entropy:u (cgs):          ', u*unit_ergg
  else
     if (u > 0) then
        gam1 = 1. + P/(dens*u)
@@ -157,7 +163,13 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  logical :: converged,have_eos_cache
  real    :: gcov(0:3,0:3)
  ierr = 0
-!  write(*,*) 'ALI: DEBUG ieos=', ieos, ' ien_type=', ien_type
+!  write(*,*) 'L158: ALI cons2primsolver: DEBUG ieos=', ieos, ' ien_type=', ien_type
+!  write(*,'(A,ES15.7)') 'L158:rho (cgs):        ', dens*unit_density
+!  write(*,'(A,ES15.7)') 'L158:entropy (cgs):          ', en*unit_ergg
+!  write(*,'(A,ES15.7)') 'L158:u (cgs):          ', u*unit_ergg
+!  write(*,'(A,ES15.7)') 'L158:P (cgs):          ', P*unit_ergg/unit_density
+!  write(*,'(A,ES15.7)') 'L158:Temperature (K):  ', temp
+
  ! Get metric components from metric array
  call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
@@ -200,7 +212,12 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        case (10)
          ! inputs and outputs are all in code units
          call get_u_from_rho_s(ieos,en,dens,u)
-         ! write(*,*) 'ALI 1, went into case 10 EOS MESA tables'
+         ! write(*,*) 'L200: ALI cons2primsolver, went into case 10 EOS MESA tables'
+         ! write(*,'(A,ES15.7)') 'L200:rho (cgs):        ', dens*unit_density
+         ! write(*,'(A,ES15.7)') 'L200:entropy (cgs):          ', en*unit_ergg
+         ! write(*,'(A,ES15.7)') 'L200:u (cgs):          ', u*unit_ergg
+         ! write(*,'(A,ES15.7)') 'L200:P (cgs):          ', P*unit_ergg/unit_density
+         ! write(*,'(A,ES15.7)') 'L200:Temperature (K):  ', temp
 
        case (12)
           cgsdens = dens * unit_density
@@ -268,7 +285,12 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     case (10)
       ! inputs and outputs are all in code units
        call get_u_from_rho_s(ieos,en,dens,u)
-      !  write(*,*) 'ALI 2, went into case 10 EOS MESA tables'
+      !  write(*,*) 'L263: ALI cons2primsolver, went into case 10 EOS MESA tables'
+      !  write(*,'(A,ES15.7)') 'L263:rho (cgs):        ', dens*unit_density
+      !  write(*,'(A,ES15.7)') 'L263:entropy (cgs):          ', en*unit_ergg
+      !  write(*,'(A,ES15.7)') 'L263:u (cgs):          ', u*unit_ergg
+      !  write(*,'(A,ES15.7)') 'L263:P (cgs):          ', P*unit_ergg/unit_density
+      !  write(*,'(A,ES15.7)') 'L263:Temperature (K):  ', temp
 
     case (12)
        cgsdens = dens * unit_density
