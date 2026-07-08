@@ -1212,10 +1212,12 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  real,    parameter  :: eoserr=1e-12
  integer             :: niter
  integer, parameter  :: nitermax = 1000
+ integer, intent(out), optional :: niter_out
 
  ! change to cgs unit
  cgsrho = rho*unit_density
  cgss   = S*unit_ergg
+ if (present(niter_out)) niter_out = 0
 
  select case (ieos)
  case (2,5)
@@ -1223,7 +1225,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
     !!! For GR
-    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgsP,temp)
+    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgspres,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
