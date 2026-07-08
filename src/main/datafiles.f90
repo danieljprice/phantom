@@ -19,6 +19,8 @@ module datafiles
 ! :Dependencies: datautils, io, mpiutils
 !
  implicit none
+! MESA EOS table version (hidden variable, set via input file)
+ integer, public :: eosmesa_version = 2   ! 0 or 1 uses the older version of the mesa tables (Reichardt et al 2020), which are no longer used by default
 
 contains
 
@@ -56,7 +58,6 @@ end function find_phantom_datafile
 !+
 !----------------------------------------------------------------
 function map_dir_to_web(search_dir) result(url)
- use options, only: eosmesa_version
  character(len=*), intent(in) :: search_dir
  character(len=120) :: url
 
