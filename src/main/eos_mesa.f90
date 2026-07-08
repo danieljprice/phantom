@@ -61,11 +61,15 @@ subroutine init_eos_mesa(x,z,ierr)
  !!! only read GR tables if it is a GR run
  mesa_eos_gr_prefix="output_rhos_"
  if (gr) then
-   call get_eos_constants_mesa_gr(ierr)
-   call read_eos_mesa_gr(x,z,ierr) ! read GR tables
+    call get_eos_constants_mesa_gr(ierr)
+    if (ierr /= 0) return
+
+    call read_eos_mesa_gr(x,z,ierr)
+    if (ierr /= 0) return
  end if
- if (ierr /= 0) return
+
  call read_eos_mesa(x,z,ierr)
+ if (ierr /= 0) return
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
 
@@ -141,7 +145,7 @@ subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
 
 end subroutine get_eos_pressure_temp_mesa
 
-!---------------------------------------------------------------- NOT TESTED YET!
+!----------------------------------------------------------------
 !+
 !  subroutine returns pressure and temperature as
 !  a function of density/entropy for GR tables
@@ -156,7 +160,7 @@ subroutine get_eos_ptemp_from_rhos_mesa_gr(den,s,pres,temp)
 
 end subroutine get_eos_ptemp_from_rhos_mesa_gr
 
-!---------------------------------------------------------------- NOT TESTED YET!
+!---------------------------------------------------------------- 
 !+
 !  subroutine returns internal energy as
 !  a function of density/entropy for GR tables

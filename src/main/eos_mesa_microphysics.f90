@@ -368,7 +368,7 @@ subroutine get_eos_constants_mesa_gr(ierr)
 
  ! Read constants from the header of first EoS tables
  open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
-! allocate GR tables (again, I wonder if it's best to make another subroutine for this)
+! allocate GR tables 
  if (ierr /= 0) return
  read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
  close(fnum)
@@ -847,7 +847,9 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_eos0)) deallocate(mesa_eos0)
  if (allocated(mesa_de_data)) deallocate(mesa_de_data)
  if (allocated(mesa_de_data0)) deallocate(mesa_de_data0)
-!eos gr (I wonder if it's best to make another subroutine for deallocating the GR tables)
+!eos gr
+ if (allocated(mesa_eos_gr_z)) deallocate(mesa_eos_gr_z)
+ if (allocated(mesa_eos_gr_h)) deallocate(mesa_eos_gr_h)
  if (allocated(mesa_eos_gr0)) deallocate(mesa_eos_gr0)
  if (allocated(mesa_eos_gr_logss)) deallocate(mesa_eos_gr_logss)
  if (allocated(mesa_eos_gr_logrhos)) deallocate(mesa_eos_gr_logrhos)
