@@ -69,7 +69,7 @@ module eos
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
  public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
- public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,get_entropy_vec, get_u_from_rho_s_vec
+ public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
@@ -1141,27 +1141,6 @@ real function get_entropy(rho,pres,mu_in,ieos)
 
 end function get_entropy
 
-! vectorised version of get_entropy for use in relax_star
-subroutine get_entropy_vec(rho, pres, mu_in, ieos, S)
-   use io, only: fatal
-   integer, intent(in) :: ieos
-   real, intent(in)    :: rho(:), pres(:)
-   real, intent(in)    :: mu_in
-   real, intent(out)   :: S(:)
-
-   integer :: i, n
-
-   n = size(rho)
-
-   if (size(pres) /= n .or. size(S) /= n) then
-      call fatal('get_entropy_vec','array size mismatch')
-   endif
-
-   do i = 1, n
-      S(i) = get_entropy(rho(i), pres(i), mu_in, ieos)
-   end do
-
-end subroutine get_entropy_vec
 !-----------------------------------------------------------------------
 !+
 !  Calculate density given pressure and entropy using Newton-Raphson
@@ -1274,19 +1253,6 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
  u = cgsu / unit_ergg
 
 end subroutine get_u_from_rho_s
-
-! vectorised version of get_u_from_rho_s for use in relax_star
-subroutine get_u_from_rho_s_vec(ieos,S,rho,u,n)
-   integer, intent(in) :: ieos, n
-   real, intent(in)    :: S(n), rho(n)
-   real, intent(out)   :: u(n)
-
-   integer :: i
-
-   do i = 1, n
-      call get_u_from_rho_s(ieos, S(i), rho(i), u(i))
-   end do
-end subroutine get_u_from_rho_s_vec
 
 !-----------------------------------------------------------------------
 !+
