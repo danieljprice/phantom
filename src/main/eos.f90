@@ -1051,7 +1051,7 @@ end subroutine calc_rho_from_PT
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
- use physcon,           only:radconst,kb_on_mh,Rg
+ use physcon,           only:radconst,kb_on_mh,Rg, kboltz, avogadro
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
@@ -1208,7 +1208,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
  integer, intent(in)    :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
+ real                :: corr,df,f,temp_new,cgsrho,cgspres,cgss
  real,    parameter  :: eoserr=1e-12
  integer             :: niter
  integer, parameter  :: nitermax = 1000
@@ -1248,7 +1248,6 @@ end subroutine get_p_from_rho_s
 subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
  use units,   only:unit_density,unit_pressure,unit_ergg
- use physcon, only:kboltz,avogadro
  use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
  real,    intent(in)    :: S,rho
  real,    intent(out)   :: u
@@ -1935,7 +1934,6 @@ subroutine set_defaults_eos
  C_ent              = 3.
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition
-
 end subroutine set_defaults_eos
 
 end module eos
