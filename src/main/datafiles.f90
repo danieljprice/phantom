@@ -70,7 +70,7 @@ function map_dir_to_web(search_dir) result(url)
     endif
  case('data/eos/mesa_entropy_gr')
     url = 'https://zenodo.org/records/newlink' !! not uploaded yet
- case('data/eos/mesa_opac') !!!  same link as old eos/mesa, but this is only for downloading the opacity tables
+ case('data/eos/mesa_opac') !!!  same link as old eos/mesa, but this is used only to download the opacity tables
     url = 'https://zenodo.org/records/13148447/files/'
  case('data/eos/shen')
     url = 'https://zenodo.org/records/13163155/files/'
