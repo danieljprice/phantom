@@ -63,11 +63,15 @@ function map_dir_to_web(search_dir) result(url)
  !print*,' search_dir=',trim(search_dir)
  select case(search_dir)
  case('data/eos/mesa') !!! here this is if someone wants to cehck the older version of the mesa tables (Reichardt et al 2020), which are no longer used by default
-   if (mesa_use_legacy_tables) then
-      url = 'https://zenodo.org/records/13148447/files/'
-   else
-      url = 'https://zenodo.org/records/newlink' !! not uploaded yet
-   endif
+    if (mesa_use_legacy_tables) then
+       url = 'https://zenodo.org/records/13148447/files/'
+    else
+       url = 'https://zenodo.org/records/newlink' !! not uploaded yet
+    endif
+ case('data/eos/mesa_entropy_gr')
+    url = 'https://zenodo.org/records/newlink' !! not uploaded yet
+ case('data/eos/mesa_opac') !!!  same link as old eos/mesa, but this is only for downloading the opacity tables
+    url = 'https://zenodo.org/records/13148447/files/'
  case('data/eos/shen')
     url = 'https://zenodo.org/records/13163155/files/'
  case('data/eos/helmholtz')
