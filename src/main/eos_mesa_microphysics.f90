@@ -629,16 +629,18 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  dv = (logv - mesa_eos_logVs(nv)) / mesa_eos_dv
 
  ! If the given Eint and V fall within the limits of the table, then use cubic spline interpolation to find value
- ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
+ ! Else use linear extrapolation beyond the limits of the table
  if (ne > 1 .and. nv > 1 .and. ne < mesa_eos_ne-1 .and. nv < mesa_eos_nv-1) then
     call eos_cubic_spline_mesa(ne,nv,loge,logv,ivout,vout,nx,dx)
-    if (ivout < 5) vout=10.d0**vout ! this is applied only for the first four columns of the data which are stored in log10 form.
+    if (ivout < 5 .or. ivout == 9) vout=10.d0**vout ! this is applied only for the first four columns of the data which are stored in log10 form.
     if (present(ierr)) ierr = 0
  else
-    vout = 10.d0**((1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout)   + &
-                         de  * (1.d0-dv) * mesa_de_data(ne+1,nv,ivout) + &
-                   (1.d0-de) *       dv  * mesa_de_data(ne,nv+1,ivout) + &
-                         de  *       dv  * mesa_de_data(ne+1,nv+1,ivout))
+    vout = (1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout) + &
+            de      * (1.d0-dv) * mesa_de_data(ne+1,nv,ivout) + &
+      (1.d0-de)     *       dv  * mesa_de_data(ne,nv+1,ivout) + &
+            de      *       dv  * mesa_de_data(ne+1,nv+1,ivout)
+
+    if (ivout <= 4 .or. ivout == 9) vout = 10.d0**vout
     if (present(ierr)) ierr = 1  ! warn if extrapolating
  endif
 
@@ -679,16 +681,17 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  drho = (logrho - mesa_eos_gr_logRhos(nrho)) / mesa_eos_gr_drho
 
  ! If the given S and Rho fall within the limits of the table, then use cubic spline interpolation to find value
- ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
+ ! Else use linear extrapolation beyond the limits of the table 
  if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_gr_ns-1 .and. nrho < mesa_eos_gr_nrho-1) then
     call eos_cubic_spline_mesa_gr(ns,nrho,logs,logrho,ivout,vout,nx,dx)
     if (ivout < 4) vout=10.d0**vout ! this is applied only for the first three columns of the data which are stored in log10 form.
     if (present(ierr)) ierr = 0
  else
-    vout = 10.d0**((1.d0-ds) * (1.d0-drho) * mesa_gr_ds_data(ns,nrho,ivout)   + &
-                         ds  * (1.d0-drho) * mesa_gr_ds_data(ns+1,nrho,ivout) + &
-                   (1.d0-ds) *       drho  * mesa_gr_ds_data(ns,nrho+1,ivout) + &
-                         ds  *       drho  * mesa_gr_ds_data(ns+1,nrho+1,ivout))
+    vout = (1.d0-ds) * (1.d0-drho) * mesa_gr_ds_data(ns,nrho,ivout)   + &
+                 ds  * (1.d0-drho) * mesa_gr_ds_data(ns+1,nrho,ivout) + &
+           (1.d0-ds) *       drho  * mesa_gr_ds_data(ns,nrho+1,ivout) + &
+                 ds  *       drho  * mesa_gr_ds_data(ns+1,nrho+1,ivout)
+    if (ivout <= 3) vout = 10.d0**vout
     if (present(ierr)) ierr = 1  ! warn if extrapolating
  endif
 
