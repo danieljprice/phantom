@@ -50,7 +50,7 @@ module options
 ! library use
  logical, public :: write_files
 ! MESA EOS table version (hidden variable, set via input file)
- logical, public :: mesa_use_legacy_tables
+ integer, public :: eosmesa_version
  public :: set_default_options,write_options_output,read_options_output
 
  ! options from lower-level modules that can also be imported via options module
@@ -126,8 +126,8 @@ subroutine set_default_options
  ! enable/disable writing output files
  write_files = .true.
 
- ! use legacy MESA EOS tables
- mesa_use_legacy_tables = .false. 
+ ! 0 or 1 uses the older version of the mesa tables (Reichardt et al 2020), which are no longer used by default
+ eosmesa_version = 2 
 end subroutine set_default_options
 
 !-----------------------------------------------------------------------

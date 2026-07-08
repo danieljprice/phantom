@@ -56,20 +56,24 @@ end function find_phantom_datafile
 !+
 !----------------------------------------------------------------
 function map_dir_to_web(search_dir) result(url)
- use options, only: mesa_use_legacy_tables
+ use options, only: eosmesa_version
  character(len=*), intent(in) :: search_dir
  character(len=120) :: url
 
  !print*,' search_dir=',trim(search_dir)
  select case(search_dir)
- case('data/eos/mesa') !!! here this is if someone wants to cehck the older version of the mesa tables (Reichardt et al 2020), which are no longer used by default
-    if (mesa_use_legacy_tables) then
+ case('data/eos/mesa')
+    ! EOS table versions:
+    !   0,1 = legacy tables (Reichardt et al. 2020)
+    !   2   = current tables
+    select case(eosmesa_version)
+    case(0,1)
        url = 'https://zenodo.org/records/13148447/files/'
-    else
-       url = 'https://zenodo.org/records/newlink' !! not uploaded yet
-    endif
- case('data/eos/mesa_entropy_gr')
-    url = 'https://zenodo.org/records/newlink' !! not uploaded yet
+    case(2)
+       url = 'https://zenodo.org/records/newlink/files/'
+    case default
+       stop 'Unknown eosmesa_version'
+    end select
  case('data/eos/mesa_opac') !!!  same link as old eos/mesa, but this is used only to download the opacity tables
     url = 'https://zenodo.org/records/13148447/files/'
  case('data/eos/shen')

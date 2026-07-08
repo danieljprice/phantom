@@ -364,7 +364,7 @@ subroutine get_eos_constants_mesa_gr(ierr)
 
  ! Find the first EoS tables
  filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
- filename = find_phantom_datafile(filename,'eos/mesa_entropy_gr')
+ filename = find_phantom_datafile(filename,'eos/mesa')
 
  ! Read constants from the header of first EoS tables
  open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
@@ -518,10 +518,9 @@ subroutine read_eos_mesa_gr(x,z,ierr)
 
     do j=1,mesa_eos_gr_nh
        write (hh,fmt1) mesa_eos_gr_h(j) ! X value as string
-!!!!!!!!!! have to rename these variables to not conflict with the above subroutine, but I can't be bothered to do that rn, so just ignore the fact that they have the same names as the above subroutine !!!!!!!!!!
        ! Find the EoS tables
        filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
-       filename = find_phantom_datafile(filename,'eos/mesa_entropy_gr')
+       filename = find_phantom_datafile(filename,'eos/mesa')
 
        ! Note that the data exists
        mesa_eos_gr_data_exists(i,j)=1

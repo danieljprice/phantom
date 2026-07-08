@@ -1222,7 +1222,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
-    !!! For GR, not tested yet!
+    !!! For GR
     call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgsP,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
@@ -1261,7 +1261,7 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
 
  select case (ieos)
  case(10)
-    !!! For GR, not tested yet!
+    !!! For GR
     call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss,cgsu)
 
  case default
