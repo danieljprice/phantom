@@ -70,7 +70,7 @@ function map_dir_to_web(search_dir) result(url)
     case(0,1)
        url = 'https://zenodo.org/records/13148447/files/'
     case(2)
-       url = 'https://zenodo.org/records/newlink/files/'
+       url = 'https://zenodo.org/records/21253459/files/'
     case default
        stop 'Unknown eosmesa_version'
     end select
