@@ -80,7 +80,7 @@ subroutine get_opacity_constants_mesa
 
  ! Find the opacity table
  filename   = 'opacs'//trim(mesa_opacs_suffix)//'.bindata'
- opacs_file = find_phantom_datafile(filename,'eos/mesa')
+ opacs_file = find_phantom_datafile(filename,'eos/mesa_opac')
 
  ! Read the constants from the header of the opacity file
  open(newunit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted')
@@ -114,7 +114,7 @@ subroutine read_opacity_mesa(x,z)
  !Find the opacity table
  filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
 ! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
- opacs_file = find_phantom_datafile(filename,'eos/mesa')
+ opacs_file = find_phantom_datafile(filename,'eos/mesa_opac')
  open(unit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted')
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
 
@@ -364,7 +364,7 @@ subroutine get_eos_constants_mesa_gr(ierr)
 
  ! Find the first EoS tables
  filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
- filename = find_phantom_datafile(filename,'eos/mesa')
+ filename = find_phantom_datafile(filename,'eos/mesa_entropy_gr')
 
  ! Read constants from the header of first EoS tables
  open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
@@ -521,7 +521,7 @@ subroutine read_eos_mesa_gr(x,z,ierr)
 !!!!!!!!!! have to rename these variables to not conflict with the above subroutine, but I can't be bothered to do that rn, so just ignore the fact that they have the same names as the above subroutine !!!!!!!!!!
        ! Find the EoS tables
        filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
-       filename = find_phantom_datafile(filename,'eos/mesa')
+       filename = find_phantom_datafile(filename,'eos/mesa_entropy_gr')
 
        ! Note that the data exists
        mesa_eos_gr_data_exists(i,j)=1
