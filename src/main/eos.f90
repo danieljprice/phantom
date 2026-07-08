@@ -1059,7 +1059,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  integer, intent(in) :: ientropy
  real,    intent(in),  optional :: eint_in,T_in,Trad_in
  integer, intent(out), optional :: ierr
- real                           :: mu,entropy,logentropy,temp,Trad,eint
+ real                           :: mu,entropy,temp,Trad,eint
 
  if (present(ierr)) ierr=0
 
@@ -1209,9 +1209,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
  integer, intent(in)    :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgspres,cgss
+ real                :: cgsrho,cgspres,cgss
  real,    parameter  :: eoserr=1e-12
- integer             :: niter
  integer, parameter  :: nitermax = 1000
  integer, intent(out), optional :: niter_out
 
