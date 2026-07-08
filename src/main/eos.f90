@@ -1101,8 +1101,8 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
        call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
     endif
 
-    ! Get entropy from rho and eint from MESA tables (output is not logs, 
-    ! because for vars >5 in the tables the log becomes the actual value)
+    ! Get entropy from rho and eint from MESA tables (output is not logs, it is s)
+
     if (present(ierr)) then
        call getvalue_mesa(rho,eint,9,entropy,ierr)
     else
