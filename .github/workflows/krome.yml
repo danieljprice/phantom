@@ -7,7 +7,7 @@ env:
   PREFIX: /usr/local/
   PHANTOM_DIR: ${{ github.workspace }}
   KROMEPATH: ${{ github.workspace }}/krome
-  FC: gfortran  # default if not overwritten by matrix
+  PHANTOM_FC: gfortran  # default if not overwritten by matrix
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -31,7 +31,15 @@ jobs:
       - name: "Install LAPACK dependencies (Ubuntu)"
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y liblapack-dev
-  
+
+      - name: "Install HDF5 dependencies (Ubuntu)"
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libhdf5-serial-dev && echo "HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial" >> "$GITHUB_ENV"
+
+      - name: "Install HDF5 dependencies (macOS)"
+        if: matrix.os == 'macos-latest'
+        run: brew update && brew install hdf5 && echo "HDF5_DIR=$(brew --prefix hdf5)" >> "$GITHUB_ENV"
+
       - name: "Clone phantom"
         uses: actions/checkout@v4
 
@@ -42,13 +50,13 @@ jobs:
         run: echo -e "-n=networks/react_umist\n-iRHS\n-noSinkCheck\n-noRecCheck\n-noTlimits\n-unsafe\n-skipODEthermo\n-skipJacobian" > krome.setup && cat krome.setup
 
       - name: "Compile phantom and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${{ github.workspace }}
+        run: make SYSTEM=$PHANTOM_FC SETUP=wind KROME=yes RUNDIR=${{ github.workspace }}
 
       - name: "Compile phantomsetup and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} setup
+        run: make SYSTEM=$PHANTOM_FC SETUP=wind KROME=yes RUNDIR=${{ github.workspace }} setup
 
       - name: "Compile phantomanalysis and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} analysis
+        run: make SYSTEM=$PHANTOM_FC SETUP=wind KROME=yes RUNDIR=${{ github.workspace }} analysis
 
       - name: "Compile phantommoddump and link with krome"
-        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=yes KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} moddump
+        run: make SYSTEM=$PHANTOM_FC SETUP=wind KROME=yes RUNDIR=${{ github.workspace }} moddump
