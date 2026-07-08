@@ -18,7 +18,7 @@ module eos_mesa
 !
 
  use mesa_microphysics
-
+ use dim,           only:gr
  implicit none
  logical, private :: mesa_initialised = .false.
 
@@ -57,14 +57,17 @@ subroutine init_eos_mesa(x,z,ierr)
 
  call get_eos_constants_mesa(ierr)
  if (ierr /= 0) return
-  mesa_eos_gr_prefix="output_rhos_"
 
- call get_eos_constants_mesa_gr(ierr)
+ !!! only read GR tables if it is a GR run
+ mesa_eos_gr_prefix="output_rhos_"
+ if (gr) then
+   call get_eos_constants_mesa_gr(ierr)
+   call read_eos_mesa_gr(x,z,ierr) ! read GR tables
+ end if
  if (ierr /= 0) return
  call read_eos_mesa(x,z,ierr)
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
- call read_eos_mesa_gr(x,z,ierr) ! read GR tables
 
 end subroutine init_eos_mesa
 
