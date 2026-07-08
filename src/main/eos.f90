@@ -1201,7 +1201,8 @@ end subroutine get_rho_from_p_s
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  use physcon, only:Rg,mass_proton_cgs
  use io,      only:fatal
- use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres,&
+                            get_idealplusrad_tempfromrhoS
  use eos_mesa,          only: get_eos_ptemp_from_rhos_mesa_gr
  use units,   only:unit_density,unit_pressure,unit_ergg
  real,    intent(in)    :: S,mu,rho
