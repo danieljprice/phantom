@@ -53,15 +53,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: particlemass,time
  real, save    :: tprev = 0.
  integer, save :: nprev = 0
- real          :: dt_cgs, rho_cgs, rholist(maxp), Tlist(maxp), mulist(maxp), Auvlist(maxp), xilist(maxp)
+ real          :: dt_cgs, rho_cgs
  real          :: numberdensity, T_gas, gammai, mui, AUV, xi
  real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
- real          :: max_radius, radius
+ real          :: max_radius, radius, tstart
  integer       :: i, j, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
  
 #ifdef __GFORTRAN__ 
    print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
    call omp_set_num_threads(1)
+#else
+   print*, "running with ", omp_get_max_threads(), " threads"
 #endif
 
  if (.not.done_init) then
@@ -116,14 +118,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    else
     dt_cgs = (time - tprev)*utime
     completed_iterations = 0
-    print*, dumpfile, ": not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
-
+    print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
+    print*, "Building neighbour tree..."
+    tstart = omp_get_wtime()
     xyzmh_ptmass(iReff,1) = 2.
     npart_copy = npart
     xyzh_copy = xyzh(:,:npart)
     call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
+    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+    
+    print*, "Calculating column density..."
+    tstart = omp_get_wtime()
     call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, one, 5, .false., column_density)
-
     max_radius = 0.0
     do i = 1, npart
        if (.not.isdead_or_accreted(xyzh(4, i))) then
@@ -135,23 +141,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo
     column_density = column_density + rhoh(xyzh(4,i_radius),particlemass)*unit_density * max_radius * udist
+    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 
-    rholist = 0.
-      Tlist = 0.
-     mulist = 0.
-    Auvlist = 0.
-     xilist = 0.
-
+    print*, "Running KROME"
+    tstart = omp_get_wtime()
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev,iverbose) &
-    !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist) &
+    !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist,iphase) &
     !$omp shared(ieos,gamma,gmw,time,completed_iterations,column_density,AuvAv,albedo) &
-    !$omp shared(rholist,Tlist,mulist,Auvlist,xilist,iphase) &
     !$omp private(i,j,abundance_part,Y,rho_cgs,numberdensity,T_gas,gammai,mui,AUV,xi)
     
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-
           inner: do j=1,nprev
              if (iorig(i) == iorig_old(j)) then
                 iprev(i) = j
@@ -186,12 +187,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              call krome(Y,T_gas,dt_cgs)
              abundance_part = Y/numberdensity
              abundance(:,i) = abundance_part
-
-             rholist(i) = rho_cgs
-               Tlist(i) = T_gas
-              mulist(i) = mui
-             Auvlist(i) = AUV
-              xilist(i) = xi
           endif
        endif
        if (iverbose > 1) then
@@ -200,10 +195,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*, 'Completed ', completed_iterations, ' of ', npart
        endif
     enddo outer
+   print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+   
+   tstart = omp_get_wtime()
    call write_chem(npart, dumpfile)
+   print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
  endif
-
  
+ ! keep track of previous abundances for next dump
  nprev = npart
  tprev = time
  iorig_old(1:npart) = iorig(1:npart)
@@ -242,13 +241,13 @@ real function get_xi(AUV)
 end function get_xi
 
 subroutine write_chem(npart, dumpfile)
- use krome_user, only:krome_idx_He
  integer,          intent(in) :: npart
  character(len=*), intent(in) :: dumpfile
  integer                      :: hdferr
- integer :: i
- integer(hid_t) :: file_id, dspace_id, dset_id, group_id
- integer(hsize_t) :: dims(1)
+ integer(hid_t) :: file_id, dspace_id, dset_id, group_id, type_id
+ integer(hsize_t) :: dims(2)
+ integer(hsize_t) :: dims_labels(1)
+ integer(size_t)  :: str_len
 
  ! create HDF5 file
  print "(1x,a)",'Writing to '//trim(dumpfile)//'.h5'
@@ -266,36 +265,79 @@ subroutine write_chem(npart, dumpfile)
  endif
 
  ! create dataspace for particle datasets
- dims(1) = npart
- call h5screate_simple_f(1, dims, dspace_id, hdferr)
+ dims(1) = krome_nmols
+ dims(2) = npart
+ call h5screate_simple_f(2, dims, dspace_id, hdferr)
   if (hdferr /= 0) then
     print*,'ERROR: Failed to create HDF5 dataspace'
     return
  endif
- do i=1,krome_nmols
-   ! create dataset for each abundance
-    call h5dcreate_f(group_id, trim(adjustl(abundance_label(i))), H5T_NATIVE_DOUBLE, dspace_id, dset_id, hdferr)
-    ! write abundance data to dataset
-    call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, abundance(i,1:npart), dims, hdferr)
-    if (hdferr /= 0) then
-       print*,'ERROR: Failed to create/write dataset for '//trim(adjustl(abundance_label(i)))
-       return
-    endif
-    call h5dclose_f(dset_id, hdferr)
- enddo
+
+ ! create one 2D dataset for all species abundances:
+ call h5dcreate_f(group_id, 'abundances', H5T_NATIVE_DOUBLE, dspace_id, dset_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to create dataset abundances'
+    return
+ endif
+
+ call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, abundance(:,1:npart), dims, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to write dataset abundances'
+    return
+ endif
+
+ call h5dclose_f(dset_id, hdferr)
+
+ ! store species labels so abundances row i is always identifiable
+ dims_labels(1) = krome_nmols
+ call h5screate_simple_f(1, dims_labels, dspace_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to create HDF5 dataspace for species labels'
+    return
+ endif
+
+ call h5tcopy_f(H5T_FORTRAN_S1, type_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to create HDF5 string datatype for species labels'
+    return
+ endif
+
+ str_len = len(abundance_label(1))
+ call h5tset_size_f(type_id, str_len, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to set HDF5 string size for species labels'
+    return
+ endif
+
+ call h5dcreate_f(group_id, 'species_labels', type_id, dspace_id, dset_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to create dataset species_labels'
+    return
+ endif
+
+ call h5dwrite_f(dset_id, type_id, abundance_label, dims_labels, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to write dataset species_labels'
+    return
+ endif
+
+ call h5dclose_f(dset_id, hdferr)
+ call h5tclose_f(type_id, hdferr)
  call h5sclose_f(dspace_id, hdferr)
  call h5gclose_f(group_id, hdferr)
  call h5fclose_f(file_id, hdferr)
 end subroutine write_chem
 
 subroutine read_chem(npart, dumpfile)
- use krome_user, only:krome_idx_He
  integer,          intent(in) :: npart
  character(len=*), intent(in) :: dumpfile
  integer                      :: hdferr
  integer :: i
- integer(hid_t) :: file_id, dset_id, group_id, filespace_id
- integer(hsize_t) :: max_dims(1), file_dims(1)
+ integer(hid_t) :: file_id, dset_id, group_id, filespace_id, type_id
+ integer(hsize_t) :: max_dims(2), file_dims(2)
+ integer(hsize_t) :: max_dims_labels(1), file_dims_labels(1)
+ integer(size_t)  :: str_len
+ character(len=16) :: labels_file(krome_nmols)
 
  ! open HDF5 file
  print "(1x,a)",'Reading from '//trim(dumpfile)//'.h5'
@@ -311,28 +353,74 @@ subroutine read_chem(npart, dumpfile)
     print*,'ERROR: Failed to open HDF5 group'
     return
  endif
+ ! open matrix dataset storing all species abundances
+ call h5dopen_f(group_id, 'abundance_matrix', dset_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to open dataset abundance_matrix'
+    return
+ endif
 
+ call h5dget_space_f(dset_id, filespace_id, hdferr)
+ call h5sget_simple_extent_dims_f(filespace_id, file_dims, max_dims, hdferr)
+ if (file_dims(1) /= krome_nmols .or. file_dims(2) /= npart) then
+    print*,'ERROR: abundance_matrix shape mismatch in HDF5 file'
+    return
+ endif
 
+ call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, abundance(:,1:npart), file_dims, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to read dataset abundance_matrix'
+    return
+ endif
 
- do i=1,krome_nmols
-   ! open dataset for each abundance
-    call h5dopen_f(group_id, trim(adjustl(abundance_label(i))), dset_id, hdferr)
-   ! check number of particles in file
-    call h5dget_space_f(dset_id, filespace_id, hdferr)
-    call h5sget_simple_extent_dims_f(filespace_id, file_dims, max_dims, hdferr)
-    if (file_dims(1) /= npart) then
-       print*,'ERROR: Number of particles in HDF5 file does not match current dump'
+ call h5dclose_f(dset_id, hdferr)
+ call h5sclose_f(filespace_id, hdferr)
+
+ ! read and validate species labels to guarantee row-label mapping
+ call h5dopen_f(group_id, 'species_labels', dset_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to open dataset species_labels'
+    return
+ endif
+
+ call h5dget_space_f(dset_id, filespace_id, hdferr)
+ call h5sget_simple_extent_dims_f(filespace_id, file_dims_labels, max_dims_labels, hdferr)
+ if (file_dims_labels(1) /= krome_nmols) then
+    print*,'ERROR: species_labels length mismatch in HDF5 file'
+    return
+ endif
+
+ call h5tcopy_f(H5T_FORTRAN_S1, type_id, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to create HDF5 string datatype for species_labels read'
+    return
+ endif
+
+ str_len = len(labels_file(1))
+ call h5tset_size_f(type_id, str_len, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to set HDF5 string size for species_labels read'
+    return
+ endif
+
+ call h5dread_f(dset_id, type_id, labels_file, file_dims_labels, hdferr)
+ if (hdferr /= 0) then
+    print*,'ERROR: Failed to read dataset species_labels'
+    return
+ endif
+
+ do i = 1, krome_nmols
+    if (trim(adjustl(labels_file(i))) /= trim(adjustl(abundance_label(i)))) then
+       print*,'ERROR: species_labels mismatch at index ', i
+       print*,'       file: ', trim(adjustl(labels_file(i)))
+       print*,'       run : ', trim(adjustl(abundance_label(i)))
        return
     endif
-    ! read abundance data from dataset
-    call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, abundance(i,1:npart), file_dims, hdferr)
-    if (hdferr /= 0) then
-       print*,'ERROR: Failed to open/read dataset for '//trim(adjustl(abundance_label(i)))
-       return
-    endif
-    call h5dclose_f(dset_id, hdferr)
-    call h5sclose_f(filespace_id, hdferr)
  enddo
+
+ call h5dclose_f(dset_id, hdferr)
+ call h5sclose_f(filespace_id, hdferr)
+ call h5tclose_f(type_id, hdferr)
  call h5gclose_f(group_id, hdferr)
  call h5fclose_f(file_id, hdferr)
 end subroutine read_chem
