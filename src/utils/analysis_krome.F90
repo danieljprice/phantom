@@ -58,7 +58,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real          :: numberdensity, T_gas, gammai, mui, AUV, xi
  real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
  real          :: max_radius, radius, tstart
- integer       :: i, j, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
+ integer       :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
 
 #ifdef __GFORTRAN__
 #ifdef _OPENMP
@@ -76,7 +76,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    call h5open_f(hdferr)
    if (hdferr /= 0) then
       print*,'ERROR: Failed to initialize HDF5'
-      return
+      fatal
    endif
 
     print*, "initialising KROME"
@@ -279,67 +279,27 @@ subroutine write_chem(npart, dumpfile)
 
   ! create group for particle data
  call h5gcreate_f(file_id, 'chemistry', group_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to create HDF5 group'
-    return
- endif
-
  ! create dataspace for particle datasets
  dims(1) = krome_nmols
  dims(2) = npart
  call h5screate_simple_f(2, dims, dspace_id, hdferr)
-  if (hdferr /= 0) then
-    print*,'ERROR: Failed to create HDF5 dataspace'
-    return
- endif
-
  ! create one 2D dataset for all species abundances:
  call h5dcreate_f(group_id, 'abundances', H5T_NATIVE_DOUBLE, dspace_id, dset_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to create dataset abundances'
-    return
- endif
-
  call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, abundance(:,1:npart), dims, hdferr)
  if (hdferr /= 0) then
     print*,'ERROR: Failed to write dataset abundances'
     return
  endif
-
  call h5dclose_f(dset_id, hdferr)
 
  ! store species labels so abundances row i is always identifiable
  dims_labels(1) = krome_nmols
  call h5screate_simple_f(1, dims_labels, dspace_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to create HDF5 dataspace for species labels'
-    return
- endif
-
  call h5tcopy_f(H5T_FORTRAN_S1, type_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to create HDF5 string datatype for species labels'
-    return
- endif
-
  str_len = len(abundance_label(1))
  call h5tset_size_f(type_id, str_len, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to set HDF5 string size for species labels'
-    return
- endif
-
  call h5dcreate_f(group_id, 'species_labels', type_id, dspace_id, dset_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to create dataset species_labels'
-    return
- endif
-
  call h5dwrite_f(dset_id, type_id, abundance_label, dims_labels, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to write dataset species_labels'
-    return
- endif
 
  call h5dclose_f(dset_id, hdferr)
  call h5tclose_f(type_id, hdferr)
@@ -369,16 +329,6 @@ subroutine read_chem(npart, dumpfile)
 
   ! open group for particle data
  call h5gopen_f(file_id, 'chemistry', group_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to open HDF5 group'
-    return
- endif
- ! open matrix dataset storing all species abundances
- call h5dopen_f(group_id, 'abundances', dset_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to open dataset abundances'
-    return
- endif
 
  call h5dget_space_f(dset_id, filespace_id, hdferr)
  call h5sget_simple_extent_dims_f(filespace_id, file_dims, max_dims, hdferr)
@@ -388,53 +338,26 @@ subroutine read_chem(npart, dumpfile)
  endif
 
  call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, abundance(:,1:npart), file_dims, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to read dataset abundances'
-    return
- endif
-
  call h5dclose_f(dset_id, hdferr)
  call h5sclose_f(filespace_id, hdferr)
 
  ! read and validate species labels to guarantee row-label mapping
  call h5dopen_f(group_id, 'species_labels', dset_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to open dataset species_labels'
-    return
- endif
-
  call h5dget_space_f(dset_id, filespace_id, hdferr)
  call h5sget_simple_extent_dims_f(filespace_id, file_dims_labels, max_dims_labels, hdferr)
  if (file_dims_labels(1) /= krome_nmols) then
-    print*,'ERROR: species_labels length mismatch in HDF5 file'
-    return
+    call fatal(analysistype, 'species_labels length mismatch in HDF5 file')
  endif
 
  call h5tcopy_f(H5T_FORTRAN_S1, type_id, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to create HDF5 string datatype for species_labels read'
-    return
- endif
-
  str_len = len(labels_file(1))
  call h5tset_size_f(type_id, str_len, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to set HDF5 string size for species_labels read'
-    return
- endif
-
  call h5dread_f(dset_id, type_id, labels_file, file_dims_labels, hdferr)
- if (hdferr /= 0) then
-    print*,'ERROR: Failed to read dataset species_labels'
-    return
- endif
 
  do i = 1, krome_nmols
     if (trim(adjustl(labels_file(i))) /= trim(adjustl(abundance_label(i)))) then
        print*,'ERROR: species_labels mismatch at index ', i
-       print*,'       file: ', trim(adjustl(labels_file(i)))
-       print*,'       run : ', trim(adjustl(abundance_label(i)))
-       return
+       call fatal(analysistype, 'species_labels mismatch in HDF5 file')
     endif
  enddo
 
