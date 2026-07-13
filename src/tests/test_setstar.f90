@@ -52,7 +52,6 @@ subroutine test_setstar(ntests,npass)
  ! test red supergiant
  call test_redsupergiant(ntests,npass)
 
-
  ! test white dwarf
  call test_whitedwarf(ntests,npass)
 
@@ -364,11 +363,9 @@ subroutine test_redsupergiant(ntests,npass)
 
 end subroutine test_redsupergiant
 
-
-
 !-----------------------------------------------------------------------
 !+
-!   test that we can successfully relax a white dwarf with the 
+!   test that we can successfully relax a white dwarf with the
 !   zero temperature EoS and Helmholtz eos(Ali Pourmand, similar to test_redsupergiant)
 !+
 !-----------------------------------------------------------------------
@@ -448,14 +445,13 @@ subroutine test_whitedwarf(ntests,npass)
                rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
                write_files=.false.,density_error=rmserr,energy_error=ekin)
 
-  
     call checkval(ierr,expected_error,0,nfail(1),'set_star runs with expected ierr')
     call update_test_scores(ntests,nfail,npass)
 
     call check_setup(nerror,nwarn,restart=.false.)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
     call update_test_scores(ntests,nfail,npass)
-   
+
     call checkval(rmserr,0.0,0.05,nfail(1),'error in density profile')
     call update_test_scores(ntests,nfail,npass)
 
@@ -477,7 +473,5 @@ subroutine test_whitedwarf(ntests,npass)
  enddo
 
 end subroutine test_whitedwarf
-
-
 
 end module testsetstar

@@ -10,12 +10,12 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Mats Esseldeurs
+! :Owner: Camille Landri
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, krome_main, krome_user, neighkdtree, part,
-!   physcon, raytracer, units
+! :Dependencies: eos, hdf5, io, krome_main, krome_user, neighkdtree,
+!   omp_lib, part, physcon, raytracer, units
 !
  use krome_user, only:krome_nmols
  use part,       only: maxp
@@ -39,7 +39,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part,        only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff, iboundary, igas, iphase, iamtype
- use neighkdtree, only: build_tree
+ use neighkdtree, only:build_tree
  use units,       only: utime,unit_density,udist
  use physcon,     only: atomic_mass_unit
  use eos,         only: get_temperature, ieos, gamma,gmw, init_eos
@@ -58,8 +58,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
  real          :: max_radius, radius, tstart
  integer       :: i, j, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
- 
-#ifdef __GFORTRAN__ 
+
+#ifdef __GFORTRAN__
    print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
    call omp_set_num_threads(1)
 #else
@@ -126,7 +126,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     xyzh_copy = xyzh(:,:npart)
     call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
-    
+
     print*, "Calculating column density..."
     tstart = omp_get_wtime()
     call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, one, 5, .false., column_density)
@@ -150,7 +150,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist,iphase) &
     !$omp shared(ieos,gamma,gmw,time,completed_iterations,column_density,AuvAv,albedo) &
     !$omp private(i,j,abundance_part,Y,rho_cgs,numberdensity,T_gas,gammai,mui,AUV,xi)
-    
+
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           inner: do j=1,nprev
@@ -173,11 +173,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              numberdensity = rho_cgs / (mui * atomic_mass_unit)
              T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
              T_gas = max(T_gas,20.0d0)
-             
+
              !Radiation quantities
              AUV = AuvAv * column_density(i) / (mui * atomic_mass_unit) / 1.87e21
              xi = get_xi(AUV)
-             
+
              call krome_set_user_Auv(AUV)
              call krome_set_user_xi(xi)
              call krome_set_user_alb(ALBEDO)
@@ -196,12 +196,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo outer
    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
-   
+
    tstart = omp_get_wtime()
    call write_chem(npart, dumpfile)
    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
  endif
- 
+
  ! keep track of previous abundances for next dump
  nprev = npart
  tprev = time
