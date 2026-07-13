@@ -50,7 +50,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                         krome_set_user_alb,krome_set_user_AuvAv
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:), xzymh_ptmass_copy(:,:)
  real,             intent(in) :: particlemass,time
  real, save    :: tprev = 0.
  integer, save :: nprev = 0
@@ -125,10 +125,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #ifdef _OPENMP
     tstart = omp_get_wtime()
 #endif
-    xyzmh_ptmass(iReff,1) = 2.
+    xyzmh_ptmass_copy(:,:) = xyzmh_ptmass(:,:) !to avoid overwriting the original ptmass array
+    xyzmh_ptmass_copy(iReff,1) = 2.
     npart_copy = npart
     xyzh_copy = xyzh(:,:npart)
-    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
+    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu,xyzmh_ptmass_copy)
 #ifdef _OPENMP
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 #endif
