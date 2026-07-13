@@ -161,12 +161,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          inner: do j=1,nprev
-             if (iorig(i) == iorig_old(j)) then
-                iprev(i) = j
-                exit inner
+          if (i <= nprev) then
+             if (iorig(i) == iorig_old(i)) then
+                iprev(i) = i
+                j = i
              endif
-          enddo inner
+          endif
+          if (iprev(i) == 0) then
+             inner: do k=1,nprev
+                if (iorig(i) == iorig_old(k)) then
+                   iprev(i) = k
+                   j = k
+                   exit inner
+                endif
+             enddo inner
+          endif
 
           if (j == iprev(i)) then
              abundance_part(:) = abundance_prev(:,iprev(i))
