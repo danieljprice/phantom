@@ -21,8 +21,9 @@ module analysis
  use part,       only: maxp
  use raytracer,  only: get_all_tau
  use hdf5
- use omp_lib
-
+ #ifdef _OPENMP
+   use omp_lib, only: omp_set_num_threads, omp_get_max_threads, omp_get_wtime
+ #endif
  implicit none
  character(len=20), parameter, public :: analysistype = 'krome'
  public :: do_analysis
@@ -60,8 +61,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer       :: i, j, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
 
 #ifdef __GFORTRAN__
+#ifdef _OPENMP
    print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
    call omp_set_num_threads(1)
+#endif
 #else
    print*, "running with ", omp_get_max_threads(), " threads"
 #endif
@@ -120,13 +123,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     completed_iterations = 0
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
     print*, "Building neighbour tree..."
+#ifdef _OPENMP
     tstart = omp_get_wtime()
+#endif
     xyzmh_ptmass(iReff,1) = 2.
     npart_copy = npart
     xyzh_copy = xyzh(:,:npart)
     call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
+#ifdef _OPENMP
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
-
+#endif
     print*, "Calculating column density..."
     tstart = omp_get_wtime()
     call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, one, 5, .false., column_density)
@@ -144,7 +150,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 
     print*, "Running KROME"
+#ifdef _OPENMP
     tstart = omp_get_wtime()
+#endif
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev,iverbose) &
     !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist,iphase) &
@@ -195,11 +203,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*, 'Completed ', completed_iterations, ' of ', npart
        endif
     enddo outer
+#ifdef _OPENMP
    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
-
    tstart = omp_get_wtime()
+#endif
    call write_chem(npart, dumpfile)
+#ifdef _OPENMP
    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+#endif
  endif
 
  ! keep track of previous abundances for next dump
