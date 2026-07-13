@@ -75,8 +75,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    ! initialize HDF5
    call h5open_f(hdferr)
    if (hdferr /= 0) then
-      print*,'ERROR: Failed to initialize HDF5'
-      fatal
+      call fatal(analysistype, 'Failed to initialize HDF5')
    endif
 
     print*, "initialising KROME"
