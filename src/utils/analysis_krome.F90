@@ -354,22 +354,22 @@ subroutine read_chem(npart, dumpfile)
     return
  endif
  ! open matrix dataset storing all species abundances
- call h5dopen_f(group_id, 'abundance_matrix', dset_id, hdferr)
+ call h5dopen_f(group_id, 'abundances', dset_id, hdferr)
  if (hdferr /= 0) then
-    print*,'ERROR: Failed to open dataset abundance_matrix'
+    print*,'ERROR: Failed to open dataset abundances'
     return
  endif
 
  call h5dget_space_f(dset_id, filespace_id, hdferr)
  call h5sget_simple_extent_dims_f(filespace_id, file_dims, max_dims, hdferr)
  if (file_dims(1) /= krome_nmols .or. file_dims(2) /= npart) then
-    print*,'ERROR: abundance_matrix shape mismatch in HDF5 file'
+    print*,'ERROR: abundances shape mismatch in HDF5 file'
     return
  endif
 
  call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, abundance(:,1:npart), file_dims, hdferr)
  if (hdferr /= 0) then
-    print*,'ERROR: Failed to read dataset abundance_matrix'
+    print*,'ERROR: Failed to read dataset abundances'
     return
  endif
 
