@@ -3,7 +3,7 @@ Disc viscosity in Phantom
 
 What is the Shakura-Sunyaev viscosity?
 --------------------------------------
-In viscous accretion disc theory (`Pringle (1981)<https://ui.adsabs.harvard.edu/abs/1981ARA&A..19..137P/abstract>`__), axisymmetric 
+In viscous accretion disc theory (`Pringle (1981) <https://ui.adsabs.harvard.edu/abs/1981ARA&A..19..137P/abstract>`__), axisymmetric 
 accretion discs evolve according to the following equation for the surface density:
 
 .. math::
@@ -14,7 +14,7 @@ where :math:`\Sigma` is the surface density (mass per unit area),
 :math:`R` is the radial coordinate (distance from the central object),
 and :math:`\nu` is an **effective viscosity coefficient** (area per unit time).
 
-`Shakura and Sunyaev (1973)<https://ui.adsabs.harvard.edu/abs/1973A%26A....24..337S/abstract>`__ proposed the prescription
+`Shakura and Sunyaev (1973) <https://ui.adsabs.harvard.edu/abs/1973A%26A....24..337S/abstract>`__ proposed the prescription
 
 .. math::
 
@@ -89,7 +89,7 @@ set the ``disc_viscosity`` flag to true in the .in file::
 
 You are only guaranteed to achieve a constant alpha_SS if the ratio of :math:`\langle h \rangle/H` is constant,
 which can be achieved by carefully choosing the temperature and density 
-profiles of the disc (see `Lodato & Price (2010) <http://ui.adsabs.harvard.edu/abs/2010MNRAS.405.1212L>`__).
+profiles of the disc (see `Lodato & Price 2010 <http://ui.adsabs.harvard.edu/abs/2010MNRAS.405.1212L>`__).
 
 Adding Shakura-Sunyaev viscosity as a Navier-Stokes viscosity
 --------------------------------------------------------------
