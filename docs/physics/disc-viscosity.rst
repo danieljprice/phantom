@@ -3,7 +3,7 @@ Disc viscosity in Phantom
 
 What is the Shakura-Sunyaev viscosity?
 --------------------------------------
-In viscous accretion disc theory (`Pringle (1981) <https://ui.adsabs.harvard.edu/abs/1981ARA&A..19..137P/abstract>`__), axisymmetric 
+In viscous accretion disc theory (`Pringle 1981 <https://ui.adsabs.harvard.edu/abs/1981ARA&A..19..137P/abstract>`__), axisymmetric 
 accretion discs evolve according to the following equation for the surface density:
 
 .. math::
@@ -61,7 +61,7 @@ The default way of including disc viscosity in SPH is to modify the
 shock-capturing viscosity to mimic a physical viscosity. Details are given in
 `Lodato & Price
 (2010) <http://ui.adsabs.harvard.edu/abs/2010MNRAS.405.1212L>`__ or in the
-Phantom paper. The Shakura-Sunyaev alpha is related to alpha_AV
+`Phantom paper <http://adsabs.harvard.edu/abs/2018PASA...35...31P>`__. The Shakura-Sunyaev alpha is related to alpha_AV
 according to
 
 .. math::
@@ -121,7 +121,7 @@ function of the radial coordinate.
 
 .. warning::
 
-   Importantly, this implies ONE star at the coordinate origin (the mass is read
+   Importantly, the prescribed :math:`\Omega(R)` implies ONE star at the coordinate origin (the mass is read
    from the mass1 parameter from the central potential, or from the first sink particle).
 
 Currently this option does NOT give a sensible answer if you discs around multiple 
