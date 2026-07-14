@@ -3,7 +3,7 @@ Disc viscosity in Phantom
 
 What is the Shakura-Sunyaev viscosity?
 --------------------------------------
-In viscous accretion disc theory (Pringle 1981), axisymmetric 
+In viscous accretion disc theory (`Pringle (1981)<https://ui.adsabs.harvard.edu/abs/1981ARA&A..19..137P/abstract>`__), axisymmetric 
 accretion discs evolve according to the following equation for the surface density:
 
 .. math::
@@ -14,7 +14,7 @@ where :math:`\Sigma` is the surface density (mass per unit area),
 :math:`R` is the radial coordinate (distance from the central object),
 and :math:`\nu` is an **effective viscosity coefficient** (area per unit time).
 
-Shakura and Sunyaev (1973) proposed the prescription
+`Shakura and Sunyaev (1973)<https://ui.adsabs.harvard.edu/abs/1973A%26A....24..337S/abstract>`__ proposed the prescription
 
 .. math::
 
@@ -66,7 +66,7 @@ according to
 
 .. math::
     
-    \alpha_{\rm SS} = 1/10 \alpha_{\rm AV} \frac{\langle h \rangle}{H}
+    \alpha_{\rm SS} = \frac{1}{10} \alpha_{\rm AV} \frac{\langle h \rangle}{H},
 
 where :math:`\langle h \rangle` is the mean smoothing length in an annulus and :math:`H` is the disc scale
 height at that annulus.
@@ -87,9 +87,9 @@ set the ``disc_viscosity`` flag to true in the .in file::
                 beta =       2.000    ! non-linear shock viscosity parameter
       disc_viscosity =           T    ! use cs, multiply by h/|rij| and apply to approaching/receding
 
-You are only guaranteed to achieve a constant alpha_SS if the ratio of h/<H> is constant,
+You are only guaranteed to achieve a constant alpha_SS if the ratio of :math:`\langle h \rangle/H` is constant,
 which can be achieved by carefully choosing the temperature and density 
-profiles of the disc (see Lodato & Price 2010).
+profiles of the disc (see `Lodato & Price (2010) <http://ui.adsabs.harvard.edu/abs/2010MNRAS.405.1212L>`__).
 
 Adding Shakura-Sunyaev viscosity as a Navier-Stokes viscosity
 --------------------------------------------------------------
@@ -106,14 +106,14 @@ we do not in general know the local scale height, defined as
 
 .. math::
 
-    H = \frac{c_{\rm s}}{\Omega(R)}
+    H = \frac{c_{\rm s}}{\Omega(R)},
 
 where :math:`\Omega` is the orbital frequency. With ``irealvisc=2``, the code sets
 the kinematic viscosity to
 
 .. math::
 
-    \nu = \alpha_{\rm SS} \frac{c_{\rm s}^2}{\Omega(R)}
+    \nu = \alpha_{\rm SS} \frac{c_{\rm s}^2}{\Omega(R)},
 
 where :math:`\alpha_{\rm SS}` is the desired Shakura-Sunyaev alpha,
 and :math:`\Omega(R) = \sqrt{GM_*/R^3}` is the orbital frequency, a *prescribed*
@@ -134,14 +134,14 @@ What is the lowest alpha viscosity for a disc that Phantom can simulate?
 ------------------------------------------------------------------------
 
 1. The lowest meaningful value of alpha_AV to "feel" an imposed viscosity
-   is 0.1 (see e.g. Meru & Bate 2010; lower than this and you will get 
-   spreading independent of the value of alpha_AV due to particle jitter).
+   is 0.1 (see e.g. Figure 6 of `Meru & Bate (2012) <https://adsabs.harvard.edu/abs/2012MNRAS.427.2022M>`__; 
+   lower than this and you will get spreading independent of the value of alpha_AV due to particle jitter).
 
 2. For a disc simulated with 10^6 SPH particles we typically resolve the
    scale height by 2-5 resolution lengths, giving h/H ~ 0.2 – 0.5.
 
 3. So therefore the lowest alpha_SS you can simulate at this resolution
-   is 2 - 5 x 10^-3. To reach a lower alpha_SS, you have to lower /H,
+   is 2 - 5 x 10^-3. To reach a lower alpha_SS, you have to lower h/H,
    which means using more particles.
 
 Further reading
