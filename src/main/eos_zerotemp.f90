@@ -6,17 +6,26 @@
 !--------------------------------------------------------------------------!
 module eos_zerotemp
 !
-! Implements zero temperature equation of state, e.g. for white dwarfs. Meant to 
+! Implements zero temperature equation of state, e.g. for white dwarfs. Meant to
 !
 ! :References: Kippenhahn & Weigert, Stellar Structure and Evolution, section 15.2
 !
-! :Dependencies: physcon
+! :Owner: Ali Pourmand
+!
+! :Runtime parameters:
+!   - xc  : *Carbon mass fraction*
+!   - xh  : *Hydrogen mass fraction*
+!   - xhe : *Helium mass fraction*
+!   - xmg : *Magnesium mass fraction*
+!   - xne : *Neon mass fraction*
+!   - xo  : *Oxygen mass fraction*
+!
+! :Dependencies: infile_utils, io, physcon, units
 !
  use units, only:unit_density,unit_velocity
  use physcon,  only:pi,atomic_mass_unit,mass_electron_cgs,planckh,c
  implicit none
  real :: mu_e ! mean molecular weight per free electron
-
 
  public :: eos_zerotemp_init,read_options_eos_zerotemp,write_options_eos_zerotemp,&
            f_chandra,get_zerotemp_pressure,get_zerotemp_u,get_zerotemp_spsoundi,&
@@ -31,15 +40,14 @@ module eos_zerotemp
  real :: xc  = 0.5
  real :: xo  = 0.5
  real :: xne = 0.0
- real :: xmg = 0.0 
- 
+ real :: xmg = 0.0
+
  integer, parameter :: speciesmax = 6
  character(len=10) :: speciesname(speciesmax)
  real :: xmass(speciesmax) ! mass fraction of species
  real :: Aion(speciesmax)  ! number of nucleons
  real :: Zion(speciesmax)  ! number of protons
 contains
-
 
 !----------------------------------------------------------------
 !+
@@ -48,7 +56,7 @@ contains
 !----------------------------------------------------------------
 subroutine eos_zerotemp_init(ierr)
 
- use io, only: warning, fatal
+ use io, only:warning, fatal
  integer, intent(out) :: ierr
 
  ierr = 0
@@ -98,7 +106,7 @@ end subroutine eos_zerotemp_init
 !----------------------------------------------------------------
 subroutine read_options_eos_zerotemp(db,nerr)
 
- use infile_utils, only: inopts, read_inopt
+ use infile_utils, only:inopts, read_inopt
  type(inopts), intent(inout) :: db(:)
  integer, intent(inout) :: nerr
 
@@ -118,7 +126,7 @@ end subroutine read_options_eos_zerotemp
 !----------------------------------------------------------------
 subroutine write_options_eos_zerotemp(iunit)
 
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  call write_inopt(xh ,'xh' ,'Hydrogen mass fraction',iunit)
@@ -171,8 +179,6 @@ real function f_chandra(x) result(fx)
  fx = x*(2*x**2 - 3)*sqrt(1+x**2) + 3*log(x + sqrt(1+x**2))
 end function f_chandra
 
-
-
 ! ----------------------------------------------------------------
 !+
 !  Calculates the zero temperature pressure for a fully degenerate electron gas, i.e. a
@@ -191,7 +197,6 @@ subroutine get_zerotemp_pressure(rhoi,presi)
  ! This is a good approximation for white dwarfs where the electrons are highly degenerate but the ions are not.
  ! Note also that this assumes a fully ionised gas, so mu is the mean molecular weight per free electron
 
-
     ne = rhoi / (mu_e * atomic_mass_unit)
 
     x = ( (3.0 * ne * planckh**3) / &
@@ -200,7 +205,6 @@ subroutine get_zerotemp_pressure(rhoi,presi)
     presi = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
 
 end subroutine get_zerotemp_pressure
-
 
 !-----------------------------------------------------------------------
 !+!  Inputs and outputs in cgs units
@@ -220,7 +224,6 @@ subroutine get_zerotemp_u(rhoi,u)
     u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * gx
     u = u/rhoi !previous equation is erg/cm^3 so here I convert it
 end subroutine get_zerotemp_u
-
 
 !----------------------------------------------------------------
 !+
@@ -273,7 +276,7 @@ subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
 
    do while (f_chandra(xhi) < fx)
       xhi = 2.0*xhi
-   end do
+   enddo
 
    ierr = 0
 
@@ -285,11 +288,11 @@ subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
          xhi = xmid
       else
          xlo = xmid
-      end if
+      endif
 
       if (abs(xhi-xlo)/(xmid+1.e-300) < tolerance) exit
 
-   end do
+   enddo
 
    if (iter == iter_max) ierr = 1
 
@@ -301,6 +304,5 @@ subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
    densi = ne * mu_e * atomic_mass_unit
 
 end subroutine get_zerotemp_rhofrompres
-
 
 end module eos_zerotemp

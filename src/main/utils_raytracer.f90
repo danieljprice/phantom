@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2025 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,7 +20,7 @@ module raytracer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, healpix, kernel, neighkdtree, part, units
+! :Dependencies: healpix, kernel, neighkdtree, part, units
 !
  use healpix
 
@@ -86,7 +86,7 @@ end subroutine get_all_tau
  !+
  !---------------------------------------------------------------------------------
 subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order, outwards, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart,order
  real, intent(in)    :: primary(3), Rstar, xyzh(:,:), kappa(:), Rinject
  logical, intent(in) :: outwards
@@ -122,7 +122,6 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  enddo
  !$omp enddo
  !$omp end parallel
-
 
  !_----------------------------------------------
  ! DETERMINE the optical depth for each particle
@@ -168,7 +167,7 @@ end subroutine get_all_tau_single
  !+
  !--------------------------------------------------------------------------
 subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, companion, Rcomp, order, outwards, tau)
- use part, only : isdead_or_accreted
+ use part, only:isdead_or_accreted
  integer, intent(in) :: npart, order
  real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, Rinject, xyzh(:,:), Rcomp
  logical, intent(in) :: outwards
@@ -318,7 +317,6 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
  enddo
  tau = tau / weight
 end subroutine interpolate_tau
-
 
  !--------------------------------------------------------------------------
  !+
