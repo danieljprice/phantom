@@ -15,8 +15,9 @@ where :math:`\Sigma` is the surface density (mass per unit area),
 and :math:`\nu` is an effective viscosity coefficient (area per unit time).
 
 Shakura and Sunyaev (1973) proposed the prescription
+
 .. math::
-    
+
     \nu = \alpha c_{\rm s} H
 
 where :math:`\alpha` is a dimensionless parameter, :math:`c_s` is the sound speed,
@@ -67,7 +68,7 @@ according to
     
     \alpha_{\rm SS} = 1/10 \alpha_{\rm AV} \frac{\langle h \rangle}{H}
 
-where is the mean smoothing length in an annulus and H is the disc scale
+where :math:`\langle h \rangle` is the mean smoothing length in an annulus and :math:`H` is the disc scale
 height at that annulus.
 
 In the .setup file for disc simulations this translation will be computed
@@ -100,23 +101,23 @@ Here you can explicitly set a value for the kinematic viscosity, :math:`\nu`::
           shearparam =       0.100    ! magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)
             bulkvisc =       0.000    ! magnitude of bulk viscosity
 
-Option number 2 attempts to prescribe a constant alpha_SS. The problem is that 
-we do not in general know the local scale height, defined as::
+Option number 2 attempts to prescribe a constant alpha_SS. The problem is that
+we do not in general know the local scale height, defined as
 
 .. math::
 
     H = \frac{c_{\rm s}}{\Omega(R)}
 
-where :math:`\Omega` is the orbital frequency. With ``irealvisc=2``, the code sets 
-the kinematic viscosity to::
+where :math:`\Omega` is the orbital frequency. With ``irealvisc=2``, the code sets
+the kinematic viscosity to
 
 .. math::
 
     \nu = \alpha_{\rm SS} \frac{c_{\rm s}^2}{\Omega(R)}
 
-where :math:`\alpha_{\rm SS}` is the desired Shakura-Sunyaev alpha, 
-and Omega(R) = sqrt(GM_*/R^3) is the orbital frequency is a *prescribed 
-function* of the radial coordinate.
+where :math:`\alpha_{\rm SS}` is the desired Shakura-Sunyaev alpha,
+and :math:`\Omega(R) = \sqrt{GM_*/R^3}` is the orbital frequency, a *prescribed*
+function of the radial coordinate.
 
 Impoartantly, this implies ONE star at the coordinate origin (the mass is read
 from the mass1 parameter from the central potential, or from the first sink particle).
