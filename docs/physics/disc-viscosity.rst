@@ -12,7 +12,7 @@ accretion discs evolve according to the following equation for the surface densi
 
 where :math:`\Sigma` is the surface density (mass per unit area),
 :math:`R` is the radial coordinate (distance from the central object),
-and :math:`\nu` is an effective viscosity coefficient (area per unit time).
+and :math:`\nu` is an **effective viscosity coefficient** (area per unit time).
 
 Shakura and Sunyaev (1973) proposed the prescription
 
@@ -21,18 +21,18 @@ Shakura and Sunyaev (1973) proposed the prescription
     \nu = \alpha c_{\rm s} H
 
 where :math:`\alpha` is a dimensionless parameter, :math:`c_s` is the sound speed,
-and :math:`H` is the disc scale height. The idea is that the "largest eddy" would
+and :math:`H` is the **disc scale height**. The idea is that the "largest eddy" would
 be of order the scale height and that the turbulence motions would be of order
 the sound speed.
 
-In this model the mass flow onto the central object is entirely driven by
-the effective viscosity, which is assumed to represent some kind of 
+In this model **the mass flow onto the central object is entirely driven by
+the effective viscosity**, which is assumed to represent some kind of 
 underlying microscopic turbulence.
 
 Do I need to add a disc viscosity to my disc?
 ---------------------------------------------
-Phantom is a 3D code so depending on the problem there may already be
-non-Keplerian motions present in your disc that will drive the accretion flow
+Phantom is a 3D code so depending on the problem **there may already be
+non-Keplerian motions present in your disc that will drive the accretion flow**
 without requiring a viscosity "prescription". Common examples are:
 
 - Discs can be gravitational unstable, driving large-scale gravitational turbulence
@@ -43,7 +43,7 @@ without requiring a viscosity "prescription". Common examples are:
 - The disc may be unstable to the magnetorotational instability (MRI) 
   if you include magnetic fields (MHD=yes)
 
-In these cases you don't need to add an effective viscosity, and should
+In these cases **you don't need to add an effective viscosity**, and should
 simply attempt to minimise the numerical viscosity in the code, by using 
 the minimum dissipation required for shock capturing, namely::
 
@@ -54,7 +54,7 @@ the minimum dissipation required for shock capturing, namely::
 
 Adding Shakura-Sunyaev viscosity by modifying the shock-capturing viscosity
 ---------------------------------------------------------------------------
-If you are simulating an axisymmetric disc and want the results to be
+If you are simulating an **axisymmetric disc** and want the results to be
 independent of the resolution, you can explicitly add a disc viscosity.
 
 The default way of including disc viscosity in SPH is to modify the
@@ -119,8 +119,10 @@ where :math:`\alpha_{\rm SS}` is the desired Shakura-Sunyaev alpha,
 and :math:`\Omega(R) = \sqrt{GM_*/R^3}` is the orbital frequency, a *prescribed*
 function of the radial coordinate.
 
-Impoartantly, this implies ONE star at the coordinate origin (the mass is read
-from the mass1 parameter from the central potential, or from the first sink particle).
+.. warning::
+
+   Importantly, this implies ONE star at the coordinate origin (the mass is read
+   from the mass1 parameter from the central potential, or from the first sink particle).
 
 Currently this option does NOT give a sensible answer if you discs around multiple 
 stars or sink particles that are not centred on the origin.
