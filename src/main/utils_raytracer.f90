@@ -491,7 +491,7 @@ subroutine find_next(inpoint, h, ray, xyzh, kappa, dtaudr, distance, inext)
  real,    intent(out)   :: distance, dtaudr
 
  integer, parameter :: nmaxcache = 0
- real  :: xyzcache(0,nmaxcache)
+ real :: xyzcache(3, max(1,nmaxcache))
 
  integer  :: nneigh, i, prev
  real     :: dmin, vec(3), dr, raydistance, q, norm_sq
