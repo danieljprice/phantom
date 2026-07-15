@@ -43,7 +43,7 @@ If you are using ifort, you will need to compile HDF5 from source.
 Another constraint to account for is that **KROME is only parallelized with ifort and ifx**, so if you intend to use KROME in parallel, you will need to compile HDF5 with ifort or ifx as well.
 You can technically compile KROME with gfortran, but this will strongly limit the performance of the post-processing routines.
 
-If you already have HDF5 installed, you can check which compiler was used to compile it by running the command ``h5cc -showconfig`` in the terminal.
+If you already have HDF5 installed, you can check which compiler was used to compile it by running the command ``h5fc -showconfig`` in the terminal.
 
 Below we detail the three installation methods for gfortran, ifort, and ifx, and more specific instructions for macOS users.
 
@@ -57,7 +57,7 @@ If you're planning on compiling Phantom with gfortran, you can simply install HD
 You should then set the environment variable ``HDF5_DIR`` to point to the installation directory of HDF5, which is typically ``/usr/lib/x86_64-linux-gnu/hdf5/serial``:
 ::
     export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial
-You can check where it is installed by running the command ``h5cc -showconfig`` in the terminal, which will show details about the installation of HDF5.
+You can check where it is installed by running the command ``h5fc -showconfig`` in the terminal, which will show details about the installation of HDF5.
 
 
 ifx
@@ -103,8 +103,8 @@ You can then compile and install HDF5 with:
     cmake --install build/ifort
 Finally, you need to specify two new environment variables to point to the HDF5 libraries and binaries:
 ::
-    export HDF5INCLUDE=/home/camille/software/hdf5/2.1.1-ifort/mod/shared
-    export HDF5LIB=/home/camille/software/hdf5/2.1.1-ifort/lib
+    export HDF5INCLUDE=$HDF5_DIR/mod/shared
+    export HDF5LIB=$HDF5_DIR/lib
 
 macOS
 -----
@@ -163,7 +163,7 @@ Your simulation is now ready to be post-processed with KROME the same way you wo
     ./phantomanalysis dump_?????
 
 The routines will read the first dump file, if it finds a chemistry file corresponding to the dump (dump_?????.h5), it will read the chemical abundances from that file and use them as initial conditions for the chemical evolution, otherwise it will use default initial abundances.
-The default initial abundances are set in ``analysis_krome.F90`` (located in ``src/analysis/``), and correspond to AGB stellar winds abundances.
+The default initial abundances are set in ``analysis_krome.F90`` (located in ``src/utils/``), and correspond to AGB stellar winds abundances.
 
 In case you need to change the initial abundances, you can edit the subroutine ``set_initial_abundances`` in ``analysis_krome.F90``, recompile the analysis routines, and run ``phantomanalysis`` again.
 Please copy the ``analysis_krome.F90`` file to a different name before editing it, so we can keep the original version intact as you make any changes you want to your copy. You then need to change how ``phantomanalysis`` is compiled:

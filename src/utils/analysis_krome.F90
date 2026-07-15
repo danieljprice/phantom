@@ -60,15 +60,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real          :: max_radius, radius, tstart
  integer       :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
 
-#ifdef __GFORTRAN__
+
 #ifdef _OPENMP
+#ifdef __GFORTRAN__
    print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
    call omp_set_num_threads(1)
 #else
    print*, "running with ", omp_get_max_threads(), " threads"
 #endif
 #else
-   print*, "running with ", omp_get_max_threads(), " threads"
+   print*, "running without OpenMP"
 #endif
 
  if (.not.done_init) then
