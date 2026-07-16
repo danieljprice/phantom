@@ -1117,14 +1117,14 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
 
 end function entropy
 
-! input and output are in code units. entropy is in erg/g/K 
+! input and output are in code units. entropy is in erg/g/K
 real function get_entropy(rho,pres,mu_in,ieos)
  use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz
  integer, intent(in) :: ieos
  real,    intent(in) :: rho,pres,mu_in
  real                :: cgsrho,cgspres,cgss
- 
+
  cgsrho = rho * unit_density
  cgspres = pres * unit_pressure
  select case (ieos)

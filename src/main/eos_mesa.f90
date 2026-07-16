@@ -160,7 +160,7 @@ subroutine get_eos_ptemp_from_rhos_mesa_gr(den,s,pres,temp)
 
 end subroutine get_eos_ptemp_from_rhos_mesa_gr
 
-!---------------------------------------------------------------- 
+!----------------------------------------------------------------
 !+
 !  subroutine returns internal energy as
 !  a function of density/entropy for GR tables
