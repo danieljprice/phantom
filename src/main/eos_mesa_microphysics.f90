@@ -52,7 +52,7 @@ module mesa_microphysics
  integer, allocatable :: mesa_eos_gr_data_exists(:,:)
  real, allocatable :: mesa_gr_ds_data(:,:,:)
  real, allocatable :: mesa_eos_gr0(:,:,:,:)
- real, allocatable :: mesa_gr_ds_data0(:,:,:,:,:) 
+ real, allocatable :: mesa_gr_ds_data0(:,:,:,:,:)
 
  public :: get_opacity_constants_mesa
  public :: read_opacity_mesa
@@ -368,7 +368,7 @@ subroutine get_eos_constants_mesa_gr(ierr)
 
  ! Read constants from the header of first EoS tables
  open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
-! allocate GR tables 
+! allocate GR tables
  if (ierr /= 0) return
  read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
  close(fnum)
@@ -681,7 +681,7 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  drho = (logrho - mesa_eos_gr_logRhos(nrho)) / mesa_eos_gr_drho
 
  ! If the given S and Rho fall within the limits of the table, then use cubic spline interpolation to find value
- ! Else use linear extrapolation beyond the limits of the table 
+ ! Else use linear extrapolation beyond the limits of the table
  if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_gr_ns-1 .and. nrho < mesa_eos_gr_nrho-1) then
     call eos_cubic_spline_mesa_gr(ns,nrho,logs,logrho,ivout,vout,nx,dx)
     if (ivout < 4) vout=10.d0**vout ! this is applied only for the first three columns of the data which are stored in log10 form.
