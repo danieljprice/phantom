@@ -193,6 +193,10 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = (gamma-1.)*dens*polyk
     elseif (ien_type == ien_entropy_s) then
        call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+       dens_eos = dens
+       p_eos    = P
+       temp_eos = temp
+       have_eos_cache = .true.
        select case(ieos)
        case (10)
          ! inputs and outputs are all in code units
