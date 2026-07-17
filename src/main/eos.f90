@@ -50,8 +50,9 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stamatellos, eos_stratified, eos_tillotson, infile_utils, io,
-!   ionization_mod, mesa_microphysics, part, physcon, units
+!   eos_stamatellos, eos_stratified, eos_tillotson, eos_zerotemp,
+!   infile_utils, io, ionization_mod, mesa_microphysics, part, physcon,
+!   units
 !
  use part,          only:ien_etotal,ien_entropy,ien_type
  use dim,           only:gr,do_radiation
@@ -529,7 +530,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
     spsoundi = sqrt(gammai*ponrhoi)
-   case (25) ! zero temperature EOS 
+   case (25) ! zero temperature EOS
     cgsrhoi = rhoi * unit_density
 
     call get_zerotemp_pressure(cgsrhoi,cgspresi)
@@ -538,7 +539,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     presi = cgspresi/unit_pressure
     ponrhoi = presi/rhoi
     spsoundi = cgsspsoundi / unit_velocity
-    tempi = 0. 
+    tempi = 0.
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -646,7 +647,6 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr_ra)
     if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_coolra
-
 
  case(25)
     !
@@ -989,7 +989,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  case(24) ! Stamatellos
     temp = pres /(rho * Rg) * mu
     call getintenerg_opdep(temp, rho, ene)
- case(25) ! zero temp eos 
+ case(25) ! zero temp eos
     call get_zerotemp_u(rho,ene)
     temp = 0
  case default
@@ -1035,7 +1035,7 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
     rho = pres / (temp * Rg) * mu
  case(12) ! Ideal gas + radiation
     call get_idealplusrad_rhofrompresT(pres,temp,mu,rho)
- case(25) ! zero temperature eos 
+ case(25) ! zero temperature eos
     call get_zerotemp_rhofrompres(pres,rho,ierr)
  case default
     ierr = 1
@@ -1511,7 +1511,7 @@ logical function eos_allows_shock_and_work(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(2,5,10,12,15,16,21,22,24,25) 
+ case(2,5,10,12,15,16,21,22,24,25)
     eos_allows_shock_and_work = .true.
  case default
     eos_allows_shock_and_work = .false.
@@ -1538,7 +1538,7 @@ end function eos_requires_polyk
 !  a non-zero pressure even if no thermal energy is set
 !+
 !-----------------------------------------------------------------------
-logical function eos_has_pressure_without_u(ieos) 
+logical function eos_has_pressure_without_u(ieos)
  integer, intent(in) :: ieos
 
  eos_has_pressure_without_u = eos_requires_isothermal(ieos) .or. &
