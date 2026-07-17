@@ -2,7 +2,7 @@
 # target to write appropriate queue submission script
 #
 ifndef QSYS
-    QSYS=pbs
+    QSYS=slurm
 endif
 ifndef WALLTIME
     WALLTIME='1000:00:00'
