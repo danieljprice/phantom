@@ -1,5 +1,5 @@
-PhantomNR
-=========
+Phantom with Numerical Relativity
+=================================
 
 Using PhantomNR to simulate general relativistic hydrodynamics on dynamical spacetimes 
 --------------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ e.g:
 
 ::
 
-   PHANTOM_DIR = /Users/smag0001/phantom/phantomET/bin
+   PHANTOM_DIR = $HOME/phantom/bin
 
 Generating a phantom dump file from phantom setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,7 +60,6 @@ Troubleshooting
 **Issue**: Large Constraint Violations
 
 
-
 **Solution**: Generally, this is indicative of a mismatch between the spacetime setup by Einstein Toolkit
 and the particle distribution which is setup by Phantom. A large raw constraint violation, may not always be indicative
 of a poorly initialised setup however. It is important to check the relative constraint violations (TODO insert equations)
@@ -69,11 +68,3 @@ In many cases, a poor initial constraint is simply a consquence of not setting s
 We reccomend that the .in and dumpfiles are generated using the .par file of Einstein Toolkit to alleviate this issue.
 
 Constraint violations may also occur due to a low particle and/or grid resolution 
-
-
-
-
-Using phantomNR on Ozstar/NT 
--------------------------------
-
-
