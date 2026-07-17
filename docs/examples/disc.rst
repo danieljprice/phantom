@@ -262,13 +262,31 @@ then run phantomsetup again::
 
     $ ./phantomsetup disc
 
-For one-fluid (``dust_method = 1``) runs, you can prevent short timesteps and therefore dramatically
+how to get your dust to run efficiently
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For **dust-as-mixture** (``dust_method = 1``) runs (slow for large grains), you can prevent short timesteps and therefore dramatically
 increase the efficiency of the simulation by limiting the timestep in
-the outer disc with ``ilimitdustflux = T`` in ``disc.in`` (Ballabio et
-al. 2018). This makes the simulation inaccurate for the very largest grains but
+the outer disc with
+
+.. code-block:: bash
+
+    ilimitdustflux = T
+
+in ``disc.in`` (`Ballabio et al. 2018 <http://adsabs.harvard.edu/abs/2018MNRAS.477.2766B>`__). 
+This makes the simulation inaccurate for the very largest grains, but
 ensures that decoupled dust species do not control the timestep. To treat large,
-decoupled grains accurately, use separate dust particle sets (two-fluid method)
-instead.
+decoupled grains accurately, use dust-as-particles (``dust_method = 2``) instead.
+
+For **dust-as-particles** (``dust_method = 2``) runs (slow for small grains), you can accelerate the small grain sizes
+by switching to global timestepping (compile with ``IND_TIMESTEPS=no``) and set the option
+
+.. code-block:: bash
+
+    drag_implicit = T
+
+in ``disc.in`` (`Lorén-Aguilar & Bate (2015) <http://adsabs.harvard.edu/abs/2015MNRAS.454.4114L>`__) to
+improve the efficiency of the drag force calculation over the small grain sizes 
+where the drag is large.
 
 Further guidance on dust methods, timesteps, and grain sizes is in
 :doc:`/physics/dust`.

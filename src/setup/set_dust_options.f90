@@ -600,7 +600,8 @@ subroutine write_dust_setup_options(iunit,method)
  if (present(method)) then
     dust_method = method
  else
-    call write_inopt(dust_method,'dust_method','dust method (1=one fluid,2=two fluid,3=Hybrid)',iunit)
+    call write_inopt(dust_method,'dust_method',&
+        'dust method (1=dust-as-mixture,2=dust-as-particles,3=Hybrid)',iunit)
  endif
  call write_inopt(dust_to_gas,'dust_to_gas','dust to gas ratio',iunit)
  call write_inopt(idust_to_gas_norm,'idust_to_gas_norm', &
