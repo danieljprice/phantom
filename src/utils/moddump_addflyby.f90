@@ -77,15 +77,27 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  if (ierr /= 0) stop 'run phantommoddump again with new .moddump file'
 
+ xyzmh_ptmass_in = 0.
+ vxyz_ptmass_in = 0.
  nptmass_in = 0
  call set_orbit(orbit,m1,m2,hacc1,accr2,xyzmh_ptmass_in,vxyz_ptmass_in,&
                         nptmass_in,(id==master),ierr)
+
  nptmass = nptmass + 1
  if (nptmass > size(xyzmh_ptmass, 2)) then
     call fatal('moddump', 'Not enough space in xyzmh_ptmass for another sink particle')
  endif
+
+! translate the secondary so that it is correctly set relative to the primary
  xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,2)
- vxyz_ptmass(:,nptmass)  = vxyz_ptmass_in(:,2)
+
+ xyzmh_ptmass(1:3,nptmass) = xyzmh_ptmass(1:3,nptmass) &
+                          + xyzmh_ptmass(1:3,1) &
+                          - xyzmh_ptmass_in(1:3,1)
+
+ vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,2) &
+                       + vxyz_ptmass(:,1) &
+                       - vxyz_ptmass_in(:,1)
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
