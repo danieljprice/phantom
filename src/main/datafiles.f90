@@ -19,6 +19,8 @@ module datafiles
 ! :Dependencies: datautils, io, mpiutils
 !
  implicit none
+! MESA EOS table version (hidden variable, set via input file)
+ integer, public :: eosmesa_version = 2   ! 0 or 1 uses the older version of the mesa tables (Reichardt et al 2020), which are no longer used by default
 
 contains
 
@@ -62,6 +64,18 @@ function map_dir_to_web(search_dir) result(url)
  !print*,' search_dir=',trim(search_dir)
  select case(search_dir)
  case('data/eos/mesa')
+    ! EOS table versions:
+    !   0,1 = legacy tables (Reichardt et al. 2020)
+    !   2   = current tables
+    select case(eosmesa_version)
+    case(0,1)
+       url = 'https://zenodo.org/records/13148447/files/'
+    case(2)
+       url = 'https://zenodo.org/records/21253459/files/'
+    case default
+       stop 'Unknown eosmesa_version'
+    end select
+ case('data/eos/mesa_opac') !!!  same link as old eos/mesa, but this is used only to download the opacity tables
     url = 'https://zenodo.org/records/13148447/files/'
  case('data/eos/shen')
     url = 'https://zenodo.org/records/13163155/files/'

@@ -69,7 +69,7 @@ module eos
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
- public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
+ public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
  public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
@@ -165,9 +165,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
- if (gr .and. .not.any((/2,4,11,12/)==eos_type)) then
+ if (gr .and. .not.any((/2,4,10,11,12/)==eos_type)) then
     ponrhoi = 0.; spsoundi = 0. ! avoid compiler warning
-    call fatal('eos','GR currently only works for ieos=2,12 or 11',&
+    call fatal('eos','GR currently only works for ieos=2,4,10,12 or 11',&
          var='eos_type',val=real(eos_type))
  endif
 
@@ -1051,7 +1051,7 @@ end subroutine calc_rho_from_PT
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
- use physcon,           only:radconst,kb_on_mh,Rg
+ use physcon,           only:radconst,kb_on_mh,Rg, kboltz, avogadro
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
@@ -1059,7 +1059,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  integer, intent(in) :: ientropy
  real,    intent(in),  optional :: eint_in,T_in,Trad_in
  integer, intent(out), optional :: ierr
- real                           :: mu,entropy,logentropy,temp,Trad,eint
+ real                           :: mu,entropy,temp,Trad,eint
 
  if (present(ierr)) ierr=0
 
@@ -1101,14 +1101,15 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
        call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
     endif
 
-    ! Get entropy from rho and eint from MESA tables
-    if (present(ierr)) then
-       call getvalue_mesa(rho,eint,9,logentropy,ierr)
-    else
-       call getvalue_mesa(rho,eint,9,logentropy)
-    endif
-    entropy = 10.**logentropy
+    ! Get entropy from rho and eint from MESA tables (output is not logs, it is s)
 
+    if (present(ierr)) then
+       call getvalue_mesa(rho,eint,9,entropy,ierr)
+    else
+       call getvalue_mesa(rho,eint,9,entropy)
+    endif
+    entropy = entropy * kboltz*avogadro ! the MESA tables are specific entropy divided by (avo*kerg).
+    ! the units of entropy with cgs inputs should be erg/g/K now
  case default
     entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
@@ -1116,6 +1117,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
 
 end function entropy
 
+! input and output are in code units. entropy is in erg/g/K
 real function get_entropy(rho,pres,mu_in,ieos)
  use units,   only:unit_density,unit_pressure,unit_ergg
  use physcon, only:kboltz
@@ -1134,7 +1136,8 @@ real function get_entropy(rho,pres,mu_in,ieos)
     cgss = entropy(cgsrho,cgspres,mu_in,1)
  end select
  cgss = cgss/kboltz ! s/kb
- get_entropy = cgss/unit_ergg
+
+ get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
 
 end function get_entropy
 
@@ -1170,31 +1173,38 @@ end subroutine get_rho_from_p_s
 
 !-----------------------------------------------------------------------
 !+
-!  Calculate temperature given density and entropy using Newton-Raphson
-!  method
+!  Calculate temperature and pressure given density and entropy using Newton-Raphson
+!  method (for EOS MESA it is only used in the GR case, and they are only read from the tables)
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  use physcon, only:Rg,mass_proton_cgs
  use io,      only:fatal
- use eos_idealplusrad, only:get_idealplusrad_tempfromrhoS
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres,&
+                            get_idealplusrad_tempfromrhoS
+ use eos_mesa,          only: get_eos_ptemp_from_rhos_mesa_gr
  use units,   only:unit_density,unit_pressure,unit_ergg
  real,    intent(in)    :: S,mu,rho
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
  integer, intent(in)    :: ieos
+ real                :: cgsrho,cgspres,cgss
+ real,    parameter  :: eoserr=1e-12
+ integer, parameter  :: nitermax = 1000
  integer, intent(out), optional :: niter_out
- real :: cgsrho,cgspres,cgss
 
  ! change to cgs unit
  cgsrho = rho*unit_density
- cgss   = s*unit_ergg
+ cgss   = S*unit_ergg
  if (present(niter_out)) niter_out = 0
 
  select case (ieos)
  case (2,5)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
+ case(10)
+    !!! For GR
+    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgspres,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
@@ -1210,6 +1220,39 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  P = cgspres / unit_pressure
 
 end subroutine get_p_from_rho_s
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate temperature given density and entropy using EOS MESA tables for GR case
+!+
+!-----------------------------------------------------------------------
+subroutine get_u_from_rho_s(ieos,S,rho,u)
+ use io,      only:fatal
+ use units,   only:unit_density,unit_ergg
+ use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
+ real,    intent(in)    :: S,rho
+ real,    intent(out)   :: u
+ integer, intent(in)    :: ieos
+ real                :: cgsrho,cgss, cgsu
+
+ ! change to cgs unit
+ cgsrho = rho*unit_density
+ cgss   = S*unit_ergg
+
+ select case (ieos)
+ case(10)
+    !!! For GR
+    call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss,cgsu)
+
+ case default
+    cgsu = 0.
+    call fatal('eos','[get_u_from_rho_s] only implemented for eos 10')
+ end select
+
+ ! change back to code unit
+ u = cgsu / unit_ergg
+
+end subroutine get_u_from_rho_s
 
 !-----------------------------------------------------------------------
 !+
@@ -1859,7 +1902,6 @@ subroutine set_defaults_eos
  C_ent              = 3.
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition
-
 end subroutine set_defaults_eos
 
 end module eos
