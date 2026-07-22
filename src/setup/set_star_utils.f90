@@ -15,17 +15,18 @@ module setstar_utils
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, eos, eos_piecewise, extern_densprofile, io, kernel,
-!   part, physcon, radiation_utils, readwrite_kepler, readwrite_mesa,
-!   rho_profile, setsoftenedcore, sortutils, spherical, table_utils,
-!   unifdis, units
+!   part, physcon, radiation_utils, readwrite_aton, readwrite_kepler,
+!   readwrite_mesa, rho_profile, setsoftenedcore, sortutils, spherical,
+!   table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
  use readwrite_kepler,   only:write_kepler_comp
+ use readwrite_aton,     only:read_aton,write_aton
  implicit none
  !
  ! Index of setup options
  !
- integer, parameter, public :: nprofile_opts =  7 ! maximum number of initial configurations
+ integer, parameter, public :: nprofile_opts =  8 ! maximum number of initial configurations
  integer, parameter, public :: ipointmass = 0
  integer, parameter, public :: iuniform   = 1
  integer, parameter, public :: ipoly      = 2
@@ -34,6 +35,7 @@ module setstar_utils
  integer, parameter, public :: imesa      = 5
  integer, parameter, public :: ibpwpoly   = 6
  integer, parameter, public :: ievrard    = 7
+ integer, parameter, public :: iaton      = 8
 
  character(len=*), parameter, public :: profile_opt(0:nprofile_opts) = &
     (/'Sink particle/point mass    ', &
@@ -43,7 +45,8 @@ module setstar_utils
       'KEPLER star from file       ', &
       'MESA star from file         ', &
       'Piecewise polytrope         ', &
-      'Evrard collapse             '/)
+      'Evrard collapse             ', &
+      'ATON star from file         '/)
 
  public :: read_star_profile
  public :: set_star_density
@@ -125,11 +128,13 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
     rmin  = r(1)
     Rstar = r(npts)
     pres = polyk*den**gamma
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     deallocate(r,den,pres,temp,en,mtab)
     if (isoftcore > 0) then
        if (iprofile == imesa) then
           call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits=.true.)
+       else if (iprofile == iaton) then
+          call read_aton(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits=.true.)
        else
           call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
                            Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr,cgsunits=.true.)
@@ -149,12 +154,20 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        hsoft = rcore/radkern
 
        call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
-       call write_mesa(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
-       ! now read the softened profile instead
-       call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
+       if (iprofile == iaton) then
+          call write_aton(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
+          ! now read the softened profile instead
+          call read_aton(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
+       else
+          call write_mesa(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
+          ! now read the softened profile instead
+          call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
+       endif
     else
        if (iprofile == imesa) then
           call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
+       else if (iprofile == iaton) then
+          call read_aton(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
        else
           call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
                 Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr)
@@ -193,7 +206,7 @@ logical function need_inputprofile(iprofile)
  integer, intent(in) :: iprofile
 
  select case(iprofile)
- case(imesa,ikepler,ifromfile)
+ case(imesa,ikepler,iaton,ifromfile)
     need_inputprofile = .true.
  case default
     need_inputprofile = .false.
