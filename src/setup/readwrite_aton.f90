@@ -175,7 +175,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  endif
 
  call get_ncolumns(iu,ncols,nheaderlines)
- if (nheaderlines == 6) then ! Assume file has 6 header lines if formatted as standard profile
+ if (nheaderlines == 4) then ! Assume file has 4 header lines if formatted as standard profile
     read(iu,'()',iostat=ierr)
     read(iu,'()',iostat=ierr)
     read(iu,*,iostat=ierr) lines,lines
