@@ -103,6 +103,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  !
  ! set up tabulated density profile
  !
+ character(len=120) :: profile_filename
  calc_polyk = .true.
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
  temp = 0.  ! Initialize temperature array for non-file-based profiles
@@ -163,6 +164,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
           ! now read the softened profile instead
           call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
        endif
+       profile_filename = outputfilename
     else
        if (iprofile == imesa) then
           call read_mesa(input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
@@ -172,11 +174,12 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
           call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,mtab,temp,en,&
                 Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr)
        endif
+       profile_filename = input_profile
     endif
-    if (ierr==1) call fatal('set_star',trim(input_profile)//' does not exist')
+    if (ierr==1) call fatal('set_star',trim(profile_filename)//' does not exist')
     if (ierr==2) call fatal('set_star','insufficient data points read from file')
     if (ierr==3) call fatal('set_star','too many data points; increase ng')
-    if (ierr /= 0) call fatal('set_star','error in reading stellar profile from'//trim(input_profile))
+    if (ierr /= 0) call fatal('set_star','error in reading stellar profile from '//trim(profile_filename))
     npts = size(den)
     rmin  = r(1)
     Rstar = r(npts)
