@@ -215,11 +215,13 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
 
  over_directions: do idir=1,2   ! try backwards, then forwards
     if (idir==1) then
+      write(*,*) 'I am in backward mode'
        ! read ATON file backwards, from surface to centre
        do i = 1,lines
           read(iu,*,iostat=ierr) dat(lines-i+1,1:ncols)
        enddo
     else
+      write(*,*) 'I am in forward mode'
        ! read file forwards, from centre to surface
        do i = 1,lines
           read(iu,*,iostat=ierr) dat(i,1:ncols)
