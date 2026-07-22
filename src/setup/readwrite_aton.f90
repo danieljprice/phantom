@@ -176,7 +176,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
 
  call get_ncolumns(iu,ncols,nheaderlines)
  write(*,*)'I am in get_ncolummns', nheaderlines
- if (nheaderlines == 4) then ! Assume file has 4 header lines if formatted as standard profile
+ if (nheaderlines == 5) then ! Assume file has 4 header lines if formatted as standard profile
     read(iu,'()',iostat=ierr)
     read(iu,'()',iostat=ierr)
     read(iu,*,iostat=ierr) lines,lines
@@ -206,6 +206,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  ! extract column labels from the file header
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
+ write(*,*)'I am after read_column_labels', nlabels,ncols  
  if (nlabels /= ncols) print*,'WARNING: got ',nlabels,' labels for ',ncols,' columns'
 
  allocate(m(lines))
