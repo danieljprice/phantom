@@ -167,6 +167,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
     return
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
+ write(*,*)'I am after get_nlines', lines 
 
  open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
  if (ierr /= 0) then
@@ -175,8 +176,8 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  endif
 
  call get_ncolumns(iu,ncols,nheaderlines)
- write(*,*)'I am in get_ncolummns', nheaderlines
- if (nheaderlines == 5) then ! Assume file has 4 header lines if formatted as standard profile
+ write(*,*)'I am after get_ncolummns in ATON. This is nheaderlines', nheaderlines
+ if (nheaderlines == 5) then ! Assume file has 5 header lines if formatted as standard profile
     read(iu,'()',iostat=ierr)
     read(iu,'()',iostat=ierr)
     read(iu,*,iostat=ierr) lines,lines
@@ -214,6 +215,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,mu,source=m)
 
  over_directions: do idir=1,2   ! try backwards, then forwards
+    write(*,*) 'idir is:',idir
     if (idir==1) then
       write(*,*) 'I am in backward mode'
        ! read ATON file backwards, from surface to centre
