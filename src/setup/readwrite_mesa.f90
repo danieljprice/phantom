@@ -10,7 +10,7 @@ module readwrite_mesa
 !
 ! :References: Paxton et al. (2011), ApJS 192, 3
 !
-! :Owner: Daniel Price
+! :OWner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -175,7 +175,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  endif
 
  call get_ncolumns(iu,ncols,nheaderlines)
- write(*,*)'ncols, nheaderlines',ncols, nheaderlines
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
     read(iu,'()',iostat=ierr)
     read(iu,'()',iostat=ierr)
