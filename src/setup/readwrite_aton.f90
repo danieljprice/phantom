@@ -14,7 +14,7 @@ module readwrite_aton
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, fileutils, physcon, units
+! :Dependencies: datafiles, fileutils, physcon, units, table_utils
 !
  implicit none
 
@@ -42,7 +42,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  real,              intent(out) :: Mstar
  logical,           intent(in), optional :: cgsunits
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
- integer                                    :: idir,iu
+ integer                                    :: iu
  character(len=120)                         :: fullfilepath
  character(len=24), allocatable              :: header(:)
  logical                                    :: iexist,usecgs,isatonfile,got_column
@@ -61,7 +61,6 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
     return
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
- write(*,*)'I am after get_nlines', lines 
 
  open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
  if (ierr /= 0) then
@@ -70,13 +69,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  endif
 
  call get_ncolumns(iu,ncols,nheaderlines)
- write(*,*)'I am after get_ncolummns in ATON. This is nheaderlines', nheaderlines
  lines = lines - nheaderlines
- if (nheaderlines == 5) then ! Assume file has 5 header lines if formatted as standard profile 
-    isatonfile = .true.
- else
-    isatonfile = .false.
- endif
  if (lines <= 0) then ! file not found
     ierr = 1
     return
@@ -85,7 +78,10 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  ! extract column labels from the file header
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
- write(*,*)'I am after read_column_labels', nlabels,ncols  
+ isatonfile = .false.
+ do i = 1,ncols
+    if (trim(lcase(header(i))) == '#m/msun' .or. trim(lcase(header(i))) == 'm/msun') isatonfile = .true.
+ enddo
  if (nlabels /= ncols) print*,'WARNING: got ',nlabels,' labels for ',ncols,' columns'
 
  allocate(m(lines))
@@ -94,7 +90,6 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
 
  
     ! read file forwards, from centre to surface
-    write(*,*) 'Reading ATON from centre to surface'
     do i = 1,lines
        read(iu,*,iostat=ierr) dat(i,1:ncols)
     enddo
@@ -107,7 +102,6 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
     Xfrac = X_in
     Yfrac = 1. - X_in - Z_in
     mu = 0.
-    idir = 1
     do i = 1,ncols
        if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass' &
            .and. .not. trim(lcase(header(i)))=='#m/msun') then
@@ -165,18 +159,13 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
        case default
           got_column = .false.
        end select
-       if (got_column .and. idir==1) print "(1x,i0,': ',a)",i,trim(header(i))
+       if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
     enddo
-    if (idir==1) print "(a)"
+    print "(a)"
 
-    ! otherwise rewind and re-skip header
-    rewind(iu)
-    do i=1,nheaderlines
-       read(iu,*,iostat=ierr)
-    enddo
  close(iu)
 
- if (min(minval(pres),minval(rho))<0d0) ierr = 1
+ if (min(minval(pres),minval(rho),minval(r),minval(m)) < 0d0) ierr = 4
 
  if (ierr /= 0) then
     print "(a,/)",' ERROR reading ATON file [missing required columns]'
