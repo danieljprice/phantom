@@ -14,7 +14,7 @@ module readwrite_aton
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, fileutils, physcon, units, table_utils
+! :Dependencies: datafiles, fileutils, physcon, table_utils, units
 !
  implicit none
 
@@ -80,7 +80,8 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
  isatonfile = .false.
  do i = 1,ncols
-    if (trim(lcase(header(i))) == '#m/msun' .or. trim(lcase(header(i))) == 'm/msun') isatonfile = .true.
+    if (trim(lcase(header(i))) == '#m/msun' .or. &
+        trim(lcase(header(i))) == 'm/msun') isatonfile = .true.
  enddo
  if (nlabels /= ncols) print*,'WARNING: got ',nlabels,' labels for ',ncols,' columns'
 

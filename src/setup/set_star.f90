@@ -1177,8 +1177,10 @@ subroutine read_options_stars_eos(nstars,star,label,ieos,db,nerr)
 
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (any(star(:)%iprofile==imesa .or. star(:)%iprofile==iaton)) &
- call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
+ if (any(star(:)%iprofile==imesa .or. &
+         star(:)%iprofile==iaton)) then
+  call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
+ endif 
 
  select case(ieos)
  case(9)
@@ -1219,8 +1221,10 @@ subroutine set_star_eos_interactive(ieos,star)
 
  ! equation of state
  call prompt('Enter the desired EoS (1=isothermal,2=idealgas,10=MESA,12=idealplusrad)',ieos)
- if (any(star(:)%iprofile==imesa .or. star(:)%iprofile==iaton)) &
-    call prompt('Use variable composition?',use_var_comp)
+ if (any(star(:)%iprofile==imesa .or. &
+         star(:)%iprofile==iaton)) then
+  call prompt('Use variable composition?',use_var_comp)
+ endif 
 
  select case(ieos)
  case(9)
