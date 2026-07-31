@@ -14,11 +14,11 @@ module eos_mesa
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mesa_microphysics, physcon
+! :Dependencies: mesa_microphysics, physcon, dim
 !
 
  use mesa_microphysics
-
+ use dim,           only:gr
  implicit none
  logical, private :: mesa_initialised = .false.
 
@@ -58,7 +58,18 @@ subroutine init_eos_mesa(x,z,ierr)
  call get_eos_constants_mesa(ierr)
  if (ierr /= 0) return
 
+ !!! only read GR tables if it is a GR run
+ mesa_eos_gr_prefix="output_rhos_"
+ if (gr) then
+    call get_eos_constants_mesa_gr(ierr)
+    if (ierr /= 0) return
+
+    call read_eos_mesa_gr(x,z,ierr)
+    if (ierr /= 0) return
+ end if
+
  call read_eos_mesa(x,z,ierr)
+ if (ierr /= 0) return
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
 
@@ -133,6 +144,37 @@ subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
  call getvalue_mesa(den,eint,4,temp)
 
 end subroutine get_eos_pressure_temp_mesa
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns pressure and temperature as
+!  a function of density/entropy for GR tables
+!+
+!----------------------------------------------------------------
+subroutine get_eos_ptemp_from_rhos_mesa_gr(den,s,pres,temp)
+ real, intent(in)  :: den, s
+ real, intent(out) :: pres, temp
+
+ call getvalue_mesa_gr(den,s,1,pres)
+ call getvalue_mesa_gr(den,s,3,temp)
+
+end subroutine get_eos_ptemp_from_rhos_mesa_gr
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns internal energy as
+!  a function of density/entropy for GR tables
+!+
+!----------------------------------------------------------------
+subroutine get_eos_u_from_rhos_mesa_gr(den,s,u)
+ real, intent(in)  :: den, s
+ real, intent(out) :: u
+
+ call getvalue_mesa_gr(den,s,2,u)
+
+end subroutine get_eos_u_from_rhos_mesa_gr
+
+
 
 !----------------------------------------------------------------
 !+

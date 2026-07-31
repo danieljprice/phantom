@@ -135,7 +135,7 @@ end subroutine primitive2conservative
 subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
  use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
- use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
+ use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,get_u_from_rho_s,gamma_global=>gamma
  use io,           only:fatal
  use physcon,      only:radconst,Rg
  use units,        only:unit_density,unit_ergg
@@ -198,6 +198,10 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        temp_eos = temp
        have_eos_cache = .true.
        select case(ieos)
+       case (10)
+         ! inputs and outputs are all in code units
+         call get_u_from_rho_s(ieos,en,dens,u)
+
        case (12)
           cgsdens = dens * unit_density
           cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
@@ -212,7 +216,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
           endif
        case (2)
        case default
-          call fatal('cons2primsolver','only implemented for eos 2 and 12')
+          call fatal('cons2primsolver','only implemented for eos 2,10 and 12')
        end select
     else
        p = en*dens**gamma
@@ -261,6 +265,10 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
     endif
     select case(ieos)
+    case (10)
+      ! inputs and outputs are all in code units
+       call get_u_from_rho_s(ieos,en,dens,u)
+
     case (12)
        cgsdens = dens * unit_density
        cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
