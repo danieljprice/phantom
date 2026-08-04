@@ -634,7 +634,7 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 readwrite_aton.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
             set_star_utils.f90 relax_star.f90 set_star.f90 set_orbit.f90
 

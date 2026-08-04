@@ -10,7 +10,7 @@ module readwrite_mesa
 !
 ! :References: Paxton et al. (2011), ApJS 192, 3
 !
-! :Owner: Daniel Price
+! :OWner: Daniel Price
 !
 ! :Runtime parameters: None
 !

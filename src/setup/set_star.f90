@@ -32,7 +32,7 @@ module setstar
 !   infile_utils, io, mpiutils, part, physcon, prompting, relaxstar,
 !   setstar_utils, unifdis, units, vectorutils
 !
- use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
+ use setstar_utils, only:ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu
  implicit none
 
@@ -63,7 +63,7 @@ module setstar
  public :: write_options_star,write_options_stars
  public :: read_options_star,read_options_stars
  public :: set_stars_interactive
- public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
+ public :: ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk
 
  integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
@@ -341,7 +341,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     if (reduceall_mpi('+',npart)==npart) then
        polyk_eos = star%polyk
 
-       if (star%iprofile == imesa .or. star%iprofile == ikepler) then
+       if (star%iprofile == imesa .or. star%iprofile == ikepler .or. star%iprofile == iaton) then
           !
           ! if a MESA profile is used, we supply the mtab array for the
           ! mass profile in relax_star rather than integrating it manually
@@ -673,6 +673,9 @@ subroutine set_defaults_given_profile(iprofile,filename,mstar,polyk)
     ! sets up a star from a 1D MESA code output
     !  Original Author: Roberto Iaconi
     filename = 'P12_Phantom_Profile.data'
+ case(iaton)
+    ! sets up a star from a 1D ATON code output
+    filename = 'ATONStar.txt'
  case(ikepler)
     ! sets up a star from a 1D KEPLER code output
     !  Original Author: Nicole Rodrigues and Megha Sharma
@@ -728,7 +731,7 @@ subroutine set_star_interactive(star)
  endif
 
  select case (star%iprofile)
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
@@ -863,7 +866,7 @@ subroutine write_options_star(star,iunit,label)
  endif
 
  select case(star%iprofile)
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     call write_inopt(star%isoftcore,'isoftcore'//trim(c),&
                      '0=no core softening, 1=cubic, 2=const. entropy',iunit)
 
@@ -957,7 +960,7 @@ subroutine read_options_star(star,db,nerr,label)
  endif
 
  select case(star%iprofile)
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
 
     if (star%isoftcore <= 0) then ! sink particle core without softening
@@ -1127,7 +1130,7 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
  write(iunit,"(/,a)") '# equation of state used to set the thermal energy profile'
  call write_inopt(ieos,'ieos','1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson',iunit)
 
- if (any(star(:)%iprofile==imesa)) then
+ if (any(star(:)%iprofile==imesa .or. star(:)%iprofile==iaton)) then
     call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
  endif
 
@@ -1174,7 +1177,10 @@ subroutine read_options_stars_eos(nstars,star,label,ieos,db,nerr)
 
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (any(star(:)%iprofile==imesa)) call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
+ if (any(star(:)%iprofile==imesa .or. &
+         star(:)%iprofile==iaton)) then
+  call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
+ endif 
 
  select case(ieos)
  case(9)
@@ -1215,7 +1221,10 @@ subroutine set_star_eos_interactive(ieos,star)
 
  ! equation of state
  call prompt('Enter the desired EoS (1=isothermal,2=idealgas,10=MESA,12=idealplusrad)',ieos)
- if (any(star(:)%iprofile==imesa)) call prompt('Use variable composition?',use_var_comp)
+ if (any(star(:)%iprofile==imesa .or. &
+         star(:)%iprofile==iaton)) then
+  call prompt('Use variable composition?',use_var_comp)
+ endif 
 
  select case(ieos)
  case(9)
