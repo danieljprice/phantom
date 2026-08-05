@@ -35,9 +35,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass,      only:reset_centreofmass,get_centreofmass
  use prompting,         only:prompt
  use options,           only:iexternalforce
- use externalforces,    only:omega_corotate,iext_corotate
+ use externalforces,    only:omega_corotate,iext_corotate,iext_gwinspiral
  use extern_corotate,   only:icompanion_grav,companion_xpos,companion_mass,primarycore_xpos,&
                              primarycore_mass,primarycore_hsoft,hsoft
+ use extern_gwinspiral, only:Nstar_gw
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use table_utils,       only:yinterp
  use readwrite_mesa,    only:read_mesa
@@ -62,7 +63,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                      :: time2,hfact2
  real                      :: xyzmh1_stash(nsinkproperties),xyzmh2_stash(nsinkproperties),vxyz1_stash(3),vxyz2_stash(3)
  real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),mu(:),m(:)
- logical                   :: use_corotating_frame,iprimary_grav_ans
+ logical                   :: use_corotating_frame,iprimary_grav_ans,gwinspiral
  character(len=20)         :: filename = 'binary.in'
  character(len=100)        :: densityfile,dumpname
  type(inopts), allocatable :: db(:)
@@ -178,6 +179,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        hacc = 0.
        hsoft = 0.
        use_corotating_frame = .false.
+       gwinspiral = .false.
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
        call delete_dead_or_accreted_particles(npart,npartoftype)  !removes the dead or accreted particles for a correct total mass computation
@@ -206,6 +208,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call prompt('Enter softening length for companion', hsoft, 0.)
        endif
        call prompt('Do you want to transform to a corotating frame and simulate corotating binary?', use_corotating_frame)
+       call prompt('Do you want to add gravitational radiation reaction?', gwinspiral)
+
+       if (gwinspiral) iexternalforce = iext_gwinspiral
 
        ! set the binary
        if (use_corotating_frame) then
@@ -302,6 +307,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
              vxyz_ptmass(1:3,nptmass1+nptmass2) = vxyz2_stash(1:3)
           endif
 
+          if (gwinspiral) then
+             Nstar_gw(1) = nstar1
+             Nstar_gw(2) = nstar2
+          endif
+
        else
           nptmass = nptmass1 + 1
           xyzmh_ptmass(1:3,nptmass) = xyzmh2_stash(1:3)
@@ -309,6 +319,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           xyzmh_ptmass(4,nptmass) = m2
           xyzmh_ptmass(ihacc,nptmass) = hacc
           xyzmh_ptmass(ihsoft,nptmass) = hsoft
+
+          if (gwinspiral) Nstar_gw(1) = nstar1
        endif
 
        if (nptmass1 == 1) then

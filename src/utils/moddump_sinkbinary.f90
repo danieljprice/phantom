@@ -32,7 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use timestep, only:dtmax,tmax
  use options,   only:iexternalforce
  use externalforces, only:iext_gwinspiral
- use extern_gwinspiral, only:Nstar
+ use extern_gwinspiral, only:Nstar_gw
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -77,7 +77,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  if (iexternalforce==iext_gwinspiral) then
-    Nstar(1) = npart
+    Nstar_gw(1) = npart
  endif
 
  period = 2.*pi*sqrt(a**3/(m1 + m2))
