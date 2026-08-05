@@ -24,6 +24,7 @@ module extern_gwinspiral
  ! Runtime parameters
  !
  real,    public  :: stopratio = 0.005
+ real,    public  :: gw_boostfac = 1.  ! multiplier to force applied to stars
  !
  ! local variables
  !
@@ -203,8 +204,8 @@ subroutine get_gw_force()
     !
     ! Compute the drag force vectors for each star
     !
-    fstar1 = fstar1_coef * vcomstar1 / (vstar1sq*separation**5)
-    fstar2 = fstar2_coef * vcomstar2 / (vstar2sq*separation**5)
+    fstar1 = gw_boostfac * fstar1_coef * vcomstar1 / (vstar1sq*separation**5)
+    fstar2 = gw_boostfac * fstar2_coef * vcomstar2 / (vstar2sq*separation**5)
  endif
 
 end subroutine get_gw_force
@@ -255,6 +256,7 @@ subroutine write_options_gwinspiral(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(stopratio,'stop_ratio','ratio of particles crossing CoM to indicate a merger',iunit)
+ call write_inopt(gw_boostfac,'gw_boostfac','multiplicative factor to boost GW force',iunit)
 
 end subroutine write_options_gwinspiral
 
@@ -269,6 +271,7 @@ subroutine read_options_gwinspiral(db,nerr)
  integer,      intent(inout) :: nerr
 
  call read_inopt(stopratio,'stop_ratio',db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(gw_boostfac,'gw_boostfac',db,errcount=nerr,min=0.)
 
 end subroutine read_options_gwinspiral
 
