@@ -208,8 +208,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call prompt('Enter softening length for companion', hsoft, 0.)
        endif
        call prompt('Do you want to transform to a corotating frame and simulate corotating binary?', use_corotating_frame)
-       call prompt('Do you want to add gravitational radiation reaction?', gwinspiral)
-
+       if (.not. use_corotating_frame) call prompt('Do you want to add gravitational radiation reaction?', gwinspiral)
        if (gwinspiral) iexternalforce = iext_gwinspiral
 
        ! set the binary
