@@ -307,8 +307,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           endif
 
           if (gwinspiral) then
-             Nstar_gw(1) = nstar1
-             Nstar_gw(2) = nstar2
+             Nstar_gw(1) = nstar2
+             Nstar_gw(2) = nstar1
           endif
 
        else
@@ -319,7 +319,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           xyzmh_ptmass(ihacc,nptmass) = hacc
           xyzmh_ptmass(ihsoft,nptmass) = hsoft
 
-          if (gwinspiral) Nstar_gw(1) = nstar1
+          if (gwinspiral) Nstar_gw(1) = npart
        endif
 
        if (nptmass1 == 1) then

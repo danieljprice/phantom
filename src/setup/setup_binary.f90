@@ -268,7 +268,7 @@ subroutine read_setupfile(filename,ierr)
     call read_hierarchical_setupfile(db,nerr,nstar)
  elseif (nstar == 2) then
     call read_inopt(corotate,'corotate',db,errcount=nerr)
-    call read_inopt(gwinspiral,'gwinspiral',db,errcount=nerr)
+    call read_inopt(gwinspiral,'gwinspiral',db,errcount=nerr,default=.false.)
     m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
     m2 = in_code_units(star(2)%m,ierr1,unit_type='mass')
     if (ierr /= 0 .or. ierr1 /= 0) then
