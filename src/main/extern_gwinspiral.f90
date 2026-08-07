@@ -271,7 +271,7 @@ subroutine read_options_gwinspiral(db,nerr)
  integer,      intent(inout) :: nerr
 
  call read_inopt(stopratio,'stop_ratio',db,errcount=nerr,min=0.,max=1.)
- call read_inopt(gw_boostfac,'gw_boostfac',db,errcount=nerr,min=0.)
+ call read_inopt(gw_boostfac,'gw_boostfac',db,errcount=nerr,min=0.,default=1.)
 
 end subroutine read_options_gwinspiral
 
