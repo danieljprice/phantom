@@ -745,11 +745,11 @@ end subroutine add_vrotational
 !  Save nstar so it can be properly written to the header
 !
 subroutine save_nstar(Nstar1,Nstar2)
- use extern_gwinspiral, only:Nstar
+ use extern_gwinspiral, only:Nstar_gw
  integer, intent(in) :: Nstar1,Nstar2
 
- Nstar(1) = Nstar1
- Nstar(2) = Nstar2
+ Nstar_gw(1) = Nstar1
+ Nstar_gw(2) = Nstar2
 
 end subroutine save_nstar
 !-----------------------------------------------------------------------

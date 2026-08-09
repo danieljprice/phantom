@@ -24,11 +24,12 @@ module extern_gwinspiral
  ! Runtime parameters
  !
  real,    public  :: stopratio = 0.005
+ real,    public  :: gw_boostfac = 1.  ! multiplier to force applied to stars
  !
  ! local variables
  !
  integer, private :: n_threshhold
- integer, public  :: Nstar(2) = 0  ! give default value in case dump header not read
+ integer, public  :: Nstar_gw(2) = 0  ! give default value in case dump header not read
  real,    private :: fstar1_coef,fstar2_coef
  real,    private :: com(3),comstar1(3),comstar2(3),vcomstar1(3),vcomstar2(3),fstar1(3),fstar2(3)
  logical, private :: isseparate = .true.
@@ -60,12 +61,12 @@ subroutine initialise_gwinspiral(npart,nptmass,ierr)
 
  ierr = 0
  nerr = 0
- if (Nstar(1) > 0) then
-    write(*,"(2(a,i8))") ' Initialising inspiral two stars scenario, Nstar_1 = ',Nstar(1),' Nstar_2 = ', Nstar(2)
- elseif (Nstar(1)==0 .and. Nstar(2)==0 .and. nptmass==2) then
+ if (Nstar_gw(1) > 0) then
+    write(*,"(2(a,i8))") ' Initialising inspiral two stars scenario, Nstar_1 = ',Nstar_gw(1),' Nstar_2 = ', Nstar_gw(2)
+ elseif (Nstar_gw(1)==0 .and. Nstar_gw(2)==0 .and. nptmass==2) then
     write(*,"(2(a,i8))") ' Initialising inspiral on two sink particles'
- elseif (Nstar(2)==0 .and. nptmass==1) then
-    write(*,"(2(a,i8))") ' Initialising inspiral star-particle scenario, Nstar_1 = ',Nstar(1)
+ elseif (Nstar_gw(2)==0 .and. nptmass==1) then
+    write(*,"(2(a,i8))") ' Initialising inspiral star-particle scenario, Nstar_1 = ',Nstar_gw(1)
  else
     ierr = 1
     isseparate = .false.
@@ -100,21 +101,21 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
  fstar2_coef = 0.
  stopped_now = .false.
  if ( isseparate ) then
-    if (Nstar(1) == 0 .and. nptmass==2) then
+    if (Nstar_gw(1) == 0 .and. nptmass==2) then
        comstar1  = xyzmh_ptmass(1:3,2)
        mstar1    = xyzmh_ptmass(4,2)
        vcomstar1 = vxyz_ptmass(1:3,2)
     else
-       call get_centreofmass(comstar1,vcomstar1,Nstar(1),xyzh(:,1:Nstar(1)),&
-                          vxyzu(:,1:Nstar(1)),mass=mstar1)
+       call get_centreofmass(comstar1,vcomstar1,Nstar_gw(1),xyzh(:,1:Nstar_gw(1)),&
+                          vxyzu(:,1:Nstar_gw(1)),mass=mstar1)
     endif
-    if (Nstar(2) == 0 .and. nptmass>=1) then
+    if (Nstar_gw(2) == 0 .and. nptmass>=1) then
        comstar2  = xyzmh_ptmass(1:3,1)
        mstar2    = xyzmh_ptmass(4,1)
        vcomstar2 = vxyz_ptmass(1:3,1)
     else
-       call get_centreofmass(comstar2,vcomstar2,Nstar(2),xyzh(:,Nstar(1)+1:npart),&
-                          vxyzu(:,Nstar(1)+1:npart),mass=mstar2)
+       call get_centreofmass(comstar2,vcomstar2,Nstar_gw(2),xyzh(:,Nstar_gw(1)+1:npart),&
+                          vxyzu(:,Nstar_gw(1)+1:npart),mass=mstar2)
     endif
     com  = (comstar1*mstar1 + comstar2*mstar2)/(mstar1+mstar2)
     dirstar1 = comstar1 - com ! The directional vector to star 1
@@ -124,11 +125,11 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
     !
     k1 = 0
     !$omp parallel default(none) &
-    !$omp shared(nstar,xyzh,com,dirstar1) &
+    !$omp shared(Nstar_gw,xyzh,com,dirstar1) &
     !$omp private(i,dx,dy,dz,dir) &
     !$omp reduction(+:k1)
     !$omp do
-    do i=1,nstar(1)
+    do i=1,Nstar_gw(1)
        dx  = xyzh(1,i) - com(1)
        dy  = xyzh(2,i) - com(2)
        dz  = xyzh(3,i) - com(3)
@@ -143,11 +144,11 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
     !
     k2 = 0
     !$omp parallel default(none) &
-    !$omp shared(nstar,npart,xyzh,com,dirstar1) &
+    !$omp shared(Nstar_gw,npart,xyzh,com,dirstar1) &
     !$omp private(i,dx,dy,dz,dir) &
     !$omp reduction(+:k2)
     !$omp do
-    do i=nstar(1)+1,nstar(1)+nstar(2)
+    do i=Nstar_gw(1)+1,Nstar_gw(1)+Nstar_gw(2)
        dx  = xyzh(1,i) - com(1)
        dy  = xyzh(2,i) - com(2)
        dz  = xyzh(3,i) - com(3)
@@ -203,8 +204,8 @@ subroutine get_gw_force()
     !
     ! Compute the drag force vectors for each star
     !
-    fstar1 = fstar1_coef * vcomstar1 / (vstar1sq*separation**5)
-    fstar2 = fstar2_coef * vcomstar2 / (vstar2sq*separation**5)
+    fstar1 = gw_boostfac * fstar1_coef * vcomstar1 / (vstar1sq*separation**5)
+    fstar2 = gw_boostfac * fstar2_coef * vcomstar2 / (vstar2sq*separation**5)
  endif
 
 end subroutine get_gw_force
@@ -220,20 +221,20 @@ subroutine get_gw_force_i(i,fextxi,fextyi,fextzi,phi)
  real,    intent(inout) :: fextxi,fextyi,fextzi,phi
 
  if (i > 0 .and. isseparate ) then
-    if (i <= nstar(1)) then
+    if (i <= Nstar_gw(1)) then
        fextxi = fstar1(1)
        fextyi = fstar1(2)
        fextzi = fstar1(3)
-    elseif (nstar(2) > 0) then
+    elseif (Nstar_gw(2) > 0) then
        fextxi = fstar2(1)
        fextyi = fstar2(2)
        fextzi = fstar2(3)
     endif
- elseif (i == -1 .and. nstar(2)==0 .and. isseparate) then
+ elseif (i == -1 .and. Nstar_gw(2)==0 .and. isseparate) then
     fextxi = fstar2(1)  ! acceleration applied to sink particle 1 (star 2)
     fextyi = fstar2(2)
     fextzi = fstar2(3)
- elseif (i == -2 .and. nstar(1)==0 .and. isseparate) then
+ elseif (i == -2 .and. Nstar_gw(1)==0 .and. isseparate) then
     fextxi = fstar1(1) ! acceleration applied to sink particle 2 (star 1)
     fextyi = fstar1(2)
     fextzi = fstar1(3)
@@ -255,6 +256,7 @@ subroutine write_options_gwinspiral(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(stopratio,'stop_ratio','ratio of particles crossing CoM to indicate a merger',iunit)
+ call write_inopt(gw_boostfac,'gw_boostfac','multiplicative factor to boost GW force',iunit)
 
 end subroutine write_options_gwinspiral
 
@@ -269,6 +271,7 @@ subroutine read_options_gwinspiral(db,nerr)
  integer,      intent(inout) :: nerr
 
  call read_inopt(stopratio,'stop_ratio',db,errcount=nerr,min=0.,max=1.)
+ call read_inopt(gw_boostfac,'gw_boostfac',db,errcount=nerr,min=0.,default=1.)
 
 end subroutine read_options_gwinspiral
 
@@ -283,8 +286,8 @@ subroutine write_headeropts_gwinspiral(hdr,ierr)
  integer,      intent(out)   :: ierr
 
  ierr = 0
- call add_to_header(Nstar(1),'Nstar_1',hdr,ierr)
- call add_to_header(Nstar(2),'Nstar_2',hdr,ierr)
+ call add_to_header(Nstar_gw(1),'Nstar_1',hdr,ierr)
+ call add_to_header(Nstar_gw(2),'Nstar_2',hdr,ierr)
 
 end subroutine write_headeropts_gwinspiral
 
@@ -301,8 +304,8 @@ subroutine read_headeropts_gwinspiral(hdr,nptmass,ierr)
  integer :: ierr1,ierr2
 
  ierr  = 0
- call extract('Nstar_1',Nstar(1),hdr,ierr1)
- call extract('Nstar_2',Nstar(2),hdr,ierr2)
+ call extract('Nstar_1',Nstar_gw(1),hdr,ierr1)
+ call extract('Nstar_2',Nstar_gw(2),hdr,ierr2)
 
  if (ierr1 /= 0 .or. ierr2 /= 0) then
     ! if there are two sink particles and Nstar_1
