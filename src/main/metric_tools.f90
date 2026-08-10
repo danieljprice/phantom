@@ -37,7 +37,8 @@ module metric_tools
     imet_kerrschild     = 4,   &    ! Kerr metric, Kerr-Schild coordinates
     imet_binarybh       = 5,   &    ! Binary black hole metric
     imet_flrw           = 6,   &    ! Friedmann-Lemaître-Robertson-Walker metric
-    imet_et             = 7         ! Tabulated metric from Einstein toolkit
+    imet_et             = 7,   &    ! Tabulated metric from Einstein toolkit
+    imet_rn             = 8         ! Reissner-Nordstrom metric
 
  !--- Choice of coordinate system
  !    (When using this with PHANTOM, it should always be set to cartesian)
@@ -169,15 +170,21 @@ end subroutine print_metricinfo
 
 !-------------------------------------------------------------------------------
 !+
-!  initialise arrays for the metric and metric derivatives
+!  initialise arrays for the metric and metric derivatives;
+!  optionally update time-dependent metric inputs (e.g. binary BH trajectory)
+!  before repacking at particle positions
 !+
 !-------------------------------------------------------------------------------
-subroutine init_metric(npart,xyzh,metrics,metricderivs)
+subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
+ use metric, only:update_metric
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: metrics(:,:,:,:)
  real,    intent(out), optional :: metricderivs(:,:,:,:)
+ real,    intent(in),  optional :: time
  integer :: i
+
+ if (present(time)) call update_metric(time)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics) &

@@ -4,6 +4,8 @@ Running the dust settling test
 This test is described in `Price & Laibe
 2015 <http://ui.adsabs.harvard.edu/abs/2015MNRAS.451.5332P>`__
 
+For guidance on two-fluid dust and timesteps, see :doc:`/physics/dust`.
+
 Set up the problem as usual with SETUP=dustsettle:
 
 ::

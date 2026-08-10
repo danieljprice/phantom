@@ -25,7 +25,7 @@ module analysis
  use physcon,         only: pi
  use centreofmass,    only: get_centreofmass
  use readwrite_dumps, only:opened_full_dump
- use extern_gwinspiral, only:Nstar
+ use extern_gwinspiral, only:Nstar_gw
  implicit none
  character(len=20), parameter, public :: analysistype = 'NSmerger'
  !
@@ -75,8 +75,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !
     !--Get the index range for each star
     ! (Note from DJP: This should now be automatically read from the dump header)
-    if (Nstar(1) <= 0) call fatal('analysis_NSmerger','Require Nstar(1) > 0 in header of dump file')
-    if (Nstar(2) <= 0) call fatal('analysis_NSmerger','Require Nstar(2) > 0 in header of dump file')
+    if (Nstar_gw(1) <= 0) call fatal('analysis_NSmerger','Require Nstar_gw(1) > 0 in header of dump file')
+    if (Nstar_gw(2) <= 0) call fatal('analysis_NSmerger','Require Nstar_gw(2) > 0 in header of dump file')
     !
     !--Prompt for the density_cut off
     if (choice > 1) then
@@ -148,8 +148,8 @@ subroutine trace_com(dumpfile,xyzh,vxyzu,time,npart,iunit)
  endif
  !
  !--Get centre of masses of the stars
- call get_centreofmass(com1,vcom1,nstar(1),xyzh(:,1:nstar(1)),vxyzu(:,1:nstar(1)))
- call get_centreofmass(com2,vcom2,nstar(2),xyzh(:,nstar(1)+1:npart),vxyzu(:,nstar(1)+1:npart))
+ call get_centreofmass(com1,vcom1,Nstar_gw(1),xyzh(:,1:Nstar_gw(1)),vxyzu(:,1:Nstar_gw(1)))
+ call get_centreofmass(com2,vcom2,Nstar_gw(2),xyzh(:,Nstar_gw(1)+1:npart),vxyzu(:,Nstar_gw(1)+1:npart))
  !
  rad = sqrt( (com1(1)-com2(1))**2 + (com1(2)-com2(2))**2 + (com1(3)-com2(3))**2 )
  !

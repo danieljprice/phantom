@@ -14,10 +14,10 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, metric_tools, neighkdtree, options, part,
-!   porosity, ptmass, ptmass_radiation, radiation_implicit, timestep,
-!   timestep_ind, timing
+! :Dependencies: HIIRegion, cons2prim, densityforce, derivutils, dim,
+!   externalforces, forces, forcing, growth, io, metric_tools, neighkdtree,
+!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
+!   timestep, timestep_ind, timing
 !
  implicit none
 
@@ -45,7 +45,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
  use externalforces, only:externalforce
- use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
+ use part,           only:dustgasprop,Vrel_disp,dvdx,Bxyz,set_boundaries_to_active,&
                           nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
@@ -61,6 +61,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
+ use HIIRegion,      only:HIIupdateflag,iH2R,HII_feedback
  integer,         intent(in)    :: icall
  integer,         intent(inout) :: npart
  integer,         intent(in)    :: nactive
@@ -113,8 +114,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call build_tree(npart,nactive,xyzh,vxyzu)
 
     if (gr) then
-       ! Recalculate the metric after moving particles to their new tasks
-       call init_metric(npart,xyzh,metrics)
+       ! update time-dependent metric (e.g. binary BH) and repack at particle positions
+       call init_metric(npart,xyzh,metrics,time=time)
     endif
 
     if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
@@ -139,9 +140,20 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        ! if fast_divcurlB = .false., then all additional quantities are calculated during the previous call
        call densityiterate(3,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
                            stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+       ! put a similar flag for pressure calculation from dens: call cons2primall/everyhting and densityiterate(3. Import pressure from eos_vars in dens and use it to calculate delta_v
     endif
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
+ endif
+!
+!-- update ionising state of the particle if HII regions are used in cluster formation simulations
+!
+ if (iH2R >0) then
+    if (HIIupdateflag) then
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+       HIIupdateflag = .false.
+    endif
+    call do_timing('HII_region',tlast,tcpulast)
  endif
 
  if (gr) then
@@ -175,7 +187,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  stressmax = 0.
  if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
-            rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyz_drag,&
+            rad,drad,radprop,dustprop,dustgasprop,Vrel_disp,dustfrac,ddustevol,fext,fxyz_drag,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
  call do_timing('force',tlast,tcpulast)
 
@@ -183,7 +195,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  ! compute growth rate of dust particles
  !
  if (use_dustgrowth) then
-    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
+    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:),Vrel_disp)!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif
@@ -244,8 +256,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  real,         intent(in),  optional :: dt  ! optional argument needed to test implicit radiation routine
  integer,      intent(in),  optional :: icall
  real(kind=4) :: t1,t2
- real    :: dtnew
- real    :: time,dti
+ real    :: dtnew,dti,time
  integer :: icalli
 
  time = 0.
@@ -256,7 +267,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  call getused(t1)
  ! update conserved quantities in the GR code
  if (gr) then
-    call init_metric(npart,xyzh,metrics)
+    call init_metric(npart,xyzh,metrics,time=time)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
  endif
 

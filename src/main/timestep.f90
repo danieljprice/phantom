@@ -34,6 +34,8 @@ module timestep
 
  ! internal global variables
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,dtinject,time
+ ! cached min GR force timestep limits (set in kickdrift_gr / kickdrift_grsink)
+ real    :: dtf_gr_min,dtf_gr_ptmass_min
 
  real, parameter :: bignumber = 1.e29
 

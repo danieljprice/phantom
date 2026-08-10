@@ -1064,7 +1064,7 @@ subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
 
  integer :: i, next, previous, nneigh
  integer, parameter :: nmaxcache = 0
- real  :: xyzcache(0,nmaxcache)
+ real :: xyzcache(3, max(1,nmaxcache))
  real    :: ray(3), nextDist, previousDist, maxDist, dtaudr, previousdtaudr, nextdtaudr
 
  ray = primary - xyzh(1:3,point)

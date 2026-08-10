@@ -94,7 +94,6 @@ In the above we set the periodic boundaries to match those of the input file (in
 
 One problem we encountered was that some particles had identical positions. To avoid this I found one of the particles that matched and deleted the overlapping particles using the kill_particle and shuffle_part routines in phantom::
 
-    print*,'ref=',xyzh(1:3,489543)
     do idn=1,npart
        if (norm2(xyzh(1:3,idn) - xyzh(1:3,489543)) < 1.e-6) then
          print*,idn,xyzh(1:3,idn)
@@ -150,7 +149,7 @@ You can visualise the density field in this file using splash, e.g.::
 
     $ brew tap danieljprice/all
     $ brew install splash
-    $ ssplash dens_00000 -r 6 -dev /xw
+    $ splash dens_00000 -r 6 -dev /xw
 
 Computing the volume weighted PDF of the density
 ------------------------------------------------

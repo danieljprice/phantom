@@ -69,10 +69,11 @@ module timing
                                  itimer_sg_evol       = 27, &
                                  itimer_kick          = 28, &
                                  itimer_drift         = 29, &
-                                 itimer_HII           = 30, &
-                                 itimer_ev            = 31, &
-                                 itimer_io            = 32
- integer, public, parameter :: ntimers = 32 ! should be equal to the largest itimer index
+                                 itimer_kickdrift     = 30, &
+                                 itimer_HII           = 31, &
+                                 itimer_ev            = 32, &
+                                 itimer_io            = 33
+ integer, public, parameter :: ntimers = 33 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -93,7 +94,6 @@ subroutine setup_timers
  call init_timer(itimer_fromstart   , 'all',         0            )
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
- call init_timer(itimer_HII         , 'HII_regions', 0            )
  call init_timer(itimer_tree        , 'tree',        itimer_step  )
  call init_timer(itimer_balance     , 'balance',     itimer_tree  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
@@ -120,7 +120,8 @@ subroutine setup_timers
  call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
  call init_timer(itimer_kick        , 'kick',        itimer_substep  )
  call init_timer(itimer_drift       , 'drift',       itimer_substep  )
- call init_timer(itimer_HII         , 'HII_regions', 0            )
+ call init_timer(itimer_kickdrift   , 'kickdrift',   itimer_substep  )
+ call init_timer(itimer_HII         , 'HII_regions', itimer_step     )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 

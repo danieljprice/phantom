@@ -43,7 +43,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 29
+ integer, parameter :: nsinkproperties = 30
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -129,7 +129,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 25 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 28 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &

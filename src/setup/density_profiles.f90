@@ -77,7 +77,7 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
  integer                          :: i,j
  real                             :: r(size(rtab)),v(size(rtab)),den(size(rtab))
  real                             :: dr,an,rhs,Mstar_f,rhocentre0
- real                             :: fac,rfac
+ real                             :: fac,rfac,rfac_target
 
  dr   = 0.001
  an   = 1./(gamma-1.)
@@ -119,9 +119,10 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
 
  if (present(set_polyk) .and. present(Rstar) ) then
     if ( set_polyk ) then
-       !--Rescale radius to get polyk
-       rfac      = Rstar/(r(npts)*rfac)
-       polyk     = polyk*rfac
+       !--Rescale K so radius matches target Rstar.
+       !  With fixed mass, radius scales as R ~ K^(1/(3*gamma-4)).
+       rfac_target = Rstar/(r(npts)*rfac)
+       polyk       = polyk*rfac_target**(3.*gamma - 4.)
        !
        !--Re-rescale central density to give desired mass (using the correct polyk)
        fac        = (gamma*polyk)/(fourpi*(gamma - 1.))

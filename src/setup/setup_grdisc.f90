@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,alphau
  use eos,            only:ipdv_heating,ishock_heating
- use units,          only:set_units,umass,in_code_units
+ use units,          only:set_units,umass
  use physcon,        only:solarm,pi
  use externalforces, only:iext_einsteinprec,a
  use prompting,      only:prompt
@@ -89,7 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr,nptmass_in,i
  integer(kind=8) :: npart_total
  logical :: write_profile
- real    :: cs2,mstar,rstar
+ real    :: cs2
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
 
  time            = 0.
@@ -176,11 +176,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   rhozero,npart_total,i_belong,ierr)
     do i=1,nstars
        nptmass_in = 0
-       ! convert stellar mass and radius to code units
-       mstar = in_code_units(star(i)%m,ierr)
-       rstar = in_code_units(star(i)%r,ierr)
-       call set_orbit(orbit(i),mhole/umass,mstar,r_in,rstar, &
+       ! place stars in orbit
+       call set_orbit(orbit(i),mhole/umass,star(i)%m_code,r_in,star(i)%hacc_code, &
                      xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
+       if (ierr /= 0) stop 'error setting up orbit'
 
        ! shift the star to the position of the second body
        if (star(i)%iprofile > 0) then

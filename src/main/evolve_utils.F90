@@ -158,7 +158,7 @@ subroutine ptmass_create_and_update_forces(time,dtextforce)
     dummy = 0
     call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
                    fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.,0.,dummy,.false.,bin_info,&
-                   group_info,nmatrix)
+                   group_info,nmatrix,recompute_gr_force=.true.)
  endif
 
 end subroutine ptmass_create_and_update_forces

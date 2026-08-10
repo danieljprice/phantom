@@ -243,7 +243,7 @@ pure real function calc_kappa_dust(K3, Tdust, rho_cgs)
 
  ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
  !kappa_cgs = 6.7d0 * fac * Tdust  ! planck
- kappa_cgs = 5.9d0 * fac * Tdust  ! Rosseland
+ kappa_cgs = 5.9 * fac * Tdust  ! Rosseland
 
  calc_kappa_dust = kappa_cgs + kappa_gas
 end function calc_kappa_dust
@@ -372,7 +372,6 @@ end subroutine evol_K
 subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! all quantities are in cgs
  use io,  only:fatal
- use eos, only:ieos
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
@@ -393,7 +392,6 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH = pH_tot
     mu = 0.62
     !  mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    if (ieos /= 17) gamma  = 5./3.
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
     tol       = 1.d-3
@@ -408,7 +406,6 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        pH        = solve_q(2.*KH2, 1., -pH_tot)
        pH2       = KH2*pH**2
        mu        = (1.+4.*eps(iHe))/(.5+eps(iHe)+0.5*pH/pH_tot)
-       if (ieos == 17) exit !only update mu, keep gamma constant
        x         = 2.*(1.+4.*eps(iHe))/mu
        gamma     = (3.*x+4.+4.*eps(iHe))/(x+4.+4.*eps(iHe))
        converged = (abs(T-T_old)/T_old) < tol
@@ -436,7 +433,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH2    = pH_tot/2.
     pH     = 0.
     mu     = (1.+4.*eps(iHe))/(0.5+eps(iHe))
-    if (ieos /= 17)  gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
+    gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
  endif
 
 end subroutine calc_muGamma

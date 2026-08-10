@@ -62,7 +62,7 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
        ientropy = 2
     case default
        call fatal('setfixedentropycore',&
-                   'eos_type not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
+                   'eos_type not one of 2 (ideal gas), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
     end select
  endif
 

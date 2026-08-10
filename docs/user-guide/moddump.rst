@@ -9,9 +9,29 @@ follows::
    make moddump
 
 This builds a binary called phantommoddump, for which you can write a
-moddump module to do what you want. The default moddump version is just
-a “do nothing” operation that you can edit to do what you want. Make
-your own copy::
+moddump module to do what you want.
+
+Using built-in moddump modules
+------------------------------
+
+Phantom ships with many ready-made modules in ``src/utils/`` (e.g.
+``moddump_addflyby``, ``moddump_dustadd``). To use one, specify it when
+building::
+
+   make moddump MODFILE=moddump_addflyby.f90
+
+Then run::
+
+   ./phantommoddump dump_in dump_out [time]
+
+Task-oriented recipes (flyby on evolved disc, add dust, extend disc, etc.)
+are in :doc:`moddump-recipes`.
+
+Writing your own moddump module
+-------------------------------
+
+The default moddump version is just a “do nothing” operation that you can
+edit to do what you want. Make your own copy::
 
    cd phantom/src/utils/
    cp moddump_default.f90 moddump_mine.f90
@@ -27,7 +47,7 @@ follows::
 Now remake phantommoddump as above, and run it::
 
    $  ./phantommoddump
-    PhantomSPH: (c) 2007-2025 The Authors
+    PhantomSPH: (c) 2007-2026 The Authors
 
     Usage: moddump dumpfilein dumpfileout [time] [outformat]
 
@@ -43,11 +63,11 @@ For convenience, phantommoddump also creates a .in file. The rules for
 this are:
 
 1. First read the .in file with the prefix of the INPUT file if it
-   exists (e.g. dump.in in the above example)
+   exists (e.g. dump.in in the above example)
 2. Then read the .in file with the prefix of the OUTPUT file in case it
-   already exists (e.g. newdump.in in the above example)
+   already exists (e.g. newdump.in in the above example)
 3. Write a *new* .in file with the prefix of the OUTPUT file
-   (e.g. newdump.in)
+   (e.g. newdump.in)
 
 So the correct usage for phantommoddump is to perform the moddump
 operation **in the same directory as the .in file corresponding to the
@@ -57,4 +77,4 @@ Otherwise, you will get a .in file with the code defaults which may be
 different to the settings used in your previous calculation.
 
 For other useful tools, see the full :doc:`list of Phantom
-utilities <utils>`.
+utilities <utils>` and :doc:`moddump-recipes`.

@@ -21,7 +21,7 @@
 
 PHANTOM_VERSION_MAJOR=2026
 PHANTOM_VERSION_MINOR=0
-PHANTOM_VERSION_MICRO=0
+PHANTOM_VERSION_MICRO=1
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
 KNOWN_SYSTEM=no
@@ -266,6 +266,7 @@ ifeq ($(SINKTREE), yes)
 endif
 
 ifeq ($(KROME), yes)
+    HDF5 := yes
     FPPFLAGS += -DKROME
     LDFLAGS  += -llapack
 endif
@@ -404,7 +405,7 @@ ifeq (X$(HDF5LIB), X)
 endif
     FFLAGS+= -I$(HDF5INCLUDE)
     CCFLAGS+= -I$(HDF5INCLUDE)
-    LDFLAGS+= -L$(HDF5_DIR)/lib -lhdf5 -lhdf5_fortran
+    LDFLAGS+= -L$(HDF5LIB) -Wl,-rpath,$(HDF5LIB) -lhdf5 -lhdf5_fortran
 endif
 
 IDFLAGS=$(FPPFLAGS)
@@ -492,15 +493,10 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 
 SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} \
          eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 \
-         ionization.f90 eos_gasradrec.f90 eos_HIIR.f90 eos_stamatellos.f90 eos.f90
+         ionization.f90 eos_gasradrec.f90 eos_HIIR.f90 eos_stamatellos.f90 eos_zerotemp.f90 eos.f90
 
 SRCRW_DUMPS= readwrite_dumps_common.f90 readwrite_dumps.f90
 
-ifeq ($(KROME), yes)
-    SRCKROME=krome.f90
-else
-    SRCKROME=
-endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.f90 utils_cpuinfo.f90 \
@@ -519,7 +515,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
-         ${SRCKROME} memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
+         krome.F90 memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
          H2regions.f90 subgroup.f90 \
          quitdump.f90 dens.F90 dem.f90 \
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
@@ -638,14 +634,14 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 readwrite_aton.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-            set_star_utils.f90 relax_star.f90 set_star.f90
+            set_star_utils.f90 relax_star.f90 set_star.f90 set_orbit.f90
 
 SRCSETUP= utils_omp.f90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
           set_slab.f90 utils_filenames.f90 utils_tables.f90 \
-          grids_for_setup.f90 set_disc.f90 set_orbit.f90 \
+          grids_for_setup.f90 set_disc.f90 \
           set_hierarchical.f90 \
           velfield_fromcubes.f90 set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
@@ -677,7 +673,7 @@ SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos_stam.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
-         grids_for_setup.f90 set_disc.f90 set_orbit.f90 test_setdisc.f90 test_setstar.f90 \
+         grids_for_setup.f90 set_disc.f90 test_setdisc.f90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_neigh.f90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
@@ -857,7 +853,7 @@ phantomanalysis: checksystem checkparams libphantom $(OBJA)
 	@echo ""
 	@echo "phantomanalysis: we live to serve you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) $(LDFLAGS) $(LIBS) $(LIBPHANTOM)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) $(LIBPHANTOM) $(LDFLAGS) $(LIBS)
 
 analysis: phantomanalysis
 
@@ -889,7 +885,7 @@ allanalysis:
           analysis_structurefn.f90) \
              analysisfile="utils_timing.f90 io_structurefn.f90 utils_sort.f90 random.f90 struct_part.f90 $$analysisfile"; \
           ;; \
-          analysis_krome.f90|analysis_mcfost.f90) \
+          analysis_krome.F90|analysis_mcfost.f90) \
              continue; \
           ;; \
        esac; \

@@ -19,7 +19,7 @@ module setstar
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
 !   - X                 : *hydrogen mass fraction*
 !   - gamma             : *Adiabatic index*
-!   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson*
+!   - ieos              : *1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson*
 !   - irecomb           : *Species to include in recombination (0:H2+H+He, 1:H+He, 2:He, 3:none)*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
@@ -32,7 +32,7 @@ module setstar
 !   infile_utils, io, mpiutils, part, physcon, prompting, relaxstar,
 !   setstar_utils, unifdis, units, vectorutils
 !
- use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
+ use setstar_utils, only:ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu
  implicit none
 
@@ -63,11 +63,16 @@ module setstar
  public :: write_options_star,write_options_stars
  public :: read_options_star,read_options_stars
  public :: set_stars_interactive
- public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
+ public :: ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk
 
  integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
  ! placed in stars from other particles in the simulation
+
+ integer, parameter, public :: ierr_sink_profile = 1, &
+                               ierr_part = 2, &
+                               ierr_unbound = 3, &
+                               ierr_radiation_conflict = 4
 
  integer, private :: EOSopt = 1
 
@@ -92,8 +97,8 @@ subroutine set_defaults_star(star)
  star%initialtemp = 1.0e7
  star%isoftcore   = 0
  star%isinkcore   = .false.
- star%hsoft          = '0.0'
- star%hacc           = '1.0'
+ star%hsoft          = '1.0'
+ star%hacc           = '0.0'
  star%rcore          = '0.0'
  star%mcore          = '0.0'
  star%lcore          = '0 lsun'
@@ -190,9 +195,9 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     rhozero,npart_total,mask,ierr,x0,v0,itype,&
                     write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
- use dim,                only:gr,gravity,maxvxyzu
+ use dim,                only:gr,gravity,maxvxyzu,do_radiation
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu,polyk_eos=>polyk
+ use eos,                only:eos_works_with_radiation,eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -248,7 +253,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  call get_star_properties_in_code_units(star,star%r_code,mstar,star%rcore_code,star%mcore_code,&
                                         star%hsoft_code,star%lcore_code,star%hacc_code,nerr)
  if (nerr /= 0) then
-    ierr = 2
+    ierr = ierr_part
     return
  endif
 
@@ -258,7 +263,15 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (star%iprofile <= 0) then
     star%m_code = mstar
     call write_mass('Sink particle with mass = ',star%m_code,umass)
-    ierr = 1
+    ierr = ierr_sink_profile
+    return
+ endif
+ !
+ ! throw error if equation of state is incompatible with radiation
+ !
+ if (do_radiation .and. (.not. eos_works_with_radiation(ieos))) then
+    call error('set_star','radiation is not supported with the chosen equation of state')
+    ierr = ierr_radiation_conflict
     return
  endif
  !
@@ -280,12 +293,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  if (relax) lattice='random'
  if (star%np < 1 .and. npart_old==0) then
     call fatal('set_star','cannot set up a star with zero particles')
-    ierr = 2
+    ierr = ierr_part
     return
  endif
  if (mstar < 0.) then
     call fatal('set_star','cannot set up a star with negative mass!')
-    ierr = 2
+    ierr = ierr_part
     return
  endif
  call set_star_density(lattice,id,master,rmin,star%r_code,mstar,hfact,&
@@ -328,17 +341,17 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     if (reduceall_mpi('+',npart)==npart) then
        polyk_eos = star%polyk
 
-       if (star%iprofile == imesa .or. star%iprofile == ikepler) then
+       if (star%iprofile == imesa .or. star%iprofile == ikepler .or. star%iprofile == iaton) then
           !
           ! if a MESA profile is used, we supply the mtab array for the
           ! mass profile in relax_star rather than integrating it manually
           !
-          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+          call relax_star(npts,den,pres,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
                           write_dumps=write_dumps,density_error=rmserr,energy_error=en_err,mtab=mtab)
        else
-          call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
+          call relax_star(npts,den,pres,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                           mu,iptmass_core,xyzmh_ptmass,ierr_relax,&
                           npin=npart_old,label=star%label,&
                           write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
@@ -366,8 +379,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ! of each particle by interpolating from table
  !
  if (use_var_comp .or. eos_outputs_mu(ieos)) then
-    call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,&
-                              xyzh,Xfrac,Yfrac,mu,mtab,mstar,eos_vars,npin=npart_old)
+    call set_star_composition(eos_outputs_mu(ieos),npart,xyzh,Xfrac,Yfrac,&
+                              mu,mtab,eos_vars,npin=npart_old)
  endif
  !
  ! Write .comp file containing composition of each particle after interpolation
@@ -379,7 +392,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! set the internal energy and temperature
  !
- if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,&
+ if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,&
                        xyzh,vxyzu,rad,eos_vars,relax,use_var_comp,star%initialtemp,&
                        star%polyk,npin=npart_old)
  !
@@ -660,6 +673,9 @@ subroutine set_defaults_given_profile(iprofile,filename,mstar,polyk)
     ! sets up a star from a 1D MESA code output
     !  Original Author: Roberto Iaconi
     filename = 'P12_Phantom_Profile.data'
+ case(iaton)
+    ! sets up a star from a 1D ATON code output
+    filename = 'ATONStar.txt'
  case(ikepler)
     ! sets up a star from a 1D KEPLER code output
     !  Original Author: Nicole Rodrigues and Megha Sharma
@@ -715,7 +731,7 @@ subroutine set_star_interactive(star)
  endif
 
  select case (star%iprofile)
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
@@ -850,7 +866,7 @@ subroutine write_options_star(star,iunit,label)
  endif
 
  select case(star%iprofile)
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     call write_inopt(star%isoftcore,'isoftcore'//trim(c),&
                      '0=no core softening, 1=cubic, 2=const. entropy',iunit)
 
@@ -944,7 +960,7 @@ subroutine read_options_star(star,db,nerr,label)
  endif
 
  select case(star%iprofile)
- case(imesa,ikepler)
+ case(imesa,ikepler,iaton)
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
 
     if (star%isoftcore <= 0) then ! sink particle core without softening
@@ -1112,9 +1128,9 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
  integer :: i
 
  write(iunit,"(/,a)") '# equation of state used to set the thermal energy profile'
- call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad,23=Tillotson',iunit)
+ call write_inopt(ieos,'ieos','1=isothermal,2=idealgas,10=MESA,12=idealplusrad,23=Tillotson',iunit)
 
- if (any(star(:)%iprofile==imesa)) then
+ if (any(star(:)%iprofile==imesa .or. star(:)%iprofile==iaton)) then
     call write_inopt(use_var_comp,'use_var_comp','Use variable composition (X, Z, mu)',iunit)
  endif
 
@@ -1161,7 +1177,10 @@ subroutine read_options_stars_eos(nstars,star,label,ieos,db,nerr)
 
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (any(star(:)%iprofile==imesa)) call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
+ if (any(star(:)%iprofile==imesa .or. &
+         star(:)%iprofile==iaton)) then
+  call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
+ endif 
 
  select case(ieos)
  case(9)
@@ -1201,8 +1220,11 @@ subroutine set_star_eos_interactive(ieos,star)
  type(star_t), intent(in)    :: star(:)
 
  ! equation of state
- call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)
- if (any(star(:)%iprofile==imesa)) call prompt('Use variable composition?',use_var_comp)
+ call prompt('Enter the desired EoS (1=isothermal,2=idealgas,10=MESA,12=idealplusrad)',ieos)
+ if (any(star(:)%iprofile==imesa .or. &
+         star(:)%iprofile==iaton)) then
+  call prompt('Use variable composition?',use_var_comp)
+ endif 
 
  select case(ieos)
  case(9)

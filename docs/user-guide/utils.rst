@@ -1,6 +1,9 @@
 List of Phantom utilities
 -------------------------
 
+For step-by-step workflows that **edit** dump files (flyby, add dust, extend
+disc, etc.), see :doc:`moddump-recipes`.
+
 To compile all of the most commonly used utilities, use:
 
 ::
@@ -91,4 +94,16 @@ A full list is given below:
 | get_struct_slope      | make get_struct_slope | Determine slope of    |
 |                       | (or make              | structure functions   |
 |                       | get_slope_sf)         | from output files     |
++-----------------------+-----------------------+-----------------------+
+| combinedustdumps      | make combinedustdumps | Combine multi-fluid   |
+|                       |                       | dust dumps onto gas   |
++-----------------------+-----------------------+-----------------------+
+| phantom2hdf5          | make phantom2hdf5     | Convert dump to HDF5  |
+|                       | (needs HDF5=yes)      | format                |
++-----------------------+-----------------------+-----------------------+
+| phantomsinks          | make phantomsinks     | Extract per-sink data |
+|                       |                       | from runtime files    |
++-----------------------+-----------------------+-----------------------+
+| testbinary            | make testbinary       | Plot orbits from      |
+|                       | (or make testbin)     | orbital elements      |
 +-----------------------+-----------------------+-----------------------+

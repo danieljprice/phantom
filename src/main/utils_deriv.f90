@@ -18,7 +18,7 @@ module derivutils
 !
  use timing, only:timers,itimer_dens,itimer_force,itimer_tree,itimer_balance,itimer_cons2prim,&
                    itimer_radiation,itimer_rad_save,itimer_rad_neighlist,itimer_rad_arrays,itimer_rad_its,&
-                   itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store
+                   itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store,itimer_HII
 
  implicit none
 
@@ -75,6 +75,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     itimer = itimer_rad_update
  case ('radstore')
     itimer = itimer_rad_store
+ case ('HII_region')
+    itimer = itimer_HII
  case default
     itimer = 1
  end select

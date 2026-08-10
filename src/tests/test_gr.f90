@@ -14,9 +14,10 @@ module testgr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
-!   io, metric, metric_tools, part, physcon, ptmass, substepping,
-!   testutils, timestep_ind, units, utils_gr, vectorutils
+! :Dependencies: cons2prim, cons2primsolver, eos, eos_idealplusrad,
+!   extern_gr, inverse4x4, io, metric, metric_tools, part, physcon, ptmass,
+!   substepping, testutils, timestep_ind, timing, units, utils_gr,
+!   vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -42,30 +43,32 @@ subroutine test_gr(ntests,npass)
  call test_combinations_all(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
+ call test_rn_charged(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
 
 !-----------------------------------------------------------------------
 !+
-!   Test of orbital precession in the Kerr metric
+!   Test of orbital precession in the Kerr/Schwarzschild/RN metric
 !+
 !-----------------------------------------------------------------------
 subroutine test_precession(ntests,npass)
- use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
- use metric,       only:a
+ use metric_tools, only:imetric,imet_kerr,imet_schwarzschild,imet_rn
+ use metric,       only:a,charge
  integer, intent(inout) :: ntests,npass
  integer :: nerr(6),norbits,nstepsperorbit,itest
  real    :: dt,period,x0,vy0,tmax,angtol,postol
  real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
 
  write(*,'(/,a)') '--> testing substep_gr (precession)'
- if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild) then
-    write(*,'(/,a)') '   Skipping test! Metric is not Kerr (or Schwarzschild).'
+ if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild .and. imetric /= imet_rn) then
+    write(*,'(/,a)') '   Skipping test! Metric is not Kerr, Schwarzschild or RN.'
     return
  endif
 
  a              = 0.
+ charge         = 0.
  x0             = 90.
  vy0            = 0.0521157
  period         = 2390. ! approximate
@@ -172,7 +175,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
                           metricderivs_ptmass,fxyz_ptmass,nptmass,&
                           fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,ibin_wake,gtgrad,group_info, &
-                          bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised
+                          bin_info,nmatrix,n_group,n_ingroup,n_sing
  use substepping,    only:substep_gr
  use eos,            only:ieos,gamma
  use cons2prim,      only:prim2consall
@@ -261,7 +264,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
     call substep_gr(npart,ntypes,nptmass,dt,dtextforce,time,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext, &
                     xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,metricderivs_ptmass,fxyz_ptmass,&
                     fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+                    bin_info,nmatrix,n_group,n_ingroup,n_sing)
  enddo
 
  if (use_sink) then
@@ -437,6 +440,8 @@ subroutine test_combinations(ntests,npass)
  if (nfaild==0)          npass = npass + 1
  if (nfail_cons2prim==0) npass = npass + 1
 
+ if (ieos == 12) call benchmark_cons2prim_entropy()
+
 end subroutine test_combinations
 
 !----------------------------------------------------------------
@@ -602,5 +607,130 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  enddo over_energy_variables
 
 end subroutine test_cons2prim_i
+
+!----------------------------------------------------------------
+!+
+!  Benchmark cons2prim for ideal gas + radiation with entropy
+!+
+!----------------------------------------------------------------
+subroutine benchmark_cons2prim_entropy()
+ use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use part,            only:ien_entropy_s
+ use metric_tools,    only:pack_metric
+ use eos,             only:ieos,gmw
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
+ use timing,          only:print_time
+ use units,           only:unit_density,unit_pressure,unit_ergg
+ use io,              only:id,master
+ real :: metrici(0:3,0:3,2)
+ real :: x(3),v(3),dens,u,p,temp,gamma,rho,pmom(3),en
+ real :: v_out(3),dens_out,u_out,p_out,gamma_out
+ real :: rhocgs,ucgs,prescgs,mu,t1,t2
+ integer :: ierr,i,nfail,nrepeat
+ integer, parameter :: nrepeat_default = 1000
+
+ if (ieos /= 12) return
+ if (id /= master) return
+
+ mu = gmw
+ nrepeat = nrepeat_default
+ nfail = 0
+
+ x    = (/10.,0.1,0.2/)
+ v    = (/0.1,0.2,0.05/)
+ dens = 1.
+ temp = 1.e7
+ rhocgs  = dens*unit_density
+ call get_idealplusrad_enfromtemp(rhocgs,temp,mu,ucgs)
+ call get_idealplusrad_pres(rhocgs,temp,mu,prescgs)
+ u = ucgs/unit_ergg
+ p = prescgs/unit_pressure
+ gamma = 1. + p/(dens*u)
+
+ call pack_metric(x,metrici)
+ call primitive2conservative(x,metrici,v,dens,u,p,rho,pmom,en,ien_entropy_s)
+
+ v_out    = v
+ dens_out = 0.9*dens
+ u_out    = u
+ p_out    = 0.9*p
+ gamma_out = gamma
+ temp     = 0.9*temp
+
+ call cpu_time(t1)
+ do i=1,nrepeat
+    ierr = 0
+    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,&
+                               rho,pmom,en,ierr,ien_entropy_s)
+    if (ierr /= 0) nfail = nfail + 1
+ enddo
+ call cpu_time(t2)
+
+ write(*,'(/,a)') '--> benchmark: cons2prim with ien_entropy_s (ieos=12)'
+ if (nfail > 0) write(*,'(a,i0,a,i0)') '   convergence failures: ',nfail,' / ',nrepeat
+ call print_time(real((t2-t1)/nrepeat,kind=4),'conservative2primitive')
+
+end subroutine benchmark_cons2prim_entropy
+
+!-----------------------------------------------------------------------
+!+
+!   Test of circular orbits in the Reissner-Nordstrom metric
+!   with various charges (Q/M = 0, 0.5, 0.9, 1.1)
+!+
+!-----------------------------------------------------------------------
+subroutine test_rn_charged(ntests,npass)
+ use io,           only:id,master
+ use metric_tools, only:imetric,imet_rn
+ use metric,       only:mass1,charge
+ integer, intent(inout) :: ntests,npass
+ integer :: nerr(6),itest,iq
+ real    :: dt,period,tmax,r0,v0,mass_val,charge_val
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
+ real    :: charges_to_test(4)
+ real, parameter :: postol = 1.e-5, angtol = 1.e-10
+
+ if (id==master) write(*,'(/,a)') '--> testing RN charged orbits'
+
+ if (imetric /= imet_rn) then
+    if (id==master) write(*,'(/,a)') '   Skipping test! Metric is not RN.'
+    return
+ endif
+
+ ! Q/M ratios to test: Schwarzschild-like, Sub-extremal, Near-extremal, Naked Singularity
+ charges_to_test = (/0.0, 0.5, 0.9, 1.1/)
+ mass_val = 1.0
+ r0 = 10.0
+
+ do iq=1,size(charges_to_test)
+    charge_val = charges_to_test(iq)
+    charge = charge_val
+    mass1  = mass_val
+
+    ! Circular orbit coordinate velocity for RN metric:
+    ! v_circ = sqrt( M/r - Q^2/r^2 )
+    v0 = sqrt( mass_val/r0 - charge_val**2/r0**2 )
+
+    period = 2.0 * 3.14159265358979 * r0 / v0
+    tmax = 1.0 * period
+    dt = period / 1000.0
+
+    if (id==master) write(*,'(a,F4.1,a,F4.2)') '   testing Q/M = ', charge_val/mass_val, ' v0 = ', v0
+
+    do itest=1,2
+       xyz  = (/r0, 0., 0./)
+       vxyz = (/0., v0, 0./)
+       call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
+
+       nerr = 0
+       call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
+       call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
+       call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
+       call checkval(sqrt(dot_product(xyz,xyz)), r0, postol, nerr(4),'error in final r position')
+
+       call update_test_scores(ntests,nerr,npass)
+    enddo
+ enddo
+
+end subroutine test_rn_charged
 
 end module testgr

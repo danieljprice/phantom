@@ -11,7 +11,7 @@
    |           | where :math:`c_s^2 \equiv K` is a constant stored in the dump file header                                                |
    |           |                                                                                                                          |
    +-----------+--------------------------------------------------------------------------------------------------------------------------+
-   | 2         | **Adiabatic equation of state (code default)**                                                                           |
+   | 2         | **Ideal gas or polytropic equation of state (code default)**                                                             |
    |           |                                                                                                                          |
    |           | :math:`P = (\gamma - 1) \rho u`                                                                                          |
    |           |                                                                                                                          |

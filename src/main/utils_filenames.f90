@@ -334,6 +334,12 @@ integer function ncolumnsline(line)
 
  dummyreal = -666666.0
 
+ ! Reject lines that contain no floating-point notation
+ if (index(line,'.') == 0 .and. index(line,'E') == 0) then
+    ncolumnsline = 0
+    return
+ endif
+
  ierr = 0
  read(line,*,iostat=ierr) (dummyreal(i),i=1,size(dummyreal))
 

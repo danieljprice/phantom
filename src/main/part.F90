@@ -73,11 +73,12 @@ module part
 !--storage of dust growth properties
 !
  real, allocatable :: dustprop(:,:)    !- mass and intrinsic density
- real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
- real, allocatable :: VrelVf(:)
+ real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see force.F90)
+ real, allocatable :: VrelVf(:,:)
+ real, allocatable :: Vrel_disp(:)     !- relative velocity due to dust particles with crossing trajectories (see force.F90)
  character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
- character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+ character(len=*), parameter :: VrelVf_label(3) = (/'Vrel/Vfrag  ','Vmicro/Vfrag','Vdisp/Vfrag '/)
 
  !- porosity
  integer, allocatable :: dragreg(:)    !- drag regime
@@ -189,12 +190,15 @@ module part
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
  real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
  real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
+! cached GR metric-gradient force from kickdrift_gr (reused in get_force)
+ real, allocatable :: fgr(:,:)       ! fgr(3,maxgr)
 !
 !--sink particles in General relativity
 !
  real, allocatable :: pxyzu_ptmass(:,:) !pxyz_ptmass(maxvxyzu,maxgr)
  real, allocatable :: metrics_ptmass(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs_ptmass(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+ real, allocatable :: fgr_ptmass(:,:)       ! fgr_ptmass(3,maxptmassgr)
 !
 !--sink particles
 !
@@ -218,6 +222,7 @@ module part
  integer, parameter :: itbirth  = 22 ! birth time of the new sink
  integer, parameter :: ivwind   = 23 ! wind velocity
  integer, parameter :: iTwind   = 24 ! wind temperature
+ integer, parameter :: iwalpha  = 30 ! alpha wind parameter
  integer, parameter :: ieject   = 25 ! number of ejected particles per sphere
  integer, parameter :: isftype  = 26 ! type of the sink (1: sink,2: star, 3:dead)
  integer, parameter :: inseed   = 27 ! number of seeds into a sink (icreate_sinks == 2)
@@ -239,7 +244,7 @@ module part
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   ',&
-    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi '/)
+    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi ','alpha    '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -348,7 +353,7 @@ module part
  !
 !-- Regularisation algorithm allocation
 !
- logical, allocatable :: isionised(:)
+ integer, allocatable :: noverlap(:)
 !
 !--derivatives (only needed if derivs is called)
 !
@@ -469,7 +474,8 @@ subroutine allocate_part
  call allocate_array('iseed_sink', iseed_sink, maxp*merge(1,0,inject_parts))
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
  call allocate_array('dustgasprop', dustgasprop, 4, maxp_growth)
- call allocate_array('VrelVf', VrelVf, maxp_growth)
+ call allocate_array('Vrel_disp', Vrel_disp, maxp_growth)
+ call allocate_array('VrelVf', VrelVf, 3, maxp_growth)
  call allocate_array('eosvars', eos_vars, maxeosvars, maxan)
  call allocate_array('dustfrac', dustfrac, maxdusttypes, maxp_dustfrac)
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
@@ -487,6 +493,10 @@ subroutine allocate_part
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
  call allocate_array('tmunus', tmunus, 4, 4, maxgr)
  call allocate_array('sqrtgs', sqrtgs, maxgr)
+ if (gr) then
+    call allocate_array('fgr', fgr, 3, maxgr)
+    call allocate_array('fgr_ptmass', fgr_ptmass, 3, maxptmassgr)
+ endif
  call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
  call allocate_array('metrics_ptmass', metrics_ptmass, 4, 4, 2, maxptmassgr)
  call allocate_array('metricderivs_ptmass', metricderivs_ptmass, 4, 4, 3, maxptmassgr)
@@ -545,7 +555,7 @@ subroutine allocate_part
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
  call allocate_array("shortsinktree", shortsinktree, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
- call allocate_array('isionised', isionised, maxp)
+ call allocate_array('noverlap', noverlap, maxp)
 
 end subroutine allocate_part
 
@@ -564,6 +574,7 @@ subroutine deallocate_part
  if (allocated(iseed_sink))   deallocate(iseed_sink)
  if (allocated(dustprop))     deallocate(dustprop)
  if (allocated(dustgasprop))  deallocate(dustgasprop)
+ if (allocated(Vrel_disp))    deallocate(Vrel_disp)
  if (allocated(VrelVf))       deallocate(VrelVf)
  if (allocated(abundance))    deallocate(abundance)
  if (allocated(eos_vars))     deallocate(eos_vars)
@@ -583,6 +594,8 @@ subroutine deallocate_part
  if (allocated(metricderivs)) deallocate(metricderivs)
  if (allocated(tmunus))       deallocate(tmunus)
  if (allocated(sqrtgs))       deallocate(sqrtgs)
+ if (allocated(fgr))          deallocate(fgr)
+ if (allocated(fgr_ptmass))     deallocate(fgr_ptmass)
  if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
  if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
  if (allocated(metricderivs_ptmass))  deallocate(metricderivs_ptmass)
@@ -634,7 +647,7 @@ subroutine deallocate_part
  if (allocated(nmatrix))      deallocate(nmatrix)
  if (allocated(shortsinktree))deallocate(shortsinktree)
  if (allocated(gtgrad))       deallocate(gtgrad)
- if (allocated(isionised))    deallocate(isionised)
+ if (allocated(noverlap))     deallocate(noverlap)
 
 end subroutine deallocate_part
 
@@ -652,7 +665,6 @@ subroutine init_part
  npartoftype(:) = 0
  npartoftypetot(:) = 0
  massoftype(:)  = 0.
- isionised(:) = .false.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
@@ -692,6 +704,7 @@ subroutine init_part
     radprop(ikappa,:) = huge(0.) ! set opacity to infinity
     radprop(ithick,:) = 1.       ! optically thick, i.e. use diffusion approximation
  endif
+ eos_vars(itemp,:) = -1.0 ! initial guess for temperature overridden in eos
 !
 !--initialise chemistry arrays if this has been compiled
 !  (these may be altered by the specific setup routine)
@@ -705,7 +718,8 @@ subroutine init_part
  if (use_dustgrowth) then
     dustprop(:,:)    = 0.
     dustgasprop(:,:) = 0.
-    VrelVf(:)        = 0.
+    Vrel_disp(:)     = 0.
+    VrelVf(:,:)      = 0.
  endif
  if (ind_timesteps) then
     ibin(:)       = 0
@@ -714,7 +728,6 @@ subroutine init_part
     dt_in(:)      = 0.
     twas(:)       = 0.
  endif
-
  if (use_sinktree) iphase(maxpsph+1:maxp) = isink
 
  ideadhead = 0
@@ -1257,7 +1270,10 @@ subroutine copy_particle(src,dst,new_part)
     rad(:,dst) = rad(:,src)
     radprop(:,dst) = radprop(:,src)
  endif
- if (gr) pxyzu(:,dst) = pxyzu(:,src)
+ if (gr) then
+    pxyzu(:,dst) = pxyzu(:,src)
+    if (allocated(fgr)) fgr(:,dst) = fgr(:,src)
+ endif
  divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
@@ -1339,6 +1355,7 @@ subroutine copy_particle_all(src,dst,new_part)
        ppred(:,dst) = ppred(:,src)
     endif
     dens(dst) = dens(src)
+    if (allocated(fgr)) fgr(:,dst) = fgr(:,src)
  endif
 
  divcurlv(:,dst) = divcurlv(:,src)
@@ -1370,7 +1387,8 @@ subroutine copy_particle_all(src,dst,new_part)
        dustprop(:,dst) = dustprop(:,src)
        ddustprop(:,dst) = ddustprop(:,src)
        dustgasprop(:,dst) = dustgasprop(:,src)
-       VrelVf(dst) = VrelVf(src)
+       Vrel_disp(dst) = Vrel_disp(src)
+       VrelVf(:,dst) = VrelVf(:,src)
        dustproppred(:,dst) = dustproppred(:,src)
        filfacpred(dst) = filfacpred(src)
     endif
@@ -1483,7 +1501,8 @@ subroutine combine_two_particles(keep,discard)
        dustprop(:,keep) = 0.5*(dustprop(:,keep) + dustprop(:,discard))
        ddustprop(:,keep) = 0.5*(ddustprop(:,keep) + ddustprop(:,discard))
        dustgasprop(:,keep) = 0.5*(dustgasprop(:,keep) + dustgasprop(:,discard))
-       VrelVf(keep) = 0.5*(VrelVf(keep) + VrelVf(discard))
+       Vrel_disp(keep) = 0.5*(Vrel_disp(keep) + Vrel_disp(discard))
+       VrelVf(:,keep) = 0.5*(VrelVf(:,keep) + VrelVf(:,discard))
        dustproppred(:,keep) = 0.5*(dustproppred(:,keep) + dustproppred(:,discard))
        filfacpred(keep) = 0.5*(filfacpred(keep) + filfacpred(discard))
     endif
@@ -1689,6 +1708,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
           call fill_buffer(xtemp, dustprop(:,i),nbuf)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
+          call fill_buffer(xtemp, Vrel_disp(i),nbuf)
        endif
        call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
        call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
@@ -1776,6 +1796,7 @@ subroutine unfill_buffer(ipart,xbuf)
        dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
+       Vrel_disp(ipart)        = unfill_buf(xbuf,j)
     endif
     fxyz_drag(:,ipart)   = unfill_buf(xbuf,j,3)
     fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)

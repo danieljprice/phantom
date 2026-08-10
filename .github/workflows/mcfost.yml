@@ -20,7 +20,9 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     - name: tap the homebrew repo
-      run: brew tap danieljprice/all
+      run: |
+        brew tap danieljprice/all
+        brew trust danieljprice/all
 
     - name: install mcfost with homebrew
       run: brew install mcfost

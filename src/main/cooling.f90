@@ -233,7 +233,7 @@ end subroutine write_options_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(db,nerr)
- use io,                only:fatal
+ use io,                only:error
  use eos,               only:ipdv_heating,ishock_heating,eos_allows_shock_and_work,ieos
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
@@ -248,9 +248,9 @@ subroutine read_options_cooling(db,nerr)
 
  call read_inopt(icooling,'icooling',db,errcount=nerr,min=0,max=9,default=icooling)
  if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
-    call fatal(label,'cooling requires adiabatic eos (e.g. ieos=2)')
+    call error(label,'cooling requires adiabatic eos (e.g. ieos=2)')
  if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
-    call fatal(label,'cooling requires shock and work contributions')
+    call error(label,'cooling requires shock and work contributions')
  call read_inopt(C_cool,'C_cool',db,errcount=nerr,min=0.,default=C_cool)
  call read_inopt(Tfloor,'Tfloor',db,errcount=nerr,min=0.,default=Tfloor)
 

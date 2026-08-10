@@ -1,6 +1,14 @@
 Release notes
 =============
 
+v2026.0.1 - 13th May 2026
+---------------------------
+
+Bug fixes
+~~~~~~~~~
+- Fix bug where shock heating was accidentally turned off in GR code in v2026.0.0 (thanks to Fitz Hu; #811)
+- Bug fix in polytrope setup for n=1 (thanks to Jianni Grossi; #813)
+
 v2026.0.0 - 6th March 2026
 ---------------------------
 
@@ -87,7 +95,7 @@ Other
 - Reduced number of #ifdefs in the code (#691, #714, #715)
 - Authorship guidelines added (thanks to Rebecca Nealon; #692)
 - Improved documentation on conservation checks (thanks to Jacksen Narvaez; #665)
-- Improved developer documentation (thanks to Camille Landry; #705)
+- Improved developer documentation (thanks to Camille Landri; #705)
 - CI on pull requests cancels previous job if more commits added (thanks to Timothée David--Cléris; #717)
 - Enforce no compiler warnings with all compilers in github actions workflow (#681, #695)
 - Added build checks for all moddump, analysis and kernel modules (#769)

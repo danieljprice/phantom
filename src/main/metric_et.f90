@@ -23,6 +23,7 @@ module metric
  ! Not used anywhere in the code - Needs a fix!
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 0.0       ! spin of central object
+ real, public  :: charge= 0.       ! charge of central object
 
 contains
 !----------------------------------------------------------------
