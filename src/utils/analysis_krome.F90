@@ -20,6 +20,7 @@ module analysis
  use krome_user, only:krome_nmols
  use part,       only: maxp
  use raytracer,  only: get_all_tau
+ use io,          only: fatal, iverbose
  use hdf5
  #ifdef _OPENMP
    use omp_lib, only: omp_set_num_threads, omp_get_max_threads, omp_get_wtime
@@ -44,21 +45,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use units,       only: utime,unit_density,udist
  use physcon,     only: atomic_mass_unit
  use eos,         only: get_temperature, ieos, gamma,gmw, init_eos
- use io,          only: fatal, iverbose
  use krome_main,  only: krome_init, krome
  use krome_user,  only: krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
                         krome_set_user_alb,krome_set_user_AuvAv
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:), xzymh_ptmass_copy(:,:)
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- real, save    :: tprev = 0.
- integer, save :: nprev = 0
- real          :: dt_cgs, rho_cgs
- real          :: numberdensity, T_gas, gammai, mui, AUV, xi
- real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
- real          :: max_radius, radius, tstart
- integer       :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
+ real, save        :: tprev = 0.
+ integer, save     :: nprev = 0
+ real              :: dt_cgs, rho_cgs
+ real, allocatable :: xyzmh_ptmass_copy(:,:)
+ real              :: numberdensity, T_gas, gammai, mui, AUV, xi
+ real              :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
+ real              :: max_radius, radius, tstart
+ integer           :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
 
 
 #ifdef _OPENMP
@@ -83,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     print*, "initialising KROME"
     call krome_init()
-    print*, "Initialised KROME"
+    print*, "initialised KROME"
 
     abundance_label(:) = krome_get_names()
     allocate(abundance(krome_nmols,maxp))
@@ -128,16 +129,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #ifdef _OPENMP
     tstart = omp_get_wtime()
 #endif
-    xyzmh_ptmass_copy(:,:) = xyzmh_ptmass(:,:) !to avoid overwriting the original ptmass array
-    xyzmh_ptmass_copy(iReff,1) = 2.
     npart_copy = npart
-    xyzh_copy = xyzh(:,:npart)
-    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu,xyzmh_ptmass_copy)
+    xyzh_copy = xyzh(:,:npart) !to avoid overwriting the original xyzh array when building the tree
+    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
 #ifdef _OPENMP
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 #endif
     print*, "Calculating column density..."
     tstart = omp_get_wtime()
+    allocate(xyzmh_ptmass_copy(size(xyzmh_ptmass,1), size(xyzmh_ptmass,2)))
+    xyzmh_ptmass_copy(:,:) = xyzmh_ptmass(:,:) !to avoid overwriting the original ptmass array in the column density calculation
+    xyzmh_ptmass_copy(iReff,1) = 2.
     call get_all_tau(npart, nptmass, xyzmh_ptmass_copy, xyzh, one, 5, .false., column_density)
     max_radius = 0.0
     do i = 1, npart
