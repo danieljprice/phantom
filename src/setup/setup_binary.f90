@@ -13,14 +13,15 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - corotate : *set stars in corotation*
-!   - deltat   : *output interval as fraction of binary period*
-!   - norbits  : *maximum number of binary orbits*
+!   - corotate   : *set stars in corotation*
+!   - deltat     : *output interval as fraction of binary period*
+!   - gwinspiral : *set gravitational wave inspiral*
+!   - norbits    : *maximum number of binary orbits*
 !
-! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, sethier_utils,
-!   sethierarchical, setorbit, setstar, setunits, setup_params, timestep,
-!   units
+! :Dependencies: centreofmass, dim, eos, extern_gwinspiral, externalforces,
+!   infile_utils, io, kernel, mpidomain, options, part, physcon,
+!   sethier_utils, sethierarchical, setorbit, setstar, setunits,
+!   setup_params, timestep, units
 !
  use setstar,       only:star_t
  use setorbit,      only:orbit_t

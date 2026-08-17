@@ -14,7 +14,7 @@ module eos_mesa
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mesa_microphysics, physcon, dim
+! :Dependencies: dim, mesa_microphysics, physcon
 !
 
  use mesa_microphysics

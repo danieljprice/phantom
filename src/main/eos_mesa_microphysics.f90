@@ -14,7 +14,7 @@ module mesa_microphysics
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles
+! :Dependencies: datafiles, physcon
 !
  use datafiles, only:find_phantom_datafile
 

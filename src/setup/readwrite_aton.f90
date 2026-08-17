@@ -10,7 +10,7 @@ module readwrite_aton
 !
 ! :References: Ventura et al. (1998)
 !
-! :Owner: Daniel Price
+! :Owner: Orsola De Marco
 !
 ! :Runtime parameters: None
 !
