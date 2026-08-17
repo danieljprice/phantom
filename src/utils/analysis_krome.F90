@@ -21,9 +21,9 @@ module analysis
  use part,       only: maxp
  use raytracer,  only: get_all_tau
  use hdf5
- #ifdef _OPENMP
-   use omp_lib, only: omp_set_num_threads, omp_get_max_threads, omp_get_wtime
- #endif
+#ifdef _OPENMP
+ use omp_lib, only:omp_set_num_threads, omp_get_max_threads, omp_get_wtime
+#endif
  implicit none
  character(len=20), parameter, public :: analysistype = 'krome'
  public :: do_analysis
@@ -60,26 +60,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real          :: max_radius, radius, tstart
  integer       :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
 
-
 #ifdef _OPENMP
 #ifdef __GFORTRAN__
-   print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
-   call omp_set_num_threads(1)
+ print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
+ call omp_set_num_threads(1)
 #else
-   print*, "running with ", omp_get_max_threads(), " threads"
+ print*, "running with ", omp_get_max_threads(), " threads"
 #endif
 #else
-   print*, "running without OpenMP"
+ print*, "running without OpenMP"
 #endif
 
  if (.not.done_init) then
     done_init = .true.
 
-   ! initialize HDF5
-   call h5open_f(hdferr)
-   if (hdferr /= 0) then
-      call fatal(analysistype, 'Failed to initialize HDF5')
-   endif
+    ! initialize HDF5
+    call h5open_f(hdferr)
+    if (hdferr /= 0) then
+       call fatal(analysistype, 'Failed to initialize HDF5')
+    endif
 
     print*, "initialising KROME"
     call krome_init()
@@ -100,8 +99,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !check if a file with abundances already exists, if so read it in and use it as initial abundances
     inquire(file=trim(dumpfile)//'.h5', size=isize)
     if (isize > 0) then
-         print*, "Found existing abundance file, reading in abundances"
-         call read_chem(npart, dumpfile)
+       print*, "Found existing abundance file, reading in abundances"
+       call read_chem(npart, dumpfile)
     else
        print*, "setting abundances"
        !$omp parallel do default(none) &
@@ -120,7 +119,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call init_eos(ieos, ierr)
     if (ierr /= 0) call fatal(analysistype, "Failed to initialise EOS")
 
-   else
+ else
     dt_cgs = (time - tprev)*utime
     completed_iterations = 0
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
@@ -186,7 +185,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              call chem_init(abundance_part)
           endif
           if (iamtype(iphase(i)) /= iboundary .and. i > 2460) then ! 2460 is the amount of boundary particles
-            !Thermodynamic quantities
+             !Thermodynamic quantities
              rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
              gammai = gamma
              mui    = gmw
@@ -216,12 +215,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo outer
 #ifdef _OPENMP
-   print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
-   tstart = omp_get_wtime()
+    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+    tstart = omp_get_wtime()
 #endif
-   call write_chem(npart, dumpfile)
+    call write_chem(npart, dumpfile)
 #ifdef _OPENMP
-   print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 #endif
  endif
 
@@ -280,7 +279,7 @@ subroutine write_chem(npart, dumpfile)
     return
  endif
 
-  ! create group for particle data
+ ! create group for particle data
  call h5gcreate_f(file_id, 'chemistry', group_id, hdferr)
  ! create dataspace for particle datasets
  dims(1) = krome_nmols
@@ -330,7 +329,7 @@ subroutine read_chem(npart, dumpfile)
     return
  endif
 
-  ! open group for particle data
+ ! open group for particle data
  call h5gopen_f(file_id, 'chemistry', group_id, hdferr)
 
  call h5dget_space_f(dset_id, filespace_id, hdferr)
