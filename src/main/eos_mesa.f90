@@ -174,8 +174,6 @@ subroutine get_eos_u_from_rhos_mesa_gr(den,s,u)
 
 end subroutine get_eos_u_from_rhos_mesa_gr
 
-
-
 !----------------------------------------------------------------
 !+
 !  subroutine returns internal energy and temperature from

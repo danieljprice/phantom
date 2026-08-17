@@ -330,7 +330,6 @@ subroutine get_eos_constants_mesa(ierr)
 
 end subroutine get_eos_constants_mesa
 
-
 ! Get the constants to be used in the MESA EoS for GR
 subroutine get_eos_constants_mesa_gr(ierr)
  integer, intent(out) :: ierr
@@ -382,7 +381,6 @@ subroutine get_eos_constants_mesa_gr(ierr)
  return
 
 end subroutine get_eos_constants_mesa_gr
-
 
 ! Read MESA EoS tables, and then construct a new array for the specific values of X and Z
 subroutine read_eos_mesa(x,z,ierr)
@@ -699,7 +697,6 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
 
 end subroutine getvalue_mesa_gr
 
-
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
 pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
@@ -860,8 +857,6 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_gr_ds_data)) deallocate(mesa_gr_ds_data)
  if (allocated(mesa_gr_ds_data0)) deallocate(mesa_gr_ds_data0)
 
-
 end subroutine deallocate_arrays_mesa
-
 
 end module mesa_microphysics

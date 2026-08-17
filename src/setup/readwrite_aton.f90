@@ -89,7 +89,6 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  m = -1.
  allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,mu,source=m)
 
- 
     ! read file forwards, from centre to surface
     do i = 1,lines
        read(iu,*,iostat=ierr) dat(i,1:ncols)

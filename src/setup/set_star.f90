@@ -1180,7 +1180,7 @@ subroutine read_options_stars_eos(nstars,star,label,ieos,db,nerr)
  if (any(star(:)%iprofile==imesa .or. &
          star(:)%iprofile==iaton)) then
   call read_inopt(use_var_comp,'use_var_comp',db,errcount=nerr)
- endif 
+ endif
 
  select case(ieos)
  case(9)
@@ -1224,7 +1224,7 @@ subroutine set_star_eos_interactive(ieos,star)
  if (any(star(:)%iprofile==imesa .or. &
          star(:)%iprofile==iaton)) then
   call prompt('Use variable composition?',use_var_comp)
- endif 
+ endif
 
  select case(ieos)
  case(9)
