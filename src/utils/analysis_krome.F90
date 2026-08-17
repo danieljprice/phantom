@@ -22,7 +22,7 @@ module analysis
  use raytracer,  only: get_all_tau
  use hdf5
  #ifdef _OPENMP
-   use omp_lib, only: omp_set_num_threads, omp_get_max_threads, omp_get_wtime
+   use omp_lib, only:omp_set_num_threads, omp_get_max_threads, omp_get_wtime
  #endif
  implicit none
  character(len=20), parameter, public :: analysistype = 'krome'

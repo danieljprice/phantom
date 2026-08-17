@@ -66,7 +66,7 @@ subroutine init_eos_mesa(x,z,ierr)
 
     call read_eos_mesa_gr(x,z,ierr)
     if (ierr /= 0) return
- end if
+ endif
 
  call read_eos_mesa(x,z,ierr)
  if (ierr /= 0) return

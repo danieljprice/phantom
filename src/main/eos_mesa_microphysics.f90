@@ -652,7 +652,7 @@ end subroutine getvalue_mesa
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
 ! inputted s should be in cgs units, then it has to be converted to log10(S/(k_B*N_A)) in cgs units (because the MESA tables are in these units)
 pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
- use physcon, only: kboltz,avogadro
+ use physcon, only:kboltz,avogadro
  real,    intent(in)  :: rho, s
  real,    intent(out) :: vout
  integer, intent(in)  :: ivout
