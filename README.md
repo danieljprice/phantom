@@ -78,7 +78,15 @@ We welcome contributions, including (but not limited to):
 4. Documentation, also by [pull request](https://github.com/danieljprice/phantom/pulls). Docs can be edited in the docs/ directory of the main code.
 5. Suggestions for features or bug reports, via the [issue tracker](https://github.com/danieljprice/phantom/issues/new). Please file bugs via github rather than by email.
 
-[![Star History Chart](https://api.star-history.com/image?repos=danieljprice/phantom&type=date)](https://www.star-history.com/?repos=danieljprice%2Fphantom&type=date&legend=top-left)
+## Star History
+
+<a href="https://www.star-history.com/?repos=danieljprice%2Fphantom&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=danieljprice/phantom&type=date&theme=dark&legend=top-left&sealed_token=cwYs8sv2MUQzP4XysC87FcVsgwvFTB_YbJ1OQ3ar1TAucO0pC-pR5PHLU6hsMc85do5lca9iuH85E7kOD-BUsEuIsd7GgJtdXdRMMpaxAaqvrjYFoqFqRs-hr1z3Q6ITjzIzlDkNNcIuPtk9nvls3xYBEuffqQ5k1c5HLqinYhkUxv0SvsYEYTPoJRbr" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=danieljprice/phantom&type=date&legend=top-left&sealed_token=cwYs8sv2MUQzP4XysC87FcVsgwvFTB_YbJ1OQ3ar1TAucO0pC-pR5PHLU6hsMc85do5lca9iuH85E7kOD-BUsEuIsd7GgJtdXdRMMpaxAaqvrjYFoqFqRs-hr1z3Q6ITjzIzlDkNNcIuPtk9nvls3xYBEuffqQ5k1c5HLqinYhkUxv0SvsYEYTPoJRbr" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=danieljprice/phantom&type=date&legend=top-left&sealed_token=cwYs8sv2MUQzP4XysC87FcVsgwvFTB_YbJ1OQ3ar1TAucO0pC-pR5PHLU6hsMc85do5lca9iuH85E7kOD-BUsEuIsd7GgJtdXdRMMpaxAaqvrjYFoqFqRs-hr1z3Q6ITjzIzlDkNNcIuPtk9nvls3xYBEuffqQ5k1c5HLqinYhkUxv0SvsYEYTPoJRbr" />
+ </picture>
+</a>
 
 Citation
 --------
