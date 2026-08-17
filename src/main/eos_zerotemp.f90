@@ -33,7 +33,7 @@ module eos_zerotemp
 
  private
 
-  ! these set the mixture of species
+ ! these set the mixture of species
  ! following elements can be set by user at runtime
  real :: xh  = 0.0
  real :: xhe = 0.0
@@ -197,12 +197,12 @@ subroutine get_zerotemp_pressure(rhoi,presi)
  ! This is a good approximation for white dwarfs where the electrons are highly degenerate but the ions are not.
  ! Note also that this assumes a fully ionised gas, so mu is the mean molecular weight per free electron
 
-    ne = rhoi / (mu_e * atomic_mass_unit)
+ ne = rhoi / (mu_e * atomic_mass_unit)
 
-    x = ( (3.0 * ne * planckh**3) / &
+ x = ( (3.0 * ne * planckh**3) / &
         (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
 
-    presi = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
+ presi = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * f_chandra(x)
 
 end subroutine get_zerotemp_pressure
 
@@ -215,14 +215,14 @@ subroutine get_zerotemp_u(rhoi,u)
  real,    intent(out)   :: u
  real :: ne, x, gx
 
-    ne = rhoi / (mu_e * atomic_mass_unit)
+ ne = rhoi / (mu_e * atomic_mass_unit)
 
-    x = ( (3.0 * ne * planckh**3) / &
+ x = ( (3.0 * ne * planckh**3) / &
         (8.0 * pi * mass_electron_cgs**3 * c**3) )**(1.0/3.0)
 
-    gx = (8*x**3)*(sqrt(x**2 + 1)-1)-f_chandra(x)
-    u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * gx
-    u = u/rhoi !previous equation is erg/cm^3 so here I convert it
+ gx = (8*x**3)*(sqrt(x**2 + 1)-1)-f_chandra(x)
+ u = (pi * mass_electron_cgs**4 * c**5 / (3.0 * planckh**3)) * gx
+ u = u/rhoi !previous equation is erg/cm^3 so here I convert it
 end subroutine get_zerotemp_u
 
 !----------------------------------------------------------------
@@ -256,52 +256,52 @@ end subroutine get_zerotemp_spsoundi
 !----------------------------------------------------------------
 subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
 
-   real, intent(in)  :: presi
-   real, intent(out) :: densi
-   integer, intent(out) :: ierr
+ real, intent(in)  :: presi
+ real, intent(out) :: densi
+ integer, intent(out) :: ierr
 
-   real :: ne, x, fx
-   real :: xlo, xhi, xmid
-   integer :: iter
+ real :: ne, x, fx
+ real :: xlo, xhi, xmid
+ integer :: iter
 
-   integer, parameter :: iter_max = 1000
-   real,    parameter :: tolerance = 1.e-12
+ integer, parameter :: iter_max = 1000
+ real,    parameter :: tolerance = 1.e-12
 
-   fx = presi * (3.0*planckh**3) / &
+ fx = presi * (3.0*planckh**3) / &
         (pi*mass_electron_cgs**4*c**5)
 
-   ! Initial bracket
-   xlo = 0.0
-   xhi = 1.0
+ ! Initial bracket
+ xlo = 0.0
+ xhi = 1.0
 
-   do while (f_chandra(xhi) < fx)
-      xhi = 2.0*xhi
-   enddo
+ do while (f_chandra(xhi) < fx)
+    xhi = 2.0*xhi
+ enddo
 
-   ierr = 0
+ ierr = 0
 
-   do iter = 1, iter_max
+ do iter = 1, iter_max
 
-      xmid = 0.5*(xlo + xhi)
+    xmid = 0.5*(xlo + xhi)
 
-      if (f_chandra(xmid) > fx) then
-         xhi = xmid
-      else
-         xlo = xmid
-      endif
+    if (f_chandra(xmid) > fx) then
+       xhi = xmid
+    else
+       xlo = xmid
+    endif
 
-      if (abs(xhi-xlo)/(xmid+1.e-300) < tolerance) exit
+    if (abs(xhi-xlo)/(xmid+1.e-300) < tolerance) exit
 
-   enddo
+ enddo
 
-   if (iter == iter_max) ierr = 1
+ if (iter == iter_max) ierr = 1
 
-   x = 0.5*(xlo + xhi)
+ x = 0.5*(xlo + xhi)
 
-   ne = (8.0*pi*mass_electron_cgs**3*c**3 / &
+ ne = (8.0*pi*mass_electron_cgs**3*c**3 / &
         (3.0*planckh**3)) * x**3
 
-   densi = ne * mu_e * atomic_mass_unit
+ densi = ne * mu_e * atomic_mass_unit
 
 end subroutine get_zerotemp_rhofrompres
 
