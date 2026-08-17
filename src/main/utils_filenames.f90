@@ -20,7 +20,7 @@ module fileutils
 
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,number_of_rows
- public :: read_column_labels,get_column_labels,split,find_column
+ public :: read_column_labels,get_column_labels,split_string,find_column
  public :: strip_extension,is_digit,files_are_sequential,load_data_file
  public :: ucase,lcase,make_tags_unique,get_nlines,string_delete,string_replace,nospaces
  integer, parameter :: max_line_length = 10000 ! for finding number of columns
@@ -511,17 +511,20 @@ end subroutine string_replace
 ! Split a string into substrings based on a delimiter
 !
 !---------------------------------------------------------------------------
-pure subroutine split(string,delim,stringarr,nsplit)
+pure subroutine split_string(string,delim,stringarr,nsplit)
  character(len=*), intent(in)  :: string
  character(len=*), intent(in)  :: delim
- character(len=*), intent(out) :: stringarr(:)
+ character(len=*), intent(out), dimension(:), optional :: stringarr
  integer,          intent(out) :: nsplit
- integer :: i,j,imax,iend
+ integer :: i,j,imax,iend,nmax
 
  i = 1
  nsplit = 0
  imax = len(string)
- do while(nsplit < size(stringarr) .and. i <= imax)
+ nmax = imax
+ if (present(stringarr)) nmax = size(stringarr)
+
+ do while(nsplit < nmax .and. i <= imax)
     ! find next non-blank character
     if (string(i:i)==' ') then
        do while (string(i:i)==' ')
@@ -539,13 +542,13 @@ pure subroutine split(string,delim,stringarr,nsplit)
     iend = min(i+j-1,imax)
     ! extract the substring
     nsplit = nsplit + 1
-    if (nsplit <= size(stringarr)) then
+    if (nsplit <= nmax .and. present(stringarr)) then
        stringarr(nsplit) = string(i:iend)
     endif
     i = iend + len(delim) + 1
  enddo
 
-end subroutine split
+end subroutine split_string
 
 !-----------------------------------------------------------------
 !
@@ -642,13 +645,13 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     linestr = line(i1:)
     call normalize_bracket_delimiters(linestr)
     ! now split on '][' which should work regardless of original spacing
-    call split(linestr,'][',labels,nlabels)
+    call split_string(linestr,'][',labels,nlabels)
  elseif (index(line,',') > 1 .or. is_csv) then
     !
     ! format style 2: mylabel1,mylabel2,mylabel3
     !
     istyle = 2
-    call split(line(i1:),',',labels,nlabelstmp)
+    call split_string(line(i1:),',',labels,nlabelstmp)
     if (is_csv) then
        nlabels = nlabelstmp  ! allow blank/arbitrary labels in csv format
     else
@@ -662,7 +665,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     ! try splitting with 4, then 3, then 2 spaces until the number of labels decreases
     nlabels_prev = 0
     over_spaces: do i=4,2,-1
-       call split(line(i1:),spaces(1:i),labels,nlabelstmp)
+       call split_string(line(i1:),spaces(1:i),labels,nlabelstmp)
 
        ! quit if we already have the target number of labels
        if (nlabelstmp == ntarget) exit over_spaces
@@ -672,7 +675,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
        if ((nlabelstmp < nlabels_prev .or. nlabelstmp >= max(nlabels_prev,2)  &
             .and. i < 4 .and. .not. (ntarget > 0 .and. nlabelstmp > ntarget))) then
           ! take the answer with the previous number of spaces
-          call split(line(i1:),spaces(1:i+1),labels,nlabelstmp)
+          call split_string(line(i1:),spaces(1:i+1),labels,nlabelstmp)
           exit over_spaces
        endif
        nlabels_prev = nlabelstmp
@@ -694,7 +697,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
        ! (this style is also dangerous)
        !
        istyle = 4
-       call split(line(i1:),' ',labels,nlabelstmp)
+       call split_string(line(i1:),' ',labels,nlabelstmp)
        nlabels = count_sensible_labels(nlabelstmp,labels)
     endif
  endif
