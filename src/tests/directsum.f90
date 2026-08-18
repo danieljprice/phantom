@@ -37,7 +37,7 @@ contains
 ! Input:
 !
 !   xyzh(ndim,ntot)  : coordinates and smoothing length of the particles
-!   gradh(2,ntot)    : gradh and gradsoft terms (computed alongside density)
+!   gradh(ngradh,ntot) : 1/OmegaTilde, hydro zeta, and gradsoft (with gravity)
 !
 ! Output:
 !
@@ -50,7 +50,7 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
  use part,      only:igas,iamtype,maxphase,maxp,iphase, &
                      iactive,isdead_or_accreted,massoftype,maxgradh, &
                      apr_level,aprmassoftype
- use dim,       only:maxvxyzu,maxp,use_apr
+ use dim,       only:maxvxyzu,maxp,use_apr,igradsoft
  use io,        only:error
  integer,      intent(in)    :: ntot
  real,         intent(in)    :: xyzh(4,ntot)
@@ -78,8 +78,8 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
  pmassj = massoftype(iamtypej)
 
  call kernel_softening(0.,0.,potensoft0,fmi)
- if (size(gradh(:,1)) < 2) then
-    call error('directsum','cannot do direct sum with ngradh < 2')
+ if (size(gradh(:,1)) < 3) then
+    call error('directsum','cannot do direct sum with ngradh < 3')
     return
  endif
  if (maxgradh /= maxp) then
@@ -110,7 +110,7 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
     hi21 = hi1*hi1
     hi41 = hi21*hi21
     gradhi    = gradh(1,i)
-    gradsofti = gradh(2,i)
+    gradsofti = gradh(igradsoft,i)
     fgravi(:) = 0.
     phitemp   = 0.
 
@@ -142,10 +142,11 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
           call kernel_softening(q2i,qi,phii,fmi)
           phii       = phii*hi1
           fmi        = fmi*hi21
+          ! grkern_soft = grad W / OmegaTilde; adaptive term has no extra neighbour mass
           grkerni    = cnormk*grkerni*hi41*gradhi
           dsofti     = 0.5*grkerni*gradsofti
-          fgravi(:)  = fgravi(:) - pmassj*dsofti*dr(:)
-          fgravj(:)  = fgravj(:) + pmassi*dsofti*dr(:)
+          fgravi(:)  = fgravi(:) - dsofti*dr(:)
+          fgravj(:)  = fgravj(:) + dsofti*dr(:)
        else
           phii = -rij1
           fmi  = rij21
@@ -157,9 +158,9 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
           phij       = phij*hj1
           fmj        = fmj*hj21
           grkernj    = cnormk*grkernj*hj41*gradh(1,j)
-          dsoftj     = 0.5*grkernj*gradh(2,j)
-          fgravi(:)  = fgravi(:) - pmassj*dsoftj*dr(:)
-          fgravj(:)  = fgravj(:) + pmassi*dsoftj*dr(:)
+          dsoftj     = 0.5*grkernj*gradh(igradsoft,j)
+          fgravi(:)  = fgravi(:) - dsoftj*dr(:)
+          fgravj(:)  = fgravj(:) + dsoftj*dr(:)
        else
           phij = -rij1
           fmj  = rij21

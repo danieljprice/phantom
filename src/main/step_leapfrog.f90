@@ -96,7 +96,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           use_porosity,icooling
  use shock_capturing,only:avdecayconst,alpha,alphamax
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
-                          rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
+                          rad,drad,radprop,isdead_or_accreted,rho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
@@ -291,7 +291,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
-!$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
+!$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype,rho) &
 !$omp shared(pxyzu,ppred,apr_level,aprmassoftype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
@@ -329,7 +329,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        ! make prediction for h
        !
-       xyzh(4,i) = xyzh(4,i) - dtsph*dhdrho(xyzh(4,i),pmassi)*rhoh(xyzh(4,i),pmassi)*divcurlv(1,i)
+       xyzh(4,i) = xyzh(4,i) - dtsph*(-xyzh(4,i)/3.)*divcurlv(1,i)
        !
        ! make a prediction for v and u to the full step for use in the
        ! force evaluation. These have already been updated to the
@@ -366,7 +366,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (itype==igas) then
           if (mhd) Bpred(:,i) = Bevol (:,i) + hdti*dBevol(:,i)
           if (use_dustfrac) then
-             rhoi          = rhoh(xyzh(4,i),pmassi)
+             rhoi          = rho(i)
              dustpred(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
           endif
@@ -377,7 +377,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        if (maxalpha==maxp) then
           hi   = xyzh(4,i)
-          rhoi = rhoh(hi,pmassi)
+          rhoi = rho(i)
           spsoundi = eos_vars(ics,i)
           tdecay1  = avdecayconst*spsoundi/hi
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term

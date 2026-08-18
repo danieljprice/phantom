@@ -27,8 +27,8 @@ Probably the main thing you need to understand when running simulations with Pha
                  C_cour =      0.3000    ! Courant number
                 C_force =      0.2500    ! dt_force number
                    tolv =   1.000E-02    ! tolerance on v iterations in timestepping
-                  hfact =      1.2000    ! h in units of particle spacing [h = hfact(m/rho)^(1/3)]
-                   tolh =   1.000E-04    ! tolerance on h-rho iterations
+                  hfact =      1.2000    ! h in units of particle spacing [h = hfact*n^(-1/3)]
+                   tolh =   1.000E-04    ! tolerance on h-n iterations
       restartonshortest =           F    ! restart with all particles on shortest timestep
 
    # options controlling hydrodynamics, artificial dissipation
@@ -195,18 +195,18 @@ hfact
 
 ::
 
-                  hfact =      1.2000    ! h in units of particle spacing [h = hfact(m/rho)^(1/3)]
+                  hfact =      1.2000    ! h in units of particle spacing [h = hfact*n^(-1/3)]
 
-Specifies the smoothing length in units of the particle spacing, and hence both the resolution length and the number of neighbours. The latter is proportional to hfact^3 in 3D. The formula relating hfact to the number of neighbours is given in Price (2012). Note that hfact is referred to as eta in that paper.
+Specifies the smoothing length in units of the mean inter-particle spacing, and hence both the resolution length and the number of neighbours. Smoothing length is set from the number density, \(h = h_{\rm fact}\, n^{-1/3}\). The neighbour number is proportional to hfact^3 in 3D. The formula relating hfact to the number of neighbours is given in Price (2012). Note that hfact is referred to as eta in that paper.
 
 tolh
 ----
 
 ::
 
-                   tolh =   1.000E-04    ! tolerance on h-rho iterations
+                   tolh =   1.000E-04    ! tolerance on h-n iterations
 
-Smoothing length and density are iterated self-consistently since they are mutually dependent until the conditio (h - h_prev)/h_0 < tolh is satisfied. Essentially, this is the tolerance to which the smoothing length and density are interchangeable, since only the smoothing length is stored in Phantom. Thus think of it as the error you are prepared to allow in the density (with higher errors in low density regions). In other words, don’t increase this, but decreasing it is OK and does not substantially increase the cost since density iterations are cheap in Phantom.
+Smoothing length and number density are iterated self-consistently since they are mutually dependent until the condition (h - h_prev)/h_0 < tolh is satisfied. Kernel-summed mass density is stored separately. Thus think of it as the error you are prepared to allow in the neighbour-based h (with higher errors in low density regions). In other words, don’t increase this, but decreasing it is OK and does not substantially increase the cost since density iterations are cheap in Phantom.
 
 restartonshortest
 -----------------

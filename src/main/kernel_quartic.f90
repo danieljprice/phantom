@@ -24,6 +24,8 @@ module kernel
  real, parameter, public  :: radkern2 = 6.25
  real, parameter, public  :: cnormk = 0.05/pi
  real, parameter, public  :: wab0 = 14.375, gradh0 = -3.*wab0
+ real, parameter, public  :: cnormk_tilde = cnormk
+ real, parameter, public  :: wab0_tilde = wab0, gradh0_tilde = gradh0
  real, parameter, public  :: dphidh0 = 1199./960.
  real, parameter, public  :: cnormk_drag = 1./(23.*pi)
  real, parameter, public  :: hfact_default = 1.1
@@ -53,6 +55,14 @@ pure subroutine get_kernel(q2,q,wkern,grkern)
  endif
 
 end subroutine get_kernel
+
+pure subroutine get_kernel_tilde(q2,q,wkern,grkern)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: wkern,grkern
+
+ call get_kernel(q2,q,wkern,grkern)
+
+end subroutine get_kernel_tilde
 
 pure elemental real function wkern(q2,q)
  real, intent(in) :: q2,q

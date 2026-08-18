@@ -169,7 +169,7 @@ end subroutine prim2consi
 !----------------------------------------------------------------------
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
- use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
+ use part,            only:isdead_or_accreted,massoftype,igas,rho,igasP,ics,ien_type,&
                            itemp,igamma,aprmassoftype,apr_level
  use io,              only:fatal
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
@@ -185,7 +185,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype,aprmassoftype) &
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype,aprmassoftype,rho) &
 !$omp shared(ieos,eos_vars,ien_type,apr_level) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai,pmassi)
  do i=1,npart
@@ -199,7 +199,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        else
           pmassi = massoftype(igas)
        endif
-       rhoi    = rhoh(xyzh(4,i),pmassi)
+       rhoi    = rho(i)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
                                   p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
@@ -210,7 +210,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        eos_vars(igamma,i) = gammai
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
-          print*,' rho* =',rhoh(xyzh(4,i),pmassi)
+          print*,' rho* =',real(rho(i))
           print*,' en   =',pxyzu(4,i)
           call fatal('cons2prim','could not solve rootfinding',i)
        endif
@@ -273,7 +273,7 @@ end subroutine cons2primall_sink
 !-----------------------------------------------------------------------------
 subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
- use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
+ use part,              only:isdead_or_accreted,massoftype,igas,rho,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa,idmu,idgamma,icv,aprmassoftype,apr_level
  use part,              only:nucleation,igamma
@@ -313,7 +313,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  Z_i    = Z_in
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level) &
+!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level,rho) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,aprmassoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
@@ -340,7 +340,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        else
           pmassi  = massoftype(iamtypei)
        endif
-       rhoi    = rhoh(hi,pmassi)
+       rhoi    = rho(i)
        !
        !--Convert dust variable to dustfrac
        !

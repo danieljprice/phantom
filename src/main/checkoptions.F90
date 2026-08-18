@@ -75,8 +75,8 @@ subroutine check_compile_time_settings(ierr)
  if (.not.gravity) call error(string,'-DGRAVITY but gravity=.false.')
 #endif
  if (gravity) then
-    if (ngradh < 2) then
-       if (id==master) call error(string,'gravity requires ngradh=2 for gradsoft storage')
+    if (ngradh < 3) then
+       if (id==master) call error(string,'gravity requires ngradh=3 for OmegaTilde, zeta and gradsoft')
        ierr = 2
     endif
  endif

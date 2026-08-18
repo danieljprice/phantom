@@ -388,6 +388,7 @@ module part
  logical, public    :: all_active = .true.
 
  real(kind=4), allocatable :: gradh(:,:)
+ real,         allocatable :: rho(:)
  real, allocatable         :: tstop(:,:)
 !
 !--storage associated with link list
@@ -404,7 +405,7 @@ module part
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter :: ipartbufsize = 129
+ integer, parameter :: ipartbufsize = 131
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -538,6 +539,7 @@ subroutine allocate_part
  call allocate_array('twas', twas, maxindan)
  call allocate_array('iphase', iphase, maxphase)
  call allocate_array('gradh', gradh, ngradh, maxgradh)
+ call allocate_array('rho', rho, maxp)
  call allocate_array('tstop', tstop, maxdusttypes, maxan)
  call allocate_array('ll', ll, maxan)
  call allocate_array('ibelong', ibelong, maxp)
@@ -638,6 +640,7 @@ subroutine deallocate_part
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
  if (allocated(gradh))        deallocate(gradh)
+ if (allocated(rho))          deallocate(rho)
  if (allocated(tstop))        deallocate(tstop)
  if (allocated(ll))           deallocate(ll)
  if (allocated(ibelong))      deallocate(ibelong)
@@ -856,6 +859,77 @@ real(kind=8) function hrhomixed_pmass(rhoi,pmassi)
  hrhomixed_pmass = hfact*(pmassi/abs(rhoi))**(1.d0/3.d0)
 
 end function hrhomixed_pmass
+
+!----------------------------------------------------------------
+!+
+!  number density from h: n = (hfact/h)^3
+!+
+!----------------------------------------------------------------
+pure real function nh(hi)
+ real, intent(in) :: hi
+
+ nh = (hfact/abs(hi))**3
+
+end function nh
+
+!----------------------------------------------------------------
+!+
+!  h from number density: h = hfact * n^(-1/3)
+!+
+!----------------------------------------------------------------
+pure real function hn(ni)
+ real, intent(in) :: ni
+
+ hn = hfact*ni**(-1./3.)
+
+end function hn
+
+!----------------------------------------------------------------
+!+
+!  dh/dn as a function of h
+!+
+!----------------------------------------------------------------
+pure real function dhdn(hi)
+ real, intent(in) :: hi
+
+ dhdn = -hi/(3.*nh(hi))
+
+end function dhdn
+
+!----------------------------------------------------------------
+!+
+!  initialise kernel-summed rho from analytic rhoh (setup / old dumps)
+!+
+!----------------------------------------------------------------
+subroutine init_rho_from_h(i1,i2)
+ integer, intent(in), optional :: i1,i2
+ integer :: i,iamtypei,ia,ib
+ real    :: pmassi
+ logical :: iactivei,iamgasi,iamdusti
+
+ ia = 1
+ ib = npart
+ if (present(i1)) ia = i1
+ if (present(i2)) ib = i2
+ do i=ia,ib
+    if (xyzh(4,i) > 0.) then
+       if (maxphase==maxp) then
+          call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+       else
+          iamtypei = igas
+       endif
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi = massoftype(iamtypei)
+       endif
+       rho(i) = rhoh(xyzh(4,i),pmassi)
+    else
+       rho(i) = 0.
+    endif
+ enddo
+
+end subroutine init_rho_from_h
 
 !------------------------------------------------------------------------
 !+
@@ -1277,6 +1351,7 @@ subroutine copy_particle(src,dst,new_part)
  divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
+ rho(dst) = rho(src)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (ind_timesteps) then
@@ -1363,6 +1438,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
+ rho(dst) = rho(src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
  ! iphase is phase-per-particle; tree-building no longer needs a separate SOA copy
  if (maxgrav  ==maxp) poten(dst) = poten(src)
@@ -1478,6 +1554,7 @@ subroutine combine_two_particles(keep,discard)
  if (maxdvdx ==maxp)  dvdx(:,keep) = factor*(dvdx(:,keep) + dvdx(:,discard))
  if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
  if (maxgradh ==maxp) gradh(:,keep) = factor*(gradh(:,keep) + gradh(:,discard))
+ rho(keep) = factor*(rho(keep) + rho(discard))
  if (maxphase ==maxp .and. (iphase(keep) /= iphase(discard))) make_warning = .true.
  if (maxgrav  ==maxp) poten(keep) = factor*(poten(keep) + poten(discard))
  if (maxlum   ==maxp) luminosity(keep) = factor*(luminosity(keep) + luminosity(discard))
@@ -1687,6 +1764,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
     if (maxgradh==maxp) then
        call fill_buffer(xtemp,gradh(:,i),nbuf)
     endif
+    call fill_buffer(xtemp,rho(i),nbuf)
     if (mhd) then
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
        call fill_buffer(xtemp,Bpred(:,i),nbuf)
@@ -1775,6 +1853,7 @@ subroutine unfill_buffer(ipart,xbuf)
  if (maxgradh==maxp) then
     gradh(:,ipart)      = real(unfill_buf(xbuf,j,ngradh),kind(gradh))
  endif
+ rho(ipart)             = unfill_buf(xbuf,j)
  if (mhd) then
     Bevol(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
     Bpred(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))

@@ -227,7 +227,7 @@ end subroutine test_taylorseries
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
  use io,              only:id,master,nprocs
- use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree,maxpsph
+ use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree,maxpsph,igradsoft
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
                            nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
@@ -475,7 +475,7 @@ subroutine test_directsum(ntests,npass)
     do i=1,npart
        xyzh(4,i)  = h_soft_sinksink
        gradh(1,i) = 1.
-       gradh(2,i) = 0.
+       gradh(igradsoft,i) = 0.
        vxyzu(:,i) = 0.
     enddo
     allocate(fgrav(maxvxyzu,npart))

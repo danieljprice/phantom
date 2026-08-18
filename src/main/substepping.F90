@@ -43,7 +43,7 @@ module substepping
 contains
 
 subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
- use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
+ use part,            only:isdead_or_accreted,igas,massoftype,rho,eos_vars,igasP,&
                               ien_type,eos_vars,igamma,itemp
  use cons2primsolver, only:conservative2primitive
  use io,              only:warning
@@ -61,7 +61,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  real    :: rhoi,pri,tempi,gammai
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
+ !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol,rho) &
  !$omp shared(pxyzu,metrics,massoftype,ien_type,eos_vars) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(pri,rhoi,tempi,gammai)
@@ -72,7 +72,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        pri    = eos_vars(igasP,i)
        tempi  = eos_vars(itemp,i)
        gammai = eos_vars(igamma,i)
-       rhoi   = rhoh(xyzh(4,i),massoftype(igas))
+       rhoi   = rho(i)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
                                       pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
@@ -1077,7 +1077,7 @@ end subroutine get_force
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,use_krome
- use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp,rhoh
+ use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances,imu,itemp,rho
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
@@ -1105,7 +1105,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real :: abundi(nabn)
 
  dudtcool = 0.
- rhoi = rhoh(xyzh(4,i),pmassi)
+ rhoi = rho(i)
  !
  ! CHEMISTRY
  !
@@ -1219,7 +1219,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
                         xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
  use dim,            only:maxp,use_apr
  use part,           only:maxphase,isdead_or_accreted,iamtype,iphase,massoftype,&
-                          aprmassoftype,igas,apr_level,massoftype,rhoh,&
+                          aprmassoftype,igas,apr_level,massoftype,rho,&
                           eos_vars,igamma,itemp,igasP,ien_type,fgr
  use extern_gr,      only:get_grforce
  use io,             only:warning,id,master,iverbose,iprint
@@ -1258,7 +1258,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
  ! predictor step for gas particles
  !
  !$omp parallel do default(none) &
- !$omp shared(xyzh,ntypes,iphase,apr_level,npart,pxyzu,vxyzu) &
+ !$omp shared(xyzh,ntypes,iphase,apr_level,npart,pxyzu,vxyzu,rho) &
  !$omp shared(maxphase,maxp,aprmassoftype,massoftype) &
  !$omp shared(hdt,dens,eos_vars,ien_type,metrics,metrics_ptmass) &
  !$omp shared(metricderivs,fext,ptol,dt,xtol,fgr,nsubsteps) &
@@ -1304,7 +1304,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
        pri       = eos_vars(igasP,i)
        gammai    = eos_vars(igamma,i)
        tempi     = eos_vars(itemp,i)
-       rhoi      = rhoh(hi,pmassi)
+       rhoi      = rho(i)
        ! since fext includes both the sink-gas interaction and the external force,
        ! we need to work out the "previous" force from the metric derivatives in order
        ! to perform the pmom_iterations

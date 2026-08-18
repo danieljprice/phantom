@@ -87,7 +87,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,rhoh,drad,&
-                      npartoftype,rad,radprop,maxvxyzu,luminosity
+                      npartoftype,rad,radprop,maxvxyzu,luminosity,init_rho_from_h
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk,iopacity_type
@@ -139,6 +139,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  npartoftype(:) = 0
  npartoftype(1) = npart
  pmassi = massoftype(igas)
+ call init_rho_from_h()
 
  if (use_implicit) call build_tree(npart,npart,xyzh,vxyzu)
  !

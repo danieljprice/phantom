@@ -66,7 +66,7 @@ subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
                           use_dust,maxdusttypes,do_radiation,gr,use_krome,&
                           use_apr,use_sinktree,maxpsph
- use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
+ use part,           only:rho,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,igamma,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,isdeadh,&
@@ -172,7 +172,7 @@ subroutine compute_energies(t)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha,maxpsph) &
-!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
+!$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id,rho) &
 !$omp shared(alphaind,massoftype,irealvisc,iu,aprmassoftype) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
@@ -229,7 +229,7 @@ subroutine compute_energies(t)
           endif
        endif
 
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
        if (was_not_accreted) then
           call ev_data_update(ev_data_thread,iev_rho,rhoi)
           if (.not.gas_only) then
