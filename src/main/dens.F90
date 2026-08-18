@@ -599,7 +599,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  integer,         intent(in)    :: nneigh
  integer,         intent(out)   :: nneighi
  real,            intent(inout) :: dxcache(:,:)
- real,            intent(in)    :: xyzcache(:,:)
+ real,            intent(in)    :: xyzcache(5,isizecellcache)
  real,            intent(out)   :: rhosum(:)
  logical,         intent(in)    :: ifilledcellcache,ifilledneighcache
  logical,         intent(in)    :: getdv,realviscosity
@@ -1232,7 +1232,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical,         intent(in) :: getdB
  real,            intent(in) :: Bevol(:,:)
  real,            intent(in) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,            intent(in) :: xyzcache(:,:)
+ real,            intent(in) :: xyzcache(5,isizecellcache)
  real,            intent(in) :: rad(:,:)
  integer(kind=1), intent(in) :: apr_level(:)
 

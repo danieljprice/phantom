@@ -971,7 +971,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: pmassi
  integer,         intent(in)    :: listneigh(:)
  integer,         intent(in)    :: nneigh
- real,            intent(in)    :: xyzcache(:,:)
+ real,            intent(in)    :: xyzcache(nforcecache,maxcellcache)
  real,            intent(out)   :: fsum(maxfsum)
  real,            intent(out)   :: vsigmax
  logical,         intent(in)    :: ifilledcellcache
@@ -2610,7 +2610,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  integer(kind=1), intent(inout) :: ibin_wake(:)
  integer(kind=1), intent(in)    :: ibinnow_m1
  real,            intent(in)    :: stressmax
- real,            intent(in)    :: xyzcache(:,:)
+ real,            intent(in)    :: xyzcache(nforcecache,maxcellcache)
  real,            intent(in)    :: rad(:,:)
  real,            intent(inout) :: radprop(:,:)
  real,            intent(in)    :: dens(:),metrics(:,:,:,:)
