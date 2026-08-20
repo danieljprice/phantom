@@ -15,12 +15,15 @@ module ptmass_radiation
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
+!   - beta0_dust : *radiation pressure beta (Frad/Fgrav) for a grain of size s0_dust*
 !   - beta_vgrad : *characterize the steepness of the velocity gradient of the wind profile*
+!   - ibeta_sink : *sink that radiates for isink_radiation=5 (0=all sinks with L>0)*
 !   - iget_tdust : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)*
+!   - s0_dust    : *reference grain size for beta0_dust (in cm)*
 !   - tdust_exp  : *exponent of the dust temperature profile*
 !
-! :Dependencies: dim, dust_formation, infile_utils, io, part, physcon,
-!   raytracer, units
+! :Dependencies: dim, dust_formation, infile_utils, io, options, part,
+!   physcon, raytracer, units
 !
 
  implicit none
@@ -29,11 +32,19 @@ module ptmass_radiation
  integer, public  :: iray_resolution = -1
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: beta_vgrad      = 0.8
+ !
+ !--options for isink_radiation = 5: radiation pressure on dust grains, with
+ !  beta(s) = beta0_dust*s0_dust/s   (beta inversely proportional to grain size)
+ !
+ real,    public  :: beta0_dust      = 0.
+ real,    public  :: s0_dust         = 1.e-4  ! reference grain size, in cm
+ integer, public  :: ibeta_sink      = 1      ! radiating sink (0 = all sinks with L > 0)
 
  public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
  public :: get_dust_temperature
  public :: init_radiation_ptmass
+ public :: get_beta_grain,get_beta_particle,get_phi_rad,get_grad_phi_rad
 
  private
 
@@ -51,6 +62,164 @@ subroutine init_radiation_ptmass(ierr)
  ierr = 0
 
 end subroutine init_radiation_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  beta = Frad/Fgrav for a single grain of size s (s in CODE units)
+!
+!  beta(s) = beta0_dust*s0_dust/s, so that a grain of size s0_dust
+!  (specified in cm in the .in file) has beta = beta0_dust
+!+
+!-----------------------------------------------------------------------
+real function get_beta_grain(s) result(betai)
+ use units, only:udist
+ real, intent(in) :: s
+
+ betai = 0.
+ if (s > tiny(s)) betai = beta0_dust*real(s0_dust/udist)/s
+
+end function get_beta_grain
+
+!-----------------------------------------------------------------------
+!+
+!  effective beta for SPH particle i, i.e. the factor by which the
+!  gravitational attraction of the radiating sink(s) is reduced for
+!  that particle.  Handles all four combinations of dust method:
+!
+!   * two-fluid (dust-as-particles): particle i is a dust particle of
+!     type idust+l-1, so its grain size is grainsize(l).  Gas particles
+!     with no dust fraction get beta = 0.
+!
+!   * one-fluid (dust-as-mixture): particle i is a single mixture
+!     particle carrying dustfrac(l,i) for each small grain species.
+!     Only the dust component feels the radiation, so the acceleration
+!     of the BARYCENTRE is reduced by
+!         beta_eff = sum_l dustfrac(l,i)*beta(grainsize(l))
+!     (the differential dust-gas drift this drives is handled
+!      separately, in force.F90 -- see get_phi_rad below)
+!
+!   * hybrid (dust_method=3): both of the above, in that order
+!
+!   * single or multiple grain sizes: falls out automatically, since
+!     grainsize is an array over dust species
+!+
+!-----------------------------------------------------------------------
+real function get_beta_particle(i) result(betai)
+ use dim,     only:use_dust,maxp
+ use options, only:use_dustfrac
+ use part,    only:iphase,iamdust,idusttype,maxphase,grainsize,dustfrac,ndustsmall
+ integer, intent(in) :: i
+ integer :: l
+
+ betai = 0.
+ if (.not.use_dust) return
+ if (i < 1) return   ! sink particles (called with ii=-i) never feel radiation pressure
+ !
+ !--two-fluid: dust lives on its own particles, one species per particle type
+ !
+ if (maxphase==maxp) then
+    if (iamdust(iphase(i))) then
+       betai = get_beta_grain(grainsize(idusttype(iphase(i))))
+       return
+    endif
+ endif
+ !
+ !--one-fluid: mass-weighted beta over the small grain species carried by particle i
+ !
+ if (use_dustfrac) then
+    do l=1,ndustsmall
+       betai = betai + dustfrac(l,i)*get_beta_grain(grainsize(l))
+    enddo
+ endif
+
+end function get_beta_particle
+
+!-----------------------------------------------------------------------
+!+
+!  potential of the radiating sink(s) at position (x,y,z), in code units
+!
+!  Used by force.F90 to build the radiation-driven dust drift for
+!  one-fluid dust: the differential acceleration between dust and gas is
+!      a_dust - a_gas = beta*grad(Phi_rad)
+!  so the dust flux has exactly the same mathematical form as the
+!  pressure-driven flux, with P replaced by beta*Phi_rad
+!+
+!-----------------------------------------------------------------------
+subroutine get_phi_rad(x,y,z,nptmass,xyzmh_ptmass,phi)
+ use part, only:ilum
+ integer, intent(in)  :: nptmass
+ real,    intent(in)  :: x,y,z,xyzmh_ptmass(:,:)
+ real,    intent(out) :: phi
+ integer :: j
+ real    :: dx,dy,dz,r2
+
+ phi = 0.
+ do j=1,nptmass
+    if (xyzmh_ptmass(4,j) < 0.) cycle
+    if (.not.sink_is_radiating(j,xyzmh_ptmass(ilum,j))) cycle
+    dx = x - xyzmh_ptmass(1,j)
+    dy = y - xyzmh_ptmass(2,j)
+    dz = z - xyzmh_ptmass(3,j)
+    r2 = dx*dx + dy*dy + dz*dz
+    if (r2 > tiny(r2)) phi = phi - xyzmh_ptmass(4,j)/sqrt(r2)
+ enddo
+
+end subroutine get_phi_rad
+
+!-----------------------------------------------------------------------
+!+
+!  grad(Phi_rad) at position (x,y,z), i.e. the outward unit vector times
+!  GM/r^2 summed over the radiating sinks.  Multiplied by beta this is
+!  the differential acceleration between dust and gas
+!+
+!-----------------------------------------------------------------------
+subroutine get_grad_phi_rad(x,y,z,nptmass,xyzmh_ptmass,gradphi)
+ use part, only:ilum
+ integer, intent(in)  :: nptmass
+ real,    intent(in)  :: x,y,z,xyzmh_ptmass(:,:)
+ real,    intent(out) :: gradphi(3)
+ integer :: j
+ real    :: dx,dy,dz,r2,fac
+
+ gradphi(:) = 0.
+ do j=1,nptmass
+    if (xyzmh_ptmass(4,j) < 0.) cycle
+    if (.not.sink_is_radiating(j,xyzmh_ptmass(ilum,j))) cycle
+    dx = x - xyzmh_ptmass(1,j)
+    dy = y - xyzmh_ptmass(2,j)
+    dz = z - xyzmh_ptmass(3,j)
+    r2 = dx*dx + dy*dy + dz*dz
+    if (r2 > tiny(r2)) then
+       fac = xyzmh_ptmass(4,j)/(r2*sqrt(r2))
+       gradphi(1) = gradphi(1) + fac*dx
+       gradphi(2) = gradphi(2) + fac*dy
+       gradphi(3) = gradphi(3) + fac*dz
+    endif
+ enddo
+
+end subroutine get_grad_phi_rad
+
+!-----------------------------------------------------------------------
+!+
+!  is sink j a source of radiation pressure?
+!+
+!-----------------------------------------------------------------------
+logical function sink_is_radiating(j,Lstar) result(is_rad)
+ integer, intent(in) :: j
+ real,    intent(in) :: Lstar
+
+ if (isink_radiation == 5) then
+    ! beta is prescribed directly, so no luminosity is required
+    if (ibeta_sink > 0) then
+       is_rad = (j == ibeta_sink)
+    else
+       is_rad = (Lstar > 0.)
+    endif
+ else
+    is_rad = (Lstar > 0.)
+ endif
+
+end function sink_is_radiating
 
 !-----------------------------------------------------------------------
 !+
@@ -89,7 +258,8 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
     vwind  = xyzmh_ptmass(ivwind,j)
     alpha_rad = xyzmh_ptmass(iwalpha,j)
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
-    if (Lstar > 0.d0) then
+    !(for isink_radiation=5, beta is prescribed directly so no luminosity is needed)
+    if (sink_is_radiating(j,Lstar)) then
        if (extrap) then
           dx = xi - xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j)
           dy = yi - xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j)
@@ -118,9 +288,23 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,a
  real,    intent(in)    :: dx,dy,dz,Lstar,Mstar,rstar,vwind,alpha_rad
  real,    intent(inout) :: fextx,fexty,fextz
  real,    intent(in), optional :: tau(:)
- real                             :: r,ax,ay,az,alpha,kappa
+ real                             :: r,ax,ay,az,alpha,kappa,fac
 
  r = sqrt(dx**2 + dy**2 + dz**2)
+ !
+ !--radiation pressure on dust grains with beta = beta0_dust*s0_dust/s
+ !  (no Poynting-Robertson drag: this is a pure 1/r^2 repulsion, so it
+ !   simply reduces the gravity of the sink by a factor (1-beta))
+ !
+ if (isink_radiation == 5) then
+    if (r > tiny(r)) then
+       fac   = get_beta_particle(i)*Mstar/(r*r*r)
+       fextx = fextx + fac*dx
+       fexty = fexty + fac*dy
+       fextz = fextz + fac*dz
+    endif
+    return
+ endif
  if (do_nucleation) then
     if (itau_alloc == 1) then
        call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwind,&
@@ -420,7 +604,12 @@ subroutine write_options_ptmass_radiation(iunit)
 
  write(iunit,"(/,a)") '# options controlling radiation pressure from sink particles'
  call write_inopt(isink_radiation,'isink_radiation', &
-                  'sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust,4=alpha profile)',iunit)
+     'sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust,4=alpha profile,5=beta(grainsize))',iunit)
+ if (isink_radiation == 5) then
+    call write_inopt(beta0_dust,'beta0_dust','radiation pressure beta (Frad/Fgrav) for a grain of size s0_dust',iunit)
+    call write_inopt(s0_dust,'s0_dust','reference grain size for beta0_dust (in cm)',iunit)
+    call write_inopt(ibeta_sink,'ibeta_sink','sink that radiates (0=all sinks with L>0)',iunit)
+ endif
  if (isink_radiation == 2 .or. isink_radiation == 3) then
     call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)',iunit)
     if (iget_tdust /= 2) call write_inopt(iray_resolution,&
@@ -442,13 +631,19 @@ end subroutine write_options_ptmass_radiation
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(db,nerr)
  use io,             only:error
- use dim,            only:itau_alloc,itauL_alloc
+ use dim,            only:itau_alloc,itauL_alloc,use_dust
  use infile_utils,   only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter :: label = 'read_infile'
 
- call read_inopt(isink_radiation,'isink_radiation',db,errcount=nerr,min=0,max=4)
+ call read_inopt(isink_radiation,'isink_radiation',db,errcount=nerr,min=0,max=5)
+ if (isink_radiation == 5) then
+    call read_inopt(beta0_dust,'beta0_dust',db,errcount=nerr,min=0.)
+    call read_inopt(s0_dust,'s0_dust',db,errcount=nerr,min=tiny(s0_dust))
+    call read_inopt(ibeta_sink,'ibeta_sink',db,errcount=nerr,min=0,default=ibeta_sink)
+    if (.not.use_dust) call error(label,'isink_radiation=5 requires the code to be compiled with DUST=yes')
+ endif
  if (isink_radiation == 2 .or. isink_radiation == 3) then
     call read_inopt(iget_tdust,'iget_tdust',db,errcount=nerr,min=0,max=4)
     if (iget_tdust /= 2) call read_inopt(iray_resolution,'iray_resolution',db,errcount=nerr,min=-1)
