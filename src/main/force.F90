@@ -1423,7 +1423,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
 
 #ifdef GRAVITY
-       fgrav = 0.5*(pmassj*fmi + pmassi*fmj) + 0.5*(dsofti + dsoftj)
+       ! derivation of this term has been performed carefully by DJP to be
+       ! correct when h is computed from number density, the expression
+       ! reduces to that given in PM07 when m_i=m_j
+       fgrav = 0.5*pmassj*(fmi + fmj) + 0.5*(dsofti + dsoftj*(pmassj/pmassi))
 #else
        fgrav = 0.
 #endif
