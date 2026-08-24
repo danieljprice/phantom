@@ -929,7 +929,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,use_sinktree,disc_viscosity,track_lum
  use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
- use eos,         only:ieos,eos_is_non_ideal,icooling
+ use eos,         only:ieos,eos_is_non_ideal,use_var_comp,icooling
  use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -1381,7 +1381,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        if (iamgasj .and. .not.isothermal) then
           enj = vxyzu(4,j)
-          if (eos_is_non_ideal(ieos)) then  ! only do this if eos requires temperature in physical units
+          if (eos_is_non_ideal(ieos) .or. use_var_comp) then  ! only do this if eos requires temperature in physical units
              tempj = eos_vars(itemp,j)
              denij = 0.5*(eni/max(tempi,1.) + enj/max(tempj,1.))*(tempi - tempj)  !dU = c_V * dT, but with a floor to avoid issues with very low temperatures
           else
