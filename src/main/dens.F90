@@ -129,7 +129,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpimemory,   only:stack_waiting => dens_stack_2
  use mpimemory,   only:stack_redo    => dens_stack_3
  use mpiderivs,   only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                       finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
+                       finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,&
+                       init_send_requests
  use timestep,    only:rhomaxnow
  use part,        only:ngradh
  use viscosity,   only:irealvisc
@@ -292,8 +293,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  call get_timings(t1,tcpu1)
  !$omp end single
 
- !--initialise send requests to 0
- irequestsend = 0
+ !--initialise send requests to null
+ call init_send_requests(irequestsend)
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
