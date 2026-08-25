@@ -121,6 +121,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
    else
     dt_cgs = (time - tprev)*utime
+    iprev = 0
     completed_iterations = 0
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
     print*, "Building neighbour tree..."
@@ -164,21 +165,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (i <= nprev) then
-             if (iorig(i) == iorig_old(i)) then
-                iprev(i) = i
-                j = i
+          inner: do j=1,nprev
+             if (iorig(i) == iorig_old(j)) then
+                iprev(i) = j
+                exit inner
              endif
-          endif
-          if (iprev(i) == 0) then
-             inner: do k=1,nprev
-                if (iorig(i) == iorig_old(k)) then
-                   iprev(i) = k
-                   j = k
-                   exit inner
-                endif
-             enddo inner
-          endif
+          enddo inner
 
           if (iprev(i) /= 0) then
              ! if particle existed in previous dump, evolve abundances
