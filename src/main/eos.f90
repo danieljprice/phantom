@@ -530,7 +530,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
     spsoundi = sqrt(gammai*ponrhoi)
-   case (25) ! zero temperature EOS
+ case (25) ! zero temperature EOS
     cgsrhoi = rhoi * unit_density
 
     call get_zerotemp_pressure(cgsrhoi,cgspresi)
@@ -1816,7 +1816,7 @@ subroutine write_options_eos(iunit)
  case(23)
     call write_options_eos_tillotson(iunit)
  case(25)
-   call write_options_eos_zerotemp(iunit)
+    call write_options_eos_zerotemp(iunit)
  end select
 
  if (.not.isothermal .and. eos_allows_shock_and_work(ieos)) then

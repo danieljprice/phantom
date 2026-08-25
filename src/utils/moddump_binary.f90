@@ -16,9 +16,10 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, eos, extern_corotate, externalforces,
-!   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
-!   readwrite_mesa, setbinary, table_utils, timestep, units, vectorutils
+! :Dependencies: centreofmass, dim, eos, extern_corotate,
+!   extern_gwinspiral, externalforces, infile_utils, io, options, part,
+!   physcon, prompting, readwrite_dumps, readwrite_mesa, setbinary,
+!   table_utils, timestep, units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

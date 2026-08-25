@@ -13,7 +13,6 @@ module set_dust_options
 ! :Owner: Mark Hutchison
 !
 ! :Runtime parameters:
-!   - dust_method       : *dust method (1=one fluid,2=two fluid,3=Hybrid)*
 !   - dust_to_gas       : *dust to gas ratio*
 !   - graindensinp      : *intrinsic grain density (in g/cm^3)*
 !   - graindenslargeinp : *intrinsic grain density (in g/cm^3)*

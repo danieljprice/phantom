@@ -52,6 +52,7 @@ module mpiderivs
  public :: deallocate_cell_comms_arrays
 
  public :: init_cell_exchange
+ public :: init_send_requests
  public :: send_cell
  public :: recv_cells
  public :: check_send_finished
@@ -188,6 +189,25 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,d
  dtype = 0
 #endif
 end subroutine init_cellforce_exchange
+
+!-----------------------------------------------------------------------
+!+
+!  Subroutine to initialize send request handles to null
+!+
+!-----------------------------------------------------------------------
+subroutine init_send_requests(irequestsend)
+ integer, intent(out) :: irequestsend(nprocs)
+
+!--instead of simply assigning 0, assign MPI_REQUEST_NULL
+!  it is infact 0 in open mpi, but 0x2c000000 for MPICH-derived MPI. 
+
+#ifdef MPI
+ irequestsend = MPI_REQUEST_NULL
+#else
+ irequestsend = 0
+#endif
+
+end subroutine init_send_requests
 
 !-----------------------------------------------------------------------
 !+
