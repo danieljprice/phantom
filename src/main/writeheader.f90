@@ -152,6 +152,8 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     endif
 
     write(iprint,"(/,a)") ' Using '//trim(kernelname)//' kernel'
+    if (two_kernel) write(iprint,"(a)") &
+       ' Number density uses smooth-shift-4 companion kernel (two_kernel=T)'
 
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
     write(iprint,50) hfact, massoftype(1), tolh, Nneigh
