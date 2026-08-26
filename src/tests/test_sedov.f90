@@ -35,8 +35,8 @@ subroutine test_sedov(ntests,npass)
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
-                    alphaind,rad,radprop,ikappa
- use part,     only:iphase,maxphase,igas,isetphase,rhoh,iradxi
+                    alphaind,rad,radprop,ikappa,rho,init_rho_from_h
+ use part,     only:iphase,maxphase,igas,isetphase,iradxi
  use eos,      only:gamma,polyk,gmw,get_cv
  use eos_idealplusrad, only:get_idealplusrad_temp
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
@@ -144,7 +144,8 @@ subroutine test_sedov(ntests,npass)
        endif
     enddo
     if (do_radiation) then
-       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+       call init_rho_from_h()
+       call set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad)
        radprop(ikappa,1:npart) = bignumber
     endif
     tmax    = 0.1

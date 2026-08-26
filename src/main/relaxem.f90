@@ -27,6 +27,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  use deriv,     only:get_derivs_global
  use dim,       only:gr,mpi
  use io,        only:error
+ use part,      only:rho
 
  integer, intent(in) :: npart,n_ref,nrelax
  real,    intent(in) :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
@@ -65,7 +66,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
 
     ! Shift the particles by minimising the difference between the acceleration at the new particles and
     ! the interpolated values (i.e. what they do have minus what they should have)
-    call shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
+    call shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift,rho)
 
     if (ishift == 0) ke_init = ke
 
@@ -102,7 +103,7 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
  real,    intent(in)  :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
  integer, intent(in)  :: relaxlist(nrelax)
  real,    intent(out) :: a_ref(3,npart)
- real :: xi,yi,zi,rij(3),h21,qj2,rij2,rhoj,h31,mass_ref,pmassi
+ real :: xi,yi,zi,rij(3),h21,qj2,rij2,rhoj,h31,mass_ref
  integer :: i,j,k
 
  a_ref(:,:) = 0.
@@ -112,7 +113,7 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
  !$omp shared(xyzh,xyzh_ref,npart,n_ref,force_ref,a_ref,relaxlist) &
  !$omp shared(nrelax,apr_level,dxbound,dybound,dzbound) &
  !$omp shared(mass_ref,aprmassoftype) &
- !$omp private(i,j,xi,yi,zi,rij,h21,h31,rhoj,rij2,qj2,pmassi)
+ !$omp private(i,j,xi,yi,zi,rij,h21,h31,rhoj,rij2,qj2)
 
  over_new: do k = 1,nrelax
     if (relaxlist(k) == 0) cycle over_new
@@ -120,7 +121,6 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
-    pmassi = aprmassoftype(igas,apr_level(i))
 
     ! Over the reference set of particles to which we are matching the accelerations
     over_reference: do j = 1,n_ref  ! later this should only be over active particles
@@ -161,20 +161,18 @@ end subroutine get_reference_accelerations
 !+
 !----------------------------------------------------------------
 
-subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
+subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift,rho)
  use dim,      only:periodic,gr
- use part,     only:xyzh,vxyzu,fxyzu,igas,aprmassoftype,rhoh, &
-                     apr_level,fext
+ use part,     only:xyzh,vxyzu,fxyzu,fext
  use eos,      only:get_spsound
  use options,  only:ieos
  use boundary, only:cross_boundary
  use mpidomain, only:isperiodic
  integer, intent(in)  :: npart,nrelax
- real,    intent(in)  :: a_ref(3,npart)
+ real,    intent(in)  :: a_ref(3,npart),rho(:)
  integer, intent(in)  :: relaxlist(nrelax)
  real,    intent(out) :: ke,maxshift
  real :: hi,rhoi,cs,dti,dx(3),vi(3),err,limit_bound
- real :: pmassi
  integer :: nlargeshift,i,ncross,j
 
  ke = 0.
@@ -185,16 +183,15 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
 
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,ieos,a_ref,maxshift) &
- !$omp shared(split_dir,fext,apr_level,aprmassoftype) &
+ !$omp shared(split_dir,fext,rho) &
  !$omp shared(isperiodic,ncross,relaxlist,nrelax) &
- !$omp private(i,dx,dti,cs,rhoi,hi,vi,err,pmassi) &
+ !$omp private(i,dx,dti,cs,rhoi,hi,vi,err) &
  !$omp reduction(+:nlargeshift,ke)
  do j=1,nrelax
     if (relaxlist(j) == 0) cycle
     i = relaxlist(j)
     hi = xyzh(4,i)
-    pmassi = aprmassoftype(igas,apr_level(i))
-    rhoi = rhoh(hi,pmassi)
+    rhoi = rho(i)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs
     if (split_dir == 2) dti = 0.1*hi/cs   ! h/cs

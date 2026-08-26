@@ -49,7 +49,7 @@ module setup
 !   set_dust_options, setunits, setup_params, spherical, systemutils,
 !   timestep, unifdis, units, utils_shuffleparticles, velfield
 !
- use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge
+ use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge,rho
  use dim,      only:use_dust,maxvxyzu,periodic,maxdustsmall,gr,isothermal
  use options,  only:calc_erot,use_dustfrac
  use setunits, only:dist_unit,mass_unit
@@ -356,7 +356,7 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
  use unifdis,                only:set_unifdis
  use spherical,              only:set_sphere
  use mpidomain,              only:i_belong
- use part,                   only:set_particle_type,igas,idust,dustfrac,ndusttypes
+ use part,                   only:set_particle_type,igas,idust,dustfrac,ndusttypes,rho
  use utils_shuffleparticles, only:shuffleparticles
  use centreofmass,           only:reset_centreofmass
  use io,                     only:iprint
@@ -463,10 +463,10 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
  if (shuffle_parts) then
     print*, "lets shuffle!"
     if (BEsphere) then
-       call shuffleparticles(iprint,npart,xyzh,massoftype(igas),dmedium=dens_medium,ntab=iBElast, &
+       call shuffleparticles(iprint,npart,xyzh,massoftype(igas),rho,dmedium=dens_medium,ntab=iBElast, &
                              rtab=rtab,dtab=rhotab,dcontrast=density_contrast,is_setup=.true.,prefix=trim(fileprefix))
     else
-       call shuffleparticles(iprint,npart,xyzh,massoftype(igas), &
+       call shuffleparticles(iprint,npart,xyzh,massoftype(igas),rho, &
                              rsphere=rmax,dsphere=dens_sphere,dmedium=dens_medium,is_setup=.true.,prefix=trim(fileprefix))
     endif
  endif

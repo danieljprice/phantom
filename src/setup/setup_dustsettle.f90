@@ -58,7 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,        only:set_unifdis,rho_func
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
-                          grainsize,graindens,periodic,rad
+                          grainsize,graindens,periodic,rad,rho,init_rho_from_h
  use physcon,        only:pi,au,solarm
  use dim,            only:maxvxyzu,maxdustsmall
  use externalforces, only:Rdisc,iext_discgravity
@@ -216,7 +216,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  massoftype(itype)  = totmass/npartoftype(itype)
  if (use_dust) massoftype(itype) = massoftype(itype)*(1. + dtg)
 
- if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+ if (do_radiation) then
+    call init_rho_from_h()
+    call set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad)
+ endif
 
  if (id==master) then
     print*,' npart,npart_total     = ',npart,npart_total

@@ -45,7 +45,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use timestep,     only:tmax,dtmax
  use options,      only:alphau
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
- use part,         only:hfact,igas,periodic,set_particle_type
+ use part,         only:hfact,igas,periodic,set_particle_type,rho
  use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
  use utils_shuffleparticles, only:shuffleparticles
@@ -112,7 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     call set_particle_type(i,igas)
  enddo
  if (shuffle_parts) then
-    call shuffleparticles(iprint,npart,xyzh,massoftype(igas),duniform=rhozero,&
+    call shuffleparticles(iprint,npart,xyzh,massoftype(igas),rho,duniform=rhozero,&
          is_setup=.true.,prefix=trim(fileprefix))
  endif
 

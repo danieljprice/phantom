@@ -78,14 +78,16 @@ end subroutine init_inject
 !  Note that we actually only inject thermal energy, not kinetic energy
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
  use io,      only:id,master
  use eos,     only:gamma
- use part,    only:rhoh,massoftype,iphase,igas,iunknown
+ use part,    only:iphase,iunknown
  use partinject, only:updated_particle
  real,    intent(in)    :: time, dtlast_u
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
@@ -119,7 +121,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        dx = xyzh(1:3,i) - xyz_sn(1:3,i_sn)
        r2 = dot_product(dx,dx)
        if (r2 < r_sn**2) then
-          rhoi = rhoh(xyzh(4,i),massoftype(igas))
+          rhoi = rho(i)
           uval = pr_sn / ((gamma - 1.)*rhoi)
           print*,'New & Old thermal energy: ',uval,vxyzu(4,i)
           vxyzu(4,i) = uval

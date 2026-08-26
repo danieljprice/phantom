@@ -309,7 +309,7 @@ end subroutine split_dir_two
 !-----------------------------------------------------------------------
 subroutine split_dir_gr(i,i_new,sepin)
  use part, only:xyzh,apr_level,copy_particle_all,aprmassoftype,igas,itemp, &
-                vxyzu,pxyzu,dens,eos_vars,igasP,igamma,metrics,metricderivs,fext
+                vxyzu,pxyzu,dens,eos_vars,igasP,igamma,metrics,metricderivs,fext,rho
  use vectorutils, only:cross_product3D,rotatevec
  use physcon, only:pi
  use dim,  only:ind_timesteps
@@ -330,7 +330,7 @@ subroutine split_dir_gr(i,i_new,sepin)
 
  ! new part forward
  xyzh(4,i_new) = hnew ! set new smoothing length
- call integrate_geodesic_gr(pmass,xyzh(:,i_new),vxyzu(:,i_new),dens(i_new),eos_vars(igasP,i_new), &
+ call integrate_geodesic_gr(pmass,xyzh(:,i_new),vxyzu(:,i_new),rho(i_new),dens(i_new),eos_vars(igasP,i_new), &
                          eos_vars(igamma,i_new),eos_vars(itemp,i_new),pxyzu(:,i_new),sep)
  call pack_metric(xyzh(1:3,i_new),metrics(:,:,:,i_new))
  call pack_metricderivs(xyzh(1:3,i_new),metricderivs(:,:,:,i_new))
@@ -343,7 +343,7 @@ subroutine split_dir_gr(i,i_new,sepin)
  vxyzu(1:3,i) = -vxyzu(1:3,i)
  pxyzu(1:3,i) = -pxyzu(1:3,i)
  xyzh(4,i) = hnew
- call integrate_geodesic_gr(pmass,xyzh(:,i),vxyzu(:,i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
+ call integrate_geodesic_gr(pmass,xyzh(:,i),vxyzu(:,i),rho(i),dens(i),eos_vars(igasP,i),eos_vars(igamma,i),eos_vars(itemp,i), &
                         pxyzu(:,i),sep)
  ! switch direction back
  vxyzu(1:3,i) = -vxyzu(1:3,i)
@@ -379,18 +379,15 @@ end subroutine put_in_smallest_bin
 subroutine integrate_geodesic(pmass,xyzh,vxyzu,dist,timei)
  use options,        only:iexternalforce
  use externalforces, only:externalforce,externalforce_vdependent
- use part,           only:rhoh
  real, intent(inout) :: xyzh(:),vxyzu(:)
  real, intent(in)    :: dist,timei,pmass
  real :: fext(3),fextv(3)
- real :: t,tend,v,dt,dens
- real :: xyz(3),vxyz(1:3),poti,uui
+ real :: t,tend,v,dt
+ real :: xyz(3),vxyz(1:3),poti
 
  xyz       = xyzh(1:3)
  vxyz      = vxyzu(1:3)
  fext      = 0.
- uui       = vxyzu(4)
- dens      = rhoh(xyzh(4),pmass)
 
  v = sqrt(dot_product(vxyz,vxyz))
  tend = dist/v
@@ -398,7 +395,7 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dist,timei)
  if (iexternalforce > 0) then
     call externalforce(iexternalforce,xyz(1),xyz(2),xyz(3),xyzh(4), &
                                 timei,fext(1),fext(2),fext(3),poti,dt)
-    call externalforce_vdependent(iexternalforce,xyz,vxyz,fextv,poti,dens,uui)
+    call externalforce_vdependent(iexternalforce,xyz,vxyz,fextv,poti)
     fext = fext + fextv
  endif
 
@@ -414,7 +411,7 @@ subroutine integrate_geodesic(pmass,xyzh,vxyzu,dist,timei)
     if (iexternalforce > 0) then
        call externalforce(iexternalforce,xyz(1),xyz(2),xyz(3),xyzh(4), &
                                 timei,fext(1),fext(2),fext(3),poti,dt)
-       call externalforce_vdependent(iexternalforce,xyz,vxyz,fextv,poti,dens,uui)
+       call externalforce_vdependent(iexternalforce,xyz,vxyz,fextv,poti)
        fext = fext + fextv
     endif
  enddo
@@ -429,16 +426,16 @@ end subroutine integrate_geodesic
 !  Update vel and metric for best energy conservation
 !+
 !-----------------------------------------------------------------------
-subroutine integrate_geodesic_gr(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
+subroutine integrate_geodesic_gr(pmass,xyzh,vxyzu,rhoi,dens,pr,gamma,temp,pxyzu,dist)
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use eos,            only:ieos,equationofstate
  use cons2primsolver,only:conservative2primitive
  use io,             only:warning
- use part,           only:rhoh,ien_type
+ use part,           only:ien_type
  real, intent(inout) :: xyzh(:),vxyzu(:),pxyzu(:)
  real, intent(inout) :: dens,pr,gamma,temp,pmass
- real, intent(in)    :: dist
+ real, intent(in)    :: dist,rhoi
  real :: metrics(0:3,0:3,2),metricderivs(0:3,0:3,3),fext(3)
  real :: t,tend,v,dt
  real :: xyz(3),pxyz(3),eni,vxyz(1:3),uui,rho,spsoundi,pondensi
@@ -449,7 +446,7 @@ subroutine integrate_geodesic_gr(pmass,xyzh,vxyzu,dens,pr,gamma,temp,pxyzu,dist)
  eni       = pxyzu(4)
  vxyz      = vxyzu(1:3)
  uui       = vxyzu(4)
- rho       = rhoh(xyzh(4),pmass)
+ rho       = rhoi
 
  v = sqrt(dot_product(vxyz,vxyz))
  tend = dist/v

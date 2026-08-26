@@ -313,7 +313,7 @@ end subroutine test_dustybox
 subroutine test_dustydiffuse(ntests,npass)
  use dim,       only:periodic,maxtypes,mhd,use_dust,maxdustsmall
  use part,      only:init_part,hfact,npart,npartoftype,massoftype,igas,dustfrac,ddustevol,dustevol,&
-                     xyzh,vxyzu,fext,fxyzu,set_particle_type,rhoh,ndusttypes,ndustsmall
+                     xyzh,vxyzu,fext,fxyzu,set_particle_type,ndusttypes,ndustsmall
  use kernel,    only:hfact_default
  use eos,       only:gamma,polyk,ieos
  use dust,      only:K_code,idrag
@@ -501,7 +501,7 @@ end subroutine test_dustydiffuse
 subroutine test_drag(ntests,npass)
  use dim,         only:periodic,maxtypes,maxvxyzu,maxdustlarge,use_dustgrowth
  use part,        only:init_part,hfact,npart,npartoftype,massoftype,igas,&
-                       xyzh,vxyzu,fext,fxyzu,set_particle_type,rhoh,dustprop,&
+                       xyzh,vxyzu,fext,fxyzu,set_particle_type,dustprop,&
                        idust,iphase,iamtype,ndusttypes,grainsize,graindens
  use options,     only:use_dustfrac
  use eos,         only:polyk,ieos

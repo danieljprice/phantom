@@ -904,7 +904,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  use mpiutils,    only:reduceall_mpi
  use options,     only:ieos,alpha,alphau,alphaB,tolh
  use part,        only:init_part,npart,xyzh,fxyzu,hfact,&
-                       npartoftype,massoftype,istar,maxphase,iphase,isetphase,rhoh
+                       npartoftype,massoftype,istar,maxphase,iphase,isetphase
  use setup_params,only:npart_total
  use testutils,   only:checkval,update_test_scores
  use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile

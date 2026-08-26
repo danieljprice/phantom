@@ -37,7 +37,7 @@ contains
 !+
 !------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hfact,time,fileprefix)
- use part,           only:igas,gr,xyzmh_ptmass,vxyz_ptmass
+ use part,           only:igas,gr,xyzmh_ptmass,vxyz_ptmass,rho
  use options,        only:iexternalforce
  use units,          only:set_units
  use inject,         only:init_inject,inject_particles,dtsphere,rin,drdp,iboundspheres
@@ -109,7 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     write(iprint,*) 'number of "real" spheres: ',nspheres
     fac = 1.+1.e-15
     npart_old = npart
-    call inject_particles(dtsphere*nspheres*fac,dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,&
+    call inject_particles(dtsphere*nspheres*fac,dtsphere*nspheres,xyzh,vxyzu,rho,xyzmh_ptmass,&
                           vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
  endif
 

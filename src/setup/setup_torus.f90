@@ -40,7 +40,7 @@ module setup
 !
  use physcon, only:pi
  use dim,     only:maxvxyzu,mhd
- use part,    only:hrho,rhoh,igas
+ use part,    only:hn,rho,igas,init_rho_from_h
  implicit none
  public :: setpart
 
@@ -197,7 +197,7 @@ subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi,xyzh,vxyzu,polyk,gamm
        xyzh(1,ipart) = ri*cos(phii)
        xyzh(2,ipart) = ri*sin(phii)
        xyzh(3,ipart) = zi
-       xyzh(4,ipart) = hrho(denszi)
+       xyzh(4,ipart) = hn(denszi/massp)
        pri = polyk*denszi**gamma
        if (maxvxyzu >= 4) vxyzu(4,ipart) = pri/(denszi*(gamma-1.))
     enddo
@@ -241,7 +241,7 @@ subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi,xyzh,vxyzu,polyk,gamm
           xyzh(1,ipart) = ri*cos(phii)
           xyzh(2,ipart) = ri*sin(phii)
           xyzh(3,ipart) = zi
-          xyzh(4,ipart) = hrho(denszi)
+          xyzh(4,ipart) = hn(denszi/massp)
           pri = polyk*denszi**gamma
           if (maxvxyzu >= 4) vxyzu(4,ipart) = pri/(denszi*(gamma-1.))
        enddo
@@ -476,13 +476,13 @@ subroutine setup_velocities_and_Bfields(npart,polyk,gamma,bigG,xyzh,vxyzu,Bxyz,m
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),Bxyz(:,:),massoftype(:)
  integer :: i
- real :: densi,rcyl2,rcyl,rsph,omegai,v2onr,Bzi,dbeta,rhosum,pmassi
+ real :: densi,rcyl2,rcyl,rsph,omegai,v2onr,Bzi,dbeta,rhosum
 
  !--set magnetic field using plasma beta
+ call init_rho_from_h()
  rhosum = 0.0
- pmassi = massoftype(igas)
  do i=1,npart
-    rhosum = rhosum + rhoh(xyzh(4,i),pmassi)
+    rhosum = rhosum + rho(i)
  enddo
  rhosum = rhosum/npart
 
@@ -502,7 +502,7 @@ subroutine setup_velocities_and_Bfields(npart,polyk,gamma,bigG,xyzh,vxyzu,Bxyz,m
  !--analytic velocities
  !
  do i=1,npart
-    densi = rhoh(xyzh(4,i),pmassi)
+    densi = rho(i)
     rcyl2 = dot_product(xyzh(1:2,i),xyzh(1:2,i))
     rcyl  = sqrt(rcyl2)
     rsph  = sqrt(rcyl2 + xyzh(3,i)*xyzh(3,i))

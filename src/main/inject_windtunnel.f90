@@ -167,11 +167,13 @@ end subroutine init_inject
 !  Main routine handling wind injection.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
  use physcon,  only:pi
  real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject

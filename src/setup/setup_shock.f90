@@ -91,7 +91,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
  use dim,             only:ndim
  use options,         only:use_dustfrac,ieos
- use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,&
+ use part,            only:labeltype,set_particle_type,igas,iboundary,hn,Bxyz,&
                            periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
  use part,            only:rad,radprop,iradxi
  use kernel,          only:radkern,hfact_default
@@ -282,7 +282,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=1,npart
     delta = xyzh(1,i) - xshock
     if (delta > 0.) then
-       xyzh(4,i)  = hrho(rhoright,massoftype(igas))
+       xyzh(4,i)  = hn(rhoright/massoftype(igas))
        vxyzu(1,i) = rightstate(ivx)
        vxyzu(2,i) = rightstate(ivy)
        vxyzu(3,i) = rightstate(ivz)
@@ -290,7 +290,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (mhd) Bxyz(1:3,i) = rightstate(iBx:iBz)
        if (do_radiation) rad(iradxi,i) = rightstate(ixi)
     else
-       xyzh(4,i)  = hrho(rholeft,massoftype(igas))
+       xyzh(4,i)  = hn(rholeft/massoftype(igas))
        vxyzu(1,i) = leftstate(ivx)
        vxyzu(2,i) = leftstate(ivy)
        vxyzu(3,i) = leftstate(ivz)

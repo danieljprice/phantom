@@ -30,7 +30,7 @@ contains
 !----------------------------------------------------------
 subroutine test_externf(ntests,npass)
  use io,       only:id,master
- use part,     only:npart,xyzh,hfact,massoftype,igas,periodic,npartoftype
+ use part,     only:npart,xyzh,hfact,massoftype,igas,periodic,npartoftype,rho,init_rho_from_h
  use testutils,only:checkval,checkvalf,checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
  use externalforces, only:externalforcetype,externalforce,accrete_particles, &
                           was_accreted,iexternalforce_max,initialise_externalforces,&
@@ -84,6 +84,7 @@ subroutine test_externf(ntests,npass)
  test1: if (dotest1) then
 
     time = 0.1 ! just something non-zero
+    call init_rho_from_h()
     nfailed(:) = 0
     ncheck(:) = 0
     omega_corotate = 0.5
@@ -121,16 +122,16 @@ subroutine test_externf(ntests,npass)
           do i=1,npart
              xi(:) = xyzh(:,i)
              call externalforce(iextf,xi(1),xi(2),xi(3),xi(4),time, &
-                                fxi,fyi,fzi,pot1,dtf)
+                                fxi,fyi,fzi,pot1,dtf,rhoi=rho(i))
              !--get derivatives of potential
              call externalforce(iextf,xi(1)+dhi,xi(2),xi(3),xi(4),time, &
-                                dumx,dumy,dumz,pot2,dtf)
+                                dumx,dumy,dumz,pot2,dtf,rhoi=rho(i))
              fextxi = -(pot2 - pot1)/dhi
              call externalforce(iextf,xi(1),xi(2)+dhi,xi(3),xi(4),time, &
-                                dumx,dumy,dumz,pot2,dtf)
+                                dumx,dumy,dumz,pot2,dtf,rhoi=rho(i))
              fextyi = -(pot2 - pot1)/dhi
              call externalforce(iextf,xi(1),xi(2),xi(3)+dhi,xi(4),time, &
-                                dumx,dumy,dumz,pot2,dtf)
+                                dumx,dumy,dumz,pot2,dtf,rhoi=rho(i))
              fextzi = -(pot2 - pot1)/dhi
 
              call checkvalbuf(fxi,fextxi,tolf,'fextx = -grad phi',nfailed(2),ncheck(2),xerrmax)

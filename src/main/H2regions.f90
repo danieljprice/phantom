@@ -186,16 +186,16 @@ end subroutine update_ionrate
 ! HII feedback interface for switching algorithms
 !+
 !-----------------------------------------------------------------------
-subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
  integer, intent(in)    :: nptmass,npart
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,    intent(inout) :: eos_vars(:,:)
  select case(iH2R)
  case(1)
-    call HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    call HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
  case(2,3)
-    call HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    call HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
  end select
 
 end subroutine HII_feedback
@@ -205,8 +205,8 @@ end subroutine HII_feedback
 ! HII feedback routine using K nearest neighbors prescription
 !+
 !-----------------------------------------------------------------------
-subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
- use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
+subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
+ use part,       only:massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom,get_partinfo,iphase,itemp,imu
  use neighkdtree,   only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
@@ -214,7 +214,7 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
  use dim,        only:maxvxyzu
  use io,         only:iverbose,iprint,warning,id,master
  integer, intent(in)    :: nptmass,npart
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,    intent(inout) :: eos_vars(:,:)
  integer, parameter :: maxc  = 128
@@ -271,7 +271,7 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                 if (isgas) then
                    if (.not. isdead_or_accreted(xyzh(4,j))) then
                       ! ionising photons needed to fully ionise the current particle
-                      DNdot = DNcoeff + log10(rhoh(xyzh(4,j),pmass))
+                      DNdot = DNcoeff + log10(rho(j))
                       if (DNdot < Ndot) then
                          if (eos_vars(imu,j) - muion > epsilon(muion) ) then ! is ionised ?
                             logNdiff = DNdot - Ndot
@@ -315,10 +315,10 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
        if (momflag .and. npartin > 3) then
           j = listneigh(1)
           r_in = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
-          mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
+          mHII = ((4.*pi*(r**3-r_in**3)*rho(j))/3)
           if (mHII>3*pmass) then
              !$omp parallel do default(none) &
-             !$omp shared(mHII,xyzh,listneigh,sigd,HIIdt) &
+             !$omp shared(mHII,xyzh,listneigh,sigd,HIIdt,rho) &
              !$omp shared(mH,vxyzu,log_Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
              !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
              do k=1,npartin
@@ -330,7 +330,7 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                 dy = yj - yi
                 dz = zj - zi
                 r = dx**2 + dy**2 + dz**2
-                taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
+                taud = (rho(j)/mH)*sigd*r
                 if (taud > 1.97) taud=1.97
                 vkz = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dz/r)
                 vkx = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dx/r)
@@ -352,13 +352,13 @@ end subroutine HII_Knn
 ! HII feedback routine using inversed ray tracing method
 !+
 !-----------------------------------------------------------------------
-subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
  use part,     only:massoftype,igas,irateion,irstrom,isdead_or_accreted,&
-                    iphase,get_partinfo,noverlap,rhoh,itemp,imu
+                    iphase,get_partinfo,noverlap,itemp,imu
  use dim,      only:maxvxyzu
  use io,         only:iverbose,iprint,id,master
  integer, intent(in)    :: nptmass,npart
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,    intent(inout) :: eos_vars(:,:)
  real, save         :: xyzcache(4,maxcache)
@@ -375,7 +375,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
     !-- Rst derivation and thermal feedback
     !
 !$omp parallel default(none)&
-!$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap)&
+!$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,eos_vars,noverlap,rho)&
 !$omp shared(pmass,iphase,iH2R,Tcold,uIon,gmw)&
 !$omp private(log_Qi,i,j,xj,yj,zj,fluxi,itypei,rsrci,isgas,isdust)&
 !$omp private(isactive,noverlapi)&
@@ -395,7 +395,7 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
                 xj = xyzmh_ptmass(1,j)
                 yj = xyzmh_ptmass(2,j)
                 zj = xyzmh_ptmass(3,j)
-                call inversed_raytracing(i,(/xj,yj,zj/),xyzh,xyzcache,noverlap,&
+                call inversed_raytracing(i,(/xj,yj,zj/),xyzh,rho,xyzcache,noverlap,&
                                             pmass,log_Qi,fluxi,rsrci)
                 if (fluxi > 0.) then
                    eos_vars(itemp,i) = Tion
@@ -424,15 +424,15 @@ end subroutine HII_ray
 ! find nearest particles along the ray from target to source
 !+
 !-----------------------------------------------------------------------
-subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,flux,rsrc)
- use part,     only:rhoh,iphase,get_partinfo
+subroutine inversed_raytracing(itarg,srcpos,xyzh,rho,xyzcache,noverlap,pmass,log_Q,flux,rsrc)
+ use part,     only:iphase,get_partinfo
  use neighkdtree, only:getneigh_pos,leaf_is_active,listneigh
  use kernel,   only:radkern
  use physcon,  only:fourpi
  use units,    only:utime
  integer, intent(in)    :: itarg
  integer, intent(in)    :: noverlap(:)
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(inout) :: xyzcache(:,:)
 
  real, intent(in)  :: srcpos(3),pmass,log_Q
@@ -527,7 +527,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
        !
        !-- compute partial recombination volume if overlapped region
        !
-       recvol = ar*((rhoh(hi,pmass)+rhoh(hj,pmass))*hpmass1)**2
+       recvol = ar*((rho(i)+rho(inext))*hpmass1)**2
        noverlapj = noverlap(inext)
        if (noverlapj>0) recvol = recvol*(1./noverlap(inext))
        !
@@ -559,7 +559,7 @@ subroutine inversed_raytracing(itarg,srcpos,xyzh,xyzcache,noverlap,pmass,log_Q,f
     !-- Last iteration before reaching the source
     !
     drprojmin = dr
-    recvol = ar*(2.*rhoh(hi,pmass)*hpmass1)**2
+    recvol = ar*(2.*rho(i)*hpmass1)**2
 
     noverlapj = noverlap(inext)
     if (noverlapj>0) recvol = recvol/noverlap(inext)

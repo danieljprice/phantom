@@ -43,7 +43,7 @@ subroutine test_derivs(ntests,npass,string)
  use kernel,       only:radkern,kernelname
  use part,         only:npart,npartoftype,igas,xyzh,hfact,tolh,vxyzu,fxyzu,init_part,&
                         divcurlv,divcurlB,divBsymm,Bevol,dBevol,&
-                        Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
+                        Bextx,Bexty,Bextz,alphaind,maxphase,rho,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
                         idivv,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
  use unifdis,      only:set_unifdis
@@ -428,7 +428,7 @@ subroutine test_derivs(ntests,npass,string)
           dmdust(:) = 0.
           do i=1,npart
              dustfraci(:)  = dustfrac(1:ndustsmall,i)
-             rhoi          = rhoh(xyzh(4,i),massoftype(igas))
+             rhoi          = rho(i)
              drhodti       = -rhoi*divcurlv(1,i)
              !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
              sonrhoi(:)    = sqrt(dustfraci(:)*(1.-dustfraci(:)))
@@ -554,7 +554,7 @@ subroutine test_derivs(ntests,npass,string)
           deint = 0.
           demag = 0.
           do i=1,npart
-             rho1i = 1./rhoh(xyzh(4,i),massoftype(1))
+             rho1i = 1./rho(i)
              deint = deint + fxyzu(iu,i)
              demag = demag + dot_product(Bevol(1:3,i),dBevol(1:3,i))*rho1i
           enddo
@@ -1189,14 +1189,14 @@ end subroutine set_velocity_and_energy
 !+
 !----------------------------------
 subroutine set_magnetic_field
- use part, only:xyzh,Bxyz,Bevol,igas,mhd,npart,rhoh,massoftype
+ use part, only:xyzh,Bxyz,Bevol,mhd,npart,rho
  use eos,  only:polyk
  real :: vwavei,rho1i
  integer :: i
 
  do i=1,npart
     if (mhd) then
-       rho1i = 1.0/rhoh(xyzh(4,i),massoftype(igas))
+       rho1i = 1.0/rho(i)
        Bxyz(1,i) = Bx(xyzh(:,i))
        Bxyz(2,i) = By(xyzh(:,i))
        Bxyz(3,i) = Bz(xyzh(:,i))

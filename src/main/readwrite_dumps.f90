@@ -51,7 +51,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
                    npartoftypetot,update_npartoftypetot, &
-                   alphaind,rhoh,rho,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
+                   alphaind,rho,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                    nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                    maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
                    divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&

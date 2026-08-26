@@ -1107,7 +1107,7 @@ subroutine test_createsink(ntests,npass)
  use eos,          only:ieos,polyk,gamma
  use kdtree,       only:tree_accuracy
  use io,           only:id,master,iverbose
- use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
+ use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rho,&
                         iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                         nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
                         dptmass,fxyz_ptmass_sinksink,pxyzu_ptmass,metrics_ptmass
@@ -1232,14 +1232,14 @@ subroutine test_createsink(ntests,npass)
     if (itest==2 .and. gravity) then
        imin = minloc(xyzh(4,1:npart))
        itestp = imin(1)
-       rhomax_test = rhoh(xyzh(4,itestp),massoftype(igas))
+       rhomax_test = rho(itestp)
        !
        ! only check on the thread that has rhomax
        !
        ipart_rhomax_global = ipart_rhomax
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
        if (id == id_rhomax) then
-          rhomax = rhoh(xyzh(4,ipart_rhomax),massoftype(igas))
+          rhomax = rho(ipart_rhomax)
           call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax',thread_id=id)
        else
           itestp = -1 ! set itest = -1 on other threads
@@ -1625,7 +1625,7 @@ subroutine test_HIIregion(ntests,npass)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
                           npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
                           npartoftype,fxyzu,massoftype,init_part,&
-                          iphase,isetphase,irateion,irstrom,rhoh,&
+                          iphase,isetphase,irateion,irstrom,rho,&
                           eos_vars,imu
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
@@ -1732,7 +1732,7 @@ subroutine test_HIIregion(ntests,npass)
     string = "nearest neighbors"
     if (iH2R == 2) string = "inversed ray tracing"
     if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
-    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
     rstrommax = epsilon(rstrommax)
     rhomean   = 0.
     nion      = 0
@@ -1744,7 +1744,7 @@ subroutine test_HIIregion(ntests,npass)
              rstrommax = sqrt(r2)
           endif
        endif
-       rhomean = rhomean + rhoh(xyzh(4,i),massoftype(1))
+       rhomean = rhomean + rho(i)
     enddo
     rhomean = rhomean / npart
     Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))

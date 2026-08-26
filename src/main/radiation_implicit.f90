@@ -123,7 +123,7 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
  real                :: rhoi
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,massoftype,drad,cv_type,rho) &
+ !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,drad,cv_type,rho) &
  !$omp private(i,rhoi)
  do i = 1,npart
     origEU(1,i) = rad(iradxi,i)

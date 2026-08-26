@@ -162,25 +162,24 @@ end function get_rad_R
 !  set equal gas and radiation temperatures for all particles
 !+
 !-------------------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
-            rad,mu_local,npin)
- use part,      only:rhoh,igas,iradxi
+subroutine set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad,mu_local,npin)
+ use part,      only:iradxi
  use eos,       only:gmw,gamma
  integer, intent(in)  :: npart
- real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real,    intent(in)  :: vxyzu(:,:)
+ real,    intent(in)  :: rho(:)
  real,    intent(out) :: rad(:,:)
  real,    intent(in), optional :: mu_local(:)
  integer, intent(in), optional :: npin
- real                :: rhoi,pmassi,mu
+ real                :: rhoi,mu
  integer             :: i,i1
 
  i1 = 0
  if (present(npin)) i1 = npin
 
- pmassi = massoftype(igas)
  mu = gmw
  do i=i1+1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
+    rhoi = rho(i)
     if (present(mu_local)) mu = mu_local(i)
     rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,mu)
  enddo
@@ -269,22 +268,20 @@ end function Tgas_from_ugas
 !  integrate radiation energy exchange terms over a time interval dt
 !+
 !--------------------------------------------------------------------
-subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
- use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick
+subroutine update_radenergy(npart,fxyzu,vxyzu,rho,rad,radprop,dt,mu_local)
+ use part,         only:igas,ikappa,iradxi,iphase,iamtype,ithick
  use eos,          only:gmw,gamma
  use units,        only:get_radconst_code,get_c_code,unit_velocity
  use physcon,      only:Rg
  use io,           only:warning
  use dim,          only:maxphase,maxp
- real,    intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
+ real,    intent(in)    :: dt,fxyzu(:,:),radprop(:,:),rho(:)
  real,    intent(inout) :: vxyzu(:,:),rad(:,:)
  integer, intent(in)    :: npart
  real,    intent(in), optional :: mu_local(:)
- real :: ui,pmassi,rhoi,xii
+ real :: ui,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
  integer :: i
-
- pmassi        = massoftype(igas)
 
  a   = get_radconst_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
@@ -293,8 +290,8 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
  !$omp private(kappa,ack,rhoi,ui)&
  !$omp private(dudt,xii,etot,unew)&
  !$omp firstprivate(cv1)&
- !$omp shared(rad,radprop,xyzh,vxyzu,mu_local,gamma)&
- !$omp shared(fxyzu,pmassi,maxphase,maxp)&
+ !$omp shared(rad,radprop,vxyzu,mu_local,gamma)&
+ !$omp shared(fxyzu,maxphase,maxp,rho)&
  !$omp shared(iphase,npart)&
  !$omp shared(dt,a,unit_velocity)
  do i = 1,npart
@@ -304,7 +301,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
     kappa = radprop(ikappa,i)
     ack = get_radconst_code()*get_c_code()*kappa
 
-    rhoi = rhoh(xyzh(4,i),pmassi)
+    rhoi = rho(i)
     ui   = vxyzu(4,i)
     dudt = fxyzu(4,i)
     xii  = rad(iradxi,i)
@@ -508,7 +505,7 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
 end subroutine get_opacity
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-!   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
+!   use part,    only: igas,massoftype,rho,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
 !   use part,    only: eos_vars,ics
 !   use options, only:ieos
 !   use physcon, only:c
@@ -532,7 +529,7 @@ end subroutine get_opacity
 !   c_code = c/unit_velocity
 !
 !   do i = 1,npart
-!     rhoi = rhoh(xyzh(4,i),pmassi)
+!     rhoi = rho(i)
 !     ! if (rhoi < 2e-4) then
 !     !   if (xyzh(1,i) < 0.) then
 !     !     radiation(ifluxy:ifluxz,i) = 0.

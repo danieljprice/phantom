@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use velfield,     only:set_velfield_from_cubes
  use setup_params, only:rmax,rhozero,npart_total
  use spherical,    only:set_sphere
- use part,         only:igas,set_particle_type
+ use part,         only:igas,set_particle_type,rho
  use io,           only:fatal,master,iprint
  use units,        only:umass,udist,utime,set_units
  use setvfield,    only:normalise_vfield
@@ -140,7 +140,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo
 
  if (relax) then
-    call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rhozero,dmedium=0.,&
+    call shuffleparticles(iprint,npart,xyzh,massoftype(1),rho,rsphere=rmax,dsphere=rhozero,dmedium=0.,&
                           is_setup=.true.,prefix=trim(fileprefix))
  endif
  !--Set velocities (from pre-made velocity cubes)

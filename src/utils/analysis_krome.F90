@@ -39,7 +39,7 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,        only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff, iboundary, igas, iphase, iamtype
+ use part,        only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff, iboundary, igas, iphase, iamtype, rho
  use neighkdtree, only:build_tree
  use units,       only: utime,unit_density,udist
  use physcon,     only: atomic_mass_unit
@@ -138,7 +138,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #endif
     print*, "Calculating column density..."
     tstart = omp_get_wtime()
-    call get_all_tau(npart, nptmass, xyzmh_ptmass_copy, xyzh, one, 5, .false., column_density)
+    call get_all_tau(npart, nptmass, xyzmh_ptmass_copy, xyzh, rho, one, 5, .false., column_density)
     max_radius = 0.0
     do i = 1, npart
        if (.not.isdead_or_accreted(xyzh(4, i))) then

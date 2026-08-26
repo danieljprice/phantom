@@ -43,7 +43,7 @@ module substepping
 contains
 
 subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
- use part,            only:isdead_or_accreted,igas,massoftype,rho,eos_vars,igasP,&
+ use part,            only:isdead_or_accreted,rho,eos_vars,igasP,&
                               ien_type,eos_vars,igamma,itemp
  use cons2primsolver, only:conservative2primitive
  use io,              only:warning
@@ -62,7 +62,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol,rho) &
- !$omp shared(pxyzu,metrics,massoftype,ien_type,eos_vars) &
+ !$omp shared(pxyzu,metrics,ien_type,eos_vars) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(pri,rhoi,tempi,gammai)
  do i=1,npart
@@ -163,7 +163,7 @@ subroutine substep_gr(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,pxyz
     endif
 
     call get_timings(t1,tcpu1)
-    call kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
+    call kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
                       xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_kickdrift,t2-t1,tcpu2-tcpu1)
@@ -755,7 +755,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
                            nucleation,idK2,idmu,idkappa,idgamma,imu,igamma,n_group,n_ingroup,n_sing,&
-                           apr_level,aprmassoftype,ipert,fgr,igasP
+                           apr_level,aprmassoftype,ipert,fgr,igasP,rho
  use cooling_ism,     only:dphot0,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force,dtf_gr_min
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
@@ -914,7 +914,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp parallel default(none) &
  !$omp shared(maxp,maxphase,use_sinktree) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
- !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype,dens) &
+ !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype,dens,rho) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
  !$omp shared(divcurlv,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
@@ -989,7 +989,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           call get_external_force_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
                                       vxyzu(2,i),vxyzu(3,i),timei,i, &
                                       dtextforcenew,dtf,dkdt,fextx,fexty, &
-                                      fextz,extf_vdep_flag,iexternalforce)
+                                      fextz,extf_vdep_flag,iexternalforce,rho(i))
        endif
        !
        ! damping
@@ -1175,10 +1175,10 @@ end subroutine cooling_abundances_update
  !+
  !----------------------------------------------------------------
 subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
-                                 fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
+                                 fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce,rhoi)
  use timestep,       only:C_force
  use externalforces, only:externalforce,update_vdependent_extforce
- real,    intent(in)    :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt
+ real,    intent(in)    :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt,rhoi
  real,    intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
  integer, intent(in)    :: iexternalforce,i
  logical, intent(in)    :: extf_is_velocity_dependent
@@ -1186,7 +1186,7 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
  real :: fextv(3)
 
  call externalforce(iexternalforce,xi,yi,zi,hi, &
-                    timei,fextxi,fextyi,fextzi,poti,dtf,i)
+                    timei,fextxi,fextyi,fextzi,poti,dtf,ii=i,rhoi=rhoi)
 
  dtextforcenew = min(dtextforcenew,C_force*dtf)
 
@@ -1215,11 +1215,9 @@ end subroutine get_external_force_gas
 ! routine for calculating prediction step on gas in GR code
 ! +
 !----------------------------------------------------------------
-subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
+subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
                         xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
- use dim,            only:maxp,use_apr
- use part,           only:maxphase,isdead_or_accreted,iamtype,iphase,massoftype,&
-                          aprmassoftype,igas,apr_level,massoftype,rho,&
+ use part,           only:isdead_or_accreted,rho,&
                           eos_vars,igamma,itemp,igasP,ien_type,fgr
  use extern_gr,      only:get_grforce
  use io,             only:warning,id,master,iverbose,iprint
@@ -1232,13 +1230,13 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
  real,    intent(inout) :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
  real,    intent(inout) :: metricderivs_ptmass(:,:,:,:),metricderivs(:,:,:,:),dsdt_ptmass(:,:)
  real,    intent(in)    :: timei,dt
- integer, intent(in)    :: npart,ntypes,nsubsteps
+ integer, intent(in)    :: npart,nsubsteps
  integer, intent(inout) :: nptmass
 
- integer :: i,its,ierr,itype,pitsmax,xitsmax
+ integer :: i,its,ierr,pitsmax,xitsmax
  integer, parameter :: itsmax = 50
  logical :: converged
- real    :: hi,eni,uui,pmassi
+ real    :: hi,eni,uui
  real    :: hdt
  real    :: densi,pri,gammai,tempi,rhoi
  real    :: pmom_err,x_err,perrmax,xerrmax
@@ -1246,8 +1244,6 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
 
  dtf_gr_min = bignumber
 
- pmassi = massoftype(igas)
- itype = igas
  pitsmax = 0
  xitsmax = 0
  perrmax = 0.
@@ -1258,11 +1254,9 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
  ! predictor step for gas particles
  !
  !$omp parallel do default(none) &
- !$omp shared(xyzh,ntypes,iphase,apr_level,npart,pxyzu,vxyzu,rho) &
- !$omp shared(maxphase,maxp,aprmassoftype,massoftype) &
+ !$omp shared(xyzh,npart,pxyzu,vxyzu,rho) &
  !$omp shared(hdt,dens,eos_vars,ien_type,metrics,metrics_ptmass) &
  !$omp shared(metricderivs,fext,ptol,dt,xtol,fgr,nsubsteps) &
- !$omp firstprivate(pmassi,itype) &
  !$omp private(eni,uui,densi,pri,gammai,tempi,rhoi) &
  !$omp private(i,hi,its,converged,ierr,pmom_err,x_err) &
  !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti,fprev,dtf) &
@@ -1275,16 +1269,6 @@ subroutine kickdrift_gr(dt,npart,nptmass,ntypes,nsubsteps,xyzh,vxyzu,pxyzu,dens,
     xyz(3) = xyzh(3,i)
     hi     = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
-       if (ntypes > 1 .and. maxphase==maxp) then
-          itype = iamtype(iphase(i))
-          if (use_apr) then
-             pmassi = aprmassoftype(itype,apr_level(i))
-          else
-             pmassi = massoftype(itype)
-          endif
-       elseif (use_apr) then
-          pmassi = aprmassoftype(igas,apr_level(i))
-       endif
 
        its       = 0
        converged = .false.

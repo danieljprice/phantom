@@ -19,15 +19,15 @@ module tmunu2grid
  implicit none
 
 contains
-subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
+subroutine get_tmunugrid_all(npart,xyzh,vxyzu,rho,tmunus)
  use einsteintk_utils, only:dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
  use interpolations3D, only:interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
- use part, only:massoftype,igas,rhoh
+ use part, only:massoftype,igas
  integer, intent(in)    :: npart
- real,    intent(in)    :: vxyzu(:,:), tmunus(:,:,:)
+ real,    intent(in)    :: vxyzu(:,:), tmunus(:,:,:),rho(:)
  real,    intent(inout) :: xyzh(:,:)
- real                      :: weight,h,rho,pmass
+ real                      :: weight,h,rhoi,pmass
  real                      :: weights(npart)
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
@@ -52,9 +52,9 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  h = xyzh(4,1)
  ! Get pmass
  pmass = massoftype(igas)
- ! Get density
- rho = rhoh(h,pmass)
- call get_weight(pmass,h,rho,weight)
+ ! Get density from kernel sum
+ rhoi = rho(1)
+ call get_weight(pmass,h,rhoi,weight)
 
  weights = weight
  itype = 1
@@ -148,13 +148,13 @@ subroutine get_particle_domain(gridorigin,xmin,xmax,dxgrid,ilower,iupper)
  ! domain but the upper is not; can't have both?
 end subroutine get_particle_domain
 
-subroutine interpolate_to_grid(gridarray,dat)
+subroutine interpolate_to_grid(gridarray,dat,rho)
  use einsteintk_utils, only:dxgrid, gridorigin
  use interpolations3D, only:interpolate3D
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
- use part, only:npart,xyzh,massoftype,igas,rhoh
+ use part, only:npart,xyzh,massoftype,igas
  real, intent(out) :: gridarray(:,:,:) ! Grid array to interpolate a quantity to
- real                      :: weight,h,rho,pmass
+ real                      :: weight,h,rhoi,pmass
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
  integer                   :: nnodes,i, ilower, iupper, jlower, jupper, klower, kupper
@@ -163,6 +163,7 @@ subroutine interpolate_to_grid(gridarray,dat)
  integer :: itype(npart)
  ! GRID MUST BE RESTRICTED WITH UPPER AND LOWER INDICIES
  real, intent(in) :: dat(:)            ! The particle data to interpolate to grid
+ real, intent(in) :: rho(:)
  real, allocatable :: interparray(:,:,:)
 
  xmininterp(1) =  xmin - dxgrid(1)!- 0.5*dxgrid(1)
@@ -194,9 +195,9 @@ subroutine interpolate_to_grid(gridarray,dat)
     h = xyzh(4,i)
     ! Get pmass
     pmass = massoftype(igas)
-    ! Get density
-    rho = rhoh(h,pmass)
-    call get_weight(pmass,h,rho,weight)
+    ! Get density from kernel sum
+    rhoi = rho(i)
+    call get_weight(pmass,h,rhoi,weight)
     weights(i) = weight
  enddo
  itype   = igas

@@ -47,12 +47,12 @@ end function get_neighb_distance
 !  Inject a quasi-spherical distribution of particles.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
-             npart, npartoftype, xyzh, vxyzu, itype, x0, v0, &
+subroutine inject_geodesic_sphere(sphere_number,first_particle,ires,r,v,u, &
+             npart,npartoftype,xyzh,vxyzu,rho,itype,x0,v0, &
              isink,JKmuS,rstar,mstar,omega_vec,vwind_terminal)
  use icosahedron, only:fibonacci_sphere,fibonacci_jets
  use partinject,  only:add_or_update_particle
- use part,        only:hrho
+ use part,        only:hn,massoftype
  use units,       only:unit_velocity
  use physcon,     only:km
  integer, intent(in)    :: sphere_number,first_particle,ires,itype,isink
@@ -67,8 +67,8 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  real :: particle_position(3),particle_velocity(3),rotation_angles(3),rotmat(3,3)
  integer :: j,particles_per_sphere
 
- ! Quantities in simulation units
- h_sim = hrho(rho)
+ ! set h from number density n = rho/mpart (rho is mass density here)
+ h_sim = hn(rho/massoftype(itype))
  particles_per_sphere = ires
 
  ! check if the wind emitting sink is rotating

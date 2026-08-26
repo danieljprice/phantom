@@ -74,7 +74,7 @@ end subroutine set_default_options_inject
 !  Main routine handling injection at a given radius rinj
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
  use io,             only:fatal,iverbose,warning
  use part,           only:massoftype,igas,nptmass,isdead_or_accreted,maxvxyzu
@@ -86,7 +86,9 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use externalforces, only:mass1
  use eos,            only:equationofstate,gamma
  real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject

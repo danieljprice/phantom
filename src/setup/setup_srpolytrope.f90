@@ -35,7 +35,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,         only:igas,set_particle_type,rhoh,maxp
+ use part,         only:igas,set_particle_type,rho,maxp
  use spherical,    only:set_sphere
  use units,        only:set_units,umass,udist
  use physcon,      only:solarm,solarr
@@ -118,7 +118,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !-- set thermal energy from density
  do i=1,npart
     call set_particle_type(i,igas)
-    densi        = rhoh(xyzh(4,i),massoftype(igas))
+    densi        = rho(i)
     vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
  enddo
 

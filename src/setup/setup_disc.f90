@@ -100,7 +100,7 @@ module setup
                             iJ2,ispinx,ispinz,iReff,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
-                            VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi
+                            VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi,rho,init_rho_from_h
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins,get_cs_from_lum
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -322,7 +322,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_tmax_dtmax(fileprefix)
 
  if (do_radiation) then
-    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    call init_rho_from_h()
+    call set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad)
     radprop(ikappa,1:npart) = iradkappa
  endif
 

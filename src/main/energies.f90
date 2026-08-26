@@ -339,7 +339,7 @@ subroutine compute_energies(t)
           dumy = 0.
           dumz = 0.
           epottmpi = 0.
-          call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epottmpi,ii=i)
+          call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epottmpi,ii=i,rhoi=rho(i))
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epottmpi)
           epoti = pmassi*epottmpi
        endif
@@ -839,7 +839,7 @@ subroutine compute_energies(t)
 
  if (dynamic_bdy) then
     ev_data(iev_sum,iev_mass) = mtot
-    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
+    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr,rho)
     ev_data(iev_sum,iev_bdy(1,1)) = xyz_n_all(1)
     ev_data(iev_sum,iev_bdy(1,2)) = xyz_x_all(1)
     ev_data(iev_sum,iev_bdy(2,1)) = xyz_n_all(2)

@@ -46,7 +46,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
  use externalforces, only:externalforce
  use part,           only:dustgasprop,Vrel_disp,dvdx,Bxyz,set_boundaries_to_active,&
-                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
+                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag,rho
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
  use forcing,        only:forceit
@@ -55,7 +55,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use ptmass_radiation, only:get_dust_temperature
  use timing,         only:get_timings
  use forces,         only:force
- use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
+ use part,           only:mhd,gradh,alphaind,iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything
  use metric_tools,   only:init_metric
@@ -126,7 +126,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  ! compute disruption of dust particles
  !
- if (use_dustgrowth .and. use_porosity) call get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
+ if (use_dustgrowth .and. use_porosity) call get_disruption(npart,xyzh,filfac,dustprop,dustgasprop,rho)
 !
 ! calculate density by direct summation
 !
@@ -150,7 +150,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
  if (iH2R >0) then
     if (HIIupdateflag) then
-       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
        HIIupdateflag = .false.
     endif
     call do_timing('HII_region',tlast,tcpulast)
@@ -195,7 +195,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  ! compute growth rate of dust particles
  !
  if (use_dustgrowth) then
-    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:),Vrel_disp)!--we only get dm/dt (i.e 1st dimension of ddustprop)
+    call get_growth_rate(npart,xyzh,vxyzu,rho,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:),Vrel_disp)!--we only get dm/dt (i.e 1st dimension of ddustprop)
     ! compute growth rate and probability of sticking/bouncing of porous dust
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif

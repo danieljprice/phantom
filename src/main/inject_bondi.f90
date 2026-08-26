@@ -138,21 +138,23 @@ end subroutine init_inject
 !  Main routine handling wind injection.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
          npart,npart_old,npartoftype,dtinject)
  use io,          only:iprint,warning
  use eos,         only:gamma
  use part,        only:igas,iboundary
  use injectutils, only:inject_geodesic_sphere
  real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  real,    parameter          :: pi3   = pi/3. !-- irrational number close to one
  real,    parameter          :: shift = 0.
  integer                     :: outer_sphere, inner_sphere, inner_boundary_sphere, i, ierr, itype, ipartbegin
- real                        :: tlocal, GM, r, v, u, rho, e, x0(3), v0(3)
+ real                        :: tlocal, GM, r, v, u, rhoi, e, x0(3), v0(3)
  logical, save               :: first_run = .true.
  character(len=*), parameter :: label = 'inject_particles'
 
@@ -174,14 +176,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  do i=inner_sphere+iboundspheres,outer_sphere,-1
     tlocal = time - (i-shift) * dtsphere
-    call compute_sphere_properties(time,tlocal,gamma,GM,r,v,u,rho,e,i,inner_sphere,inner_boundary_sphere)
+    call compute_sphere_properties(time,tlocal,gamma,GM,r,v,u,rhoi,e,i,inner_sphere,inner_boundary_sphere)
 
     if (wind_verbose) then
        write(iprint,*) '   Sphere            : ',i,(i-shift)
        write(iprint,*) '   Local Time        : ',tlocal,time,(i-shift)*dtsphere
        write(iprint,*) '   Radius            : ',r
        write(iprint,*) '   Expansion velocity: ',v
-       write(iprint,*) '   Density           : ',rho
+       write(iprint,*) '   Density           : ',rhoi
        write(iprint,*) ''
     endif
 
@@ -196,8 +198,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     itype = igas
 
     ! Inject sphere of particles
-    call inject_geodesic_sphere(i,ipartbegin,npsphere,r,v,u,rho,&
-                                npart,npartoftype,xyzh,vxyzu,itype,x0,v0,1)
+    call inject_geodesic_sphere(i,ipartbegin,npsphere,r,v,u,&
+                                npart,npartoftype,xyzh,vxyzu,rhoi,itype,x0,v0,1)
  enddo
 
 !-- Return timestep constraint to ensure that time between sphere

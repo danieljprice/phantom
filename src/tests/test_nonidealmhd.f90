@@ -254,7 +254,7 @@ subroutine test_standingshock(ntests,npass)
  use units,          only:set_units,utime,udist,umass,unit_Bfield
  use boundary,       only:set_boundary,ymin,ymax,zmin,zmax,dybound,dzbound
  use kernel,         only:hfact_default,radkern
- use part,           only:init_part,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
+ use part,           only:init_part,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hn,rho,&
                           Bevol,fext,igas,iboundary,set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,&
                           iamtype,iamboundary,update_npartoftypetot
  use step_lf_global, only:step,init_step
@@ -344,12 +344,12 @@ subroutine test_standingshock(ntests,npass)
     endif
     ! set properties
     if (xyzh(1,i) > 0.) then
-       xyzh(4,i)    = hrho(rightstate(1),massoftype(igas))
+       xyzh(4,i)    = hn(rightstate(1)/massoftype(igas))
        vxyzu(1:3,i) = rightstate(3:5)
        Bxyz(1:3,i)  = rightstate(6:8)
        Bevol(1:3,i) = rightstate(6:8)/rightstate(1)
     else
-       xyzh(4,i)    = hrho(leftstate(1),massoftype(igas))
+       xyzh(4,i)    = hn(leftstate(1)/massoftype(igas))
        vxyzu(1:3,i) = leftstate(3:5)
        Bxyz(1:3,i)  = leftstate(6:8)
        Bevol(1:3,i) = leftstate(6:8)/leftstate(1)
@@ -449,7 +449,7 @@ subroutine test_standingshock(ntests,npass)
  endif
  do i = 1,npart
     itype = iamtype(iphase(i))
-    rhoi  = rhoh(xyzh(4,i),massoftype(itype))
+    rhoi  = rho(i)
     if (print_output) write(112,'(5es18.6,i3)') xyzh(1:2,i),rhoi,vxyzu(1,i),Bxyz(2,i),iphase(i)
     if (exact_x(1) < xyzh(1,i) .and. xyzh(1,i) < exact_x(50) ) then
        npts   = npts + 1
@@ -512,7 +512,7 @@ subroutine test_etaval(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:init_part,npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi,eos_vars,itemp
+                          Bevol,igas,alphaind,nden_nimhd,rho,eta_nimhd,iohm,ihall,iambi,eos_vars,itemp
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
  use eos,            only:ieos,init_eos,polyk,polyk2,gamma
@@ -621,7 +621,7 @@ subroutine test_etaval(ntests,npass)
     !
     ! Calculate eta from NICIL
     !
-    rhoi  = rhoh(xyzh(4,itmp),massoftype(igas))
+    rhoi  = rho(itmp)
     Bi    = sqrt(dot_product(Bevol(1:3,itmp),Bevol(1:3,itmp)))*rhoi
     tempi = eos_vars(itemp,itmp)
 

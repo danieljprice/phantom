@@ -14,7 +14,7 @@ module utils_gr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, metric, metric_tools, part
+! :Dependencies: io, metric, metric_tools
 !
  implicit none
 
@@ -87,18 +87,15 @@ end subroutine get_bigv
 !----------------------------------------------------------------
 !+
 !  get density in the fluid rest frame (primitive dens) from
-!  the conserved density rho* (stored as the smoothing length)
+!  the conserved density rho* (kernel-summed density)
 !+
 !----------------------------------------------------------------
-subroutine h2dens(dens,pmass,xyzh,metrici,v)
- use part, only:rhoh
- real, intent(in)  :: pmass,xyzh(1:4),metrici(:,:,:),v(1:3)
+subroutine h2dens(dens,rho,xyzh,metrici,v)
+ real, intent(in)  :: rho,xyzh(1:4),metrici(:,:,:),v(1:3)
  real, intent(out) :: dens
- real :: rho, h, xyz(1:3)
+ real :: xyz(1:3)
 
  xyz = xyzh(1:3)
- h   = xyzh(4)
- rho = rhoh(h,pmass)
  call rho2dens(dens,rho,xyz,metrici,v)
 
 end subroutine h2dens

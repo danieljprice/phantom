@@ -46,7 +46,7 @@ contains
 !----------------------------------------------------------------------
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp,igas,&
-                aprmassoftype,apr_level,massoftype
+                aprmassoftype,apr_level,massoftype,rho
  use eos,  only:gamma,ieos
  use dim,  only:use_apr
  integer, intent(in)  :: npart
@@ -58,7 +58,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
  integer :: i
  real    :: pmassi,pri,tempi,xyzhi(4),vxyzui(4),densi
 
-!  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
+!  By default, use the kernel-summed density to compute primitive density, and then compute the conserved variables.
 !  (Alternatively, use the provided primitive density to compute conserved variables.
 !   Depends whether you have prim dens prior or not.)
  if (present(use_dens)) then
@@ -69,7 +69,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
 
  !$omp parallel do default (none) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos,use_sink,use_dens) &
- !$omp shared(massoftype,aprmassoftype,apr_level) &
+ !$omp shared(massoftype,aprmassoftype,apr_level,rho) &
  !$omp private(i,pmassi,pri,tempi,xyzhi,vxyzui,densi)
  do i=1,npart
 
@@ -90,7 +90,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens,dens,use_sink)
           endif
 
           call prim2consi(pmassi,xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
-                   use_dens=usedens,dens_i=dens(i))
+                   use_dens=usedens,dens_i=dens(i),rho_i=rho(i))
 
           ! save eos vars for later use
           eos_vars(igasP,i)  = pri
@@ -114,10 +114,11 @@ end subroutine prim2consall
 !  for a single SPH particle
 !+
 !----------------------------------------------------------------------
-subroutine prim2consi(pmassi,xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,use_sink,dens_i)
+subroutine prim2consi(pmassi,xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_dens,use_sink,dens_i,rho_i)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
+ use part,            only:rhoh
  real,    intent(in)    :: xyzhi(4), vxyzui(4)
  real,    intent(in)    :: pmassi,metrici(:,:,:)
  real,    intent(inout) :: pri,tempi
@@ -125,13 +126,13 @@ subroutine prim2consi(pmassi,xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_
  real,    intent(out)   :: pxyzui(4)
  logical, intent(in),    optional :: use_dens,use_sink
  real,    intent(inout), optional :: dens_i
+ real,    intent(in),    optional :: rho_i
  logical :: usedens
- real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
+ real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi,rho_sum
 
  pondensi = 0.
- !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
- !  (Alternatively, use the provided primitive density to compute conserved variables.
- !   Depends whether you have prim dens prior or not.)
+ !  By default, use the kernel-summed density to compute primitive density.
+ !  (Alternatively, use the provided primitive density to compute conserved variables.)
  if (present(use_dens)) then
     usedens = use_dens
  else
@@ -149,8 +150,13 @@ subroutine prim2consi(pmassi,xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,use_
        densi    = 1.    ! using a value of 0. results in NaN values for the pxyzui array.
        pondensi = 0.
     else
-       call h2dens(densi,pmassi,xyzhi,metrici,vi) ! Compute dens from h
-       dens_i = densi ! Feed the newly computed dens back out of the routine
+       if (present(rho_i)) then
+          rho_sum = rho_i
+       else
+          rho_sum = rhoh(xyzhi(4),pmassi) ! bootstrap if kernel density not passed
+       endif
+       call h2dens(densi,rho_sum,xyzhi,metrici,vi)
+       if (present(dens_i)) dens_i = densi
        call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
     endif
  endif
