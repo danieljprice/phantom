@@ -70,8 +70,8 @@ subroutine test_derivs(ntests,npass,string)
  real              :: fracactive,speedup
  real(kind=4)      :: tallactive
  real, allocatable :: fxyzstore(:,:),dBdtstore(:,:)
- real              :: psepblob,hblob,rhoblob,rblob,totvol,rtest
- integer           :: maxtrial,maxactual
+ real              :: hblob
+ integer           :: maxtrial,maxactual,minactual
  integer(kind=8)   :: nrhocalc,nactual,nexact
  real              :: trialmean,actualmean,realneigh
  real              :: rcut
@@ -80,7 +80,7 @@ subroutine test_derivs(ntests,npass,string)
  integer           :: nfailed(32),i,j,npartblob,nparttest,m,ierr
  integer           :: np,ieosprev
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
- logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testall
+ logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testtwokernel,testall
  real              :: rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
  real              :: tolh_old
@@ -97,6 +97,7 @@ subroutine test_derivs(ntests,npass,string)
  testdensitycontrast = .false.
  testindtimesteps    = .false.
  testcullendehnen    = .false.
+ testtwokernel       = .false.
  testall             = .false.
  select case(string)
  case('derivshydro','derivhydro','hydroderivs')
@@ -117,6 +118,8 @@ subroutine test_derivs(ntests,npass,string)
     testcullendehnen = .true.
  case('derivsindtimesteps','derivsinddts','derivsind')
     testindtimesteps = .true.
+ case('derivstwokernel','derivs2k','derivstwo')
+    testtwokernel = .true.
  case default
     testall = .true.
  end select
@@ -201,7 +204,7 @@ subroutine test_derivs(ntests,npass,string)
     !
 
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
-       call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
+       call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,minactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        call checkval(actualmean,real(int(realneigh)),2.e-16,nfailed(11),'mean nneigh',thread_id=id)
        call checkval(maxactual,int(realneigh),0,nfailed(12),'max nneigh',thread_id=id)
@@ -336,7 +339,7 @@ subroutine test_derivs(ntests,npass,string)
     !--also check that the number of neighbours is correct
     !
     if (id==master .and. periodic) then
-       call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
+       call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,minactual,nrhocalc,nactual)
        realneigh = 4./3.*pi*(hfact*radkern)**3
        if (testall) then
           nexact = nptot  ! should be no iterations here
@@ -652,37 +655,9 @@ subroutine test_derivs(ntests,npass,string)
  testdenscontrast: if ((testdensitycontrast .or. testall) .and. (nprocs == 1)) then
     if (id==master) write(*,"(/,a)") '--> testing Hydro derivs in setup with density contrast (derivscontrast)'
 
-    npart = 0
-    psep = dxbound/50.
-    rblob = 0.1
-    rhoblob = 1000.*rhozero
-    psepblob = psep*(rhozero/rhoblob)**(1./3.)
-    rtest = rblob - 2.*hfact*psep
-    !
-    !--setup high density blob
-    !
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
-                     hfact,npart,xyzh,periodic,mask=i_belong,rmax=rtest)
-    nparttest = npart
-
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
-                     hfact,npart,xyzh,periodic,mask=i_belong,rmin=rtest,rmax=rblob)
-    npartblob = npart
-    !
-    !--setup surrounding medium
-    !
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                     hfact,npart,xyzh,periodic,mask=i_belong,rmin=rblob)
-    npartoftype(1) = npart
+    call setup_density_contrast(npart,npartblob,nparttest,hzero,hblob)
     nptot = reduceall_mpi('+',npart)
     print*,' thread ',id,' npart = ',npart,' in blob = ',npartblob,' to test = ',nparttest
-
-    totvol = dxbound*dybound*dzbound - 4./3.*pi*rblob**3
-    totmass = rhozero*totvol
-
-    massoftype(1) = totmass/reduceall_mpi('+',npart-npartblob)
-    hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
-    hblob = hfact*(massoftype(1)/rhoblob)**(1./3.)
     call reset_dissipation_to_zero
     call set_velocity_and_energy
     call reset_mhd_to_zero
@@ -703,7 +678,7 @@ subroutine test_derivs(ntests,npass,string)
     !--also check that the number of neighbours is correct
     !
     if (id==master .and. periodic .and. index(kernelname,'cubic') > 0) then
-       call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,nrhocalc,nactual)
+       call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,minactual,nrhocalc,nactual)
        realneigh = 57.466651861721814
        call checkval(actualmean,realneigh,2.e-16,nfailed(m+1),'mean nneigh')
        call checkval(maxactual,988,0,nfailed(m+2),'max nneigh')
@@ -825,9 +800,177 @@ subroutine test_derivs(ntests,npass,string)
     if (allocated(dBdtstore)) deallocate(dBdtstore)
  endif testinddts
 
+!
+!--two-kernel scheme: neighbour-count range should narrow vs same-kernel h(n)
+!
+ test2k: if ((testtwokernel .or. testall) .and. (nprocs == 1) .and. periodic) then
+    if (index(kernelname,'cubic') <= 0) then
+       if (id==master) write(*,"(/,a)") &
+          '--> SKIPPING two-kernel nneigh range tests (need KERNEL=cubic)'
+    else
+       !
+       ! density-contrast blob
+       !
+       if (id==master) write(*,"(/,a)") &
+          '--> testing two-kernel nneigh range with density contrast (derivstwokernel)'
+       call setup_density_contrast(npart,npartblob,nparttest,hzero,hblob)
+       call check_twokernel_neigh_range('contrast',ntests,npass)
+       !
+       ! random cube
+       !
+       if (id==master) write(*,"(/,a)") &
+          '--> testing two-kernel nneigh range with random particles (derivstwokernel)'
+       npart = 0
+       psep = dxbound/40.
+       call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                        psep,hfact,npart,xyzh,periodic,mask=i_belong)
+       npartoftype(1) = npart
+       totmass = rhozero*dxbound*dybound*dzbound
+       massoftype(1) = totmass/reduceall_mpi('+',npart)
+       call check_twokernel_neigh_range('random',ntests,npass)
+    endif
+ endif test2k
+
  if (id==master) write(*,"(/,a)") '<-- DERIVS TEST COMPLETE'
 
 end subroutine test_derivs
+
+!----------------------------------------------------
+!+
+!  dense sphere in a lower-density ambient cubic lattice
+!+
+!----------------------------------------------------
+subroutine setup_density_contrast(npart,npartblob,nparttest,hzero,hblob)
+ use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
+ use dim,       only:periodic
+ use io,        only:id,master
+ use mpidomain, only:i_belong
+ use mpiutils,  only:reduceall_mpi
+ use part,      only:xyzh,hfact,npartoftype,massoftype
+ use physcon,   only:pi
+ use unifdis,   only:set_unifdis
+ integer, intent(out) :: npart,npartblob,nparttest
+ real,    intent(out) :: hzero,hblob
+ real :: psep,psepblob,rblob,rhoblob,rtest,totvol,totmass
+
+ npart = 0
+ psep = dxbound/50.
+ rblob = 0.1
+ rhoblob = 1000.*rhozero
+ psepblob = psep*(rhozero/rhoblob)**(1./3.)
+ rtest = rblob - 2.*hfact*psep
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
+                  hfact,npart,xyzh,periodic,mask=i_belong,rmax=rtest)
+ nparttest = npart
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psepblob,&
+                  hfact,npart,xyzh,periodic,mask=i_belong,rmin=rtest,rmax=rblob)
+ npartblob = npart
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                  hfact,npart,xyzh,periodic,mask=i_belong,rmin=rblob)
+ npartoftype(1) = npart
+ totvol = dxbound*dybound*dzbound - 4./3.*pi*rblob**3
+ totmass = rhozero*totvol
+ massoftype(1) = totmass/reduceall_mpi('+',npart-npartblob)
+ hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
+ hblob = hfact*(massoftype(1)/rhoblob)**(1./3.)
+
+end subroutine setup_density_contrast
+
+!----------------------------------------------------
+!+
+!  assert two_kernel narrows the neighbour-count range
+!+
+!----------------------------------------------------
+subroutine check_twokernel_neigh_range(label,ntests,npass)
+ use io,        only:id,master
+ use kernel,    only:radkern
+ use part,      only:npart,hfact
+ use physcon,   only:pi
+ use testutils, only:checkval,update_test_scores
+ character(len=*), intent(in)    :: label
+ integer,          intent(inout) :: ntests,npass
+ integer :: nmin1,nmax1,nmin2,nmax2,range1,range2,nfailed(3)
+ real    :: nmean1,nmean2,expected_nneigh
+
+ call reset_dissipation_to_zero
+ call set_velocity_and_energy
+ call reset_mhd_to_zero
+
+ call compare_twokernel_neigh_range(npart,nmin1,nmax1,nmean1,nmin2,nmax2,nmean2)
+ range1 = nmax1 - nmin1
+ range2 = nmax2 - nmin2
+ if (id==master) then
+    write(*,"(1x,a,i6,a,i6,a,i6)") ' one-kernel: min/max/range = ',nmin1,' / ',nmax1,' / ',range1
+    write(*,"(1x,a,i6,a,i6,a,i6)") ' two-kernel: min/max/range = ',nmin2,' / ',nmax2,' / ',range2
+ endif
+
+ expected_nneigh = 4./3.*pi*(hfact*radkern)**3
+ nfailed(:) = 0
+ call checkval(range2 < range1,.true.,nfailed(1),'two_kernel reduces nneigh range ('//trim(label)//')')
+ call checkval(nmean1,expected_nneigh,0.5,nfailed(2),'mean nneigh one-kernel ('//trim(label)//')')
+ call checkval(nmean2,expected_nneigh,0.5,nfailed(3),'mean nneigh two-kernel ('//trim(label)//')')
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine check_twokernel_neigh_range
+
+!----------------------------------------------------
+!+
+!  compare neighbour-count range with/without two_kernel
+!  restores the setup h guess before each density call
+!+
+!----------------------------------------------------
+subroutine compare_twokernel_neigh_range(npart,nmin1,nmax1,nmean1,nmin2,nmax2,nmean2)
+ use options, only:two_kernel
+ use part,    only:xyzh
+ integer, intent(in)  :: npart
+ integer, intent(out) :: nmin1,nmax1,nmin2,nmax2
+ real,    intent(out) :: nmean1,nmean2
+ logical :: two_kernel_save
+ real, allocatable :: hsave(:)
+
+ allocate(hsave(npart))
+ hsave = xyzh(4,1:npart)
+ two_kernel_save = two_kernel
+
+ two_kernel = .false.
+ xyzh(4,1:npart) = hsave
+ call measure_neigh_range(npart,nmin1,nmax1,nmean1)
+
+ two_kernel = .true.
+ xyzh(4,1:npart) = hsave
+ call measure_neigh_range(npart,nmin2,nmax2,nmean2)
+
+ two_kernel = two_kernel_save
+ deallocate(hsave)
+
+end subroutine compare_twokernel_neigh_range
+
+!----------------------------------------------------
+!+
+!  run density and return actual neighbour min/max/mean
+!+
+!----------------------------------------------------
+subroutine measure_neigh_range(npart,nmin,nmax,nmean)
+ use part,         only:igas
+ use deriv,        only:get_derivs_global
+ use densityforce, only:get_neighbour_stats
+ use timestep_ind, only:nactive
+ integer, intent(in)  :: npart
+ integer, intent(out) :: nmin,nmax
+ real,    intent(out) :: nmean
+ integer           :: maxtrial,maxactual,minactual
+ integer(kind=8)   :: nrhocalc,nactual
+ real              :: trialmean,actualmean
+
+ nactive = npart
+ call set_active(npart,nactive,igas)
+ call get_derivs_global()
+ call get_neighbour_stats(trialmean,actualmean,maxtrial,maxactual,minactual,nrhocalc,nactual)
+ nmin  = minactual
+ nmax  = maxactual
+ nmean = actualmean
+
+end subroutine measure_neigh_range
 
 !----------------------------------------------------
 !+

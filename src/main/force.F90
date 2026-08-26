@@ -928,7 +928,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself,rad,radprop,dens,metrics,apr_level,dt)
- use kernel,      only:grkern,cnormk,radkern2,get_kernel_tilde
+ use kernel,      only:grkern,cnormk,cnormk_tilde,radkern2,get_kernel_tilde
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
@@ -1353,7 +1353,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           grkerni = grkern(q2i,qi)*hfacgrkern
           if (two_kernel) then
              call get_kernel_tilde(q2i,qi,wtilde,grkern_tildei)
-             grkern_tildei = grkern_tildei*hfacgrkern
+             grkern_tildei = grkern_tildei*hi41*cnormk_tilde
           else
              grkern_tildei = grkerni
           endif
@@ -1385,7 +1385,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           grkernj = grkern(q2j,qj)*hj21*hj21*cnormk
           if (two_kernel) then
              call get_kernel_tilde(q2j,qj,wtilde,grkern_tildej)
-             grkern_tildej = grkern_tildej*hj21*hj21*cnormk
+             grkern_tildej = grkern_tildej*hj21*hj21*cnormk_tilde
           else
              grkern_tildej = grkernj
           endif

@@ -76,7 +76,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use boundary,         only:print_boundaries
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,&
-                            use_porosity,icooling,implicit_radiation
+                            use_porosity,icooling,implicit_radiation,two_kernel
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes,igas
  use mpiutils,         only:reduceall_mpi
