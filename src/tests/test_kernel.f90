@@ -125,6 +125,17 @@ subroutine test_kernel(ntests,npass)
 
     ! check that dphidh is gradient of potential w.r.t. h
     call checkvalbuf(dphidh,-potensoft -qi*fsoft,2.e-7,'dphidh /= phi - q*dphi/dq',nerr(7),ncheck(7),errmax(7))
+
+    ! number-density companion: finite-difference gradient of Wtilde
+    ! Expanded Wtilde is ill-conditioned; compare only where |W'| is not tiny
+    call get_kernel_tilde(q2,qi,wtilde,grtilde)
+    if (abs(grtilde) > 1.e-2) then
+       call get_kernel_tilde((qi+eps)**2,qi+eps,wetilde,grkernval2)
+       call get_kernel_tilde(max(qi-eps,0.)**2,max(qi-eps,0.),wval3,grkernval3)
+       dwt = 0.5*(wetilde - wval3)/eps
+       call checkvalbuf(dwt,grtilde,5.e-3, &
+                        'gradient of Wtilde incorrect ',nerr(8),ncheck(8),errmax(8))
+    endif
  enddo
  !close(unit=1)
  do i=1,nktest
@@ -138,6 +149,7 @@ subroutine test_kernel(ntests,npass)
  call checkvalbuf_end('get_kernel_grav1 == wkern',ncheck(5),nerr(5),errmax(5),tiny(0.))
  call checkvalbuf_end('get_kernel_grav1 == grkern',ncheck(6),nerr(6),errmax(6),tiny(0.))
  call checkvalbuf_end('dphi/dh = phi - q*dphi/dq',ncheck(7),nerr(7),errmax(7),2.e-7)
+ call checkvalbuf_end('Wtilde gradient equal to dWtilde/dq',ncheck(8),nerr(8),errmax(8),5.e-3)
 
  if (id==master) write(*,"(/,a,/)") '<-- KERNEL TEST COMPLETE'
 
