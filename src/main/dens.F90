@@ -1406,7 +1406,7 @@ subroutine finish_cell(cell,cell_converged)
  use dim,      only:use_apr
  use io,       only:iprint,fatal
  use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,aprmassoftype,nh
- use options,  only:tolh,two_kernel
+ use options,  only:tolh
 
  type(celldens), intent(inout) :: cell
  logical,        intent(out)   :: cell_converged
@@ -1512,7 +1512,7 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,ni,gradhi,zeta,gra
  hi31  = hi1*hi21
  hi41  = hi21*hi21
 
- ! number-density kernel: smooth-shift-4 when two_kernel, else same as W
+ ! number-density kernel is Wtilde when two_kernel, else same as W
  if (two_kernel) then
     cnormn  = cnormk_tilde
     wab0n   = wab0_tilde
