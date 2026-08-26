@@ -10,7 +10,7 @@ module readwrite_aton
 !
 ! :References: Ventura et al. (1998)
 !
-! :Owner: Daniel Price
+! :Owner: Orsola De Marco
 !
 ! :Runtime parameters: None
 !
@@ -89,80 +89,79 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  m = -1.
  allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,mu,source=m)
 
- 
-    ! read file forwards, from centre to surface
-    do i = 1,lines
-       read(iu,*,iostat=ierr) dat(i,1:ncols)
-    enddo
-    if (ierr /= 0) then
-       print "(a,/)",' ERROR reading data from ATON file (new statement)'
+ ! read file forwards, from centre to surface
+ do i = 1,lines
+    read(iu,*,iostat=ierr) dat(i,1:ncols)
+ enddo
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading data from ATON file (new statement)'
+    return
+ endif
+
+ ! Set mass fractions to fixed inputs if not in file
+ Xfrac = X_in
+ Yfrac = 1. - X_in - Z_in
+ mu = 0.
+ do i = 1,ncols
+    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass' &
+           .and. .not. trim(lcase(header(i)))=='#m/msun') then
+       print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
+       ierr = 2
        return
     endif
-
-    ! Set mass fractions to fixed inputs if not in file
-    Xfrac = X_in
-    Yfrac = 1. - X_in - Z_in
-    mu = 0.
-    do i = 1,ncols
-       if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass' &
-           .and. .not. trim(lcase(header(i)))=='#m/msun') then
-          print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
-          ierr = 2
-          return
-       endif
-       got_column = .true.
-       select case(trim(lcase(header(i))))
-       case('mass_grams')
-          m = dat(1:lines,i)
-       case('mass','#mass','m','m/msun','#m/msun')
-          m = dat(1:lines,i)
-          if (isatonfile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading ATON profile, 'mass' or 'M/Msun' is in units of Msun
-       case('logm','log_mass')
-          m = 10**dat(1:lines,i)
-          if (isatonfile .or. maxval(m) < 1.e-10*solarm) m = m * solarm
-       case('rho','density')
-          rho = dat(1:lines,i)
-       case('logrho')
-          rho = 10**(dat(1:lines,i))
-       case('energy','e_int','e_internal','cell_specific_ie','internal energy','internal_energy')
-          ene = dat(1:lines,i)
-       case('loge')
-          ene = 10**dat(1:lines,i)
-       case('radius_cm')
-          r = dat(1:lines,i)
-       case('radius_km')
-          r = dat(1:lines,i) * 1e5
-       case('radius','r')
-          r = dat(1:lines,i)
-          if (maxval(r) < 1e-5*solarr) r = r * solarr
-       case('logr')
-          r = (10**dat(1:lines,i)) * solarr
-       case('logr_cm')
-          r = 10**dat(1:lines,i)
-       case('pressure','p')
-          pres = dat(1:lines,i)
-       case('logp')
-          pres = 10**dat(1:lines,i)
-       case('temperature','t')
-          temp = dat(1:lines,i)
-       case('logt')
-          temp = 10**dat(1:lines,i)
-       case('x_mass_fraction_h','x','xfrac','h1','hydrogen')
-          Xfrac = dat(1:lines,i)
-       case('log_x')
-          Xfrac = 10**dat(1:lines,i)
-       case('y_mass_fraction_he','y','yfrac','he4','helium')
-          Yfrac = dat(1:lines,i)
-       case('log_y')
-          Yfrac = 10**dat(1:lines,i)
-       case('mu','molecular weight','molecular_weight')
-          mu = dat(1:lines,i)
-       case default
-          got_column = .false.
-       end select
-       if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
-    enddo
-    print "(a)"
+    got_column = .true.
+    select case(trim(lcase(header(i))))
+    case('mass_grams')
+       m = dat(1:lines,i)
+    case('mass','#mass','m','m/msun','#m/msun')
+       m = dat(1:lines,i)
+       if (isatonfile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading ATON profile, 'mass' or 'M/Msun' is in units of Msun
+    case('logm','log_mass')
+       m = 10**dat(1:lines,i)
+       if (isatonfile .or. maxval(m) < 1.e-10*solarm) m = m * solarm
+    case('rho','density')
+       rho = dat(1:lines,i)
+    case('logrho')
+       rho = 10**(dat(1:lines,i))
+    case('energy','e_int','e_internal','cell_specific_ie','internal energy','internal_energy')
+       ene = dat(1:lines,i)
+    case('loge')
+       ene = 10**dat(1:lines,i)
+    case('radius_cm')
+       r = dat(1:lines,i)
+    case('radius_km')
+       r = dat(1:lines,i) * 1e5
+    case('radius','r')
+       r = dat(1:lines,i)
+       if (maxval(r) < 1e-5*solarr) r = r * solarr
+    case('logr')
+       r = (10**dat(1:lines,i)) * solarr
+    case('logr_cm')
+       r = 10**dat(1:lines,i)
+    case('pressure','p')
+       pres = dat(1:lines,i)
+    case('logp')
+       pres = 10**dat(1:lines,i)
+    case('temperature','t')
+       temp = dat(1:lines,i)
+    case('logt')
+       temp = 10**dat(1:lines,i)
+    case('x_mass_fraction_h','x','xfrac','h1','hydrogen')
+       Xfrac = dat(1:lines,i)
+    case('log_x')
+       Xfrac = 10**dat(1:lines,i)
+    case('y_mass_fraction_he','y','yfrac','he4','helium')
+       Yfrac = dat(1:lines,i)
+    case('log_y')
+       Yfrac = 10**dat(1:lines,i)
+    case('mu','molecular weight','molecular_weight')
+       mu = dat(1:lines,i)
+    case default
+       got_column = .false.
+    end select
+    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
+ enddo
+ print "(a)"
 
  close(iu)
 
@@ -203,7 +202,7 @@ end subroutine read_aton
 !  used in star setup to write softened stellar profile.
 !+
 !----------------------------------------------------------------
- subroutine write_aton(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
+subroutine write_aton(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  use physcon, only:solarm
  real,               intent(in) :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
  character(len=120), intent(in) :: outputpath

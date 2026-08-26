@@ -14,7 +14,7 @@ module eos_mesa
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mesa_microphysics, physcon, dim
+! :Dependencies: dim, mesa_microphysics, physcon
 !
 
  use mesa_microphysics
@@ -66,7 +66,7 @@ subroutine init_eos_mesa(x,z,ierr)
 
     call read_eos_mesa_gr(x,z,ierr)
     if (ierr /= 0) return
- end if
+ endif
 
  call read_eos_mesa(x,z,ierr)
  if (ierr /= 0) return
@@ -173,8 +173,6 @@ subroutine get_eos_u_from_rhos_mesa_gr(den,s,u)
  call getvalue_mesa_gr(den,s,2,u)
 
 end subroutine get_eos_u_from_rhos_mesa_gr
-
-
 
 !----------------------------------------------------------------
 !+

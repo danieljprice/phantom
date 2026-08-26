@@ -14,7 +14,7 @@ module mesa_microphysics
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles
+! :Dependencies: datafiles, physcon
 !
  use datafiles, only:find_phantom_datafile
 
@@ -330,7 +330,6 @@ subroutine get_eos_constants_mesa(ierr)
 
 end subroutine get_eos_constants_mesa
 
-
 ! Get the constants to be used in the MESA EoS for GR
 subroutine get_eos_constants_mesa_gr(ierr)
  integer, intent(out) :: ierr
@@ -382,7 +381,6 @@ subroutine get_eos_constants_mesa_gr(ierr)
  return
 
 end subroutine get_eos_constants_mesa_gr
-
 
 ! Read MESA EoS tables, and then construct a new array for the specific values of X and Z
 subroutine read_eos_mesa(x,z,ierr)
@@ -654,7 +652,7 @@ end subroutine getvalue_mesa
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
 ! inputted s should be in cgs units, then it has to be converted to log10(S/(k_B*N_A)) in cgs units (because the MESA tables are in these units)
 pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
- use physcon, only: kboltz,avogadro
+ use physcon, only:kboltz,avogadro
  real,    intent(in)  :: rho, s
  real,    intent(out) :: vout
  integer, intent(in)  :: ivout
@@ -698,7 +696,6 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  return
 
 end subroutine getvalue_mesa_gr
-
 
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
@@ -860,8 +857,6 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_gr_ds_data)) deallocate(mesa_gr_ds_data)
  if (allocated(mesa_gr_ds_data0)) deallocate(mesa_gr_ds_data0)
 
-
 end subroutine deallocate_arrays_mesa
-
 
 end module mesa_microphysics

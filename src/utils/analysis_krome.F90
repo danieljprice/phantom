@@ -20,10 +20,11 @@ module analysis
  use krome_user, only:krome_nmols
  use part,       only: maxp
  use raytracer,  only: get_all_tau
+ use io,          only: fatal, iverbose
  use hdf5
- #ifdef _OPENMP
-   use omp_lib, only: omp_set_num_threads, omp_get_max_threads, omp_get_wtime
- #endif
+#ifdef _OPENMP
+ use omp_lib, only:omp_set_num_threads, omp_get_max_threads, omp_get_wtime
+#endif
  implicit none
  character(len=20), parameter, public :: analysistype = 'krome'
  public :: do_analysis
@@ -39,51 +40,50 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,        only: isdead_or_accreted, iorig, rhoh, nptmass, xyzmh_ptmass, iReff, iboundary, igas, iphase, iamtype, rho
+ use part,        only: isdead_or_accreted, iorig, nptmass, xyzmh_ptmass, iReff, iboundary, igas, iphase, iamtype, rho
  use neighkdtree, only:build_tree
  use units,       only: utime,unit_density,udist
  use physcon,     only: atomic_mass_unit
  use eos,         only: get_temperature, ieos, gamma,gmw, init_eos
- use io,          only: fatal, iverbose
  use krome_main,  only: krome_init, krome
  use krome_user,  only: krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
                         krome_set_user_alb,krome_set_user_AuvAv
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
- real,             intent(in) :: xyzh(:,:),vxyzu(:,:), xzymh_ptmass_copy(:,:)
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- real, save    :: tprev = 0.
- integer, save :: nprev = 0
- real          :: dt_cgs, rho_cgs
- real          :: numberdensity, T_gas, gammai, mui, AUV, xi
- real          :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
- real          :: max_radius, radius, tstart
- integer       :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
-
+ real, save        :: tprev = 0.
+ integer, save     :: nprev = 0
+ real              :: dt_cgs, rho_cgs
+ real, allocatable :: xyzmh_ptmass_copy(:,:)
+ real              :: numberdensity, T_gas, gammai, mui, AUV, xi
+ real              :: abundance_part(krome_nmols), Y(krome_nmols), column_density(npart), xyzh_copy(4,npart)
+ real              :: max_radius, radius, tstart
+ integer           :: i, j, k, isize=0, ierr, completed_iterations, npart_copy = 0, hdferr, i_radius = 1
 
 #ifdef _OPENMP
 #ifdef __GFORTRAN__
-   print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
-   call omp_set_num_threads(1)
+ print*, "Setting number of threads to 1 (KROME is not thread-safe when compiled with gfortran)"
+ call omp_set_num_threads(1)
 #else
-   print*, "running with ", omp_get_max_threads(), " threads"
+ print*, "running with ", omp_get_max_threads(), " threads"
 #endif
 #else
-   print*, "running without OpenMP"
+ print*, "running without OpenMP"
 #endif
 
  if (.not.done_init) then
     done_init = .true.
 
-   ! initialize HDF5
-   call h5open_f(hdferr)
-   if (hdferr /= 0) then
-      call fatal(analysistype, 'Failed to initialize HDF5')
-   endif
+    ! initialize HDF5
+    call h5open_f(hdferr)
+    if (hdferr /= 0) then
+       call fatal(analysistype, 'Failed to initialize HDF5')
+    endif
 
     print*, "initialising KROME"
     call krome_init()
-    print*, "Initialised KROME"
+    print*, "initialised KROME"
 
     abundance_label(:) = krome_get_names()
     allocate(abundance(krome_nmols,maxp))
@@ -100,14 +100,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !check if a file with abundances already exists, if so read it in and use it as initial abundances
     inquire(file=trim(dumpfile)//'.h5', size=isize)
     if (isize > 0) then
-         print*, "Found existing abundance file, reading in abundances"
-         call read_chem(npart, dumpfile)
+       print*, "Found existing abundance file, reading in abundances"
+       call read_chem(npart, dumpfile)
     else
        print*, "setting abundances"
        !$omp parallel do default(none) &
-       !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
-       !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-       !$omp shared(ieos,rho_cgs,T_gas,j) &
+       !$omp shared(npart,xyzh,abundance_label,abundance) &
        !$omp private(i,abundance_part)
        do i=1, npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -120,25 +118,28 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call init_eos(ieos, ierr)
     if (ierr /= 0) call fatal(analysistype, "Failed to initialise EOS")
 
-   else
+ else
     dt_cgs = (time - tprev)*utime
+    iprev = 0
     completed_iterations = 0
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
     print*, "Building neighbour tree..."
 #ifdef _OPENMP
     tstart = omp_get_wtime()
 #endif
-    xyzmh_ptmass_copy(:,:) = xyzmh_ptmass(:,:) !to avoid overwriting the original ptmass array
-    xyzmh_ptmass_copy(iReff,1) = 2.
     npart_copy = npart
-    xyzh_copy = xyzh(:,:npart)
-    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu,xyzmh_ptmass_copy)
+    xyzh_copy = xyzh(:,:npart) !to avoid overwriting the original xyzh array when building the tree
+    call build_tree(npart_copy,npart_copy,xyzh_copy,vxyzu)
 #ifdef _OPENMP
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 #endif
     print*, "Calculating column density..."
     tstart = omp_get_wtime()
+    allocate(xyzmh_ptmass_copy(size(xyzmh_ptmass,1), size(xyzmh_ptmass,2)))
+    xyzmh_ptmass_copy(:,:) = xyzmh_ptmass(:,:) !to avoid overwriting the original ptmass array in the column density calculation
+    xyzmh_ptmass_copy(iReff,1) = 2.
     call get_all_tau(npart, nptmass, xyzmh_ptmass_copy, xyzh, rho, one, 5, .false., column_density)
+    deallocate(xyzmh_ptmass_copy)
     max_radius = 0.0
     do i = 1, npart
        if (.not.isdead_or_accreted(xyzh(4, i))) then
@@ -149,7 +150,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           endif
        endif
     enddo
-    column_density = column_density + rhoh(xyzh(4,i_radius),particlemass)*unit_density * max_radius * udist
+    column_density = column_density + rho(i_radius)*unit_density * max_radius * udist
     print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 
     print*, "Running KROME"
@@ -158,56 +159,52 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #endif
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev,iverbose) &
-    !$omp shared(abundance,abundance_prev,particlemass,unit_density,udist,iphase) &
+    !$omp shared(abundance,abundance_prev,unit_density,udist,iphase,rho) &
     !$omp shared(ieos,gamma,gmw,time,completed_iterations,column_density,AuvAv,albedo) &
     !$omp private(i,j,abundance_part,Y,rho_cgs,numberdensity,T_gas,gammai,mui,AUV,xi)
 
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (i <= nprev) then
-             if (iorig(i) == iorig_old(i)) then
-                iprev(i) = i
-                j = i
+          inner: do j=1,nprev
+             if (iorig(i) == iorig_old(j)) then
+                iprev(i) = j
+                exit inner
              endif
-          endif
-          if (iprev(i) == 0) then
-             inner: do k=1,nprev
-                if (iorig(i) == iorig_old(k)) then
-                   iprev(i) = k
-                   j = k
-                   exit inner
-                endif
-             enddo inner
-          endif
+          enddo inner
 
-          if (j == iprev(i)) then
+          if (iprev(i) /= 0) then
+             ! if particle existed in previous dump, evolve abundances
+            if (iamtype(iphase(i)) /= iboundary .and. iorig(i) > 2460) then ! 2460 is the amount of boundary particles
+             print*, "Evolving abundances for particle ", i, " (previous particle ", iprev(i), ")"
              abundance_part(:) = abundance_prev(:,iprev(i))
+                  !Thermodynamic quantities
+                  rho_cgs = rho(i)*unit_density
+                  gammai = gamma
+                  mui    = gmw
+                  numberdensity = rho_cgs / (mui * atomic_mass_unit)
+                  T_gas = get_temperature(ieos,xyzh(1:3, i),rho(i),vxyzu(:,i),gammai,mui)
+                  T_gas = max(T_gas,20.0d0)
+
+                  !Radiation quantities
+                  AUV = AuvAv * column_density(i) / (mui * atomic_mass_unit) / 1.87e21
+                  xi = get_xi(AUV)
+
+                  call krome_set_user_Auv(AUV)
+                  call krome_set_user_xi(xi)
+                  call krome_set_user_alb(ALBEDO)
+                  call krome_set_user_AuvAv(AuvAv)
+
+                  Y = abundance_part*numberdensity
+                  call krome(Y,T_gas,dt_cgs)
+                  abundance_part = Y/numberdensity
+                  abundance(:,i) = abundance_part
+             endif
           else
-             call chem_init(abundance_part)
+               ! if particle is new, set initial abundances
+               call chem_init(abundance_part)
+               abundance(:,i) = abundance_part
           endif
-          if (iamtype(iphase(i)) /= iboundary .and. i > 2460) then ! 2460 is the amount of boundary particles
-            !Thermodynamic quantities
-             rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
-             gammai = gamma
-             mui    = gmw
-             numberdensity = rho_cgs / (mui * atomic_mass_unit)
-             T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
-             T_gas = max(T_gas,20.0d0)
 
-             !Radiation quantities
-             AUV = AuvAv * column_density(i) / (mui * atomic_mass_unit) / 1.87e21
-             xi = get_xi(AUV)
-
-             call krome_set_user_Auv(AUV)
-             call krome_set_user_xi(xi)
-             call krome_set_user_alb(ALBEDO)
-             call krome_set_user_AuvAv(AuvAv)
-
-             Y = abundance_part*numberdensity
-             call krome(Y,T_gas,dt_cgs)
-             abundance_part = Y/numberdensity
-             abundance(:,i) = abundance_part
-          endif
        endif
        if (iverbose > 1) then
           !$omp atomic
@@ -216,12 +213,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
     enddo outer
 #ifdef _OPENMP
-   print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
-   tstart = omp_get_wtime()
+    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+    tstart = omp_get_wtime()
 #endif
-   call write_chem(npart, dumpfile)
+    call write_chem(npart, dumpfile)
 #ifdef _OPENMP
-   print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
+    print*, "        - Took ", omp_get_wtime() - tstart, " seconds"
 #endif
  endif
 
@@ -280,7 +277,7 @@ subroutine write_chem(npart, dumpfile)
     return
  endif
 
-  ! create group for particle data
+ ! create group for particle data
  call h5gcreate_f(file_id, 'chemistry', group_id, hdferr)
  ! create dataspace for particle datasets
  dims(1) = krome_nmols
@@ -330,8 +327,11 @@ subroutine read_chem(npart, dumpfile)
     return
  endif
 
+  ! open dataset for particle abundances
   ! open group for particle data
  call h5gopen_f(file_id, 'chemistry', group_id, hdferr)
+  ! open dataset for particle abundances
+ call h5dopen_f(group_id, 'abundances', dset_id, hdferr)
 
  call h5dget_space_f(dset_id, filespace_id, hdferr)
  call h5sget_simple_extent_dims_f(filespace_id, file_dims, max_dims, hdferr)
