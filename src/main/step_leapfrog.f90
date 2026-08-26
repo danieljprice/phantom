@@ -97,11 +97,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use shock_capturing,only:avdecayconst,alpha,alphamax
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rho,&
-                          iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
+                          iphase,iamtype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,&
+                          filfac,filfacpred,mprev,filfacprev,&
                           fxyz_ptmass_tree
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                           dsdt_ptmass,fsink_old,ibin_wake,dptmass, &
@@ -138,7 +138,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real,    intent(out)   :: dtnew
  integer            :: i,its,np,ntypes,itype,nwake,nvfloorp,nvfloorps,nvfloorc,ialphaloc
  real               :: timei,erri,errmax,v2i,errmaxmean
- real               :: vxi,vyi,vzi,eni,hdtsph,pmassi
+ real               :: vxi,vyi,vzi,eni,hdtsph
  real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi
  real               :: v2mean,hdti
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
@@ -166,7 +166,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !--------------------------------------
  itype   = igas
  ntypes  = get_ntypes(npartoftypetot)
- pmassi  = massoftype(itype)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
  nvfloorp  = 0
@@ -292,8 +291,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype,rho) &
-!$omp shared(pxyzu,ppred,apr_level,aprmassoftype) &
-!$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
+!$omp shared(pxyzu,ppred) &
+!$omp shared(Bevol,dBevol,Bpred,dtsph,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(alphaind,alphamax,ialphaloc) &
@@ -302,17 +301,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
 !$omp private(i,spsoundi,alphaloci) &
-!$omp firstprivate(pmassi,itype,alpha) &
+!$omp firstprivate(itype,alpha) &
 !$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (store_itype) then
           itype = iamtype(iphase(i))
-          if (use_apr) then
-             pmassi = aprmassoftype(itype,apr_level(i))
-          else
-             pmassi = massoftype(itype)
-          endif
           if (iamboundary(itype)) then
              if (gr) then
                 ppred(:,i) = pxyzu(:,i)
@@ -457,7 +451,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     p2mean  = 0.
     np      = 0
     itype   = igas
-    pmassi  = massoftype(igas) ! this does not appear to be used below
     ntypes  = get_ntypes(npartoftypetot)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
@@ -477,7 +470,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp private(erri,v2i,eni) &
 !$omp reduction(max:errmax) &
 !$omp reduction(+:np,v2mean,p2mean,nwake,nvfloorc) &
-!$omp firstprivate(pmassi,itype)
+!$omp firstprivate(itype)
 !$omp do
     corrector: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then

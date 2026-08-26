@@ -486,7 +486,7 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
        call get_density_global(2,zero_fxyzu=.true.)
     endif
     call init_metric(npart,xyzh,metrics,metricderivs,time=time)
-    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
        call initialise_externalforces(iexternalforce,ierr)
        if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
@@ -616,7 +616,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
        ! calculate metric derivatives and external force from metric on sink particles
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,time=time)
        call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                        vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                        vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
        call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,&
                             vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
        ! sinks in GR, provide external force due to metric to determine sink total force

@@ -376,7 +376,7 @@ subroutine test_binary(ntests,npass,string)
     if (gr) then
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
        call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                         vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                         vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
     endif
     !
     ! initialise forces
@@ -606,7 +606,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
  call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                   vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                   vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
  ! sinks in GR, provide external force due to metric to determine the sink total force
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                           dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
@@ -759,7 +759,7 @@ subroutine test_softening(ntests,npass)
  if (gr) then
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                     vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
  endif
 
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -1504,7 +1504,7 @@ subroutine test_merger(ntests,npass)
        mass1 = 0.
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
        call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                         vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                         vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
     endif
     call compute_energies(0.)
     nsink0 = nptmass; angmom0 = angtot; mv0 = totmom; mtot0 = mtot

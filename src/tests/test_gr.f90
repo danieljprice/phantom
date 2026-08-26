@@ -243,13 +243,13 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  if (use_sink) then
     if (id==master) print*,'   using sink'
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
-    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+    call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call calculate_angmom(xyzmh_ptmass(1:3,1),metrics_ptmass(:,:,:,1),xyzmh_ptmass(4,1),vxyz_ptmass(1:3,1),angmom0)
  else
     if (id==master) print*,'   using gas'
     call init_metric(npart,xyzh,metrics,metricderivs)
-    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
     call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
  endif

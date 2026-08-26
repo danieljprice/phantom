@@ -143,7 +143,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 !$ use omp_lib
  use dim,        only:maxp,ind_timesteps,maxvxyzu
  use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                    shuffle_part,iphase,iactive,maxp,npartoftype
+                    shuffle_part,iphase,iactive,maxp,npartoftype,rho
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
  use utils_apr,  only:find_closest_region,icentre
@@ -156,7 +156,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  integer(kind=1), intent(inout) :: apr_level(:)
  integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
  integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,iclosest
- real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
+ real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:),rho_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:), rneighs(:)
  integer, allocatable :: relaxlist(:),mergelist(:),should_split(:)
  integer, allocatable :: idx_merge(:),should_merge(:),scan_array(:),idx_split(:)
@@ -181,19 +181,21 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  ! Before adjusting the particles, if we're going to
  ! relax them then let's save the reference particles
  if (do_relax) then
-    allocate(xyzh_ref(4,maxp),force_ref(3,maxp),pmass_ref(maxp),relaxlist(maxp))
+    allocate(xyzh_ref(4,maxp),force_ref(3,maxp),pmass_ref(maxp),rho_ref(maxp),relaxlist(maxp))
     relaxlist = -1
 
     n_ref = 0
     xyzh_ref = 0.
     force_ref = 0.
     pmass_ref = 0.
+    rho_ref = 0.
 
     do ii = 1,npart
        if (.not.isdead_or_accreted(xyzh(4,ii))) then ! ignore dead particles
           n_ref = n_ref + 1
           xyzh_ref(1:4,n_ref) = xyzh(1:4,ii)
           pmass_ref(n_ref) = aprmassoftype(igas,apr_level(ii))
+          rho_ref(n_ref) = rho(ii)
           force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
        endif
     enddo
@@ -430,7 +432,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  if (apr_verbose) print*,'particles at each level:',npart_regions(:)
 
  ! If we need to relax, do it here
- if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
+ if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,rho_ref,nrelax,relaxlist)
  ! Turn it off now because we only want to do this on first splits
  if (.not. gr) do_relax = .false.
 
@@ -439,7 +441,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Tidy up
  if (do_relax) then
-    deallocate(xyzh_ref,force_ref,pmass_ref)
+    deallocate(xyzh_ref,force_ref,pmass_ref,rho_ref)
  endif
  deallocate(relaxlist,should_merge,idx_merge,scan_array,rneighs,idx_split,should_split)
 

@@ -18,7 +18,7 @@ module utils_gr
 !
  implicit none
 
- public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
+ public :: dot_product_gr, get_u0, get_bigv, rho2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
  public :: perturb_metric
 
  private
@@ -86,30 +86,14 @@ end subroutine get_bigv
 
 !----------------------------------------------------------------
 !+
-!  get density in the fluid rest frame (primitive dens) from
-!  the conserved density rho* (kernel-summed density)
+!  get primitive rest-frame density (dens) from conserved rho
+!  (kernel-summed mass density in Phantom)
 !+
 !----------------------------------------------------------------
-subroutine h2dens(dens,rho,xyzh,metrici,v)
- real, intent(in)  :: rho,xyzh(1:4),metrici(:,:,:),v(1:3)
- real, intent(out) :: dens
- real :: xyz(1:3)
-
- xyz = xyzh(1:3)
- call rho2dens(dens,rho,xyz,metrici,v)
-
-end subroutine h2dens
-
-!----------------------------------------------------------------
-!+
-!  get density in the fluid rest frame (primitive dens) from
-!  the conserved density rho*
-!+
-!----------------------------------------------------------------
-subroutine rho2dens(dens,rho,position,metrici,v)
+subroutine rho2dens(dens,rho,metrici,v)
  use metric_tools, only:unpack_metric
  use io,           only:error
- real, intent(in)  :: rho,position(1:3),metrici(:,:,:),v(1:3)
+ real, intent(in)  :: rho,metrici(:,:,:),v(1:3)
  real, intent(out) :: dens
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0

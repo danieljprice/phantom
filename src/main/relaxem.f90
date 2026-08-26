@@ -23,14 +23,14 @@ module relaxem
 contains
 
 ! Subroutine to relax the new set of particles to a reference particle distribution
-subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
+subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,rho_ref,nrelax,relaxlist)
  use deriv,     only:get_derivs_global
  use dim,       only:gr,mpi
  use io,        only:error
  use part,      only:rho
 
  integer, intent(in) :: npart,n_ref,nrelax
- real,    intent(in) :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
+ real,    intent(in) :: force_ref(3,n_ref),xyzh_ref(4,n_ref),rho_ref(n_ref)
  integer, intent(in) :: relaxlist(1:nrelax)
  real,  allocatable :: a_ref(:,:)
  real :: ke,maxshift,ke_init,shuffle_tol
@@ -62,7 +62,7 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
     call get_derivs_global()
 
     ! These are the accelerations at the locations of the new particles, interpolated from the parents
-    call get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
+    call get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,force_ref,rho_ref,nrelax,relaxlist)
 
     ! Shift the particles by minimising the difference between the acceleration at the new particles and
     ! the interpolated values (i.e. what they do have minus what they should have)
@@ -94,25 +94,24 @@ end subroutine relax_particles
 !----------------------------------------------------------------
 
 subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
-  force_ref,nrelax,relaxlist)
- use part,         only:xyzh,aprmassoftype,igas,apr_level,rhoh
+  force_ref,rho_ref,nrelax,relaxlist)
+ use part,         only:xyzh
  use dim,          only:periodic
  use kernel,       only:wkern,grkern,radkern2,cnormk
  use boundary,     only:dxbound,dybound,dzbound
  integer, intent(in)  :: npart,n_ref,nrelax
- real,    intent(in)  :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
+ real,    intent(in)  :: force_ref(3,n_ref),xyzh_ref(4,n_ref),rho_ref(n_ref)
  integer, intent(in)  :: relaxlist(nrelax)
  real,    intent(out) :: a_ref(3,npart)
- real :: xi,yi,zi,rij(3),h21,qj2,rij2,rhoj,h31,mass_ref
+ real :: xi,yi,zi,rij(3),h21,qj2,rij2,rhoj,h31
  integer :: i,j,k
 
  a_ref(:,:) = 0.
 
  ! Over the new set of particles that are to be shuffled
  !$omp parallel do schedule(guided) default (none) &
- !$omp shared(xyzh,xyzh_ref,npart,n_ref,force_ref,a_ref,relaxlist) &
- !$omp shared(nrelax,apr_level,dxbound,dybound,dzbound) &
- !$omp shared(mass_ref,aprmassoftype) &
+ !$omp shared(xyzh,xyzh_ref,npart,n_ref,force_ref,rho_ref,a_ref,relaxlist) &
+ !$omp shared(nrelax,dxbound,dybound,dzbound) &
  !$omp private(i,j,xi,yi,zi,rij,h21,h31,rhoj,rij2,qj2)
 
  over_new: do k = 1,nrelax
@@ -127,7 +126,6 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
        rij(1) = xyzh_ref(1,j) - xi
        rij(2) = xyzh_ref(2,j) - yi
        rij(3) = xyzh_ref(3,j) - zi
-       mass_ref = aprmassoftype(igas,apr_level(j))   ! TBD: fix this to allow for dust
 
        if (periodic) then
           if (abs(rij(1)) > 0.5*dxbound) rij(1) = rij(1) - dxbound*SIGN(1.0,rij(1))
@@ -137,7 +135,7 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
 
        h21 = 1./(xyzh_ref(4,j))**2
        h31 = 1./(xyzh_ref(4,j))**3
-       rhoj = rhoh(xyzh_ref(4,j),mass_ref)
+       rhoj = rho_ref(j)
 
        rij2 = dot_product(rij,rij)
        qj2  = rij2*h21

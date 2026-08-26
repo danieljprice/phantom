@@ -268,7 +268,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  ! update conserved quantities in the GR code
  if (gr) then
     call init_metric(npart,xyzh,metrics,time=time)
-    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,use_dens=.false.,dens=dens)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
  endif
 
  ! evaluate derivatives
