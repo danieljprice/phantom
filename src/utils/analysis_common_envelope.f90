@@ -593,7 +593,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
        else
           mui = gmw
        endif
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,&
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,epoti,ekini,&
                               egasi,eradi,ereci,etoti,mui=mui)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,dum1,dum2,dum3,phii)
        rhopart = rho(i)
@@ -754,7 +754,7 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
     jz = rcrossmv(3)
     encomp(ijz_tot) = encomp(ijz_tot) + jz
 
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,etoti)
 
     encomp(ipot_ps) = encomp(ipot_ps) + particlemass * phii
@@ -999,7 +999,7 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
 
  do i=1,npart
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,etoti)
 
     sep1 = separation(xyzmh_ptmass(1:3,1),xyzh(1:3,i))
@@ -1184,7 +1184,7 @@ subroutine star_stabilisation_suite(time,npart_in,particlemass,xyzh,vxyzu)
     rhopart = rho(i)
     totvol = totvol + particlemass / rhopart ! Sum "volume" of all particles
     virialpart = virialpart + particlemass * ( dot_product(fxyzu(1:3,i),xyzh(1:3,i)) + dot_product(vxyzu(1:3,i),vxyzu(1:3,i)) )
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,etoti)
     totekin = totekin + ekini
     totepot = totepot + 0.5*epoti ! Factor of 1/2 to correct for double counting
@@ -1394,7 +1394,7 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     endif
 
     if (req_gas_energy) then
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                               epoti,ekini,egasi,eradi,ereci,dum1)
     endif
 
@@ -1654,7 +1654,7 @@ subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
     else
        Si = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
     endif
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,etoti)
     call ionisation_fraction(rho_cgs,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
@@ -1781,7 +1781,7 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
     call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappa,kappat,kappar)
     kappa_part(i) = kappa ! In cgs units
     call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,dum)
     call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rhopart)
     etoti = ekini + epoti + ethi
@@ -1860,7 +1860,7 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  do i=1,npart
     rhopart = rho(i)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,dum)
     if (ieos==10 .or. ieos==20) then
        call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rhopart)
@@ -2071,7 +2071,7 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
     pres_cgs = ponrhoi*rhopart*unit_pressure
     select case (iquantity)
     case(1) ! Energy
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                               epoti,ekini,egasi,eradi,ereci,etoti)
        call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,tempi,ethi,rhopart)
        quant(i,1) = ekini + epoti + ethi
@@ -2093,7 +2093,7 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
           endif
        endif
     case(3) ! Bernoulli energy (per unit mass)
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                               epoti,ekini,egasi,eradi,ereci,etoti)
        quant(i,1) = 0.5*dot_product(vxyzu(1:3,i),vxyzu(1:3,i)) + ponrhoi + vxyzu(4,i) + epoti/particlemass ! 1/2 v^2 + P/rho + phi
     case(4) ! Ion fraction
@@ -2113,7 +2113,7 @@ subroutine profile_1D(time,npart,particlemass,xyzh,vxyzu)
        endif
        quant(i,1) = kappai*rho_cgs
     case(7) ! Newly unbound particles
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                         epoti,ekini,egasi,eradi,ereci,etoti)
        e_kp = ekini + epoti
        e_kpt = e_kp + egasi + eradi
@@ -2258,7 +2258,7 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  do i = 1,npart
     rhopart = rho(i)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,dum)
     call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rhopart)
     vr(i) = dot_product(xyzh(1:3,i),vxyzu(1:3,i)) / sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
@@ -2553,7 +2553,8 @@ subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
  do i=1,npart
     rhopart = rho(i)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,dum)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
+                           epoti,ekini,egasi,eradi,ereci,dum)
     call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,tempi,ethi,rhopart)
     etoti = ekini + epoti + ethi
 
@@ -2622,7 +2623,8 @@ subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
  do i=1,npart
     rhopart = rho(i)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),eos_vars(itemp,i),vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,dum)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
+                           epoti,ekini,egasi,eradi,ereci,dum)
     call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rhopart)
     etoti = ekini + epoti + ethi
 
@@ -2690,7 +2692,8 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
     ! Calculate total energy
     rhopart = rho(i)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,dum)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
+                           epoti,ekini,egasi,eradi,ereci,dum)
     call calc_thermal_energy(particlemass,ieos,vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rhopart,rad(:,i))
     etoti = ekini + epoti! + ethi
 
@@ -2932,7 +2935,7 @@ subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  call compute_energies(time)
 
  do i=1,npart
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),phii,&
                            epoti,ekini,egasi,eradi,ereci,etoti)
 
     rhopart = rho(i)
@@ -3275,7 +3278,8 @@ subroutine J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  call get_centreofmass(com_xyz,com_vxyz,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  do i=1,npart
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,dum1,dum2,dum3,dum4,dum5,dum6,etoti)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,rho(i),&
+                           dum1,dum2,dum3,dum4,dum5,dum6,etoti)
     data(1,i) = etoti
     call cross_product3D(xyzh(1:3,i)-xyzmh_ptmass(1:3,1), vxyzu(1:3,i)-vxyz_ptmass(1:3,1), angmom_core)
     data(5:7,i) = angmom_core
@@ -3673,21 +3677,20 @@ end subroutine get_gas_omega
 !           lead to double counting
 !+
 !----------------------------------------------------------------
-subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,etoti,mui)
+subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,rhoi,phii,epoti,ekini,egasi,eradi,ereci,etoti,mui)
  use ptmass,           only:get_accel_sink_gas
  use part,             only:nptmass,iradxi,itemp
  use eos_idealplusrad, only:get_idealplusrad_temp,egas_from_rhoT,erad_from_rhoT
  use ionization_mod,   only:get_erec_cveff
- real,    intent(in)  :: particlemass
+ real,    intent(in)  :: particlemass,rhoi
  real(4), intent(in)  :: poten
  real,    intent(in)  :: xyzh(:),vxyzu(:),rad(:)
  real,    intent(in)  :: xyzmh_ptmass(5,nptmass)
  real, intent(in), optional :: mui
  real,    intent(out) :: phii,epoti,ekini,egasi,eradi,ereci,etoti
- real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff,mu_local
+ real                                   :: fxi,fyi,fzi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff,mu_local
  integer                                :: ierr
 
- rhoi = rho(i)
  rho_cgs = rhoi*unit_density
  phii = 0.
  call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
@@ -3864,7 +3867,7 @@ subroutine stellar_profile(time,ncols,particlemass,npart,xyzh,vxyzu,profile,simp
              endif
 
              call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),&
-                                    xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,etoti)
+                                    xyzmh_ptmass,rho(i),phii,epoti,ekini,egasi,eradi,ereci,etoti)
 
              call ionisation_fraction(rhopart*unit_density,temp,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
