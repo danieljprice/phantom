@@ -33,11 +33,11 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: maxp,maxvxyzu
+ use dim,          only:maxp,maxvxyzu
  use centreofmass, only:reset_centreofmass
- use physcon,      only: pi,gg,years,pc
- use part,         only: igas,iamtype,iphase,maxphase,rhoh
- use units,        only: umass,udist,utime,unit_density
+ use physcon,      only:pi,gg,years,pc
+ use part,         only:rho,igas,iamtype,iphase,maxphase
+ use units,        only:umass,udist,utime,unit_density
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) !due to reset center of mass
@@ -94,12 +94,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     xcom   = 0.
     icom   = 0
     twoh2  = 4.0*hmin*hmin
-    rhomax = rhoh(hmin,particlemass)
+    rhomax = rho(i)
     print*, 'rhomax = ',rhomax*unit_density
     do i = 1,npart
        hi = xyzh(4,i)
        if (hi > tiny(hi)) then
-          rhoi = rhoh(hi,particlemass)
+          rhoi = rho(i)
           if (rhoi > 0.1*rhomax) then
              dr2 = dot_product((xdense-xyzh(1:3,i)),(xdense-xyzh(1:3,i)))
              if (dr2 < twoh2 .and. .true.) then
@@ -133,7 +133,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        itype = igas
     endif
     if (itype/=igas) cycle parts         ! not gas
-    rhoi = rhoh(hi,particlemass)
+    rhoi = rho(i)
     if (rhoi > rhothresh) then
        rad   = sqrt(xi*xi + yi*yi + zi*zi)
        rad2d = sqrt(xi*xi + yi*yi)

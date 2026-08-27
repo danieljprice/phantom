@@ -98,7 +98,7 @@ subroutine phantom2et()
 end subroutine phantom2et
 
 subroutine step_et2phantom_MoL(infile,dt_et,dtout)
- use part,             only:xyzh,vxyzu,pxyzu,dens,metrics, npart, eos_vars
+ use part,             only:xyzh,vxyzu,pxyzu,dens,metrics,npart,eos_vars
  use cons2prim,        only:cons2primall
  use deriv,            only:get_derivs_global
  use einsteintk_utils, only:get_phantom_dt
@@ -213,39 +213,23 @@ subroutine phantom2et_consvar()
 end subroutine phantom2et_consvar
 
 subroutine phantom2et_rhostar()
- use part, only:xyzh,npart,&
-        igas, massoftype,rhoh,rho
+ use part, only:xyzh,npart,rho
  use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
  use einsteintk_utils, only:get_phantom_dt,rhostargrid
  use metric_tools, only:init_metric
- real :: dat(npart), h, pmass,rhoi
+ real :: dat(npart), rhoi
  integer :: i
 
- ! Get new cons density from new particle positions somehow (maybe)?
- ! Update the tree for neighbour finding
- ! Calculate the density for the new particle positions
- ! Call density iterate
-
- ! Interpolate from particles to grid
- ! This can all go into its own function as it will essentially
- ! be the same thing for all quantites
- ! get particle data
- ! get rho from xyzh and rhoh
- ! Get the conserved density on the particles
+ ! Interpolate conserved density from particles to grid
  dat = 0.
- pmass = massoftype(igas)
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,dat,pmass) &
- !$omp private(i,h,rhoi)
+ !$omp shared(npart,dat) &
+ !$omp private(i,rhoi)
  do i=1, npart
-    ! Get the smoothing length
-    h = xyzh(4,i)
-    ! Get pmass
-
-    rhoi = rhoh(h,pmass)
+    rhoi = rho(i)
     dat(i) = rhoi
  enddo
  !$omp end parallel do
@@ -274,7 +258,7 @@ subroutine phantom2et_entropy()
  ! This can all go into its own function as it will essentially
  ! be the same thing for all quantites
  ! get particle data
- ! get rho from xyzh and rhoh
+ ! get rho from part module
  ! Get the conserved density on the particles
  dat = 0.
  !$omp parallel do default(none) &
@@ -291,7 +275,7 @@ subroutine phantom2et_entropy()
 end subroutine phantom2et_entropy
 
 subroutine phantom2et_momentum()
- use part, only:pxyzu, npart,rho
+ use part, only:pxyzu,npart,rho
  use cons2prim, only:cons2primall
  use deriv
  use extern_gr

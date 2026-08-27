@@ -22,7 +22,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass
+ use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use centreofmass, only:reset_centreofmass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)

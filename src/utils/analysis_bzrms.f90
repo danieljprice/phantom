@@ -34,8 +34,8 @@ module analysis
 contains
 !-----------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use io,      only: id,master,fatal
- use part,    only: Bxyz,rhoh,mhd
+ use io,      only:id,master,fatal
+ use part,    only:rho,Bxyz,mhd
  use physcon, only:pi,fourpi,qe,c,mass_proton_cgs
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -109,7 +109,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  do i = 1,npart
     B2        = dot_product(Bxyz(1:3,i),Bxyz(1:3,i))
     Bave(1:3) = Bave(1:3) + Bxyz(1:3,i)
-    vaave     = vaave     + sqrt( B2 / rhoh(xyzh(4,i),particlemass) )
+    vaave     = vaave     + sqrt( B2 / rho(i) )
     vmax(1)   = max(vmax(1),abs(vxyzu(1,i)))
     vmax(2)   = max(vmax(2),abs(vxyzu(2,i)))
     vmax(3)   = max(vmax(3),abs(vxyzu(3,i)))

@@ -26,7 +26,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use part, only:npartoftype,iamtype,isdead_or_accreted,nptmass,&
-                xyzmh_ptmass,igas,rhoh
+                xyzmh_ptmass,igas,rho
  use physcon,      only:gg,solarm,au,pi,years
  use setup_params, only:rhozero
  character(len=*), intent(in) :: dumpfile
@@ -86,7 +86,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
     hi = xyzh(4,i)
-    rhoi = rhoh(hi,particlemass)
+    rhoi = rho(i)
     if (.not. isdead_or_accreted(hi)) then
        r = sqrt(xi*xi + yi*yi + zi*zi)
        dr = 1./r

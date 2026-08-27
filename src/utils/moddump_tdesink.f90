@@ -23,7 +23,7 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part, only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,ihacc,ihsoft,rhoh
+ use part, only:rho,xyzmh_ptmass,vxyz_ptmass,nptmass,igas,ihacc,ihsoft
  use part, only:delete_particles_inside_radius
  use io,             only:fatal
  use prompting,      only:prompt
@@ -52,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call fatal('moddump','no gas particles present in file')
  endif
  do j = 1,npart
-    den_all(j) = rhoh(xyzh(4,j),pmass)
+    den_all(j) = rho(j)
  enddo
 
  location = maxloc(den_all,dim=1)

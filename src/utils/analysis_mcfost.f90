@@ -40,13 +40,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              get_ntypes,iamtype,maxphase,maxp,idust,nptmass,&
                              massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                              grainsize,graindens,ndusttypes,rad,radprop,&
-                             rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp, apr_level
+                             rho,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp, apr_level
  use units,          only:umass,utime,udist,get_radconst_code
  use io,             only:fatal,iprint
- use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation, use_apr
+ use dim,            only:use_dust,track_lum,maxdusttypes,use_dustgrowth,do_radiation,use_apr
  use eos,            only:temperature_coef,gmw,gamma
  use options,        only:use_dustfrac
- use mcfost_utils,   only:use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
+ use mcfost_utils,   only:use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,&
                           use_mcfost_stellar_parameters,mcfost_computes_Lacc,mcfost_uses_PdV,&
                           mcfost_keep_part,ISM,mcfost_dust_subl
  use physcon,        only:cm,gram,c,steboltz
@@ -68,7 +68,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
- real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
+ real :: a_code,rhoi,Tmin,Tmax,default_kappa,kappa_diffusion
  integer(kind=1) :: new_level(npart)
 
  if (.not. use_mcfost) return
@@ -149,7 +149,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (do_radiation) then
     a_code = get_radconst_code()
-    pmassi = massoftype(igas)
 
     radprop(inumph,:) = 0.
     if (isinitial) then
@@ -177,7 +176,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              vxyzu(4,i) = Tdust(i)*factor
              ! if the temperature is correct and set by mcfost
              ! => suppose we are at equilibrium
-             rhoi = rhoh(xyzh(4,i),pmassi)
+             rhoi = rho(i)
              rad(iradxi,i) = a_code*Tdust(i)**4.0/rhoi
              drad(iradxi,i) = 0
           else
@@ -185,7 +184,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              ! => lets try to handle the particle by SPH
              if (isinitial) then
                 vxyzu(4,i) = ((Tmax-Tmin)*0.2)*factor
-                rhoi = rhoh(xyzh(4,i),pmassi)
+                rhoi = rho(i)
                 rad(iradxi,i) = a_code*((Tmax-Tmin)*0.2)**4.0/rhoi
                 drad(iradxi,i) = 0
              else

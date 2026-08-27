@@ -31,7 +31,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
- use part,    only:rhoh,Bxyz,iamtype,igas,mhd
+ use part,    only:rho,Bxyz,iamtype,igas,mhd
  use eos,     only:get_pressure
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: npart,iunit,numfile
@@ -327,7 +327,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     By_net = By_net + By
     Bz_net = Bz_net + Bz
 
-    rho = rhoh(xyzh(4,i),pmass)
+    rhoi = rho(i)
     pressure = get_pressure(3,xyzh(:,i),rho,vxyz(:,i))
     !pressure = cssqrd*rho  BUG?  This is the original version, which is pressure = spsound * rho
 

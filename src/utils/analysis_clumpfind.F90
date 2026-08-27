@@ -22,7 +22,7 @@ module analysis
 !   readwrite_dumps, sortutils, units
 !
  use dim,             only:maxp
- use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'
@@ -59,7 +59,7 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten,rhoh
+ use part,            only:rho,iphase,maxphase,igas,get_partinfo,ihacc,poten
  use readwrite_dumps, only:opened_full_dump
  use units,           only:unit_density
  use sortutils,       only:indexx
@@ -229,7 +229,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ipart = ipotensort(npart-l+1)
 
     ! skip particle if not dense enough
-    if (rhoh(xyzh(4,ipart),particlemass) < rhomin) cycle over_parts
+    if (rho(ipart) < rhomin) cycle over_parts
 
     ! Only calculate for gas particles
     if (maxphase==maxp) then
@@ -594,7 +594,7 @@ end subroutine create_sink_clumps
 !+
 !-----------------------------------------------------------------------
 subroutine initialise_clump(ipart)
- use part, only:xyzh, vxyzu, massoftype,igas
+ use part, only:xyzh,vxyzu,massoftype,igas
  integer, intent(in) :: ipart
  character(len=100)  :: fmt
  integer             :: k
@@ -710,7 +710,7 @@ end subroutine remove_particle_from_clump
 !+
 !-----------------------------------------------------------------------
 subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
- use part,      only: xyzmh_ptmass,ihacc
+ use part,      only:xyzmh_ptmass,ihacc
  use sortutils, only:indexx
 #ifdef PERIODIC
  use boundary,  only:dxbound,dybound,dzbound

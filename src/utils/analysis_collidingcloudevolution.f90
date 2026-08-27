@@ -29,10 +29,10 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: maxvxyzu
- use part,         only: nptmass,xyzmh_ptmass,rhoh,isdead_or_accreted
- use units,        only: unit_density
- use eos,          only: ieos,get_spsound
+ use dim,          only:maxvxyzu
+ use part,         only:rho,nptmass,xyzmh_ptmass,isdead_or_accreted
+ use units,        only:unit_density
+ use eos,          only:ieos,get_spsound
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -83,7 +83,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  do i = 1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        vxyzui = vxyzu(:,i)
-       rhoi = rhoh(xyzh(4,i),particlemass)
+       rhoi = rho(i)
        v2i  = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
        csi  = get_spsound(ieos,xyzh(1:3,i),rhoi,vxyzui)
        rmsmachi = v2i/csi**2

@@ -23,10 +23,10 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass
+ use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass
  use centreofmass, only:reset_centreofmass
- use dim,          only: periodic
- use boundary,     only: xmin,ymin,zmin,dxbound,dybound,dzbound
+ use dim,          only:periodic
+ use boundary,     only:xmin,ymin,zmin,dxbound,dybound,dzbound
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)

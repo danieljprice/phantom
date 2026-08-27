@@ -24,7 +24,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setdisc, only:set_incline_or_warp
  use physcon, only:pi
- use part,    only:Bxyz,mhd,rhoh,igas
+ use part,    only:rho,Bxyz,mhd,igas
  integer, intent(in)    :: npartoftype(:)
  real,    intent(in)    :: massoftype(:)
  integer, intent(inout) :: npart
@@ -77,7 +77,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        omega = r**(-1.5)
        cs = HonR*r*omega
        pmassii = massoftype(igas)
-       pressure = cs**2*rhoh(xyzh(4,ii),pmassii)
+       pressure = cs**2*rho(ii)
        Bzero = sqrt(2.*pressure/beta)
        Bxyz(1,ii) = -Bzero*sin(phi)
        Bxyz(2,ii) = Bzero*cos(phi)

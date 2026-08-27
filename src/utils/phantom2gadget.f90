@@ -18,7 +18,7 @@ program phantom2gadget
 ! :Dependencies: boundary, dim, eos, io, part, readwrite_dumps, units
 !
  use dim,             only:tagline
- use part,            only:hfact,massoftype,npart,xyzh,vxyzu,rhoh
+ use part,            only:hfact,massoftype,npart,xyzh,vxyzu,rho
  use eos,             only:polyk
  use io,              only:set_io_unit_numbers,iprint,idisk1
  use readwrite_dumps, only:read_dump,write_gadgetdump
@@ -28,8 +28,7 @@ program phantom2gadget
  integer :: nargs
  character(len=120) :: dumpfilein,dumpfileout
  real :: time
- real, allocatable :: rho(:)
- integer :: ierr,i
+ integer :: ierr
 
  call set_io_unit_numbers
  call set_units
@@ -54,13 +53,7 @@ program phantom2gadget
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
  if (ierr /= 0) stop 'error reading dumpfile'
 
- allocate(rho(npart))
- do i=1,npart
-    rho(i) = rhoh(xyzh(4,i),massoftype(1))
- enddo
-
  call write_gadgetdump(trim(dumpfileout),time,xyzh,massoftype(1),vxyzu,rho,1.5*polyk,npart)
- deallocate(rho)
 
  print "(/,a,/)",' Phantom2gadget: Good luck with that.'
 

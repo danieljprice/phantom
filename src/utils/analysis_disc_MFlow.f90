@@ -31,7 +31,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
- use part,    only:rhoh
+ use part,    only:rho
  use sortutils, only:indexx
 
  character(len=*), intent(in) :: dumpfile

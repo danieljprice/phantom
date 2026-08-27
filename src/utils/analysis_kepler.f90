@@ -100,7 +100,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
                                    temperature,rad_vel,angular_vel_3D,comp_kepler,comp_label,ncomp,ibin,numfile)
  use units,        only:udist,umass,utime,unit_density
  use vectorutils,  only:cross_product3D
- use part,         only:rhoh
+ use part,         only:rho
  use centreofmass, only:get_centreofmass
  use sortutils,    only:sort_by_radius
  use eos,          only:equationofstate,gmw,init_eos
@@ -142,7 +142,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  bhmass = 1
  ! performing a loop to determine maximum density particle position
  do j = 1,npart
-    den_all(j) = rhoh(xyzh(4,j),pmass)
+    den_all(j) = rho(j)
  enddo
 
  ! Save the location of max density particle
@@ -718,7 +718,7 @@ end subroutine moment_of_inertia
 subroutine calc_particles(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos,vpos,comp_label,&
                           comp_interp,ncomp,temp,den,r,v,rvec,vvec,etot,isort,ke,pe,&
                           pos_wrt_bh,vel_wrt_bh,h,comp)
- use part,            only:rhoh,poten
+ use part,            only:rho,poten
  use eos,             only:equationofstate,gmw,init_eos
  use physcon,         only:gg
  integer,              intent(in)    :: npart,numfile
@@ -764,7 +764,7 @@ subroutine calc_particles(npart,iorder,numfile,xyzh,vxyzu,pmass,xpos,vpos,comp_l
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
     potential_i  = poten(i)
     kinetic_i    = 0.5*pmass*vel_mag**2
-    density_i    = rhoh(xyzh(4,i),pmass)
+    density_i    = rho(i)
     energy_i     = potential_i + kinetic_i + vxyzu(4,i)*pmass
     print*,' Potential: ',potential_i,', Kinetic: ',kinetic_i
 

@@ -33,11 +33,11 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: mhd
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,isdead_or_accreted
- use physcon,      only: solarm,km
- use units,        only: unit_velocity,unit_density,umass
- use sortutils,    only: indexx
+ use dim,          only:mhd
+ use part,         only:rho,nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted
+ use physcon,      only:solarm,km
+ use units,        only:unit_velocity,unit_density,umass
+ use sortutils,    only:indexx
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -100,7 +100,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     imass0 = 0
     do i = 1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (rhoh(xyzh(4,i),particlemass) > (1.1d-23)/unit_density) imass0 = imass0+1
+          if (rho(i) > (1.1d-23)/unit_density) imass0 = imass0+1
        endif
     enddo
     print*, "The total initial mass of the clouds is ",imass0*particlemass," M_sun"
@@ -273,7 +273,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 !$omp reduction(+:mvbins,mtot)
  do i = 1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       rhoi = rhoh(xyzh(4,i),particlemass)
+       rhoi = rho(i)
        if (rhoi > dtsh) then
           vel  = sqrt(dot_product(vxyzu(1:3,i),vxyzu(1:3,i)))
           mtot = mtot + 1.0

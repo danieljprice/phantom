@@ -31,10 +31,10 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,         only: iphase,istar,idarkmatter,igas, &
-                         massoftype,maxp,maxphase,isdead_or_accreted,iamtype,rhoh
- use units,        only: utime,udist,unit_density
- use physcon,      only: years,mpc
+ use part,         only:iphase,istar,idarkmatter,igas,&
+                         massoftype,maxp,maxphase,isdead_or_accreted,iamtype,rho
+ use units,        only:utime,udist,unit_density
+ use physcon,      only:years,mpc
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -113,7 +113,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           itype = igas
           pmassi = massoftype(igas)
        endif
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
        if (itype==istar) then
           rhostarX = max(rhostarX,rhoi)
           rhostarA =     rhostarA+rhoi

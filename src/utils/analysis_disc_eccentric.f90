@@ -42,7 +42,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
- use part,    only:rhoh,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
+ use part,    only:xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use sortutils, only:indexx
 
  character(len=*), intent(in) :: dumpfile

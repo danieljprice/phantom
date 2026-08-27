@@ -26,7 +26,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,              only:maxptmass
- use part,             only:massoftype,rhoh,hfact,isdead_or_accreted,igas
+ use part,             only:rho,isdead_or_accreted
  use readwrite_dumps,  only:read_dump
  use pdfs,             only:get_pdf,write_pdf
  character(len=*), intent(in) :: dumpfile
@@ -34,33 +34,28 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:), particlemass, time
  character(len=3)  :: variable='rho'
  integer           :: nbins, i
- real, allocatable :: pdf_rho(:), xbin(:), rho(:)
+ real, allocatable :: pdf_rho(:), xbin(:)
  real :: totmass,rhomin,rhomax,binspacing,rhologmin,rhologmax
  real :: vx2,vy2,vz2,rhoi,rmsv
- real :: rhomean,hi, pmassi
+ real :: rhomean,hi
 
- allocate(rho(npart))
- rho     = 0.
  rhomin  = huge(rhomin)
  rhomax  = 0.
  rhomean = 0.
  totmass = 0.
  rmsv    = 0.
- print*,'hfact = ',hfact
  do i=1,npart
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
-       pmassi = massoftype(igas)
-       rho(i) = rhoh(hi,pmassi)
        rhoi   = rho(i)
        rhomin = min(rhomin,rhoi)
        rhomax = max(rhomax,rhoi)
        vx2 = vxyzu(1,i)**2
        vy2 = vxyzu(2,i)**2
        vz2 = vxyzu(3,i)**2
-       rmsv = rmsv + pmassi*(vx2 + vy2 + vz2)
-       totmass = totmass + pmassi
-       rhomean = rhomean + pmassi*rhoi
+       rmsv = rmsv + particlemass*(vx2 + vy2 + vz2)
+       totmass = totmass + particlemass
+       rhomean = rhomean + particlemass*rhoi
     endif
  enddo
 
@@ -100,14 +95,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
  !--calculate PDF of rho, and write to text file
  !
-! call get_pdf(xbin,pdf,nbins,npart,lnrho,lnrhomin,lnrhomax)
-! call get_pdf(xbin,pdf,nbins,npart,rho,rhomin,rhomax)
  call get_pdf(xbin,pdf_rho,nbins,npart,rho,10.**int(rhologmin),10.**int(rhologmax))
  call write_pdf(iunit,dumpfile,variable,nbins,xbin,pdf_rho,time)
 
  if (allocated(xbin)) deallocate(xbin)
  if (allocated(pdf_rho)) deallocate(pdf_rho)
- if (allocated(rho)) deallocate(rho)
 
 end subroutine do_analysis
 

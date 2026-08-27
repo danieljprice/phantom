@@ -18,12 +18,12 @@ module analysis
 !   omp_lib, part, physcon, raytracer, units
 !
  use krome_user, only:krome_nmols
- use part,       only: maxp
- use raytracer,  only: get_all_tau
- use io,          only: fatal, iverbose
+ use part,       only:maxp
+ use raytracer,  only:get_all_tau
+ use io,          only:fatal,iverbose
  use hdf5
 #ifdef _OPENMP
- use omp_lib, only:omp_set_num_threads, omp_get_max_threads, omp_get_wtime
+ use omp_lib, only:omp_set_num_threads,omp_get_max_threads,omp_get_wtime
 #endif
  implicit none
  character(len=20), parameter, public :: analysistype = 'krome'
@@ -40,13 +40,13 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,        only: isdead_or_accreted, iorig, nptmass, xyzmh_ptmass, iReff, iboundary, igas, iphase, iamtype, rho
+ use part,        only:isdead_or_accreted,iorig,nptmass,xyzmh_ptmass,iReff,iboundary,igas,iphase,iamtype,rho
  use neighkdtree, only:build_tree
- use units,       only: utime,unit_density,udist
- use physcon,     only: atomic_mass_unit
- use eos,         only: get_temperature, ieos, gamma,gmw, init_eos
- use krome_main,  only: krome_init, krome
- use krome_user,  only: krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
+ use units,       only:utime,unit_density,udist
+ use physcon,     only:atomic_mass_unit
+ use eos,         only:get_temperature,ieos,gamma,gmw,init_eos
+ use krome_main,  only:krome_init,krome
+ use krome_user,  only:krome_get_names,krome_set_user_Auv,krome_set_user_xi,&
                         krome_set_user_alb,krome_set_user_AuvAv
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
