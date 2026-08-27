@@ -62,7 +62,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
                    iorig,iseed_sink,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
                    luminosity,eta_nimhd,eta_nimhd_label,apr_level
  use part,  only:metrics,metricderivs,tmunus
- use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
+ use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling,two_kernel
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                    free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi,start_threadwrite,end_threadwrite
@@ -255,8 +255,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        endif
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
-       ! write rho only with APR (otherwise recoverable from h via init_rho_from_h)
-       if (use_apr) call write_array(1,rho,'rho',npart,k,ipass,idump,nums,nerr,use_kind=4)
+       ! write rho with APR or two_kernel (otherwise recoverable from h via init_rho_from_h)
+       if (use_apr .or. two_kernel) call write_array(1,rho,'rho',npart,k,ipass,idump,nums,nerr,use_kind=4)
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)
        call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,nerr)
        !if (maxdvdx==maxp) call write_array(1,dvdx,dvdx_label,9,npart,k,ipass,idump,nums,ierrs(17))
@@ -347,7 +347,7 @@ end subroutine write_fulldump
 subroutine write_smalldump(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,track_lum,use_dustgrowth,&
                         h2chemistry,use_apr
- use options,    only:use_porosity
+ use options,    only:use_porosity,two_kernel
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,Bxyz,Bxyz_label,&
                         npartoftypetot,update_npartoftypetot,&
@@ -436,8 +436,8 @@ subroutine write_smalldump(t,dumpfile)
        if (use_dust) &
             call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
-       ! write rho only with APR (otherwise recoverable from h via init_rho_from_h)
-       if (use_apr) call write_array(1,rho,'rho',npart,k,ipass,idump,nums,ierr,use_kind=4)
+       ! write rho with APR or two_kernel (otherwise recoverable from h via init_rho_from_h)
+       if (use_apr .or. two_kernel) call write_array(1,rho,'rho',npart,k,ipass,idump,nums,ierr,use_kind=4)
 
        if (track_lum) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (do_radiation) call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
