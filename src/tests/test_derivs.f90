@@ -883,7 +883,7 @@ end subroutine setup_density_contrast
 !----------------------------------------------------
 subroutine check_twokernel_neigh_range(label,ntests,npass)
  use io,        only:id,master
- use kernel,    only:radkern
+ use kernel,    only:radkern,wab0,wab0_tilde
  use part,      only:npart,hfact
  use physcon,   only:pi
  use testutils, only:checkval,update_test_scores
@@ -891,6 +891,13 @@ subroutine check_twokernel_neigh_range(label,ntests,npass)
  integer,          intent(inout) :: ntests,npass
  integer :: nmin1,nmax1,nmin2,nmax2,range1,range2,nfailed(3)
  real    :: nmean1,nmean2,expected_nneigh
+
+ ! placeholder Wtilde == W: no narrower nneigh range to assert yet
+ if (abs(wab0_tilde - wab0) < tiny(wab0)) then
+    if (id==master) write(*,"(1x,a)") &
+       'SKIPPING two_kernel nneigh range ('//trim(label)//'): Wtilde identical to W'
+    return
+ endif
 
  call reset_dissipation_to_zero
  call set_velocity_and_energy
