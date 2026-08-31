@@ -204,7 +204,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
- use part,         only:rho,alphaind,iactive,gradh,&
+ use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
                         fxyz_ptmass_tree,bin_info,ipertg
@@ -226,7 +226,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use neighkdtree,  only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc,aprmassoftype
+ use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc,aprmassoftype,rho
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,h_acc
  use units,        only:unit_density
 #endif
@@ -420,7 +420,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(maxp) &
 !$omp shared(ncells,leaf_is_active) &
 !$omp shared(xyzh) &
-!$omp shared(rho) &
 !$omp shared(dustprop) &
 !$omp shared(dragreg) &
 !$omp shared(filfac) &
@@ -457,6 +456,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(metrics) &
 !$omp shared(apr_level) &
 #ifdef GRAVITY
+!$omp shared(rho) &
 !$omp shared(massoftype,npart,maxphase,aprmassoftype) &
 !$omp private(hi,pmassi,rhoi) &
 !$omp private(iamtypei) &
