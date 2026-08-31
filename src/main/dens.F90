@@ -124,7 +124,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use neighkdtree, only:leaf_is_active,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
  use part,        only:mhd,get_partinfo,iactive,&
-                       iphase,igas,idust,iamgas,periodic,all_active,dustfrac,rho
+                       iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,    only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
  use mpimemory,   only:reserve_stack,swap_stacks,reset_stacks,write_cell
  use mpimemory,   only:stack_remote  => dens_stack_1
@@ -230,7 +230,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(ncells) &
 !$omp shared(leaf_is_active) &
 !$omp shared(xyzh) &
-!$omp shared(rho) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
 !$omp shared(fext) &
