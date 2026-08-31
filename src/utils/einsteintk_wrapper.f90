@@ -213,7 +213,7 @@ subroutine phantom2et_consvar()
 end subroutine phantom2et_consvar
 
 subroutine phantom2et_rhostar()
- use part, only:xyzh,npart,rho
+ use part, only:npart,rho
  use cons2prim, only:cons2primall
  use deriv
  use extern_gr
@@ -226,7 +226,7 @@ subroutine phantom2et_rhostar()
  ! Interpolate conserved density from particles to grid
  dat = 0.
  !$omp parallel do default(none) &
- !$omp shared(npart,dat) &
+ !$omp shared(npart,dat,rho) &
  !$omp private(i,rhoi)
  do i=1, npart
     rhoi = rho(i)
