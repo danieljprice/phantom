@@ -175,7 +175,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
                           metricderivs_ptmass,fxyz_ptmass,nptmass,&
                           fxyz_ptmass_tree,dsdt_ptmass,dptmass,fsink_old,ibin_wake,gtgrad,group_info, &
-                          bin_info,nmatrix,n_group,n_ingroup,n_sing
+                          bin_info,nmatrix,n_group,n_ingroup,n_sing,rho,rhoh
  use substepping,    only:substep_gr
  use eos,            only:ieos,gamma
  use cons2prim,      only:prim2consall
@@ -226,6 +226,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
     call set_particle_type(1,igas)
     npartoftype(igas) = npart
     massoftype(igas)  = massi
+    rho(1) = rhoh(xyzh(4,1),massi)
  endif
 
  ntypes = get_ntypes(npartoftype)
