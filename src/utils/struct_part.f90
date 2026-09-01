@@ -76,9 +76,9 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 !
  converged = .false.
  !$omp parallel
- !$omp master
+ !$omp masked
 !$ print*,' Using ',omp_get_num_threads(),' cpus'
- !$omp end master
+ !$omp end masked
  !$omp end parallel
 
  iterations: do while(nptstot  <=  npart .and. .not.converged)
