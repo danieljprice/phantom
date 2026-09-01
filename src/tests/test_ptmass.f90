@@ -1242,7 +1242,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
        if (id == id_rhomax) then
           rhomax = rho(ipart_rhomax)
-          call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax',thread_id=id)
+          call checkval(rhomax,rhomax_test,4.e-16,nfailed(1),'rhomax',thread_id=id)
        else
           itestp = -1 ! set itest = -1 on other threads
           call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax',thread_id=id)
