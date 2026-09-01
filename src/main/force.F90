@@ -81,7 +81,7 @@ module forces
        igradhi1        = 13, &
        igradhi2        = 14, &
        ialphai         = 15, &
-       ialphaBi        = 16, &
+       izetai          = 16, &
        ivwavei         = 17, &
        irhoi           = 18, &
        irhogasi        = 19, &
@@ -141,8 +141,7 @@ module forces
        idensGRi        = lastxpvrad + 1, &
  !--gr metrics
        imetricstart    = idensGRi + 1, &
-       imetricend      = imetricstart + 31, &
-       izetai          = imetricend + 1
+       imetricend      = imetricstart + 31
 
  !--indexing for fsum array
  integer, parameter :: &
