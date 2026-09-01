@@ -230,7 +230,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh,rho) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -251,7 +251,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "starting to calculate etaart"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh,rho) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -377,7 +377,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! Determines disc mass and properties
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars,rho) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
