@@ -136,7 +136,7 @@ module dim
                                   radensumforce
 
 ! xpartveci
- integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
+ integer, parameter :: maxxpartvecidens = 15 + radenxpartvetden
 
  integer, parameter :: maxxpartvecvars = 63 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec

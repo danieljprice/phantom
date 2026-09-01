@@ -39,14 +39,15 @@ module densityforce
        ivyi = 5, &
        ivzi = 6, &
        ieni = 7, &
-       iBevolxi = 8, &
-       iBevolyi = 9, &
-       iBevolzi = 10, &
-       ipsi = 11, &
-       ifxi = 12, &
-       ifyi = 13, &
-       ifzi = 14, &
-       iradxii = 15
+       ifxi = 8, &
+       ifyi = 9, &
+       ifzi = 10, &
+       iBevolxi = 11, &
+       iBevolyi = 12, &
+       iBevolzi = 13, &
+       ipsi = 14, &
+       irhoi_xpart = 15, &
+       iradxii = 16
 
  !--indexing for rhosum array
  integer, parameter :: &
@@ -825,7 +826,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 ! we need B instead of B/rho, so used our estimated h here
                 ! either it is close enough to be converged,
                 ! or worst case it runs another iteration and re-calculates
-                rhoi = rho(i)
+                rhoi = xpartveci(irhoi_xpart)
                 rhoj = rho(j)
                 dBx = xpartveci(iBevolxi)*rhoi - Bevol(1,j)*rhoj
                 dBy = xpartveci(iBevolyi)*rhoi - Bevol(2,j)*rhoj
@@ -847,7 +848,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
              endif
 
              if (do_radiation .and. gas_gas .and. .not. implicit_radiation) then
-                rhoi = rho(i)
+                rhoi = xpartveci(irhoi_xpart)
                 rhoj = rho(j)
                 dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
                 rhosum(iradfxi) = rhosum(iradfxi) + dradenij*runix
@@ -1317,7 +1318,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu,do_radiation,use_apr,maxpsph
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
-                       iamboundary,ibasetype,iradxi
+                       iamboundary,ibasetype,iradxi,rho
 
  type(celldens),  intent(inout) :: cell
  integer(kind=1), intent(in)    :: iphase(:)
@@ -1388,6 +1389,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
        endif
     endif
 
+    cell%xpartvec(irhoi_xpart,cell%npcell) = rho(i)
     if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
     if (use_apr) then
