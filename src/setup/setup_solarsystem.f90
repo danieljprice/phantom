@@ -21,6 +21,7 @@ module setup
 !   - scale_pos  : *scaling factor for apophis initial position (heliocentric)*
 !   - scale_earth_sep : *scale geocentric Earth–Apophis separation (1=ephemeris; requires apophis_only=F)*
 !   - apophis_spin_axis_x/y/z : *Apophis spin axis direction (normalized)*
+!   - apophis_spin_torque_align_deg : *spin axis in Earth-Apophis orbit plane (deg; -1=use axis vector)*
 !
 ! :Dependencies: centreofmass, eos_tillotson, infile_utils, io, kernel,
 !   options, part, physcon, setbinary, setsolarsystem, setup_params,
@@ -44,6 +45,7 @@ character(len=256) :: apophis_shape_file
  real :: scale_rho
  real :: apophis_spin_period
  real :: apophis_spin_axis(3)
+ real :: apophis_spin_torque_align_deg ! torque-align angle (deg); -1 = use apophis_spin_axis_*
 
  private
 
@@ -80,13 +82,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer :: ierr,i,nerr,n_apophis_part,i_apophis_first,i_apophis_last
+ integer :: ierr,i,nerr,n_apophis_part,i_apophis_first,i_apophis_last,ierr_spin
  integer, parameter :: iearth = 4  ! Earth sink index when apophis_only=F
  !integer :: values(8),year,month,day
  real    :: period,semia,mtot,dx
  real    :: r_apophis,m_apophis,rtidal,spsoundmin
  real    :: dr(3),sep_km,sep_re,rperi,rperi_km,rperi_re,ecc,vrel_kms
- real    :: dv(3)
+ real    :: dv(3),spin_axis_resolved(3),torque_align_deg
 !
 ! default runtime parameters
 !
@@ -109,6 +111,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  apophis_shape_file='apophis.shape'
  apophis_spin_period = 0.
  apophis_spin_axis   = (/ 0., 0., 1. /)
+ apophis_spin_torque_align_deg = -1.
 !
 ! read runtime parameters from setup file
 !
@@ -168,7 +171,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call add_sun_and_planets(nptmass,xyzmh_ptmass,vxyz_ptmass,mtot,nerr,epoch)
  if (nerr > 0) ierr = ierr + nerr
 
- if (apophis_only) nptmass = 0
+ if (apophis_only) then
+    xyzmh_ptmass(:,1:nptmass) = 0.
+    vxyz_ptmass(:,1:nptmass) = 0.
+    nptmass = 0
+ endif
+ !
+ ! torque-align spin axis needs Earth; fall back to apophis_spin_axis
+ ! when apophis_only removes Earth from the sink list
+ !
+ torque_align_deg = apophis_spin_torque_align_deg
+ if (apophis_only .and. torque_align_deg >= 0.) then
+    call warning('setup_solarsystem',&
+                 'apophis_spin_torque_align_deg ignored when apophis_only=T (Earth absent); using apophis_spin_axis')
+    torque_align_deg = -1.
+ endif
  !
  ! add mars moons
  !
@@ -260,9 +277,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        endif
 
        if (apophis_spin_period > 0.) then
-          call set_apophis_spin(id,apophis_spin_period,apophis_spin_axis,m_apophis,r_apophis,&
-                                use_dem,n_apophis_part,i_apophis_first,i_apophis_last,&
-                                xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass)
+          ierr_spin = 0
+          call resolve_apophis_spin_axis(i_apophis_first,i_apophis_last,xyzmh_ptmass,vxyz_ptmass,&
+               torque_align_deg,apophis_spin_axis,spin_axis_resolved,ierr_spin,i_earth=iearth)
+          if (ierr_spin == 0) then
+             call set_apophis_spin(id,apophis_spin_period,spin_axis_resolved,m_apophis,r_apophis,&
+                                   use_dem,n_apophis_part,i_apophis_first,i_apophis_last,&
+                                   xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass)
+          else
+             call warning('setup_solarsystem',&
+                          'could not resolve Apophis spin axis; spin not applied')
+          endif
        endif
        !
        ! print quantities from the equation of state to give an idea of the timestep
@@ -273,8 +298,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           print "(a,1pg10.3,a)",' sound crossing time = ',(r_apophis/spsoundmin)*utime,' seconds'
        endif
     elseif (apophis_spin_period > 0.) then
-       call set_apophis_spin(id,apophis_spin_period,apophis_spin_axis,m_apophis,r_apophis,&
-                             .false.,0,nptmass,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass)
+       ierr_spin = 0
+       call resolve_apophis_spin_axis(nptmass,nptmass,xyzmh_ptmass,vxyz_ptmass,&
+            torque_align_deg,apophis_spin_axis,spin_axis_resolved,ierr_spin,i_earth=iearth)
+       if (ierr_spin == 0) then
+          call set_apophis_spin(id,apophis_spin_period,spin_axis_resolved,m_apophis,r_apophis,&
+                                .false.,0,nptmass,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass)
+       else
+          call warning('setup_solarsystem',&
+                       'could not resolve Apophis spin axis; spin not applied')
+       endif
     endif
  endif
  !
@@ -458,6 +491,148 @@ end subroutine replace_gas_with_dem
 
 !----------------------------------------------------------------
 !+
+!  resolve Apophis spin axis from torque-align or apophis_spin_axis_*
+!+
+!----------------------------------------------------------------
+subroutine resolve_apophis_spin_axis(i_start,i_end,xyzmh_ptmass,vxyz_ptmass,&
+                                       torque_align_deg,spin_axis_in,spin_axis_out,ierr,i_earth)
+ use vectorutils, only:mag,unitvec
+ use io,          only:warning
+ integer, intent(in)  :: i_start,i_end
+ real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)  :: torque_align_deg,spin_axis_in(3)
+ real,    intent(out) :: spin_axis_out(3)
+ integer, intent(out) :: ierr
+ integer, intent(in), optional :: i_earth
+ real :: nx,ny,nz
+
+ ierr = 0
+ if (torque_align_deg >= 0.) then
+    if (i_start < 1 .or. i_end < i_start) then
+       if (mag(spin_axis_in) > 0.) then
+          call warning('setup_solarsystem',&
+                       'torque-align spin needs a sink index range; using apophis_spin_axis instead')
+          spin_axis_out = unitvec(spin_axis_in)
+       else
+          ierr = 1
+       endif
+       return
+    endif
+    call compute_apophis_torque_align_spin_axis(i_start,i_end,xyzmh_ptmass,vxyz_ptmass,&
+                                                torque_align_deg,nx,ny,nz,ierr,i_earth=i_earth,&
+                                                spin_axis_fallback=spin_axis_in)
+    if (ierr /= 0) return
+    spin_axis_out = (/nx,ny,nz/)
+ else
+    if (mag(spin_axis_in) <= 0.) then
+       ierr = 1
+       return
+    endif
+    spin_axis_out = unitvec(spin_axis_in)
+ endif
+
+end subroutine resolve_apophis_spin_axis
+
+!----------------------------------------------------------------
+!+
+!  compute Apophis spin axis from Earth-Apophis orbit geometry
+!+
+!----------------------------------------------------------------
+subroutine compute_apophis_torque_align_spin_axis(i_start,i_end,xyzmh_ptmass,vxyz_ptmass,&
+                                                   torque_align_deg,nx,ny,nz,ierr,i_earth,&
+                                                   spin_axis_fallback)
+ use physcon, only:pi
+ use vectorutils, only:mag,unitvec
+ integer, intent(in)  :: i_start,i_end
+ real,    intent(in)  :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)  :: torque_align_deg
+ real,    intent(out) :: nx,ny,nz
+ integer, intent(out) :: ierr
+ integer, intent(in), optional :: i_earth
+ real,    intent(in), optional :: spin_axis_fallback(3)
+ integer :: i,n,ie
+ real    :: rcm(3),v_spin(3)
+ real    :: rrel(3),vrel(3),hvec(3),rhat(3),hnorm,hn(3)
+ real    :: theta,ct,st,kdotv
+ logical :: ok
+ real    :: fallback(3)
+
+ ierr = 0
+ nx = 0.; ny = 0.; nz = 1.
+ n = i_end - i_start + 1
+ if (n < 1) then
+    ierr = 1
+    return
+ endif
+ ok = .false.
+
+ if (.not.present(i_earth)) then
+    print "(a)",' ERROR: apophis_spin_torque_align_deg requires Earth sink index'
+    ierr = 1
+    return
+ endif
+ ie = i_earth
+ if (ie < 1 .or. ie > size(xyzmh_ptmass,2)) then
+    ierr = 1
+    return
+ endif
+
+ rcm = 0.
+ v_spin = 0.
+ do i = i_start, i_end
+    rcm(1:3) = rcm(1:3) + xyzmh_ptmass(1:3,i)
+    v_spin(1:3) = v_spin(1:3) + vxyz_ptmass(1:3,i)
+ enddo
+ rcm = rcm / real(n)
+ v_spin = v_spin / real(n)
+ rrel = rcm - xyzmh_ptmass(1:3,ie)
+ vrel = v_spin - vxyz_ptmass(1:3,ie)
+ hvec = (/ rrel(2)*vrel(3) - rrel(3)*vrel(2), &
+           rrel(3)*vrel(1) - rrel(1)*vrel(3), &
+           rrel(1)*vrel(2) - rrel(2)*vrel(1) /)
+ hnorm = sqrt(sum(rrel**2))
+ if (hnorm <= 0.) then
+    print "(a)",' WARN: zero Earth-Apophis separation; using apophis_spin_axis'
+ else
+    rhat = rrel / hnorm
+    hnorm = sqrt(sum(hvec**2))
+    if (hnorm <= 0.) then
+       print "(a)",' WARN: collinear Earth-Apophis r,v; using apophis_spin_axis'
+    else
+       hn = hvec / hnorm
+       theta = torque_align_deg * pi / 180.
+       ct = cos(theta)
+       st = sin(theta)
+       kdotv = rhat(1)*hn(1) + rhat(2)*hn(2) + rhat(3)*hn(3)
+       nx = hn(1)*ct + (rhat(2)*hn(3) - rhat(3)*hn(2))*st + rhat(1)*kdotv*(1.-ct)
+       ny = hn(2)*ct + (rhat(3)*hn(1) - rhat(1)*hn(3))*st + rhat(2)*kdotv*(1.-ct)
+       nz = hn(3)*ct + (rhat(1)*hn(2) - rhat(2)*hn(1))*st + rhat(3)*kdotv*(1.-ct)
+       print "(a,1pg10.3,a)",' Apophis spin torque-align = ',torque_align_deg,' deg (0=+h, 180=-h)'
+       print "(a,3(1pg10.3,1x))",' Earth-Apophis h_hat (orbit normal) = ',hn(1),hn(2),hn(3)
+       print "(a,3(1pg10.3,1x))",' Earth-Apophis r_hat (separation) = ',rhat(1),rhat(2),rhat(3)
+       ok = .true.
+    endif
+ endif
+
+ if (.not.ok) then
+    if (present(spin_axis_fallback)) then
+       if (mag(spin_axis_fallback) > 0.) then
+          fallback = unitvec(spin_axis_fallback)
+          nx = fallback(1)
+          ny = fallback(2)
+          nz = fallback(3)
+       else
+          ierr = 1
+       endif
+    else
+       ierr = 1
+    endif
+ endif
+
+end subroutine compute_apophis_torque_align_spin_axis
+
+!----------------------------------------------------------------
+!+
 !  write setup parameters to file
 !+
 !----------------------------------------------------------------
@@ -491,6 +666,8 @@ subroutine write_setupfile(filename)
  call write_inopt(apophis_spin_axis(1),'apophis_spin_axis_x','Apophis spin axis, x component',iunit)
  call write_inopt(apophis_spin_axis(2),'apophis_spin_axis_y','Apophis spin axis, y component',iunit)
  call write_inopt(apophis_spin_axis(3),'apophis_spin_axis_z','Apophis spin axis, z component',iunit)
+ call write_inopt(apophis_spin_torque_align_deg,'apophis_spin_torque_align_deg',&
+   'spin axis in Earth-Apophis orbit plane (deg; -1=use axis vector)',iunit)
 
  close(iunit)
 
@@ -533,6 +710,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(apophis_spin_axis(1),'apophis_spin_axis_x',db,errcount=nerr)
  call read_inopt(apophis_spin_axis(2),'apophis_spin_axis_y',db,errcount=nerr)
  call read_inopt(apophis_spin_axis(3),'apophis_spin_axis_z',db,errcount=nerr)
+ call read_inopt(apophis_spin_torque_align_deg,'apophis_spin_torque_align_deg',db,default=-1.0,errcount=nerr)
 
  call close_db(db)
 
