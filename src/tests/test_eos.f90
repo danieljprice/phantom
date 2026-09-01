@@ -535,11 +535,11 @@ subroutine test_p_is_continuous(ntests, npass,ieos)
     enddo
     ierrmax = 0
     call checkvalbuf_end('p/rho continuous with '//trim(var),ncheck(1),nfailed(1),ierrmax,0,maxpts-1)
+    ! score each sub-test here, as nfailed is reset at the start of each pass
+    call update_test_scores(ntests,nfailed(1:1),npass)
  enddo over_tests
 
 !call checkvalbuf_end('cs is continuous',ncheck(2),nfailed(2),0,0,maxpts)
-
- call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_p_is_continuous
 
