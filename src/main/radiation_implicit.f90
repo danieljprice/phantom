@@ -210,6 +210,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  maxerrU2last2 = bignumber
  mask = .true.
  converged = .false.
+ its = 0
  !$omp end single
 
  iterations: do while (.not. converged)
