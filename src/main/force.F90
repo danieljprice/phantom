@@ -1576,6 +1576,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
        else ! set to zero terms which are used below without an if (usej)
           !rhoj      = 0.
+          hj        = 1./hj1
           rho1j     = 0.
           rho21j    = 0.
 
