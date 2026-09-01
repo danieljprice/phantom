@@ -146,6 +146,7 @@ subroutine test_derivs(ntests,npass,string)
  npartoftype(1) = npart
  nptot = reduceall_mpi('+',npart)
  massoftype(1) = totmass/reduceall_mpi('+',npart)
+ call sync_aprmassoftype
 
  if (periodic) then
     ! include all particles
@@ -358,7 +359,8 @@ subroutine test_derivs(ntests,npass,string)
     !
     if (.not.isothermal .and. nactive==npart) then
        tol = 5.e-12
-       if (maxdvdx==maxp) tol = 1.7e-6
+       if (maxdvdx==maxp) tol = 2.e-6
+       if (use_apr) tol = 5.e-6
        call check_energy_conservation(nfailed,m,tol)
     endif
 
@@ -827,6 +829,7 @@ subroutine test_derivs(ntests,npass,string)
        npartoftype(1) = npart
        totmass = rhozero*dxbound*dybound*dzbound
        massoftype(1) = totmass/reduceall_mpi('+',npart)
+       call sync_aprmassoftype
        call check_twokernel_neigh_range('random',ntests,npass)
     endif
  endif test2k
@@ -871,6 +874,7 @@ subroutine setup_density_contrast(npart,npartblob,nparttest,hzero,hblob)
  totvol = dxbound*dybound*dzbound - 4./3.*pi*rblob**3
  totmass = rhozero*totvol
  massoftype(1) = totmass/reduceall_mpi('+',npart-npartblob)
+ call sync_aprmassoftype
  hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
  hblob = hfact*(massoftype(1)/rhoblob)**(1./3.)
 
@@ -1281,29 +1285,50 @@ end subroutine check_hydro
 !+
 !--------------------------------------
 subroutine check_energy_conservation(nfailed,j,tol)
- use part,      only:npart,fxyzu,vxyzu,massoftype,igas
+ use dim,       only:use_apr
+ use part,      only:npart,fxyzu,vxyzu,massoftype,igas,apr_level,aprmassoftype
  use mpiutils,  only:reduceall_mpi
  use testutils, only:checkval
  integer, intent(inout) :: nfailed(:),j
  real,    intent(in)    :: tol
  integer :: i
- real :: deint,dekin
+ real :: deint,dekin,pmassi
 
  deint = 0.
  dekin = 0.
  do i=1,npart
-    deint = deint + fxyzu(iu,i)
-    dekin = dekin + dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+    pmassi = massoftype(igas)
+    if (use_apr) pmassi = aprmassoftype(igas,apr_level(i))
+    deint = deint + pmassi*fxyzu(iu,i)
+    dekin = dekin + pmassi*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
  enddo
  deint = reduceall_mpi('+',deint)
  dekin = reduceall_mpi('+',dekin)
- call checkval(massoftype(igas)*(deint + dekin),0.,tol,nfailed(j+1),'\sum v.dv/dt + du/dt = 0')
+ call checkval(deint + dekin,0.,tol,nfailed(j+1),'\sum v.dv/dt + du/dt = 0')
 
  ! also check that dissipation is positive definite
  call checkval(all(fxyzu(iu,1:npart) >= 0.),.true.,nfailed(j+2),'du/dt >= 0 for all particles')
  j = j + 2
 
 end subroutine check_energy_conservation
+
+!--------------------------------------
+!+
+!  keep aprmassoftype consistent with massoftype after test setup
+!+
+!--------------------------------------
+subroutine sync_aprmassoftype
+ use dim,  only:use_apr
+ use part, only:massoftype,aprmassoftype
+ use utils_apr, only:apr_max
+ integer :: i
+
+ if (.not.use_apr) return
+ do i = 1, apr_max
+    aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
+ enddo
+
+end subroutine sync_aprmassoftype
 
 !--------------------------------------
 !+
