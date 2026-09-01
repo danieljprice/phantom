@@ -213,7 +213,7 @@ subroutine test_binary(ntests,npass,string)
  use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4,calc_gravitwaves
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
- use deriv,          only:get_derivs_global
+ use deriv,          only:get_derivs_global,get_density_global
  use timing,         only:getused,printused
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate,externalforce_vdependent
@@ -325,7 +325,7 @@ subroutine test_binary(ntests,npass,string)
        nparttot = 1000
        call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=rin,rmax=rout,p_index=1.0,q_index=0.75,&
                      HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+m2,gamma=gamma,&
-                     particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                     particle_type=igas,particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                      polyk=polyk,verbose=.false.)
        npartoftype(igas) = npart
     endif
@@ -371,6 +371,7 @@ subroutine test_binary(ntests,npass,string)
     !
     if (npart > 0) then
        fxyzu(:,:) = 0.
+       if (gr) call get_density_global(2,zero_fxyzu=.true.)
        call get_derivs_global()
     endif
     if (gr) then
@@ -971,7 +972,7 @@ subroutine test_accretion(ntests,npass,itest)
     np_disc = 1000
     call set_disc(id,master,nparttot=np_disc,npart=npart,rmin=1.,rmax=2.*xyzmh_ptmass(ihacc,1),p_index=1.0,q_index=0.75,&
                   HoverR=0.1,disc_mass=0.5*xyzmh_ptmass(4,1),star_mass=xyzmh_ptmass(4,1),gamma=1.,&
-                  particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                  particle_type=igas,particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                   polyk=polyk,verbose=.false.)
     npartoftype(igas) = npart
  endif
@@ -1103,7 +1104,7 @@ end subroutine test_accretion
 subroutine test_createsink(ntests,npass)
  use dim,          only:gravity,maxp,maxphase,gr
  use boundary,     only:set_boundary
- use deriv,        only:get_derivs_global
+ use deriv,        only:get_derivs_global,get_density_global
  use eos,          only:ieos,polyk,gamma
  use kdtree,       only:tree_accuracy
  use io,           only:id,master,iverbose
@@ -1211,6 +1212,7 @@ subroutine test_createsink(ntests,npass)
        icreate_sinks = 1
     endif
 
+    if (gr .and. npart > 0) call get_density_global(2,zero_fxyzu=.true.)
     call get_derivs_global()
     !
     ! calculate itest after calling derivs because particles will
