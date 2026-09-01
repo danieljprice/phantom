@@ -185,6 +185,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call reset_cell_counters(cell_counters)
  endif
 
+ call init_rho_from_h(npart,xyzh,apr_level)
+
  if (iverbose >= 3 .and. id==master) &
     write(iprint,*) ' cell cache =',isizecellcache,' neigh cache = ',isizeneighcache,' icall = ',icall
 
@@ -570,6 +572,45 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  endif
 
 end subroutine densityiterate
+
+!----------------------------------------------------------------
+!+
+!  set the stored density from the smoothing length for any particle
+!  whose density has not yet been computed (flagged by rho <= 0)
+!
+!  the density sums read rho for both the particle and its neighbours
+!  when forming the B field and radiation difference operators, so the
+!  array must already hold a sensible estimate on the first pass,
+!  otherwise these terms are evaluated with meaningless densities
+!+
+!----------------------------------------------------------------
+subroutine init_rho_from_h(npart,xyzh,apr_level)
+ use dim,  only:maxp,use_apr
+ use part, only:rho,rhoh,iphase,iamtype,maxphase,massoftype,aprmassoftype,igas
+ integer,         intent(in) :: npart
+ real,            intent(in) :: xyzh(:,:)
+ integer(kind=1), intent(in) :: apr_level(:)
+ integer :: i,itype
+ real    :: pmassi
+
+!$omp parallel do default(none) &
+!$omp shared(npart,xyzh,rho,iphase,apr_level) &
+!$omp private(i,itype,pmassi)
+ do i = 1,npart
+    ! skip particles with a known density, and dead or accreted particles
+    if (rho(i) > 0. .or. xyzh(4,i) <= 0.) cycle
+    itype = igas
+    if (maxphase==maxp) itype = iamtype(iphase(i))
+    if (use_apr) then
+       pmassi = aprmassoftype(itype,apr_level(i))
+    else
+       pmassi = massoftype(itype)
+    endif
+    rho(i) = rhoh(xyzh(4,i),pmassi)
+ enddo
+!$omp end parallel do
+
+end subroutine init_rho_from_h
 
 !----------------------------------------------------------------
 !+

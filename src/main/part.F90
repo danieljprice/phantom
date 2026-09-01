@@ -680,6 +680,7 @@ subroutine init_part
  shortsinktree = 1
  fxyz_ptmass_tree = 0.
  ! initialise arrays not passed to setup routine to zero
+ rho = 0. ! flags density as not yet computed, see init_rho_from_h
  if (mhd) then
     Bevol = 0.
     Bxyz  = 0.
