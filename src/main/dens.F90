@@ -586,7 +586,8 @@ end subroutine densityiterate
 !----------------------------------------------------------------
 subroutine init_rho_from_h(npart,xyzh,apr_level)
  use dim,  only:maxp,use_apr
- use part, only:rho,rhoh,iphase,iamtype,maxphase,massoftype,aprmassoftype,igas
+ use part, only:rho,rhoh,iphase,iamtype,maxphase,massoftype,&
+                aprmassoftype,igas,isdead_or_accreted
  integer,         intent(in) :: npart
  real,            intent(in) :: xyzh(:,:)
  integer(kind=1), intent(in) :: apr_level(:)
@@ -594,11 +595,11 @@ subroutine init_rho_from_h(npart,xyzh,apr_level)
  real    :: pmassi
 
 !$omp parallel do default(none) &
-!$omp shared(npart,xyzh,rho,iphase,apr_level) &
+!$omp shared(npart,xyzh,rho,iphase,apr_level,maxp,maxphase,massoftype) &
 !$omp private(i,itype,pmassi)
  do i = 1,npart
     ! skip particles with a known density, and dead or accreted particles
-    if (rho(i) > 0. .or. xyzh(4,i) <= 0.) cycle
+    if (isdead_or_accreted(xyzh(4,i))) cycle
     itype = igas
     if (maxphase==maxp) itype = iamtype(iphase(i))
     if (use_apr) then
