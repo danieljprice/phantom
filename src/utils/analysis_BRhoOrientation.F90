@@ -127,7 +127,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexx(ikount,dpos,lst)
 
  !$omp parallel default(none) &
- !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu) &
+ !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu,rho) &
  !$omp shared(ipos,lst,vbins,vtbins) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &

@@ -268,7 +268,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  mvbins = 0
  mtot   = 0.
 !$omp parallel do default(none) &
-!$omp shared(npart,xyzh,vxyzu,particlemass,nbins,vmd,dtsh) &
+!$omp shared(npart,xyzh,vxyzu,particlemass,nbins,vmd,dtsh,rho) &
 !$omp private(i,j,k,vel,rhoi) &
 !$omp reduction(+:mvbins,mtot)
  do i = 1,npart

@@ -199,7 +199,7 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
  eroty = 0.
  erotz = 0.
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,vxyzu,particlemass,com,vcom,density_cutoff) &
+!$omp shared(npart,xyzh,vxyzu,particlemass,com,vcom,density_cutoff,rho) &
 !$omp private(i,r,v,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2,rad2) &
 !$omp reduction(+:erotx,eroty,erotz,npartmeasured) &
 !$omp reduction(max:rmax2)
@@ -238,7 +238,7 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
  !--Calculate gravitational potential energy
  grav = 0.
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,particlemass,density_cutoff) &
+!$omp shared(npart,xyzh,particlemass,density_cutoff,rho) &
 !$omp private(i,j,r,rad2) &
 !$omp reduction(+:grav)
 !$omp do

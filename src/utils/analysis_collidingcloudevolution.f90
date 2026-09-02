@@ -77,7 +77,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ! get gas masses
  print*, 'printing gas distributions for dthresh=',dthresh_cgs,dthresh
 !$omp parallel do default(none) &
-!$omp shared(ieos,npart,xyzh,vxyzu,particlemass,dthresh) &
+!$omp shared(ieos,npart,xyzh,vxyzu,particlemass,dthresh,rho) &
 !$omp private(i,j,rhoi,v2i,csi,vxyzui,rmsmachi) &
 !$omp reduction(+:masses,rmsmach,iparts)
  do i = 1,npart
