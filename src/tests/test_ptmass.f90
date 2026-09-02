@@ -772,7 +772,7 @@ subroutine test_softening(ntests,npass)
  totmomin = totmom
  angmomin = angtot
 
- call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,3.*epsilon(0.),nfailed(1),'potential energy')
+ call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,1.e-15,nfailed(1),'potential energy')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
  C_force = 0.25
