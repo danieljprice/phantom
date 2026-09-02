@@ -520,12 +520,12 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  !$omp private(egasrad,eint,mu,u_gasrec) &
  !$omp private(dum,eos_type,cv_type,ierr,do_radiation_local)
  do i = i1+1,npart
-    if (relaxed) then
+    ri = sqrt(dot_product(xyzh(1:3,i)-xorigin,xyzh(1:3,i)-xorigin))
+    if (relaxed .and. rho(i) > tiny(rho)) then
        densi = rho(i)
        presi = eos_vars(igasP,i)  ! retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
     else
-       !  Interpolate density and pressure from table
-       ri    = sqrt(dot_product(xyzh(1:3,i)-xorigin,xyzh(1:3,i)-xorigin))
+       ! interpolate density and pressure from table
        densi = yinterp(den(1:npts),r(1:npts),ri)
        presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
@@ -534,8 +534,10 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
     p_cgs = presi*unit_pressure
     if (ieos==15 .and. temp(1) > 0.) then       ! should really be a check if we actually have the temperature table
        tempi = yinterp(temp(1:npts),r(1:npts),ri)  ! use MESA temperature as initial guess for Helmholtz
-    else
+    elseif (rho_cgs > tiny(rho_cgs)) then
        tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
+    else
+       tempi = (3.*p_cgs/radconst)**0.25
     endif
 
     if (do_radiation) then
