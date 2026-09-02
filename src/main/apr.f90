@@ -105,6 +105,8 @@ subroutine init_apr(apr_level,ierr)
     call warning('init_apr','resetting split_dir=3 because using multiple regions')
  endif
 
+ if (allocated(apr_centre)) deallocate(apr_centre)
+ if (allocated(track_part)) deallocate(track_part)
  allocate(apr_centre(3,ntrack_max),track_part(ntrack_max))
  apr_centre(:,:) = 0.
 

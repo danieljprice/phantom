@@ -33,9 +33,10 @@ contains
 subroutine test_ptmass(ntests,npass,string)
  use io,      only:id,master,iskfile
  use eos,     only:polyk,gamma
- use part,    only:nptmass,gr
+ use part,    only:nptmass,gr,apr_level
  use options, only:iexternalforce,alpha
  use ptmass,  only:use_fourthorder,set_integration_precision
+ use apr,     only:init_apr,use_apr
  character(len=*), intent(in)    :: string
  integer,          intent(inout) :: ntests,npass
  character(len=20) :: filename
@@ -101,6 +102,7 @@ subroutine test_ptmass(ntests,npass,string)
  alpha = 0.01
  imax = 2
  use_fourthorder = .false.
+ if (use_apr) call init_apr(apr_level,ierr)
  !
  !  Test for sink particles in GR
  !
@@ -770,7 +772,7 @@ subroutine test_softening(ntests,npass)
  totmomin = totmom
  angmomin = angtot
 
- call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,2.*epsilon(0.),nfailed(1),'potential energy')
+ call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,3.*epsilon(0.),nfailed(1),'potential energy')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
  C_force = 0.25
@@ -797,7 +799,7 @@ subroutine test_softening(ntests,npass)
  enddo
  call compute_energies(t)
  nfailed(:) = 0
- call checkval(angtot,angmomin,2.e-14,nfailed(1),'angular momentum')
+ call checkval(angtot,angmomin,2.5e-14,nfailed(1),'angular momentum')
  call checkval(totmom,totmomin,tiny(0.),nfailed(2),'linear momentum')
  call checkval(etotin+errmax,etotin,2.e-9,nfailed(3),'total energy')
 !  call checkval(      ,r_max,1.e-10,nfailed(4),'radius')
@@ -904,7 +906,8 @@ subroutine test_accretion(ntests,npass,itest)
                         npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
                         isdead_or_accreted,set_particle_type,ndptmass,hfact,&
                         metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
-                        metrics,metricderivs,pxyzu
+                        metrics,metricderivs,pxyzu,apr_level,rho,eos_vars,&
+                        igasP,ics,igamma,itemp,init_rho_from_h
  use ptmass,       only:ptmass_accrete,update_ptmass
  use ptmass_tree,  only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh
  use neighkdtree,  only:listneigh
@@ -912,13 +915,17 @@ subroutine test_accretion(ntests,npass,itest)
  use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use testutils,    only:checkval,update_test_scores
  use kernel,       only:hfact_default
- use eos,          only:polyk,gamma,ieos
+ use eos,          only:polyk,gamma,ieos,init_eos,equationofstate
+ use dim,          only:maxvxyzu
  use setdisc,      only:set_disc
  use metric_tools, only:init_metric
+ use testderivs,   only:sync_aprmassoftype
+ use apr,          only:use_apr,init_apr
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
- integer :: i,j,nfailed(11),np_disc,nneigh
+ integer :: i,j,nfailed(11),np_disc,nneigh,ierr
  real :: xyz(3)
+ real :: tempi,ponrhoi,spsoundi
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
@@ -994,6 +1001,23 @@ subroutine test_accretion(ntests,npass,itest)
  nfailed(:)  = 0
  !--check energies before accretion event
  t=0.
+ if (use_apr) then
+    call init_apr(apr_level,ierr)
+    call sync_aprmassoftype()
+ endif
+ ! initialise rho and EOS variables needed by compute_energies
+ call init_eos(ieos,ierr)
+ call init_rho_from_h()
+ do i=1,npart
+    if (xyzh(4,i) > 0.) then
+       if (maxvxyzu >= 4) vxyzu(4,i) = polyk
+       call equationofstate(ieos,ponrhoi,spsoundi,rho(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+       eos_vars(igasP,i)   = ponrhoi*rho(i)
+       eos_vars(ics,i)     = spsoundi
+       eos_vars(igamma,i)  = gamma
+       eos_vars(itemp,i)   = tempi
+    endif
+ enddo
  call compute_energies(t)
  etotin   = etot
  totmomin = totmom

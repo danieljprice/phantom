@@ -595,7 +595,7 @@ subroutine init_rho_from_h(npart,xyzh,apr_level)
  real    :: pmassi
 
 !$omp parallel do default(none) &
-!$omp shared(npart,xyzh,rho,iphase,apr_level,maxp,maxphase,massoftype) &
+!$omp shared(npart,xyzh,rho,iphase,apr_level,maxp,maxphase,massoftype,aprmassoftype) &
 !$omp private(i,itype,pmassi)
  do i = 1,npart
     ! skip particles with a known density, and dead or accreted particles

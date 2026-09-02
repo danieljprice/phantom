@@ -23,7 +23,7 @@ module testderivs
  use dim,  only:isothermal,ind_timesteps
  implicit none
 
- public :: test_derivs
+ public :: test_derivs, sync_aprmassoftype
  real, public :: grainsizek,graindensk
  real, parameter, private :: rhozero = 5.0
  integer, private :: iu = 4
