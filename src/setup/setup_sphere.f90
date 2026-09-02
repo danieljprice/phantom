@@ -68,7 +68,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: massoftype(:)
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  integer                      :: i,ierr
  real                         :: r2,totmass,epotgrav,t_ff,psep,uinit
  character(len=16)            :: lattice

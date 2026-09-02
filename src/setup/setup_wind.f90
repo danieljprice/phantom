@@ -187,7 +187,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(out)   :: massoftype(:)
  real,             intent(out)   :: polyk,gamma,hfact
  real,             intent(inout) :: time
- character(len=*), intent(in)    :: fileprefix
+ character(len=*), intent(in) :: fileprefix
  character(len=len(fileprefix)+6) :: filename
  integer :: ierr,k
  logical :: iexist

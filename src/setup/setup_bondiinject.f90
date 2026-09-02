@@ -58,7 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  real,             intent(out)   :: massoftype(:)
  real,             intent(out)   :: polyk,gamma_eos,hfact
  real,             intent(inout) :: time
- character(len=*), intent(in)    :: fileprefix
+ character(len=*), intent(in)   :: fileprefix
  integer :: ierr,nspheres,npart_old
  real :: dtinject,tinfall,fac
 

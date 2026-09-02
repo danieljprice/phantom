@@ -82,7 +82,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma
  real,              intent(inout) :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real    :: totmass,deltax
  integer :: i,ierr

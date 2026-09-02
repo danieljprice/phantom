@@ -112,7 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  integer            :: ierr,iBElast,npartsphere
  real               :: totmass,vol_box,vol_sphere,cs_sphere
  real               :: dens_sphere,dens_medium,cs_medium,angvel_code,przero
@@ -372,7 +372,7 @@ subroutine setup_particles(id,master,hfact,npart,npartoftype,npartsphere,npart_t
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,              intent(out)   :: massoftype(:)
  real,              intent(in)    :: dens_sphere,dens_medium,totmass,vol_box,vol_sphere,dtg
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real, allocatable, intent(inout) :: rtab(:), rhotab(:)
  integer :: i,np_in,ierr
  real :: psep,psep_box,pmass_dusttogas
@@ -614,7 +614,7 @@ subroutine setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
  use ptmass,       only:icreate_sinks,h_acc,r_crit
  use eos,          only:ieos,icooling
  use infile_utils, only:infile_exists
- character(len=20), intent(in) :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(in) :: t_ff
  real,              intent(in) :: h_acc_setup
  ! set default runtime parameters if .in file does not exist

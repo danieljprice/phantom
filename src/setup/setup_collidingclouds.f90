@@ -90,7 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)   :: fileprefix
  character(len=20), parameter     :: filevx = 'cube_v1.dat'
  character(len=20), parameter     :: filevy = 'cube_v2.dat'
  character(len=20), parameter     :: filevz = 'cube_v3.dat'

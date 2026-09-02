@@ -115,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real                             :: delta,gam1,fac,dtg
  real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright
  real                             :: rholeft,rhoright,denscgs,Pcgs,ucgs,temp

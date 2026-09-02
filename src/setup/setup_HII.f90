@@ -53,7 +53,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: massoftype(:)
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  integer(kind=8) :: nptot
  integer :: i,np,nx,seed

@@ -57,7 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  real,              intent(out)   :: massoftype(:)
  real,              intent(out)   :: polyk,gamma,hfact_out
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real                             :: deltax,totmass,toten
  real                             :: enblast,gam1,uui,hsmooth,q2,r2

@@ -66,7 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma
  real,              intent(inout) :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: lattice,pspec_filename1,pspec_filename2,pspec_filename3
  real    :: totmass,deltax,pi

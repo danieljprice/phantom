@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma
  real,              intent(in)    :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  integer :: i,ierr
  real    :: rcyl,gam1,uuzero,costheta,sintheta
 
