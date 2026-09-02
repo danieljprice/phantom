@@ -231,7 +231,7 @@ subroutine test_directsum(ntests,npass)
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
                            nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
-                           fxyz_ptmass_tree,istar,shortsinktree
+                           fxyz_ptmass_tree,istar,shortsinktree,init_rho_from_h
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -533,6 +533,7 @@ subroutine test_directsum(ntests,npass)
     endif
 
     print*,' Using ',npart,' SPH particles and ',nptmass,' point masses'
+    call init_rho_from_h()
     call get_derivs_global(icall=0) ! icall = 0 refresh tree cache used for h1j in the force routine
 
     epoti = 0.0
