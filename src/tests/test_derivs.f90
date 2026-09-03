@@ -14,16 +14,17 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, densityforce, deriv, dim, dust, eos, io, kernel,
+! :Dependencies: apr, boundary, densityforce, deriv, dim, dust, eos, io, kernel,
 !   mpidomain, mpiutils, neighkdtree, nicil, options, part, physcon,
 !   shock_capturing, testutils, timestep, timestep_ind, timing, unifdis,
 !   units, viscosity
 !
  use part, only:massoftype,ien_type,ien_entropy
  use dim,  only:isothermal,ind_timesteps
+ use apr,  only:sync_aprmassoftype
  implicit none
 
- public :: test_derivs, sync_aprmassoftype
+ public :: test_derivs
  real, public :: grainsizek,graindensk
  real, parameter, private :: rhozero = 5.0
  integer, private :: iu = 4
@@ -1311,24 +1312,6 @@ subroutine check_energy_conservation(nfailed,j,tol)
  j = j + 2
 
 end subroutine check_energy_conservation
-
-!--------------------------------------
-!+
-!  keep aprmassoftype consistent with massoftype after test setup
-!+
-!--------------------------------------
-subroutine sync_aprmassoftype
- use dim,  only:use_apr
- use part, only:massoftype,aprmassoftype
- use utils_apr, only:apr_max
- integer :: i
-
- if (.not.use_apr) return
- do i = 1, apr_max
-    aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
- enddo
-
-end subroutine sync_aprmassoftype
 
 !--------------------------------------
 !+

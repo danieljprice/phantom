@@ -53,7 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: rcyli,pressure,Bx_net,By_net,Bz_net
  real :: Br,Bphi,Bmag,delta_vphi,delta_vr
  real :: den_sum(nmaganalysis),num_sum(nmaganalysis)
- real :: alpha_estimates(nmaganalysis),rho
+ real :: alpha_estimates(nmaganalysis)
 
  integer, parameter :: iparams = 10
  integer, parameter :: ialphamag   = 24

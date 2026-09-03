@@ -481,10 +481,8 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
  fext(:,:)  = 0.
 
  if (gr) then
-    ! --- Need rho computed by sum to do primitive to conservative, since dens is not read from file
-    if (npart > 0) then
-       call get_density_global(2,zero_fxyzu=.true.)
-    endif
+    ! kernel-summed rho required for prim2consall (all MPI ranks must call this)
+    call get_density_global(2,zero_fxyzu=.true.)
     call init_metric(npart,xyzh,metrics,metricderivs,time=time)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then

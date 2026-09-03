@@ -24,7 +24,7 @@ module apr
 
  implicit none
 
- public :: init_apr,update_apr
+ public :: init_apr,update_apr,sync_aprmassoftype
  public :: use_apr
 
  private
@@ -135,6 +135,23 @@ subroutine init_apr(apr_level,ierr)
  if (apr_verbose) print*,'initialised apr'
 
 end subroutine init_apr
+
+!-----------------------------------------------------------------------
+!+
+!  populate aprmassoftype from massoftype (needed during setup before
+!  init_apr has been called, e.g. in check_setup/get_centreofmass)
+!+
+!-----------------------------------------------------------------------
+subroutine sync_aprmassoftype()
+ use part, only:massoftype,aprmassoftype
+ integer :: i
+
+ if (.not.use_apr) return
+ do i = 1,apr_max
+    aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
+ enddo
+
+end subroutine sync_aprmassoftype
 
 !-----------------------------------------------------------------------
 !+

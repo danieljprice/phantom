@@ -404,7 +404,11 @@ subroutine compute_energies(t)
           endif
 
           ! thermal energy
-          ponrhoi  = eos_vars(igasP,i)/rhoi
+          if (rhoi > tiny(rhoi)) then
+             ponrhoi  = eos_vars(igasP,i)/rhoi
+          else
+             ponrhoi  = 0.
+          endif
           spsoundi = eos_vars(ics,i)
           gammai   = eos_vars(igamma,i)
           if (maxvxyzu >= 4) then

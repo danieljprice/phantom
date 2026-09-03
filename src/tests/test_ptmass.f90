@@ -215,7 +215,7 @@ subroutine test_binary(ntests,npass,string)
  use gravwaveutils,  only:get_strain_from_circular_binary,get_G_on_dc4,calc_gravitwaves
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
- use deriv,          only:get_derivs_global,get_density_global
+ use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate,externalforce_vdependent
@@ -373,7 +373,6 @@ subroutine test_binary(ntests,npass,string)
     !
     if (npart > 0) then
        fxyzu(:,:) = 0.
-       if (gr) call get_density_global(2,zero_fxyzu=.true.)
        call get_derivs_global()
     endif
     if (gr) then
@@ -919,8 +918,7 @@ subroutine test_accretion(ntests,npass,itest)
  use dim,          only:maxvxyzu
  use setdisc,      only:set_disc
  use metric_tools, only:init_metric
- use testderivs,   only:sync_aprmassoftype
- use apr,          only:use_apr,init_apr
+ use apr,          only:use_apr,init_apr,sync_aprmassoftype
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
  integer :: i,j,nfailed(11),np_disc,nneigh,ierr
@@ -1128,7 +1126,7 @@ end subroutine test_accretion
 subroutine test_createsink(ntests,npass)
  use dim,          only:gravity,maxp,maxphase,gr
  use boundary,     only:set_boundary
- use deriv,        only:get_derivs_global,get_density_global
+ use deriv,        only:get_derivs_global
  use eos,          only:ieos,polyk,gamma
  use kdtree,       only:tree_accuracy
  use io,           only:id,master,iverbose
@@ -1236,7 +1234,6 @@ subroutine test_createsink(ntests,npass)
        icreate_sinks = 1
     endif
 
-    if (gr .and. npart > 0) call get_density_global(2,zero_fxyzu=.true.)
     call get_derivs_global()
     !
     ! calculate itest after calling derivs because particles will

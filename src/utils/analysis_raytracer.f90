@@ -19,7 +19,7 @@ module analysis
 !
  use raytracer_all,    only:get_all_tau_inwards,get_all_tau_outwards,get_all_tau_adaptive
  use raytracer,        only:get_all_tau
- use part,             only:rho => rho_sph,isdead_or_accreted,nsinkproperties,iReff
+ use part,             only:rho,isdead_or_accreted,nsinkproperties,iReff
  use dump_utils,       only:read_array_from_file
  use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                                  neighcount,neighb,neighmax
@@ -96,7 +96,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        xyzh2(:,j) = xyzh(:,i)
        vxyzu2(:,j) = vxyzu(:,i)
        kappa(j) = kappa(i)
-       rhopart(j) = rho_sph(i)
+       rhopart(j) = rho(i)
        j=j+1
     endif
  enddo

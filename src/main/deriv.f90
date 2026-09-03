@@ -267,6 +267,8 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  call getused(t1)
  ! update conserved quantities in the GR code
  if (gr) then
+    ! kernel-summed rho required for prim2consall (all MPI ranks must call this)
+    call get_density_global(2,zero_fxyzu=.true.)
     call init_metric(npart,xyzh,metrics,time=time)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
  endif
