@@ -213,7 +213,7 @@ subroutine test_redsupergiant(ntests,npass)
  use dim,       only:do_radiation
  use datafiles, only:find_phantom_datafile
  use part,      only:init_part,npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,igasP,imu,iX,iZ,iradxi,&
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,rho,igas,igasP,imu,iX,iZ,iradxi,&
                      eos_vars,itemp
  use mpidomain, only:i_belong
  use options,   only:ieos
@@ -324,7 +324,7 @@ subroutine test_redsupergiant(ntests,npass)
     rmserr_Z = 0.
     do j=1,npart
        rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
-       rhoj = rhoh(xyzh(4,j),massoftype(igas))
+       rhoj = rho(j)
        rhoj_mesa = yinterp(den,r,rj)
        rmserr = rmserr + (1-rhoj/rhoj_mesa)**2
 
@@ -374,7 +374,7 @@ subroutine test_whitedwarf(ntests,npass)
  use dim,       only:do_radiation
  use datafiles, only:find_phantom_datafile
  use part,      only:init_part,npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass,rhoh,igas,&
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,rho,igas,&
                      eos_vars
  use mpidomain, only:i_belong
  use options,   only:ieos
@@ -461,7 +461,7 @@ subroutine test_whitedwarf(ntests,npass)
     rmserr = 0.
     do j=1,npart
        rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
-       rhoj = rhoh(xyzh(4,j),massoftype(igas))
+       rhoj = rho(j)
        rhoj_mesa = yinterp(den,r,rj)
        rmserr = rmserr + (1-rhoj/rhoj_mesa)**2
 

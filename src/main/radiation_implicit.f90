@@ -22,7 +22,7 @@ module radiation_implicit
 !   kernel, neighkdtree, part, physcon, quartic, radiation_utils, timing,
 !   units
 !
- use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
+ use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,massoftype,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
  use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
  implicit none
@@ -123,13 +123,13 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
  real                :: rhoi
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,massoftype,drad,cv_type) &
+ !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,drad,cv_type,rho) &
  !$omp private(i,rhoi)
  do i = 1,npart
     origEU(1,i) = rad(iradxi,i)
     origEU(2,i) = vxyzu(4,i)
     if (save_cv) then
-       rhoi = rhoh(xyzh(4,i),massoftype(igas))
+       rhoi = rho(i)
        radprop(icv,i) = get_cv(cv_type,rhoi,vxyzu(4,i))
        radprop(ikappa,i) = get_kappa(iopacity_type,vxyzu(4,i),radprop(icv,i),rhoi)
     endif
@@ -192,11 +192,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  !$omp parallel default(none) &
  !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
- !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask) &
+ !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask,rho) &
  !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
- !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega) &
- !$omp private(its)
+ !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
 
@@ -210,11 +209,14 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  maxerrE2last2 = bignumber
  maxerrU2last2 = bignumber
  mask = .true.
+ converged = .false.
+ its = 0
  !$omp end single
 
- iterations: do its=1,itsmax_rad
+ iterations: do while (.not. converged)
 
     !$omp single
+    its = its + 1
     call get_timings(t1,tcpu1)
     !$omp end single
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
@@ -253,7 +255,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     if ((maxerrE2prev2 < limitcycletol) .or. (maxerrU2prev2 < limitcycletol)) omega = 0.5*omega
     !$omp end single
 
-    if (converged) exit iterations
+    if (its >= itsmax_rad) exit iterations
 
  enddo iterations
 
@@ -429,7 +431,7 @@ end subroutine get_compacted_neighbour_list
 subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
  use dim,             only:periodic,ind_timesteps
  use boundary,        only:dxbound,dybound,dzbound
- use part,            only:dust_temp,nucleation,gradh
+ use part,            only:dust_temp,nucleation,gradh,rho
  use units,           only:get_c_code
  use kernel,          only:grkern,cnormk
  integer, intent(in)  :: ncompact,ncompactlocal,icompactmax,npart
@@ -463,7 +465,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        hi = xyzh(4,i)
        hi21 = 1./(hi*hi)
        hi41 = hi21*hi21
-       rhoi = rhoh(hi, massoftype(igas))
+       rhoi = rho(i)
        gradhi = gradh(1,i)
 
        EU0(1,i) = rad(iradxi,i)
@@ -501,7 +503,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           dr = rij
 
           pmj = massoftype(igas)
-          rhoj = rhoh(hj, pmj)
+          rhoj = rho(j)
           !
           !--Need to make sure that E and U values are loaded for non-active neighbours
           !

@@ -29,7 +29,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use eos,              only:gmw,gamma,X_in,Z_in
  use eos_idealplusrad, only:get_idealplusrad_temp
  use eos_mesa,         only:init_eos_mesa
- use part,             only:igas,rad,iradxi,ikappa,rhoh,radprop,ithick
+ use part,             only:rho,igas,rad,iradxi,ikappa,radprop,ithick
  use radiation_utils,  only:radiation_and_gas_temperature_equal,ugas_from_Tgas
  use mesa_microphysics,only:get_kappa_mesa
  integer, intent(inout) :: npart
@@ -52,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  pmass = massoftype(igas)
  do i=1,npart
-    rhoi = rhoh(xyzh(4,i),pmass)
+    rhoi = rho(i)
     rho_cgs = rhoi*unit_density
     call get_idealplusrad_temp(rho_cgs,vxyzu(4,i)*unit_ergg,mu,tempi,ierr)
 

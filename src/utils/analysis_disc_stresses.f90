@@ -23,7 +23,7 @@ module analysis
 ! :Dependencies: dim, eos, eos_stamatellos, getneighbours, infile_utils,
 !   io, kernel, part, physcon, prompting, units
 !
- use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                            neighcount,neighb,neighmax
  use eos_stamatellos,  only:du_store,tau_store
  implicit none
@@ -183,7 +183,7 @@ end subroutine read_analysis_options
 subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
  use dim, only:gravity,maxp
- use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
+ use part, only:rho,poten,igas,iphase,maxphase,massoftype,iamgas
  use kernel, only:get_kernel,get_kernel_grav1,cnormk
 
  character(len=*), intent(in) :: dumpfile
@@ -226,7 +226,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
  do ipart=1,npart
 
-    rhoi = rhoh(xyzh(4,ipart),massoftype(igas))
+    rhoi = rho(ipart)
 
     ! Smoothing lengths
     hj1 = 1.0/xyzh(4,ipart)
@@ -271,7 +271,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
        endif
 
        ! Prefactor to SPH sum = grad*mass/rho
-       rhoj = rhoh(xyzh(4,j),massoftype(igas))
+       rhoj = rho(j)
 
        grpmrho1 = grkerni*massoftype(igas)/rhoi
 
@@ -371,7 +371,7 @@ end subroutine transform_to_cylindrical
 subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use physcon, only:pi
  use eos,     only:get_spsound,ieos
- use part,    only:rhoh,isdead_or_accreted
+ use part,    only:rho,isdead_or_accreted
  use units,   only:utime
 
  integer, intent(in) :: npart
@@ -450,7 +450,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
        ninbin(ibin) = ninbin(ibin) +1
        ipartbin(ipart) = ibin
 
-       csi = get_spsound(ieos,xyzh(1:3,ipart),rhoh(xyzh(4,ipart),pmass),vxyzu(:,ipart))
+       csi = get_spsound(ieos,xyzh(1:3,ipart),rho(ipart),vxyzu(:,ipart))
        csbin(ibin) = csbin(ibin) + csi
        h_smooth(ibin) = h_smooth(ibin) + xyzh(4,ipart)
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
@@ -501,10 +501,10 @@ end subroutine radial_binning
 !--------------------------------------------------------------
 subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use physcon, only:pi,gg,kb_on_mh
- use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
- use dim,     only: gravity
- use part,    only: mhd,rhoh,alphaind,imu,itemp
-! use eos,     only: ieos
+ use units,   only:print_units,umass,udist,utime,unit_velocity,unit_density,unit_Bfield
+ use dim,     only:gravity
+ use part,    only:rho,mhd,alphaind,imu,itemp
+! use eos,     only:ieos
 
  implicit none
 
@@ -564,7 +564,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
-    rhopart = rhoh(xyzh(4,ipart),pmass)*unit_density
+    rhopart = rho(ipart)*unit_density
 
     alpha_reyn(ibin) = alpha_reyn(ibin) + dvr*dvphi
 

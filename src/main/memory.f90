@@ -82,7 +82,7 @@ subroutine allocate_memory(ntot, part_only,reallocation)
 
  if (nbytes_allocated > 0.0) then
     call warning('memory', 'Attempting to allocate memory, but memory is already allocated.'// &
-                           'Deallocating and then allocating again.')
+                           ' Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_,reallocation=realloc_)
  endif
 

@@ -20,10 +20,10 @@ module analysis
 ! :Dependencies: centreofmass, extern_gwinspiral, io, part, physcon,
 !   prompting, readwrite_dumps, units
 !
- use io,              only: fatal
- use part,            only: rhoh
- use physcon,         only: pi
- use centreofmass,    only: get_centreofmass
+ use io,              only:fatal
+ use part,            only:rho
+ use physcon,         only:pi
+ use centreofmass,    only:get_centreofmass
  use readwrite_dumps, only:opened_full_dump
  use extern_gwinspiral, only:Nstar_gw
  implicit none
@@ -50,8 +50,8 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use prompting,      only: prompt
- use units,          only: unit_density
+ use prompting,      only:prompt
+ use units,          only:unit_density
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -199,13 +199,13 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
  eroty = 0.
  erotz = 0.
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,vxyzu,particlemass,com,vcom,density_cutoff) &
+!$omp shared(npart,xyzh,vxyzu,particlemass,com,vcom,density_cutoff,rho) &
 !$omp private(i,r,v,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2,rad2) &
 !$omp reduction(+:erotx,eroty,erotz,npartmeasured) &
 !$omp reduction(max:rmax2)
 !$omp do
  do i=1,npart
-    if (rhoh(xyzh(4,i),particlemass) > density_cutoff) then
+    if (rho(i) > density_cutoff) then
        r = xyzh(1:3,i)  - com
        v = vxyzu(1:3,i) - vcom
        ! r cross v
@@ -238,14 +238,14 @@ subroutine calculate_TW(dumpfile,xyzh,vxyzu,time,npart,iunit,particlemass)
  !--Calculate gravitational potential energy
  grav = 0.
 !$omp parallel default(none) &
-!$omp shared(npart,xyzh,particlemass,density_cutoff) &
+!$omp shared(npart,xyzh,particlemass,density_cutoff,rho) &
 !$omp private(i,j,r,rad2) &
 !$omp reduction(+:grav)
 !$omp do
  do i=1,npart
-    if (rhoh(xyzh(4,i),particlemass) > density_cutoff) then
+    if (rho(i) > density_cutoff) then
        do j=i+1,npart
-          if (rhoh(xyzh(4,j),particlemass) > density_cutoff) then
+          if (rho(j) > density_cutoff) then
              r    = xyzh(1:3,i) - xyzh(1:3,j)
              rad2 = dot_product(r,r)
              if (rad2 > 0.0) grav = grav + 1.0/sqrt(rad2)
@@ -518,7 +518,7 @@ subroutine get_momentofinertia(xyzh,npart,npartused,principle,evectors,particlem
  npartused = 0
  rmax2     = 0.0
  do i = 1,npart
-    if (rhoh(xyzh(4,i),particlemass) > density_cutoff) then
+    if (rho(i) > density_cutoff) then
        x = xyzh(1,i) - com(1)
        y = xyzh(2,i) - com(2)
        z = xyzh(3,i) - com(3)

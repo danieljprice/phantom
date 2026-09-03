@@ -36,12 +36,12 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use centreofmass,   only: get_centreofmass,reset_centreofmass
- use rho_profile,    only: rho_polytrope
- use physcon,        only: pi
- use part,           only: rhoh
- use eos,            only: gamma,polyk
- use infile_utils,   only: open_db_from_file,inopts,close_db,read_inopt
+ use centreofmass,   only:get_centreofmass,reset_centreofmass
+ use rho_profile,    only:rho_polytrope
+ use physcon,        only:pi
+ use part,           only:rho
+ use eos,            only:gamma,polyk
+ use infile_utils,   only:open_db_from_file,inopts,close_db,read_inopt
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) !due to reset center of mass
@@ -138,7 +138,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           zi = xyzh(3,i) - xposA(3)
        endif
        rad        = sqrt( xi*xi + yi*yi + zi*zi )
-       rho_actual = rhoh(xyzh(4,i),particlemass)
+       rho_actual = rho(i)
        j = 2
        do while(j < npts .and. rad > r(j))
           j = j + 1

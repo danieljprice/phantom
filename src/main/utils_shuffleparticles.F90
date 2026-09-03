@@ -64,11 +64,11 @@ contains
 !     n_ref:     number of reference particles
 !
 !-------------------------------------------------------------------
-subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dmedium,ntab,rtab,dtab,dcontrast, &
+subroutine shuffleparticles(iprint,npart,xyzh,pmass,rho,duniform,rsphere,dsphere,dmedium,ntab,rtab,dtab,dcontrast, &
                             is_setup,prefix)
  use dim,          only:periodic
  use io,           only:id,master,fatal
- use part,         only:gradh,rhoh,hrho
+ use part,         only:gradh,hn
  use deriv,        only:get_density_global
  use neighkdtree,  only:ncells,leaf_is_active,get_neighbour_list,allocate_neigh,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
@@ -83,6 +83,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  integer,          intent(inout) :: npart
  real,             intent(in)    :: pmass
  real,             intent(inout) :: xyzh(:,:)
+ real,             intent(inout) :: rho(:)
  integer,          intent(in), optional :: ntab
  real,             intent(in), optional :: duniform,rsphere,dsphere,dmedium,dcontrast
  real,             intent(in), optional :: rtab(:),dtab(:)
@@ -172,8 +173,8 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
     if (id==master) write(iprint,'(1x,a)') 'Shuffling: Density profile undefined.  Aborting.'
     return
  endif
- rinner = redge - 4.*hrho(dedge,pmass)
- router = redge + 4.*hrho(dedge,pmass)
+ rinner = redge - 4.*hn(dedge/pmass)
+ router = redge + 4.*hn(dedge/pmass)
 
  !--Open debugging files and print the initial particle placements
  if (idebug > 0 .and. id==master) then
@@ -234,7 +235,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  endif
  if (idebug > 1 .and. id==master) then
     do i = 1,npart
-       write(333,'(I18,1x,11(es18.10,1x),I18)') i,xyzh(1:4,i),rhoh(xyzh(4,i),pmass),rthree,rthree,ncall
+       write(333,'(I18,1x,11(es18.10,1x),I18)') i,xyzh(1:4,i),rho(i),rthree,rthree,ncall
     enddo
     write(333,'(a)') ' '
  endif
@@ -273,7 +274,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
 
     ! determine how much to shift by
 !$omp parallel default (none) &
-!$omp shared(xyzh,npart,pmass,dx_shift,gradh,max_shift_thresh2,redge,iprofile,dedge,dmed,idebug) &
+!$omp shared(xyzh,npart,pmass,dx_shift,gradh,max_shift_thresh2,redge,iprofile,dedge,dmed,idebug,rho) &
 !$omp shared(use_ref_h,totalshift,radkern12,ishift) &
 !$omp shared(rtab,dtab,ntab,rinner,router,inodeparts,inoderange,leaf_is_active,ncells,ncall) &
 #ifdef PERIODIC
@@ -307,7 +308,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
           hi = xyzh(4,i)
           hi12   = 1.0/(hi*hi)
           hi14   = hi12*hi12
-          rhoi   = rhoh(hi,pmass)
+          rhoi   = rho(i)
           rhoi1  = 1.0/rhoi
           termi  = cnormk*gradh(1,i)*hi14*rhoi1
           coefi  = 0.25*hi*hi
@@ -360,7 +361,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
                    grrhoonrhoi = grrhoonrhoi - runi*termi*grkern(qi2,sqrt(qi2))
                 endif
                 if (qj2 < radkern2) then
-                   denom = hj**4 * rhoh(hj,pmass)
+                   denom = hj**4 * rho(j)
                    grrhoonrhoi = grrhoonrhoi - runi*cnormk*gradh(1,j)*grkern(qj2,sqrt(qj2))/denom
                 endif
              endif
@@ -502,7 +503,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
        endif
        if (idebug==3) then
           do i = 1,npart
-             write(333,'(I18,1x,11(es18.10,1x),I18)') i,xyzh(1:4,i),rhoh(xyzh(4,i),pmass),&
+             write(333,'(I18,1x,11(es18.10,1x),I18)') i,xyzh(1:4,i),rho(i),&
              totalshift(:,i),dx_shift(:,i),ncall
           enddo
           write(333,'(a)') ' '
@@ -553,7 +554,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  if (idebug > 0 .and. id==master) then
     if (idebug > 1) then
        do i = 1,npart
-          write(333,'(i18,1x,11(es18.10,1x),i18)') i,xyzh(1:4,i),rhoh(xyzh(4,i),pmass),totalshift(1:3,i),rthree,ncall
+          write(333,'(i18,1x,11(es18.10,1x),i18)') i,xyzh(1:4,i),rho(i),totalshift(1:3,i),rthree,ncall
        enddo
     endif
     close(333)

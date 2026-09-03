@@ -402,9 +402,14 @@ subroutine inject_particles_wrapper()
  use timestep,    only:time
  use evolve,      only:dtlast
  use inject,      only:inject_particles
+ use part,        only:xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,rho
  implicit none
+ integer :: npart_old
+ real    :: dtinject
 
- call inject_particles(time,dtlast)
+ npart_old = npart
+ call inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npart_old,npartoftype,dtinject)
 
 end subroutine inject_particles_wrapper
 

@@ -51,7 +51,7 @@ end subroutine init_inject
 !  Main routine handling wind injection.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
  use part,      only:hfact,igas
  use partinject,only:add_or_update_particle
@@ -60,19 +60,21 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use eos,       only:gamma
  use boundary,  only:ymin,ymax,zmin
  real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
 
  integer, parameter :: handled_walls = 3
  real, parameter :: mu = 1.26 ! Used in Bowen (1988)
- real :: rho, v, energy_to_temperature_ratio, u, h, delta, time_between_walls
+ real :: rhoi, v, energy_to_temperature_ratio, u, h, delta, time_between_walls
  integer :: N, outer_wall, inner_wall, inner_handled_wall, particles_per_wall
  integer :: i, iy, iz, i_part, part_type
  real :: local_time, vxyz(3), pxyz(3)
 
- rho = wind_density / (umass/udist**3)
+ rhoi = wind_density / (umass/udist**3)
  v = wind_velocity * 1.d5 / (udist/utime)
  N = wind_resolution
  energy_to_temperature_ratio = Rg/(mu*(gamma-1.))/(udist/utime)**2

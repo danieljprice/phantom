@@ -17,8 +17,8 @@ program phantom2divb
 ! :Dependencies: deriv, dim, initial, io, part, readwrite_dumps
 !
  use dim,             only:ndivcurlB,maxp,mhd,tagline
- use part,            only:npart,xyzh,Bxyz,divcurlB,Bevol, &
-                           hfact,rhoh,dhdrho,igas,isetphase,iphase,massoftype,maxphase
+ use part,            only:npart,Bxyz,divcurlB,Bevol,&
+                           hfact,rho,igas,isetphase,iphase,maxphase
  use io,              only:set_io_unit_numbers,iprint,idisk1,idump
  use initial,         only:initialise
  use readwrite_dumps, only:read_dump,write_fulldump
@@ -61,7 +61,7 @@ program phantom2divb
     Bevol = 0.
     if (mhd) then
        do i = 1,npart
-          Bevol(1:3,i) = Bxyz(1:3,i)/rhoh(xyzh(4,i), massoftype(igas))
+          Bevol(1:3,i) = Bxyz(1:3,i)/rho(i)
        enddo
     endif
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)

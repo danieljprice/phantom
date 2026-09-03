@@ -507,42 +507,39 @@ subroutine amuse_get_index(i, part_index)
  part_index = amuse_id_lookup(i)
 end subroutine amuse_get_index
 
-subroutine amuse_get_density(i, rho)
- use part, only:rhoh, iphase, massoftype, xyzh
+subroutine amuse_get_density(i, dens)
+ use part, only:rho
  integer(kind=index_length), intent(in)  :: i
- double precision,           intent(out) :: rho
+ double precision,           intent(out) :: dens
  integer(kind=index_length) :: part_index
- double precision :: pmassi
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
-    rho = 0
+    dens = 0
  else
-    pmassi = massoftype(abs(iphase(part_index)))
-    rho = rhoh(xyzh(4, part_index), pmassi)
+    dens = rho(part_index)
  endif
 end subroutine amuse_get_density
 
 subroutine amuse_get_pressure(i, p)
- use part, only:rhoh, iphase, massoftype, xyzh
+ use part, only:xyzh,rho
  use eos, only:ieos, equationofstate
  integer(kind=index_length), intent(in)  :: i
  double precision,           intent(out) :: p
  integer(kind=index_length) :: part_index
  integer :: eos_type
- double precision :: pmassi, ponrho, rho, spsound, x, y, z
+ double precision :: ponrho, dens, spsound, x, y, z
  real :: tempi
  call amuse_get_index(i, part_index)
  if (part_index == 0) then
     p = 0
  else
     eos_type = ieos
-    pmassi = massoftype(abs(iphase(part_index)))
-    call amuse_get_density(part_index, rho)
+    dens = rho(part_index)
     x = xyzh(1, part_index)
     y = xyzh(2, part_index)
     z = xyzh(3, part_index)
-    call equationofstate(eos_type, ponrho, spsound, rho, x, y, z, tempi)
-    p = ponrho*rho
+    call equationofstate(eos_type, ponrho, spsound, dens, x, y, z, tempi)
+    p = ponrho*dens
  endif
 end subroutine amuse_get_pressure
 

@@ -256,17 +256,17 @@ end subroutine init_growth_coala
 !  Main routine that updates rhodust with COALA solver
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
+subroutine get_growth_rate_coala(npart,xyzh,vxyzu,rho,fxyzu,fext,&
                                  grainsize,dustfrac,dustevol,deltav,dt,eos_vars)
 #ifdef COALA
  use io,                   only:error
  use physcon,              only:mH=>mass_proton_cgs
- use part,                 only:rhoh,massoftype,igas,isdead_or_accreted,ics,itemp,imu,tstop
+ use part,                 only:isdead_or_accreted,ics,itemp,imu,tstop
  use eos,                  only:gmw
  use coala_interface_coag, only:coala_coag_k0,coala_coag
 #endif
  integer, intent(in)    :: npart
- real,    intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
+ real,    intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:),rho(:)
  real,    intent(in)    :: grainsize(:)
  real,    intent(inout) :: dustfrac(:,:)
  real,    intent(inout) :: dustevol(:,:)
@@ -294,8 +294,8 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
 
  ! Loop over particles
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,fxyzu,fext,dustfrac,dustevol,tstop,deltav,dt,eos_vars,mu_gas,eps_rhodust) &
- !$omp shared(ndusttypes,massoftype,massgrid,tabflux_coag_k0,tabflux_coag,tabintflux_coag,m_grain) &
+ !$omp shared(npart,xyzh,fxyzu,fext,dustfrac,dustevol,tstop,deltav,dt,eos_vars,mu_gas,eps_rhodust,rho) &
+ !$omp shared(ndusttypes,massgrid,tabflux_coag_k0,tabflux_coag,tabintflux_coag,m_grain) &
  !$omp shared(mat_coeffs_leg,Q_coag,vecnodes,vecweights,order_growth,massbins) &
  !$omp private(i,idust,rhodust_old,rhodust_new,t_stop,sym_dvij) &
  !$omp private(cs,rhoi,fxi,fyi,fzi,a_gas,mdust_old,mdust_new) &
@@ -304,7 +304,7 @@ subroutine get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,&
     if (isdead_or_accreted(xyzh(4,i))) cycle
 
     ! Get total density (gas+dust) in code units
-    rhoi = rhoh(xyzh(4,i),massoftype(igas))
+    rhoi = rho(i)
     if (rhoi <= 0.0) cycle
 
     ! Get sound speed, temperature and molecular weight from eos_vars (already in code units)

@@ -48,9 +48,9 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,        only: nptmass, maxptmass, xyzmh_ptmass, vxyz_ptmass, ihsoft, ihacc, iJ2, iReff
- use io,          only: fatal, id, master
- use physcon,     only: deg_to_rad
+ use part,        only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,ihacc,iJ2,iReff
+ use io,          only:fatal,id,master
+ use physcon,     only:deg_to_rad
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -124,7 +124,7 @@ end subroutine modify_dump
 !+
 !-----------------------------------------------------------------------
 subroutine set_defaults_addsink()
- use units,   only: umass
+ use units,   only:umass
  use physcon, only:solarm
  ! defaults (code units)
  msink    = solarm/umass   ! 1 Msun in code units
@@ -194,7 +194,7 @@ end subroutine write_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file, inopts, read_inopt, close_db
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21

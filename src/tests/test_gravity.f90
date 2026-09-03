@@ -227,11 +227,11 @@ end subroutine test_taylorseries
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
  use io,              only:id,master,nprocs
- use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree,maxpsph
+ use dim,             only:maxp,maxptmass,mpi,use_apr,use_sinktree,maxpsph,igradsoft
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
                            nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong,&
-                           fxyz_ptmass_tree,istar,shortsinktree
+                           fxyz_ptmass_tree,istar,shortsinktree,init_rho_from_h
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -475,7 +475,7 @@ subroutine test_directsum(ntests,npass)
     do i=1,npart
        xyzh(4,i)  = h_soft_sinksink
        gradh(1,i) = 1.
-       gradh(2,i) = 0.
+       gradh(igradsoft,i) = 0.
        vxyzu(:,i) = 0.
     enddo
     allocate(fgrav(maxvxyzu,npart))
@@ -533,6 +533,7 @@ subroutine test_directsum(ntests,npass)
     endif
 
     print*,' Using ',npart,' SPH particles and ',nptmass,' point masses'
+    call init_rho_from_h()
     call get_derivs_global(icall=0) ! icall = 0 refresh tree cache used for h1j in the force routine
 
     epoti = 0.0
@@ -904,7 +905,7 @@ subroutine get_plummer_prec_perf(npart_target,iprofile)
  use mpiutils,    only:reduceall_mpi
  use options,     only:ieos,alpha,alphau,alphaB,tolh
  use part,        only:init_part,npart,xyzh,fxyzu,hfact,&
-                       npartoftype,massoftype,istar,maxphase,iphase,isetphase,rhoh
+                       npartoftype,massoftype,istar,maxphase,iphase,isetphase
  use setup_params,only:npart_total
  use testutils,   only:checkval,update_test_scores
  use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile

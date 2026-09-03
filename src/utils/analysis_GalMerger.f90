@@ -31,10 +31,10 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,         only: iphase,istar,idarkmatter,igas, &
-                         massoftype,maxp,maxphase,isdead_or_accreted,iamtype,rhoh
- use units,        only: utime,udist,unit_density
- use physcon,      only: years,mpc
+ use part,         only:iphase,istar,idarkmatter,igas,&
+                         massoftype,maxp,maxphase,isdead_or_accreted,iamtype,rho
+ use units,        only:utime,udist,unit_density
+ use physcon,      only:years,mpc
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -90,7 +90,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ndm       = 0
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,iphase,massoftype) &
+!$omp shared(npart,xyzh,iphase,massoftype,rho) &
 !$omp private(i,itype,xi,yi,zi,hi,pmassi,rhoi) &
 !$omp reduction(+:xpos1,ypos1,zpos1,xpos2,ypos2,zpos2,totmass1,totmass2) &
 !$omp reduction(+:rhogasA,rhostarA,rhodmA,nstar,ngas,ndm) &
@@ -113,7 +113,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           itype = igas
           pmassi = massoftype(igas)
        endif
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
        if (itype==istar) then
           rhostarX = max(rhostarX,rhoi)
           rhostarA =     rhostarA+rhoi

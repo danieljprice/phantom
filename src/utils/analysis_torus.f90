@@ -109,7 +109,7 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
                      theta,rho_dev,ninbinangle,ninbinr,tvisc,sigma,h_smooth,alpha_ss,Limag,ecc)
  use physcon, only:pi
  use eos,     only:get_spsound
- use part,    only:alphaind,igas,rhoh
+ use part,    only:rho,alphaind,igas
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(inout) :: vxyz(:,:)
  real,    intent(inout) :: pmass,time
@@ -164,8 +164,8 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
           if (ii > ntheta) cycle
           if (ii < 1)  cycle
 
-          rho_dev(ii) = rho_dev(ii) + rhoh(xyzh(4,i),pmass)
-          rho_ave = rho_ave + rhoh(xyzh(4,i),pmass)
+          rho_dev(ii) = rho_dev(ii) + rho(i)
+          rho_ave = rho_ave + rho(i)
           ninbinangle(ii) = ninbinangle(ii) + 1
        endif
 
@@ -177,7 +177,7 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
        area = (pi*((radius(jj)+dr/2.)**2-(radius(jj)- dr/2.)**2))
        h_smooth(jj) = h_smooth(jj) + xyzh(4,i)
        sigma(jj) = sigma(jj) + pmass/area
-       cs = get_spsound(2,xyzh(1:3,i),rhoh(xyzh(4,i),pmass),vxyz(:,i))
+       cs = get_spsound(2,xyzh(1:3,i),rho(i),vxyz(:,i))
        alphaav = alphaind(1,i)
        alpha_ss(jj) = alpha_ss(jj) + alphaav
        z(ninbinr(jj),jj) = xyzh(3,i)

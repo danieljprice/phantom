@@ -121,7 +121,7 @@ end subroutine init_porosity
 !  Compute the initial filling factor
 !+
 !-----------------------------------------------------------------------
-subroutine init_filfac(npart,xyzh,vxyzu)
+subroutine init_filfac(npart,xyzh,vxyzu,rho)
  use options,           only:use_dustfrac
  use growth,            only:alpha_dg
  use part,              only:idust,igas,iamtype,iphase,massoftype,&
@@ -129,11 +129,11 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  use dust,              only:get_viscmol_nu!,grainsizecgs
  use eos,               only:gamma,get_spsound
  integer, intent(in)    :: npart
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(inout) :: vxyzu(:,:)
 
  integer                   :: i,iam
- real                      :: rho,rhogas,cs,cparam,coeff_gei,nu
+ real                      :: rhoi,rhogas,cs,cparam,coeff_gei,nu
  real                      :: sfrac,s1,s2,s3,filfacmax
 ! real                      :: mfrac,m1,m2,m3
 
@@ -149,15 +149,16 @@ subroutine init_filfac(npart,xyzh,vxyzu)
           if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
              sfrac = (dustprop(1,i)/mmono)**(1./3.)
              if (sfrac > 1.) then      ! if grainsize > monomer size, compute filling factor
-                !- compute rho, rhogas and cs
+                !- compute rhoi, rhogas and cs
                 if (iam == igas .and. use_dustfrac) then
-                   rho = rhoh(xyzh(4,i),massoftype(igas))
-                   rhogas = rho*(1-dustfrac(1,i))
+                   rhoi = rho(i)
+                   rhogas = rhoi*(1-dustfrac(1,i))
                    cs = get_spsound(3,xyzh(:,i),rhogas,vxyzu(:,i))
                 else
+                   ! bootstrap gas density from h (dustgasprop not yet available for two-fluid dust)
                    rhogas = rhoh(xyzh(4,i),massoftype(igas))
                    cs = get_spsound(3,xyzh(:,i),rhogas,vxyzu(:,i))
-                   rho = rhogas + rhoh(xyzh(4,i),massoftype(idust))
+                   rhoi = rhogas + rho(i)
                 endif
 
                 !- molecular viscosity
@@ -165,7 +166,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
 
                 !- shared parameter for the following filling factors
                 cparam = (243.*pi*roottwo/15625.)*(Ro*alpha_dg*smono**4*dustprop(2,i)*dustprop(2,i)*cs &
-                             *Omega_k(i))/(rho*b_oku*eroll)
+                             *Omega_k(i))/(rhoi*b_oku*eroll)
 
                 !--transition masses m1/mmono and m2/mmono between hit&stick and Epstein/Stokes regimes with St < 1
                 s1 = (cparam/(2.*(2.**0.075 - 1.)*coeff_gei))**((1.-cratio)/(1.+8.*cratio))
@@ -251,42 +252,42 @@ end subroutine print_porosity_info
 !  Compute the final filling factor
 !+
 !-----------------------------------------------------------------------
-subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
+subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt,rho)
  use dim,               only:use_dustgrowth
  use options,           only:use_dustfrac
- use part,              only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
-                             massoftype,dustfrac,dustgasprop,VrelVf,probastick
+ use part,              only:idust,igas,iamtype,iphase,isdead_or_accreted,&
+                             dustfrac,dustgasprop,VrelVf,probastick
  integer, intent(in)    :: npart
  real,    intent(in)    :: dt
  real,    intent(inout) :: filfac(:),dustprop(:,:)
- real,    intent(in)    :: xyzh(:,:),mprev(:)
+ real,    intent(in)    :: xyzh(:,:),mprev(:),rho(:)
  integer                   :: i,iam
  real                      :: filfacevol,filfacmin,filfacmax
- real                      :: rho,rhod
+ real                      :: rhoi,rhod
 
  select case (iporosity)   ! add other cases for other models here
  case (1)
     !$omp parallel do default(none) &
-    !$omp shared(xyzh,npart,iphase,massoftype,use_dustfrac,dustfrac,icompact) &
+    !$omp shared(xyzh,npart,iphase,use_dustfrac,dustfrac,icompact,rho) &
     !$omp shared(mprev,filfac,dustprop,dustgasprop,VrelVf,probastick,mmono,dt,ibounce) &
-    !$omp private(i,iam,rho,rhod,filfacevol,filfacmin,filfacmax)
+    !$omp private(i,iam,rhoi,rhod,filfacevol,filfacmin,filfacmax)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           iam = iamtype(iphase(i))
 
           if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
              if (dustprop(1,i) > mmono) then
-                !- compute rho = rho_gas + rho_dust
+                !- compute rhoi = rho_gas + rho_dust
 
                 if (use_dustfrac .and. iam == igas) then
-                   rho = rhoh(xyzh(4,i),massoftype(igas))
-                   rhod = rho*dustfrac(1,i)
+                   rhoi = rho(i)
+                   rhod = rhoi*dustfrac(1,i)
                 else
-                   rhod = rhoh(xyzh(4,i),massoftype(idust))
-                   rho = dustgasprop(2,i) + rhod
+                   rhod = rho(i)
+                   rhoi = dustgasprop(2,i) + rhod
                 endif
 
-                call get_filfac_min(i,rho,dustprop(1,i)/mmono,dustprop(2,i),dustgasprop(:,i),filfacmin)
+                call get_filfac_min(i,rhoi,dustprop(1,i)/mmono,dustprop(2,i),dustgasprop(:,i),filfacmin)
                 !--if new mass > previous mass, compute the new filling factor due to growth
                 if (dustprop(1,i) > mprev(i)) then
                    call get_filfac_growth(mprev(i),dustprop(1,i),filfac(i),dustgasprop(:,i),filfacevol)
@@ -537,25 +538,25 @@ subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
 
 end subroutine get_filfac_min
 
-subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
+subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop,rho)
  use options,           only:use_dustfrac
- use part,              only:idust,igas,iamtype,iphase,massoftype,isdead_or_accreted,rhoh
+ use part,              only:idust,igas,iamtype,iphase,isdead_or_accreted
  use growth,            only:check_dustprop,get_size
  use random,            only:ran2
  integer, intent(in)    :: npart
- real,    intent(in)    :: xyzh(:,:),dustgasprop(:,:)
+ real,    intent(in)    :: xyzh(:,:),dustgasprop(:,:),rho(:)
  real,    intent(inout) :: dustprop(:,:),filfac(:)
  integer                :: i,iam,seed
- real                   :: stress,strength,filfacmin,rho
+ real                   :: stress,strength,filfacmin,rhoi
  real                   :: grainmasscurlog,grainmassmaxlog,randmass
 
  select case (idisrupt)
  case(1)
     !$omp parallel do default(none) &
-    !$omp shared(xyzh,npart,massoftype,iphase,use_dustfrac) &
+    !$omp shared(xyzh,npart,iphase,use_dustfrac,rho) &
     !$omp shared(filfac,dustprop,dustgasprop,mmono,smono,grainmassminlog,surfenerg,gammaft) &
     !$omp private(grainmasscurlog,grainmassmaxlog,randmass,seed) &
-    !$omp private(i,iam,rho,filfacmin,stress,strength)
+    !$omp private(i,iam,rhoi,filfacmin,stress,strength)
     do i=1, npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           iam = iamtype(iphase(i))
@@ -566,11 +567,11 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
              seed = int(stress)
 
              if (stress >= strength) then   !-grain is rotationnaly disrupted
-                !-compute rho to compute filfacmin
+                !-compute rhoi to compute filfacmin
                 if (use_dustfrac .and. iam == igas) then
-                   rho = rhoh(xyzh(4,i),massoftype(igas))
+                   rhoi = rho(i)
                 else
-                   rho = dustgasprop(2,i) + rhoh(xyzh(4,i),massoftype(idust))
+                   rhoi = dustgasprop(2,i) + rho(i)
                 endif
 
                 !-compute current, current/2 and min mass in log10
@@ -591,7 +592,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
                 dustprop(1,i) = 10.**randmass
 
                 !-compute filfacmin and compare it to filfac(i)
-                call get_filfac_min(i,rho,dustprop(1,i)/mmono,dustprop(2,i),dustgasprop(:,i),filfacmin)
+                call get_filfac_min(i,rhoi,dustprop(1,i)/mmono,dustprop(2,i),dustgasprop(:,i),filfacmin)
                 filfac(i) = max(filfac(i),filfacmin)
              endif
           endif
@@ -610,7 +611,7 @@ end subroutine get_disruption
 
 subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  use options,           only:use_dustfrac
- use part,              only:idust,igas,iamtype,iphase,isdead_or_accreted,rhoh,probastick
+ use part,              only:idust,igas,iamtype,iphase,isdead_or_accreted,probastick
  use growth,            only:vrelative,get_size,alpha_dg
  integer, intent(in)    :: npart
  real,    intent(in)    :: filfac(:)

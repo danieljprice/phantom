@@ -481,13 +481,12 @@ end subroutine set_star_composition
 !-----------------------------------------------------------------------
 subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
- use part,            only:rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi,icv,&
-                           aprmassoftype,apr_level,radprop
+ use part,            only:rho,itemp,igasP,iX,iZ,imu,iradxi,icv,radprop
  use eos,             only:equationofstate,calc_temp_and_ene,eos_outputs_mu,get_cv,gmw
  use radiation_utils, only:radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
- use dim,             only:use_apr,do_radiation
+ use dim,             only:do_radiation
  use physcon,         only:Rg,radconst
  use io,              only:fatal
  integer, intent(in)    :: ieos,npart,npts
@@ -499,8 +498,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  integer, intent(in), optional :: npin
  real,    intent(in), optional :: x0(3)
  integer :: eos_type,cv_type,i,ierr
- real    :: hi,presi,densi,tempi,eni,ri,egasrad,eint,mu
- real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),pmassi,dum
+ real    :: presi,densi,tempi,eni,ri,egasrad,eint,mu
+ real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),dum
  logical :: do_radiation_local
  integer :: i1
 
@@ -514,26 +513,19 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
 
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,temp,r,npts) &
- !$omp shared(relaxed,use_var_comp,apr_level,aprmassoftype) &
- !$omp shared(massoftype,ieos,initialtemp,polyk_in) &
+ !$omp shared(relaxed,use_var_comp,ieos,initialtemp,polyk_in,rho) &
  !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &
  !$omp shared(radprop,gmw) &
- !$omp private(i,hi,pmassi,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
+ !$omp private(i,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
  !$omp private(egasrad,eint,mu,u_gasrec) &
  !$omp private(dum,eos_type,cv_type,ierr,do_radiation_local)
  do i = i1+1,npart
-    if (relaxed) then
-       hi = xyzh(4,i)
-       if (use_apr) then
-          pmassi = aprmassoftype(igas,apr_level(i))
-       else
-          pmassi = massoftype(igas)
-       endif
-       densi = rhoh(hi,pmassi)
+    ri = sqrt(dot_product(xyzh(1:3,i)-xorigin,xyzh(1:3,i)-xorigin))
+    if (relaxed .and. rho(i) > tiny(rho)) then
+       densi = rho(i)
        presi = eos_vars(igasP,i)  ! retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
     else
-       !  Interpolate density and pressure from table
-       ri    = sqrt(dot_product(xyzh(1:3,i)-xorigin,xyzh(1:3,i)-xorigin))
+       ! interpolate density and pressure from table
        densi = yinterp(den(1:npts),r(1:npts),ri)
        presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
@@ -542,8 +534,10 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
     p_cgs = presi*unit_pressure
     if (ieos==15 .and. temp(1) > 0.) then       ! should really be a check if we actually have the temperature table
        tempi = yinterp(temp(1:npts),r(1:npts),ri)  ! use MESA temperature as initial guess for Helmholtz
-    else
+    elseif (rho_cgs > tiny(rho_cgs)) then
        tempi = min((3.*p_cgs/radconst)**0.25, p_cgs/(rho_cgs*Rg))  ! temperature guess
+    else
+       tempi = (3.*p_cgs/radconst)**0.25
     endif
 
     if (do_radiation) then

@@ -30,16 +30,18 @@ contains
 subroutine test_kernel(ntests,npass)
  use io,        only:id,master
  use kernel,    only:kernelname,get_kernel,wkern,grkern,wab0,gradh0,radkern,radkern2,cnormk, &
-                     kernel_softening,get_kernel_grav1,dphidh0
+                     kernel_softening,get_kernel_grav1,dphidh0, &
+                     get_kernel_tilde,wab0_tilde,gradh0_tilde
  use testutils, only:checkvalbuf,checkvalbuf_end,checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer, parameter :: n = 200
  integer, parameter :: stderr = 0
- integer, parameter :: nktest = 7
+ integer, parameter :: nktest = 8
  integer            :: nerr(nktest),ncheck(nktest),i
  real :: wval,grkernval,gradhval,wval2,grkernval2,wval3,grkernval3,we,dw,dphidh
  real :: dq,q2,qi,errmax(nktest),eps,tolgrad
  real :: potensoft,fsoft,potensofte,fsofte,dp
+ real :: wtilde,grtilde,wetilde,dwt
 
  if (id==master) write(*,"(a,/)") '--> TESTING '//trim(kernelname)//' kernel'
 !
@@ -61,6 +63,23 @@ subroutine test_kernel(ntests,npass)
 !--check that radkern2 = radkern**2
 !
  call checkval(radkern2,radkern**2,tiny(0.),nerr(1),'radkern2 = radkern*radkern')
+ call update_test_scores(ntests,nerr(1:1),npass)
+!
+!--number-density (smooth-shift-4) companion: self-value at q=0
+!
+ call get_kernel_tilde(0.,0.,wtilde,grtilde)
+ call checkval(wab0_tilde,wtilde,tiny(0.),nerr(1),'wab0_tilde = Wtilde(0)')
+ call update_test_scores(ntests,nerr(1:1),npass)
+
+ gradhval = -3.*wtilde
+ call checkval(gradh0_tilde,gradhval,tiny(0.),nerr(1),'gradh0_tilde = -3.*Wtilde(0)')
+ call update_test_scores(ntests,nerr(1:1),npass)
+
+ ! flat core and compact support: Wtilde' = 0 at q=0 and at radkern
+ call checkval(grtilde,0.,tiny(0.),nerr(1),'dWtilde/dq(0) = 0')
+ call update_test_scores(ntests,nerr(1:1),npass)
+ call get_kernel_tilde(radkern2,radkern,wtilde,grtilde)
+ call checkval(grtilde,0.,2.e-6,nerr(1),'dWtilde/dq(R) = 0')
  call update_test_scores(ntests,nerr(1:1),npass)
 !
 !--check that all three functions give consistent answers
@@ -106,6 +125,17 @@ subroutine test_kernel(ntests,npass)
 
     ! check that dphidh is gradient of potential w.r.t. h
     call checkvalbuf(dphidh,-potensoft -qi*fsoft,2.e-7,'dphidh /= phi - q*dphi/dq',nerr(7),ncheck(7),errmax(7))
+
+    ! number-density companion: finite-difference gradient of Wtilde
+    ! Expanded Wtilde is ill-conditioned; compare only where |W'| is not tiny
+    call get_kernel_tilde(q2,qi,wtilde,grtilde)
+    if (abs(grtilde) > 1.e-2) then
+       call get_kernel_tilde((qi+eps)**2,qi+eps,wetilde,grkernval2)
+       call get_kernel_tilde(max(qi-eps,0.)**2,max(qi-eps,0.),wval3,grkernval3)
+       dwt = 0.5*(wetilde - wval3)/eps
+       call checkvalbuf(dwt,grtilde,5.e-3, &
+                        'gradient of Wtilde incorrect ',nerr(8),ncheck(8),errmax(8))
+    endif
  enddo
  !close(unit=1)
  do i=1,nktest
@@ -119,6 +149,7 @@ subroutine test_kernel(ntests,npass)
  call checkvalbuf_end('get_kernel_grav1 == wkern',ncheck(5),nerr(5),errmax(5),tiny(0.))
  call checkvalbuf_end('get_kernel_grav1 == grkern',ncheck(6),nerr(6),errmax(6),tiny(0.))
  call checkvalbuf_end('dphi/dh = phi - q*dphi/dq',ncheck(7),nerr(7),errmax(7),2.e-7)
+ call checkvalbuf_end('Wtilde gradient equal to dWtilde/dq',ncheck(8),nerr(8),errmax(8),5.e-3)
 
  if (id==master) write(*,"(/,a,/)") '<-- KERNEL TEST COMPLETE'
 

@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:),polyk,gamma,hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real               :: rhocentre,rmin,densi,presi,ri
  real, allocatable  :: r(:),den(:),pres(:),temp(:),Xfrac(:),Yfrac(:),mu(:)
  integer            :: ierr,ierr_relax,npts,np,i,iptmass_core

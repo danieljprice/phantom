@@ -17,7 +17,7 @@ module moddump
 ! :Dependencies: io, part, prompting, units
 !
 
- use part,         only:rhoh,igas,kill_particle,shuffle_part
+ use part,         only:rho,igas,kill_particle,shuffle_part
  use prompting,    only:prompt
  use units,        only:umass,udist,utime
  use io,           only:fatal
@@ -32,7 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real   :: pmassi,rhoi,hi
+ real   :: rhoi,hi
  real   :: rho_threshold
  integer :: i, compt
 
@@ -43,8 +43,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  compt = 0
  do i=1,npart
     hi = xyzh(4,i)
-    pmassi = massoftype(igas)
-    rhoi = rhoh(hi,pmassi)
+    rhoi = rho(i)
     ! write(*,*) rhoi      ! uncomment to have an idea of the density
     if (rhoi < rho_threshold) then
        call kill_particle(i,npartoftype)

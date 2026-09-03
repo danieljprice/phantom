@@ -76,7 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma
  real,              intent(in)    :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  integer                          :: i,idir,ierr
  real                             :: totmass,deltax,deltay,deltaz
  real                             :: x_min,x_max,y_min,y_max,z_min,z_max

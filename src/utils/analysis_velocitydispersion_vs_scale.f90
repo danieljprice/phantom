@@ -17,7 +17,7 @@ module analysis
 ! :Dependencies: dim, getneighbours, io, part, physcon, prompting,
 !   sortutils
 !
- use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                            neighcount,neighb,neighmax,meanneigh
  implicit none
  character(len=27), parameter, public :: analysistype = 'velocitydispersion_vs_scale'
@@ -57,8 +57,8 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use dim,     only:maxp
- use part,    only:gravity,mhd,Bxyz,rhoh,igas,&
-              get_partinfo,maxphase,maxp,iphase,massoftype,poten
+ use part,    only:rho,gravity,mhd,Bxyz,igas,&
+              get_partinfo,maxphase,maxp,iphase,poten
  use physcon, only:pi
  use sortutils, only:indexx
  character(len=*), intent(in) :: dumpfile
@@ -72,7 +72,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  integer :: j,k,l, ipart,jpart,iscale,ncalculated,iamtypei
  real :: percent, percentcount,vmeansum,vdispsum,dv
- real :: pmassi, rhoj,rhoj1
+ real :: rhoj,rhoj1
  logical :: existneigh, iactivei,iamdusti,iamgasi
 
  write(output,"(a6,i5.5)") 'scale_',numfile
@@ -125,7 +125,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     endif
 
     if (.not.iamgasi) cycle
-    rhopart(ipart) = rhoh(xyzh(4,ipart), massoftype(igas))
+    rhopart(ipart) = rho(ipart)
  enddo
 
  allocate(rhosort(npart))
@@ -152,8 +152,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  etherm(:) = 0.0
  egrav(:)  = 0.0
  emag(:)   = 0.0
-
- pmassi = massoftype(igas)
 
  ! Loop over size scales
  do iscale=1,nscale
@@ -207,17 +205,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        do l = 1,ninside
           jpart = particlelist(l)
 
-          rhoj = rhoh(xyzh(4,jpart),pmassi)
+          rhoj = rho(jpart)
           rhoj1 = 1.0/rhoj
 
           do k=1,3
              vmean(k,ipart) = vmean(k,ipart) + vxyzu(k,jpart)
           enddo
 
-          ekin(ipart) = ekin(ipart) + 0.5*pmassi*dot_product(vxyzu(:,jpart), vxyzu(:,jpart))
-          etherm(ipart) = etherm(ipart) + pmassi*vxyzu(4,jpart)
-          if (gravity) egrav(ipart) = egrav(ipart) + pmassi*poten(jpart)
-          if (mhd) emag(ipart) = emag(ipart) + pmassi*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
+          ekin(ipart) = ekin(ipart) + 0.5*pmass*dot_product(vxyzu(:,jpart), vxyzu(:,jpart))
+          etherm(ipart) = etherm(ipart) + pmass*vxyzu(4,jpart)
+          if (gravity) egrav(ipart) = egrav(ipart) + pmass*poten(jpart)
+          if (mhd) emag(ipart) = emag(ipart) + pmass*dot_product(Bxyz(:,jpart), Bxyz(:,jpart))*rhoj1
 
        enddo
 

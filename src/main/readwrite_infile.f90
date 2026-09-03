@@ -15,7 +15,7 @@ module readwrite_infile
 !
 ! :Runtime parameters:
 !   - dumpfile : *dump file to start from*
-!   - hfact    : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
+!   - hfact    : *h in units of particle spacing [h = hfact*n^(-1/3)]*
 !   - logfile  : *file to which output is directed*
 !   - tolh     : *tolerance on h-rho iterations*
 !
@@ -105,8 +105,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  write(iwritein,"(/,a)") '# options controlling accuracy'
  call write_options_timestep(iwritein)
  call write_options_tree(iwritein)
- call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
- call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
+ call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact*n^(-1/3)]',iwritein)
+ call write_inopt(tolh,'tolh','tolerance on h-n iterations',iwritein,exp=.true.)
 
  call write_options_shock_capturing(iwritein)
  call write_options_damping(iwritein)

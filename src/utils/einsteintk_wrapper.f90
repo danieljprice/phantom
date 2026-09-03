@@ -98,7 +98,7 @@ subroutine phantom2et()
 end subroutine phantom2et
 
 subroutine step_et2phantom_MoL(infile,dt_et,dtout)
- use part,             only:xyzh,vxyzu,pxyzu,dens,metrics, npart, eos_vars
+ use part,             only:xyzh,vxyzu,pxyzu,dens,metrics,npart,eos_vars
  use cons2prim,        only:cons2primall
  use deriv,            only:get_derivs_global
  use einsteintk_utils, only:get_phantom_dt
@@ -133,7 +133,7 @@ subroutine step_et2phantom_MoL(infile,dt_et,dtout)
 end subroutine step_et2phantom_MoL
 
 subroutine et2phantom_tmunu()
- use part,             only:npart,xyzh,vxyzu,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs
+ use part,             only:npart,xyzh,vxyzu,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs,rho
  use cons2prim,        only:cons2primall
  use deriv,            only:get_density_global
  use extern_gr,        only:get_tmunu_all
@@ -155,7 +155,7 @@ subroutine et2phantom_tmunu()
  call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
 
  ! Interpolate stress energy tensor from particles back to grid
- call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
+ call get_tmunugrid_all(npart,xyzh,vxyzu,rho,tmunus)
 
  ! Interpolate density to grid
  call phantom2et_rhostar
@@ -213,49 +213,33 @@ subroutine phantom2et_consvar()
 end subroutine phantom2et_consvar
 
 subroutine phantom2et_rhostar()
- use part, only:xyzh,npart,&
-        igas, massoftype,rhoh
+ use part, only:npart,rho
  use cons2prim, only:cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
  use einsteintk_utils, only:get_phantom_dt,rhostargrid
  use metric_tools, only:init_metric
- real :: dat(npart), h, pmass,rho
+ real :: dat(npart), rhoi
  integer :: i
 
- ! Get new cons density from new particle positions somehow (maybe)?
- ! Update the tree for neighbour finding
- ! Calculate the density for the new particle positions
- ! Call density iterate
-
- ! Interpolate from particles to grid
- ! This can all go into its own function as it will essentially
- ! be the same thing for all quantites
- ! get particle data
- ! get rho from xyzh and rhoh
- ! Get the conserved density on the particles
+ ! Interpolate conserved density from particles to grid
  dat = 0.
- pmass = massoftype(igas)
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,dat,pmass) &
- !$omp private(i,h,rho)
+ !$omp shared(npart,dat,rho) &
+ !$omp private(i,rhoi)
  do i=1, npart
-    ! Get the smoothing length
-    h = xyzh(4,i)
-    ! Get pmass
-
-    rho = rhoh(h,pmass)
-    dat(i) = rho
+    rhoi = rho(i)
+    dat(i) = rhoi
  enddo
  !$omp end parallel do
  rhostargrid = 0.
- call interpolate_to_grid(rhostargrid,dat)
+ call interpolate_to_grid(rhostargrid,dat,rho)
 
 end subroutine phantom2et_rhostar
 
 subroutine phantom2et_entropy()
- use part, only:pxyzu,npart
+ use part, only:pxyzu,npart,rho
  use cons2prim, only:cons2primall
  use deriv
  use extern_gr
@@ -274,7 +258,7 @@ subroutine phantom2et_entropy()
  ! This can all go into its own function as it will essentially
  ! be the same thing for all quantites
  ! get particle data
- ! get rho from xyzh and rhoh
+ ! get rho from part module
  ! Get the conserved density on the particles
  dat = 0.
  !$omp parallel do default(none) &
@@ -286,12 +270,12 @@ subroutine phantom2et_entropy()
  enddo
  !$omp end parallel do
  entropygrid = 0.
- call interpolate_to_grid(entropygrid,dat)
+ call interpolate_to_grid(entropygrid,dat,rho)
 
 end subroutine phantom2et_entropy
 
 subroutine phantom2et_momentum()
- use part, only:pxyzu, npart
+ use part, only:pxyzu,npart,rho
  use cons2prim, only:cons2primall
  use deriv
  use extern_gr
@@ -319,11 +303,11 @@ subroutine phantom2et_momentum()
  ! call interpolate 3d
  ! In this case call it 3 times one for each vector component
  ! px component
- call interpolate_to_grid(pxgrid(1,:,:,:), dat(1,:))
+ call interpolate_to_grid(pxgrid(1,:,:,:), dat(1,:),rho)
  ! py component
- call interpolate_to_grid(pxgrid(2,:,:,:), dat(2,:))
+ call interpolate_to_grid(pxgrid(2,:,:,:), dat(2,:),rho)
  ! pz component
- call interpolate_to_grid(pxgrid(3,:,:,:),dat(3,:))
+ call interpolate_to_grid(pxgrid(3,:,:,:),dat(3,:),rho)
 
 end subroutine phantom2et_momentum
 

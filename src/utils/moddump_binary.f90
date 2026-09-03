@@ -28,7 +28,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,              only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
-                             delete_dead_or_accreted_particles,mhd,rhoh,shuffle_part,&
+                             delete_dead_or_accreted_particles,mhd,rho,shuffle_part,&
                              kill_particle,copy_particle
  use setbinary,         only:set_binary
  use units,             only:umass,udist,utime
@@ -349,7 +349,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        irhomax = 1
        do i=1,npart
-          rhopart = rhoh(xyzh(4,i), massoftype(igas))
+          rhopart = rho(i)
           if (rhopart > rhomax) then
              rhomax = rhopart
              irhomax = i

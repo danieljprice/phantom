@@ -29,7 +29,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use boundary,         only:dxbound,dybound,dzbound
  use structurefn_part, only:get_structure_fn
  use io_structurefn,   only:mfile,power_unit,openw_sf,write_sf,write_structfiles,write_cfstruct
- use part,             only:rhoh
+ use part,             only:rho
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -44,8 +44,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real :: orders(norder)
  real, parameter           :: rho_power = 0.
  real                      :: distmin,distmax
- !--local memory
- real, allocatable :: rho(:)
 
  do i=1,norder
     orders(i) = i
@@ -57,23 +55,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  distmin = distmax/real(nbins)
  print*,' Calculating structure functions using ',nbins,' bins between ',distmin,' and ',distmax
 !
-!--allocate memory for density array
-!
- allocate(rho(npart),stat=ierr)
- if (ierr /= 0) then
-    print*,' ERROR ALLOCATING MEMORY for rho'
-    return
- endif
- !--get density from h
- do i=1,npart
-    rho(i) = rhoh(xyzh(4,i),particlemass)
- enddo
-!
 !--calculate structure function
 !
  call get_structure_fn(sf,nbins,norder,distmin,distmax,distbins,ncount, &
                        npart,xyzh,vxyzu,rho,dxbound,dybound,dzbound,.true.,ierr)
- deallocate(rho)
  if (ierr /= 0) return
 !
 !--write to Aake format .sfn file

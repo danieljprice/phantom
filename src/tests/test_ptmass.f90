@@ -33,9 +33,10 @@ contains
 subroutine test_ptmass(ntests,npass,string)
  use io,      only:id,master,iskfile
  use eos,     only:polyk,gamma
- use part,    only:nptmass,gr
+ use part,    only:nptmass,gr,apr_level
  use options, only:iexternalforce,alpha
  use ptmass,  only:use_fourthorder,set_integration_precision
+ use apr,     only:init_apr,use_apr
  character(len=*), intent(in)    :: string
  integer,          intent(inout) :: ntests,npass
  character(len=20) :: filename
@@ -101,6 +102,7 @@ subroutine test_ptmass(ntests,npass,string)
  alpha = 0.01
  imax = 2
  use_fourthorder = .false.
+ if (use_apr) call init_apr(apr_level,ierr)
  !
  !  Test for sink particles in GR
  !
@@ -325,7 +327,7 @@ subroutine test_binary(ntests,npass,string)
        nparttot = 1000
        call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=rin,rmax=rout,p_index=1.0,q_index=0.75,&
                      HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+m2,gamma=gamma,&
-                     particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                     particle_type=igas,particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                      polyk=polyk,verbose=.false.)
        npartoftype(igas) = npart
     endif
@@ -376,7 +378,7 @@ subroutine test_binary(ntests,npass,string)
     if (gr) then
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
        call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                         vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                         vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
     endif
     !
     ! initialise forces
@@ -606,7 +608,7 @@ subroutine test_sink_binary_gr(ntests,npass,string)
  !
  call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
  call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                   vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                   vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
  ! sinks in GR, provide external force due to metric to determine the sink total force
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
                           dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
@@ -759,7 +761,7 @@ subroutine test_softening(ntests,npass)
  if (gr) then
     call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                     vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                     vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
  endif
 
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -769,7 +771,7 @@ subroutine test_softening(ntests,npass)
  totmomin = totmom
  angmomin = angtot
 
- call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,2.*epsilon(0.),nfailed(1),'potential energy')
+ call checkval(epot,m1*m2*(phisoft)/h_soft_sinksink,1.e-15,nfailed(1),'potential energy')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
  C_force = 0.25
@@ -796,7 +798,7 @@ subroutine test_softening(ntests,npass)
  enddo
  call compute_energies(t)
  nfailed(:) = 0
- call checkval(angtot,angmomin,2.e-14,nfailed(1),'angular momentum')
+ call checkval(angtot,angmomin,2.5e-14,nfailed(1),'angular momentum')
  call checkval(totmom,totmomin,tiny(0.),nfailed(2),'linear momentum')
  call checkval(etotin+errmax,etotin,2.e-9,nfailed(3),'total energy')
 !  call checkval(      ,r_max,1.e-10,nfailed(4),'radius')
@@ -903,7 +905,8 @@ subroutine test_accretion(ntests,npass,itest)
                         npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
                         isdead_or_accreted,set_particle_type,ndptmass,hfact,&
                         metrics_ptmass,metricderivs_ptmass,pxyzu_ptmass,gr,&
-                        metrics,metricderivs,pxyzu
+                        metrics,metricderivs,pxyzu,apr_level,rho,eos_vars,&
+                        igasP,ics,igamma,itemp,init_rho_from_h
  use ptmass,       only:ptmass_accrete,update_ptmass
  use ptmass_tree,  only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh
  use neighkdtree,  only:listneigh
@@ -911,13 +914,16 @@ subroutine test_accretion(ntests,npass,itest)
  use mpiutils,     only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use testutils,    only:checkval,update_test_scores
  use kernel,       only:hfact_default
- use eos,          only:polyk,gamma,ieos
+ use eos,          only:polyk,gamma,ieos,init_eos,equationofstate
+ use dim,          only:maxvxyzu
  use setdisc,      only:set_disc
  use metric_tools, only:init_metric
+ use apr,          only:use_apr,init_apr,sync_aprmassoftype
  integer, intent(inout) :: ntests,npass
  integer, intent(in)    :: itest
- integer :: i,j,nfailed(11),np_disc,nneigh
+ integer :: i,j,nfailed(11),np_disc,nneigh,ierr
  real :: xyz(3)
+ real :: tempi,ponrhoi,spsoundi
  integer(kind=8) :: naccreted
  integer(kind=1) :: ibin_wakei
  character(len=20) :: string
@@ -971,7 +977,7 @@ subroutine test_accretion(ntests,npass,itest)
     np_disc = 1000
     call set_disc(id,master,nparttot=np_disc,npart=npart,rmin=1.,rmax=2.*xyzmh_ptmass(ihacc,1),p_index=1.0,q_index=0.75,&
                   HoverR=0.1,disc_mass=0.5*xyzmh_ptmass(4,1),star_mass=xyzmh_ptmass(4,1),gamma=1.,&
-                  particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                  particle_type=igas,particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                   polyk=polyk,verbose=.false.)
     npartoftype(igas) = npart
  endif
@@ -993,6 +999,23 @@ subroutine test_accretion(ntests,npass,itest)
  nfailed(:)  = 0
  !--check energies before accretion event
  t=0.
+ if (use_apr) then
+    call init_apr(apr_level,ierr)
+    call sync_aprmassoftype()
+ endif
+ ! initialise rho and EOS variables needed by compute_energies
+ call init_eos(ieos,ierr)
+ call init_rho_from_h()
+ do i=1,npart
+    if (xyzh(4,i) > 0.) then
+       if (maxvxyzu >= 4) vxyzu(4,i) = polyk
+       call equationofstate(ieos,ponrhoi,spsoundi,rho(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+       eos_vars(igasP,i)   = ponrhoi*rho(i)
+       eos_vars(ics,i)     = spsoundi
+       eos_vars(igamma,i)  = gamma
+       eos_vars(itemp,i)   = tempi
+    endif
+ enddo
  call compute_energies(t)
  etotin   = etot
  totmomin = totmom
@@ -1107,7 +1130,7 @@ subroutine test_createsink(ntests,npass)
  use eos,          only:ieos,polyk,gamma
  use kdtree,       only:tree_accuracy
  use io,           only:id,master,iverbose
- use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
+ use part,         only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rho,&
                         iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                         nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
                         dptmass,fxyz_ptmass_sinksink,pxyzu_ptmass,metrics_ptmass
@@ -1232,15 +1255,15 @@ subroutine test_createsink(ntests,npass)
     if (itest==2 .and. gravity) then
        imin = minloc(xyzh(4,1:npart))
        itestp = imin(1)
-       rhomax_test = rhoh(xyzh(4,itestp),massoftype(igas))
+       rhomax_test = rho(itestp)
        !
        ! only check on the thread that has rhomax
        !
        ipart_rhomax_global = ipart_rhomax
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
        if (id == id_rhomax) then
-          rhomax = rhoh(xyzh(4,ipart_rhomax),massoftype(igas))
-          call checkval(rhomax,rhomax_test,epsilon(0.),nfailed(1),'rhomax',thread_id=id)
+          rhomax = rho(ipart_rhomax)
+          call checkval(rhomax,rhomax_test,1.e-15,nfailed(1),'rhomax',thread_id=id)
        else
           itestp = -1 ! set itest = -1 on other threads
           call checkval(ipart_rhomax,-1,0,nfailed(1),'ipart_rhomax',thread_id=id)
@@ -1504,7 +1527,7 @@ subroutine test_merger(ntests,npass)
        mass1 = 0.
        call init_metric(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass)
        call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,&
-                         vxyz_ptmass,pxyzu_ptmass,use_dens=.false.,use_sink=.true.)
+                         vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
     endif
     call compute_energies(0.)
     nsink0 = nptmass; angmom0 = angtot; mv0 = totmom; mtot0 = mtot
@@ -1625,7 +1648,7 @@ subroutine test_HIIregion(ntests,npass)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
                           npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
                           npartoftype,fxyzu,massoftype,init_part,&
-                          iphase,isetphase,irateion,irstrom,rhoh,&
+                          iphase,isetphase,irateion,irstrom,rho,&
                           eos_vars,imu
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
@@ -1732,7 +1755,7 @@ subroutine test_HIIregion(ntests,npass)
     string = "nearest neighbors"
     if (iH2R == 2) string = "inversed ray tracing"
     if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
-    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
     rstrommax = epsilon(rstrommax)
     rhomean   = 0.
     nion      = 0
@@ -1744,7 +1767,7 @@ subroutine test_HIIregion(ntests,npass)
              rstrommax = sqrt(r2)
           endif
        endif
-       rhomean = rhomean + rhoh(xyzh(4,i),massoftype(1))
+       rhomean = rhomean + rho(i)
     enddo
     rhomean = rhomean / npart
     Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))

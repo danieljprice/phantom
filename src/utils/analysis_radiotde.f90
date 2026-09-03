@@ -63,9 +63,9 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use readwrite_dumps, only:opened_full_dump
- use units,           only: utime,udist,unit_energ,umass!,unit_density
- use physcon,         only: solarm,days
- use part,            only: pxyzu
+ use units,           only:utime,udist,unit_energ,umass!,unit_density
+ use physcon,         only:solarm,days
+ use part,            only:pxyzu
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: numfile,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -335,7 +335,7 @@ subroutine record_background(ent,npart_old,npart_new,ent_bg)
 end subroutine record_background
 
 subroutine shock_analysis(npart,pmass,rad_all,vr_all,u,ent)
- use units,   only: udist
+ use units,   only:udist
  use physcon, only:au,pi
  integer, intent(in) :: npart
  real,    intent(in) :: pmass,rad_all(:),vr_all(:),ent(:),u(:)

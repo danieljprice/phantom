@@ -76,11 +76,11 @@ contains
 !  the paramters are correct.
 !+
 !---------------------------------------------------------------
-subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax)
- use part, only:xyzh,rhoh,iorig,massoftype,igas
+subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax,rho)
+ use part, only:iorig
  integer, intent(in)    :: icall,nptmass
  integer, intent(inout) :: npart
- real,    intent(in)    :: dtmax
+ real,    intent(in)    :: dtmax,rho(:)
  real    :: xyz_n_all(3),xyz_x_all(3)
  integer :: ndummy1,ndummy2,ierr
  logical :: abortrun
@@ -89,14 +89,14 @@ subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax)
     ! Update the background medium, if required.  Do this prior
     ! to calling derivs so the new particles are properly initialised
     call set_dynamic_bdy_width()
-    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
+    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr,rho)
     call update_boundaries(ndummy1,ndummy2,npart,abortrun)
  elseif (icall==2) then
     ! Reset the background density for dynamic boundaries, if necessary;
     ! this is to ensure a consistent density
     if (irho_bkg_ini > 0.) then
        print*, 'original rho_bkg_ini = ',rho_bkg_ini
-       rho_bkg_ini  = rhoh(xyzh(4,iorig(irho_bkg_ini)),massoftype(igas))
+       rho_bkg_ini  = rho(iorig(irho_bkg_ini))
        rho_bkg_ini1 = 1.0/rho_bkg_ini
        print*, 'revised rho_bkg_ini = ',rho_bkg_ini
        irho_bkg_ini = 0
@@ -193,14 +193,14 @@ end function in_domain
 !  This will calculate the location of the dynamic boundaries
 !+
 !---------------------------------------------------------------
-subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
+subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr,rho)
  use io,     only:id,master
- use part,   only: maxp,maxphase,mhd,massoftype,igas,ics,isdead_or_accreted,rhoh,iamtype
+ use part,   only: maxp,maxphase,mhd,massoftype,igas,ics,isdead_or_accreted,iamtype
  use part,   only: xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,Bevol,eos_vars,iphase
  use kernel, only:radkern
  integer, intent(in)  :: npart,nptmass
  integer, intent(out) :: ierr
- real,    intent(in)  :: dtmax
+ real,    intent(in)  :: dtmax,rho(:)
  real,    intent(out) :: xyz_n_all(3),xyz_x_all(3)
  integer              :: i,itype,ibkg_thread,n_bkg
  real                 :: xi,yi,zi,hi,pmassi,rhoi,rho1i,vxi,vyi,vzi,v2i,vi1,Bxi,Byi,Bzi,B2i,valfven2i,spsoundi,spsound2i
@@ -225,7 +225,7 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,vxyzu,Bevol,eos_vars,iphase,massoftype,id) &
+!$omp shared(npart,xyzh,vxyzu,Bevol,eos_vars,iphase,massoftype,rho,id) &
 !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(rho_thresh_bdy,rho_bkg,ibkg,high_density_gas,rho_bkg_ini1) &
 !$omp shared(xmin,xmax,ymin,zmin,ymax,zmax) &
@@ -251,7 +251,7 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
           if (itype <= 0) call fatal('energies','particle type <= 0')
           pmassi = massoftype(itype)
        endif
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
 
        ! determine the particle whose density is closest to the original background
        ! all new particles will initially be copied from this particle

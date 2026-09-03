@@ -126,7 +126,7 @@ end subroutine set_slab
 subroutine get_options_slab(fileprefix,id,master,nx,rhozero,ierr,plasmab)
  use infile_utils, only:get_options
  integer,          intent(in)    :: id,master
- character(len=*), intent(in)    :: fileprefix
+ character(len=*), intent(in)   :: fileprefix
  integer,          intent(out)   :: ierr
  integer,          intent(inout) :: nx
  real,             intent(inout) :: rhozero

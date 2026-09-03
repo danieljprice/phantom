@@ -257,7 +257,7 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
- use part,      only:tau,tau_lucy,ikappa,nucleation
+ use part,      only:tau,tau_lucy,ikappa,nucleation,rho
  use raytracer, only:get_all_tau
  use dust_formation, only:calc_kappa_bowen,idust_opacity
  use dim,       only:itau_alloc
@@ -284,19 +284,19 @@ subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_te
  if (iget_tdust == 4) then
     ! update tau_Lucy
     if (idust_opacity == 2) then
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa),&
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, rho, nucleation(:,ikappa),&
                          iray_resolution, .false., tau_lucy)
     else
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)),&
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, rho, calc_kappa_bowen(dust_temp(1:npart)),&
                          iray_resolution,  .false., tau_lucy)
     endif
  elseif (itau_alloc == 1) then
     ! update tau
     if (idust_opacity == 2) then
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa),&
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, rho, nucleation(:,ikappa),&
                          iray_resolution, .true., tau)
     else
-       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)),&
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, rho, calc_kappa_bowen(dust_temp(1:npart)),&
                          iray_resolution, .true., tau)
     endif
  endif

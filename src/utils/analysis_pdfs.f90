@@ -39,7 +39,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use adaptivemesh,         only:build_mesh,nsub,ndim,ifirstlevel
  use boundary,             only:xmin,ymin,zmin,dxbound,dybound,dzbound
- use part,                 only:hfact,rhoh,mhd,Bxyz,isdead_or_accreted
+ use part,                 only:rho,hfact,mhd,Bxyz,isdead_or_accreted
  use interpolations3D_amr, only:interpolate3D_amr
  use pdfs,                 only:pdf_write
  use dim,                  only:periodic,tagline
@@ -99,7 +99,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  do i=1,npart
     hi     = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
-       rhoi   = rhoh(hi,particlemass)
+       rhoi   = rho(i)
        rhomax = max(rhomax,rhoi)
        rhomin = min(rhomin,rhoi)
        rhomean = rhomean + rhoi

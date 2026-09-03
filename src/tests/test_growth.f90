@@ -95,7 +95,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
-                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic, &
+                          ndustlarge,ndustsmall,deltav,this_is_a_test,periodic, &
                           npartoftypetot,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global

@@ -76,7 +76,7 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,       only:rhoh,massoftype,igas
+ use part,       only:rho
  use physcon,    only:pc
  use units,      only:udist,umass
  use prompting,  only:prompt
@@ -94,7 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: xi,yi,zi,hi,hmax,hmax1,twoh,vxi,vyi,vzi,rhoi,pmassi
  real                         :: dx,dy,dz,dxc,dyc,dzc,dr,dv2,x1,x2,dx0,xc,yc
  real                         :: rad2,size2,sep,ekin,epot,etot,dr_ave,stddev,qp,psoft,fsoft,walltime
- real                         :: rho(npart),rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
+ real                         :: rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
  real                         :: ella(3),ellb(3),ellp(3),phi(3)
  real                         :: x1grid(ngrid),x2grid(ngrid)
  real, allocatable :: xyz(:,:),eclumpcandidate(:,:)
@@ -137,7 +137,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  idclump     = 0
  idlistsink  = 0
  idlistpart  = 0
- pmassi      = massoftype(igas)
+ pmassi      = particlemass
  idx         = index(dumpfile,'_')
  prefix      = dumpfile(1:idx-1)
  walltime    = 0.
@@ -168,14 +168,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(*,'(a)')             '==============================================================='
  write(*,'(a)')             ' '
 
- !--calculate all densities
- rho    = 0.0
+ !--identify dense particles using kernel-summed density from the dump
  idense = 0
  ndense = 0
  do i = 1,npart
     hi = xyzh(4,i)
     if (hi > 0.0) then
-       rho(i) = rhoh(hi,particlemass)
        if (rho(i) > rhomin_bkg) then
           ndense            = ndense + 1
           idense(ndense)    = i

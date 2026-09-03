@@ -22,7 +22,7 @@ program phantomsetup
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,mpi,maxp_alloc,gr
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
-                           Bxyz,Bextx,Bexty,Bextz,rhoh,&
+                           Bxyz,Bextx,Bexty,Bextz,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part
  use setBfield,       only:set_Bfield
  use eos,             only:polyk,gamma

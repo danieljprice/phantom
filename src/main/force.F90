@@ -50,12 +50,17 @@ module forces
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce,    only:cellforce,stackforce
  use neighkdtree, only:leaf_is_active
- use kdtree,      only:inodeparts,inoderange
+ use kdtree,      only:inodeparts,inoderange,ih1,im,irho,izetaomega,isoftomega
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
  implicit none
 
  integer, parameter :: maxcellcache = 1000
+#ifdef GRAVITY
+ integer, parameter :: nforcecache = 8
+#else
+ integer, parameter :: nforcecache = 7
+#endif
 
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
 
@@ -76,7 +81,7 @@ module forces
        igradhi1        = 13, &
        igradhi2        = 14, &
        ialphai         = 15, &
-       ialphaBi        = 16, &
+       izetai          = 16, &
        ivwavei         = 17, &
        irhoi           = 18, &
        irhogasi        = 19, &
@@ -198,8 +203,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
- use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
-                        hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
+ use part,         only:alphaind,iactive,gradh,&
+                        iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
                         fxyz_ptmass_tree,bin_info,ipertg
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
@@ -220,7 +225,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use neighkdtree,  only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc,aprmassoftype
+ use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc,aprmassoftype,rho
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2,h_acc
  use units,        only:unit_density
 #endif
@@ -262,7 +267,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,            intent(out)   :: drad(:,:)
  real,            intent(inout) :: radprop(:,:)
  real,            intent(in)    :: dens(:), metrics(:,:,:,:)
- real, save :: xyzcache(4,maxcellcache)
+ real, save :: xyzcache(nforcecache,maxcellcache)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
  integer :: nstokes,nsuper,ndrag,ndustres,ndense
@@ -450,6 +455,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(metrics) &
 !$omp shared(apr_level) &
 #ifdef GRAVITY
+!$omp shared(rho) &
 !$omp shared(massoftype,npart,maxphase,aprmassoftype) &
 !$omp private(hi,pmassi,rhoi) &
 !$omp private(iamtypei) &
@@ -696,7 +702,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           else
              pmassi = massoftype(iamtypei)
           endif
-          rhoi = rhoh(hi,pmassi)
+          rhoi = rho(i)
           if (rhoi > rho_crit) then
              if (rhoi > rhomax_thread) then
                 !
@@ -922,12 +928,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself,rad,radprop,dens,metrics,apr_level,dt)
- use kernel,      only:grkern,cnormk,radkern2
+ use kernel,      only:grkern,cnormk,cnormk_tilde,radkern2,get_kernel_tilde
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
- use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,use_sinktree,disc_viscosity,track_lum
- use part,        only:rhoh,dvdx,aprmassoftype,shortsinktree
+ use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr,isothermal,&
+                      use_sinktree,disc_viscosity,track_lum,igradomega,igradsoft,igradzeta
+ use part,        only:rho,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,use_var_comp,icooling
  use eos_stamatellos, only:gradP_cool,getopac_opdep
@@ -950,7 +957,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use timestep_ind,only:get_dt
 #endif
  use timestep,    only:bignumber,overcleanfac
- use options,     only:use_dustfrac,ireconav,limit_radiation_flux
+ use options,     only:use_dustfrac,ireconav,limit_radiation_flux,two_kernel
  use units,       only:get_c_code
  use metric_tools,only:imet_minkowski,imetric
  use utils_gr,    only:get_bigv
@@ -964,7 +971,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: pmassi
  integer,         intent(in)    :: listneigh(:)
  integer,         intent(in)    :: nneigh
- real,            intent(in)    :: xyzcache(:,:)
+ real,            intent(in)    :: xyzcache(nforcecache,maxcellcache)
  real,            intent(out)   :: fsum(maxfsum)
  real,            intent(out)   :: vsigmax
  logical,         intent(in)    :: ifilledcellcache
@@ -998,6 +1005,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  logical :: iactivej,iamgasj,iamdustj,sinkinpair,iamsinki,iamsinkj,is_neigh
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
+ real    :: grkern_tildei,grkern_tildej,omegai,zetai,zetaomegaj,wtilde
+#ifdef GRAVITY
+ real    :: softomegaj
+#endif
  real    :: projBi,projBj,dBx,dBy,dBz,dB2,projdB
  real    :: dendissterm,dBdissterm,dudtresist,dpsiterm,pmassonrhoi
  real    :: gradpi,projsxi,projsyi,projszi
@@ -1061,6 +1072,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  eni           = xpartveci(ieni)
  vwavei        = xpartveci(ivwavei)
  rhoi          = xpartveci(irhoi)
+ zetai         = xpartveci(izetai)
+ omegai        = gradhi
  spsoundi      = xpartveci(ispsoundi)
  tempi         = xpartveci(itempi)
  sxxi          = xpartveci(isxxi)
@@ -1131,7 +1144,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fsum(:) = 0.
  vsigmax = 0.
  pmassonrhoi = pmassi*rho1i
- hfacgrkern  = hi41*cnormk*gradhi
+ hfacgrkern  = hi41*cnormk
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -1277,7 +1290,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
        if (ifilledcellcache .and. n <= maxcellcache) then
-          hj1 = xyzcache(4,n)
+          hj1 = xyzcache(ih1,n)
        else
           hj1 = 1./xyzh(4,j)
        endif
@@ -1299,21 +1312,65 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qi   = 0.
        endif
 
+       ! neighbour mass, density and gradh products from cache (or tables if uncached)
+       if (ifilledcellcache .and. n <= maxcellcache) then
+          pmassj       = xyzcache(im,n)
+          rhoj         = xyzcache(irho,n)
+          zetaomegaj   = xyzcache(izetaomega,n)
+#ifdef GRAVITY
+          softomegaj   = xyzcache(isoftomega,n)
+#endif
+       elseif (iamsinkj) then
+          pmassj       = xyzmh_ptmass(4,j-maxpsph)
+          rhoj         = 0.
+          zetaomegaj   = 0.
+#ifdef GRAVITY
+          softomegaj   = 0.
+#endif
+       else
+          if (use_apr) then
+             pmassj = aprmassoftype(iamtypej,apr_level(j))
+          else
+             pmassj = massoftype(iamtypej)
+          endif
+          rhoj         = rho(j)
+          zetaomegaj   = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
+#ifdef GRAVITY
+          softomegaj   = real(gradh(igradsoft,j))*real(gradh(igradomega,j))
+#endif
+       endif
+
+       grkern_tildei = 0.
+       grkern_tildej = 0.
+#ifdef GRAVITY
+       dsofti = 0.
+       dsoftj = 0.
+       fmi = 0.
+       fmj = 0.
+#endif
+
        if (q2i < radkern2) then
           grkerni = grkern(q2i,qi)*hfacgrkern
+          if (two_kernel) then
+             call get_kernel_tilde(q2i,qi,wtilde,grkern_tildei)
+             grkern_tildei = grkern_tildei*hi41*cnormk_tilde
+          else
+             grkern_tildei = grkerni
+          endif
 #ifdef GRAVITY
           call kernel_softening(q2i,qi,phii,fmi)
           phii   = phii*hi1
           fmi    = fmi*hi21
-          dsofti = gradsofti*grkerni
-          fgravi = fmi + dsofti
+          dsofti = gradsofti*grkern_tildei*omegai
 #endif
+          if (pmassj > tiny(pmassj)) then
+             grkerni = grkerni + (zetai*omegai/pmassj)*grkern_tildei
+          endif
        else
           grkerni = 0.
 #ifdef GRAVITY
           phii   = -rij1
           fmi    = rij1*rij1
-          fgravi = fmi
 #endif
        endif
 
@@ -1325,19 +1382,26 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !
        if (q2j < radkern2) then
           qj = (rij2*rij1)*hj1
-          grkernj = grkern(q2j,qj)*hj21*hj21*cnormk*gradh(1,j) ! ndim + 1
+          grkernj = grkern(q2j,qj)*hj21*hj21*cnormk
+          if (two_kernel) then
+             call get_kernel_tilde(q2j,qj,wtilde,grkern_tildej)
+             grkern_tildej = grkern_tildej*hj21*hj21*cnormk_tilde
+          else
+             grkern_tildej = grkernj
+          endif
 #ifdef GRAVITY
           call kernel_softening(q2j,qj,phij,fmj)
           fmj    = fmj*hj21
-          dsoftj = gradh(2,j)*grkernj
-          fgravj = fmj + dsoftj
+          dsoftj = softomegaj*grkern_tildej
 #endif
+          if (pmassi > tiny(pmassi)) then
+             grkernj = grkernj + (zetaomegaj/pmassi)*grkern_tildej
+          endif
           usej = .true.
        else
           grkernj = 0.
 #ifdef GRAVITY
           fmj    = rij1*rij1
-          fgravj = fmj
 #endif
           usej = .false.
        endif
@@ -1358,13 +1422,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        endif
 #endif
 
-       if (use_apr) then
-          pmassj = aprmassoftype(iamtypej,apr_level(j))
-       else
-          pmassj = massoftype(iamtypej)
-       endif
-
-       fgrav = 0.5*(pmassj*fgravi + pmassi*fgravj)
+#ifdef GRAVITY
+       ! derivation of this term has been performed carefully by DJP to be
+       ! correct when h is computed from number density, the expression
+       ! reduces to that given in PM07 when m_i=m_j
+       fgrav = 0.5*pmassj*(fmi + fmj) + 0.5*(dsofti + dsoftj*(pmassj/pmassi))
+#else
+       fgrav = 0.
+#endif
 
        !--get dv : needed for timestep and av term
        vxj = vxyzu(1,j)
@@ -1428,7 +1493,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           if (mhd) then
              hj   = xyzh(4,j)
-             rhoj = rhoh(hj,pmassj)
              Bxj  = Bevol(1,j)*rhoj
              Byj  = Bevol(2,j)*rhoj
              Bzj  = Bevol(3,j)*rhoj
@@ -1455,7 +1519,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !--get terms required for particle j
        if (usej) then
           hj       = 1./hj1
-          rhoj     = rhoh(hj,pmassj)
           rho1j    = 1./rhoj
           rho21j   = rho1j*rho1j
 
@@ -1512,6 +1575,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
        else ! set to zero terms which are used below without an if (usej)
           !rhoj      = 0.
+          hj        = 1./hj1
           rho1j     = 0.
           rho21j    = 0.
 
@@ -2177,10 +2241,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac,limit_radiation_flux
  use dim,       only:maxp,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
-                use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree
- use part,      only:iamgas,maxphase,rhoanddhdrho,igas,isink,massoftype,get_partinfo,&
+                use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree,&
+                igradzeta,igradsoft
+ use part,      only:iamgas,maxphase,igas,isink,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
-                     xyzmh_ptmass
+                     xyzmh_ptmass,rho
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
  use options,   only:use_porosity,implicit_radiation
@@ -2217,7 +2282,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 
  real         :: divvi
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
- real         :: hi,rhoi,rho1i,dhdrhoi,pmassi,eni
+ real         :: hi,rhoi,rho1i,pmassi,eni
  real(kind=8) :: hi1
  real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,pro2i,pri,spsoundi,tempi
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
@@ -2261,6 +2326,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        pmassi = xyzmh_ptmass(4,i-maxpsph)
        hi = xyzmh_ptmass(ihsoft,i-maxpsph)
        if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
+       rhoi  = 0.
+       rho1i = 0.
     else
        if (use_apr) then
           pmassi = aprmassoftype(iamtypei,apr_level(i))
@@ -2271,10 +2338,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        hi = xyzh(4,i)
        if (hi < 0.) call fatal('force','negative smoothing length',i,var='h',val=hi)
 
-       !
-       !--compute density and related quantities from the smoothing length
-       !
-       call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
+       hi1  = 1./abs(hi)
+       rhoi = rho(i)
+       rho1i = 1./rhoi
        !
        !--velocity gradients, used for reconstruction and physical viscosity
        !
@@ -2398,8 +2464,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cell%xpartvec(izi,cell%npcell)                 = xyzh(3,i)
        cell%xpartvec(ihi,cell%npcell)                 = xyzh(4,i)
        cell%xpartvec(igradhi1,cell%npcell)            = gradh(1,i)
+       cell%xpartvec(izetai,cell%npcell)              = gradh(igradzeta,i)
 #ifdef GRAVITY
-       cell%xpartvec(igradhi2,cell%npcell)            = gradh(2,i)
+       cell%xpartvec(igradhi2,cell%npcell)            = gradh(igradsoft,i)
 #endif
        cell%xpartvec(ivxi,cell%npcell)                = vxyzu(1,i)
        cell%xpartvec(ivyi,cell%npcell)                = vxyzu(2,i)
@@ -2547,7 +2614,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  integer(kind=1), intent(inout) :: ibin_wake(:)
  integer(kind=1), intent(in)    :: ibinnow_m1
  real,            intent(in)    :: stressmax
- real,            intent(in)    :: xyzcache(:,:)
+ real,            intent(in)    :: xyzcache(nforcecache,maxcellcache)
  real,            intent(in)    :: rad(:,:)
  real,            intent(inout) :: radprop(:,:)
  real,            intent(in)    :: dens(:),metrics(:,:,:,:)
@@ -2671,7 +2738,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,ind_timesteps
  use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,C_ent
  use options,        only:alpha,use_dustfrac,implicit_radiation,use_porosity
- use part,           only:rhoanddhdrho,iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
+ use part,           only:iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
                           igamma,aprmassoftype

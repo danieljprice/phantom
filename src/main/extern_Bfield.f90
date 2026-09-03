@@ -85,6 +85,12 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
  call get_torus_factors(xi,yi,zi,costheta,sintheta,cosphi,sinphi, &
                         rcyl,drcyl,rintorus,rintorus2,drintorus)
 !
+!--set defaults in case of early return / no external B field
+!
+Bextx = 0.; Bexty = 0.; Bextz = 0.
+fextx = 0.; fexty = 0.; fextz = 0.
+vdotgradBx = 0.; vdotgradBy = 0.; vdotgradBz = 0.
+!
 !--get 1/rho
 !
  if (rhoi > epsilon(rhoi)) then
@@ -160,15 +166,6 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
 !
 !   Default: no external B field; do nothing and return
 !
-    Bextx = 0.
-    Bexty = 0.
-    Bextz = 0.
-    fextx = 0.
-    fexty = 0.
-    fextz = 0.
-    vdotgradBx = 0.
-    vdotgradBy = 0.
-    vdotgradBz = 0.
     return
  end select
 

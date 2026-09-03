@@ -300,10 +300,10 @@ subroutine barrier_mpi()
  ! call MPI_BARRIER on the master task only, but also barrier the OMP threads
 
  !$omp barrier
- !$omp master
+ !$omp masked
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr_local)
  if (mpierr_local /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
- !$omp end master
+ !$omp end masked
  !$omp barrier
 
 #endif

@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
  use set_dust,      only:set_dustfrac
  use units,         only:set_units,unit_ergg,unit_velocity,unit_opacity,get_c_code,get_radconst_code
- use part,          only:rhoh,igas,rad,radprop,ithick,iradxi,ikappa,periodic
+ use part,          only:rho,igas,rad,radprop,ithick,iradxi,ikappa,periodic,init_rho_from_h
  use eos,           only:gmw
  use kernel,        only:hfact_default
  use timestep,      only:dtmax,tmax,C_rad
@@ -70,12 +70,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma
  real,              intent(inout) :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
 
  integer :: i,ierr
  real    :: totmass,deltax
- real :: a,c_code,cv1,kappa_code,pmassi,Tref,xi0
+ real :: a,c_code,cv1,kappa_code,Tref,xi0
  real :: rhoi,h0,rho0
 
  call setup_setdefaults(id,polyk,gamma_in,xmin,xmax,ymin,ymax,zmin,zmax,npartx,cs0)
@@ -125,7 +125,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  c_code = get_c_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
  a   = get_radconst_code()
- pmassi = massoftype(igas)
+ call init_rho_from_h()
 
  Tref = 100
 
@@ -136,7 +136,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  case(2)
     h0   = xyzh(4,1)
-    rho0 = rhoh(h0,pmassi)
+    rho0 = rho(1)
     kappa_code = 1.0/unit_opacity
 
     dtmax = C_rad*h0*h0*rho0*kappa_code/c_code*25
@@ -145,7 +145,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     radprop(ithick,:) = 1.
     do i=1,npart
-       rhoi = rhoh(xyzh(4,1),pmassi)
+       rhoi = rho(i)
        vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
        xi0 = a*Tref**4.0/rhoi
        radprop(ikappa,i) = kappa_code
@@ -153,7 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  case(3)
     h0   = xyzh(4,1)
-    rho0 = rhoh(h0,pmassi)
+    rho0 = rho(1)
     kappa_code = 1.0/unit_opacity
 
     dtmax = C_rad*h0*h0*rho0*kappa_code/c_code/5
@@ -162,7 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     radprop(ithick,:) = 1.
     do i=1,npart
-       rhoi = rhoh(xyzh(4,1),pmassi)
+       rhoi = rho(i)
        vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
        xi0 = a*Tref**4.0/rhoi
        radprop(ikappa,i) = kappa_code

@@ -29,11 +29,11 @@ contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use centreofmass, only:reset_centreofmass
- use physcon,      only: pi,gg,years
- use part,         only: rhoh,Bxyz
- use units,        only: unit_density,unit_Bfield,unit_velocity
- use kernel,       only: grkern,cnormk
- use sortutils,    only: indexx
+ use physcon,      only:pi,gg,years
+ use part,         only:rho,Bxyz
+ use units,        only:unit_density,unit_Bfield,unit_velocity
+ use kernel,       only:grkern,cnormk
+ use sortutils,    only:indexx
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound
 #endif
@@ -127,7 +127,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexx(ikount,dpos,lst)
 
  !$omp parallel default(none) &
- !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu) &
+ !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu,rho) &
  !$omp shared(ipos,lst,vbins,vtbins) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
@@ -147,7 +147,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     hi = xyzh(4,i)
     if (hi < tiny (hi)) cycle aparts      ! skip dead particles
     twohi = 2.0*hi
-    rhoi  = rhoh(hi, particlemass)
+    rhoi  = rho(i)
     rhoi1 = 1.0/rhoi
     Bxi   = Bxyz(1,i)
     Byi   = Bxyz(2,i)
@@ -194,7 +194,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              if (twohi > dri) then
                 hj   = xyzh(4,j)
                 q    = hi/dri
-                rhoj = rhoh(hj, particlemass)
+                rhoj = rho(j)
 
                 !Grad of the kernel
                 grki  = cnormk * grkern(q*q,q) / (dri*hi**4)

@@ -28,7 +28,6 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  use externalforces,   only:initialise_externalforces,update_externalforce,externalforce,externalforce_vdependent
- use deriv,            only:derivs
  use initial,          only:initialise,startrun,endrun
  use readwrite_infile, only:read_infile
  use prompting,        only:prompt

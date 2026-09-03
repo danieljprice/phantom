@@ -146,7 +146,7 @@ subroutine mflow_init(iflow,evfile,infile)
 end subroutine mflow_init
 
 subroutine vmflow_write(time,dt)
- use part,             only:npart,xyzh,vxyzu,massoftype,rhoh
+ use part,             only:npart,xyzh,vxyzu,massoftype
  !  use analysis,         only:flow_analysis !contained in analysis_disc_MFlow
  use io,               only:fatal
  use physcon,          only:pi

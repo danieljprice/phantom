@@ -20,14 +20,14 @@ module analysis
 ! :Dependencies: centreofmass, dim, eos, infile_utils, io, kernel, nicil,
 !   options, part, physcon, sortutils, units
 !
- use dim,         only: maxp,maxvxyzu,mhd_nonideal
- use options,     only: alphaB
- use part,        only: maxptmass,nden_nimhd
- use part,        only: eos_vars,ics,itemp
- use part,        only: isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rhoh
- use eos,         only: ieos,init_eos,get_TempPresCs
- use nicil,       only: nicil_initialise,nicil_update_nimhd,unit_eta,n_data_out,n_warn
- use physcon,     only: pi
+ use dim,         only:maxp,maxvxyzu,mhd_nonideal
+ use options,     only:alphaB
+ use part,        only:maxptmass,nden_nimhd
+ use part,        only:eos_vars,ics,itemp
+ use part,        only:isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rho
+ use eos,         only:ieos,init_eos,get_TempPresCs
+ use nicil,       only:nicil_initialise,nicil_update_nimhd,unit_eta,n_data_out,n_warn
+ use physcon,     only:pi
  implicit none
  character(len=20), parameter, public :: analysistype = 'discRM'
  public :: do_analysis
@@ -83,17 +83,17 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: mhd
- use sortutils,    only: indexx
+ use dim,          only:mhd
+ use sortutils,    only:indexx
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use centreofmass, only:reset_centreofmass
- use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
- use units,        only: udist,umass,unit_density,unit_velocity,unit_Bfield
- use physcon,      only: au,solarm
+ use part,         only:igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
+ use units,        only:udist,umass,unit_density,unit_velocity,unit_Bfield
+ use physcon,      only:au,solarm
 #ifdef NONIDEALMHD
- use io,           only: fatal
- use units,        only: utime
- use nicil,        only: use_ohm,use_hall,use_ambi,fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs
+ use io,           only:fatal
+ use units,        only:utime
+ use nicil,        only:use_ohm,use_hall,use_ambi,fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs
 #endif
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,iunit
@@ -230,7 +230,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh,rho) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -238,7 +238,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        hi = xyzh(4,i)
        if (.not.isdead_or_accreted(hi)) then
           if (maxphase==maxp) itype = iamtype(iphase(i))
-          rhoi = rhoh(hi,massoftype(itype))
+          rhoi = rho(i)
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
              etaart(i) = etaart_old(hi,rhoi,alphaB,Bxyz(1:3,i),eos_vars(ics,i))
           endif
@@ -251,7 +251,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "starting to calculate etaart"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh,rho) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -259,7 +259,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        hi = xyzh(4,i)
        if (.not.isdead_or_accreted(hi)) then
           if (maxphase==maxp) itype = iamtype(iphase(i))
-          rhoi = rhoh(hi,massoftype(itype))
+          rhoi = rho(i)
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
              etaart(i) = etaart_new(i,npart,massoftype(itype),xyzh,vxyzu)
           endif
@@ -377,7 +377,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! Determines disc mass and properties
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars,rho) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
@@ -390,7 +390,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        if (.not.isdead_or_accreted(hi)) then
           if (maxphase==maxp) itype = iamtype(iphase(i))
           if (itype==igas) then
-             rhoi = rhoh(hi,particlemass)
+             rhoi = rho(i)
              if (rhoi > dthresh) then
                 calc_rad_prof = .true.
                 rtmp2  = xi*xi + yi*yi
@@ -749,7 +749,7 @@ real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
              if (dz2 < radkern2i) then
                 rad2 = dx2 + dy2 + dz2
                 if (rad2 < radkern2i) then
-                   rhoj       = rhoh(hj,pmass)
+                   rhoj       = rho(j)
                    runix      = (xi-xj)/sqrt(rad2)
                    runiy      = (yi-yj)/sqrt(rad2)
                    runiz      = (zi-zj)/sqrt(rad2)
@@ -1033,7 +1033,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        angx =   yi*vzi - zi*vyi
        angy =   zi*vxi - xi*vzi
        angz =   xi*vyi - yi*vxi
-       rhoi = rhoh(hi,particlemass)
+       rhoi = rho(i)
        call get_TempPresCs(ieos,xyzh(:,i),vxyzu(:,i),rhoi,tempi=temperature,presi=pressure,spsoundi=eos_vars(ics,i))
        eos_vars(itemp,i) = temperature
        if (B2i > 0.0) then
@@ -1370,7 +1370,7 @@ subroutine adjust_origin(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,xyz0,
  do i = 1,npart
     hi = xyzh(4,i)
     if (hi > 0.0) then
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
        if (rhoi > 10.*dthresh) then
           rtmp2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
           if (rtmp2 < rcom2) then

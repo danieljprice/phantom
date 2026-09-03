@@ -76,7 +76,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use boundary,         only:print_boundaries
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,&
-                            use_porosity,icooling,implicit_radiation
+                            use_porosity,icooling,implicit_radiation,two_kernel
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes,igas
  use mpiutils,         only:reduceall_mpi
@@ -152,6 +152,8 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     endif
 
     write(iprint,"(/,a)") ' Using '//trim(kernelname)//' kernel'
+    if (two_kernel) write(iprint,"(a)") &
+       ' Number density uses alternative h-finding kernel (two_kernel=T)'
 
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
     write(iprint,50) hfact, massoftype(1), tolh, Nneigh

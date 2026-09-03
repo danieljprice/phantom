@@ -85,9 +85,9 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp,periodic
  use io,         only:iverbose
- use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
-                      iphase,maxphase,isetphase,rhoh,drad,&
-                      npartoftype,rad,radprop,maxvxyzu,luminosity
+ use part,       only:init_part,npart,rho,xyzh,fxyzu,vxyzu,massoftype,igas,&
+                      iphase,maxphase,isetphase,drad,&
+                      npartoftype,rad,radprop,maxvxyzu,luminosity,init_rho_from_h
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk,iopacity_type
@@ -139,6 +139,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  npartoftype(:) = 0
  npartoftype(1) = npart
  pmassi = massoftype(igas)
+ call init_rho_from_h()
 
  if (use_implicit) call build_tree(npart,npart,xyzh,vxyzu)
  !
@@ -149,7 +150,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  !
  do itest = 1,2
     do i=1,npart
-       rhoi              = rhoh(xyzh(4,i),pmassi)
+       rhoi              = rho(i)
        rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
        radprop(ikappa,i) = kappa_cgs/unit_opacity
        if (itest==2) then
@@ -169,7 +170,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     endif
     maxt = 5e-7*seconds
     t = 0.
-    rhoi    = rhoh(xyzh(4,1),pmassi)
+    rhoi    = rho(1)
     physrho = rhoi*unit_density
     i = 0
     ndiff = 0
@@ -193,7 +194,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
        else
           if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
-          call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
+          call update_radenergy(1,fxyzu,vxyzu,rho,rad,radprop,dt)
        endif
        t = t + dt
        if (mod(i,10)==0 .or. use_implicit) then
@@ -293,7 +294,7 @@ end subroutine test_implicit_matches_explicit
 !+
 !---------------------------------------------------------
 subroutine test_radiation_diffusion(ntests,npass)
- use part,            only:npart,xyzh,rhoh,vxyzu,&
+ use part,            only:npart,xyzh,rho,vxyzu,&
                            rad,radprop,drad,ifluxx,maxvxyzu,fxyzu,init_part
  use boundary,        only:xmin,xmax
  use physcon,         only:pi
@@ -339,7 +340,7 @@ subroutine test_radiation_diffusion(ntests,npass)
 
  l0 = 2*pi/(xmax-xmin)
  do i=1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
+    rhoi = rho(i)
     D0  = c_code*(1./3)/kappa_code/rhoi
     exact_grE  =  xi0*rho0*0.1*l0   *cos(xyzh(1,i)*l0)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
@@ -402,7 +403,7 @@ subroutine test_radiation_diffusion(ntests,npass)
           tol_xi = 3.5e-4
        endif
        do j = 1,npart
-          rhoi = rhoh(xyzh(4,j),pmassi)
+          rhoi = rho(j)
           D0  = c_code*(1./3)/kappa_code/rhoi
           exact_xi = xi0*(1.+0.1*sin(xyzh(1,j)*l0)*exp(-l0*l0*t*D0))
           write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
@@ -436,7 +437,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  use io,              only:id,master
  use eos,             only:gamma,gmw,iopacity_type
  use part,            only:npart,hfact,xyzh,vxyzu,massoftype,igas,periodic,&
-                           iphase,maxphase,isetphase,rhoh,npartoftype,&
+                           iphase,maxphase,isetphase,npartoftype,&
                            rad,radprop,ifluxx,maxvxyzu
  use units,           only:unit_opacity,get_c_code,unit_ergg,get_radconst_code
  use physcon,         only:Rg,pi,seconds

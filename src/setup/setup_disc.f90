@@ -100,7 +100,7 @@ module setup
                             iJ2,ispinx,ispinz,iReff,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
-                            VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi
+                            VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi,rho,init_rho_from_h
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins,get_cs_from_lum
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -251,7 +251,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: gamma
  real,              intent(out)   :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)   :: fileprefix
 
  write(*,"(/,65('-'),/,/,5x,a,/,/,65('-'))") 'Welcome to the New Disc Setup'
 
@@ -322,7 +322,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_tmax_dtmax(fileprefix)
 
  if (do_radiation) then
-    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    call init_rho_from_h()
+    call set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad)
     radprop(ikappa,1:npart) = iradkappa
  endif
 
@@ -533,7 +534,7 @@ end subroutine set_default_options
 !--------------------------------------------------------------------------
 subroutine get_setup_parameters(id,fileprefix)
  integer,           intent(in) :: id
- character(len=20), intent(in) :: fileprefix
+ character(len=*),  intent(in) :: fileprefix
  logical :: iexist,seq_exists
  integer :: j,ierr
 
@@ -822,7 +823,7 @@ subroutine setup_central_objects(fileprefix)
  use sethierarchical,      only:set_hierarchical,set_multiple
  use setorbit,             only:set_orbit
  use setunits,             only:dist_unit,mass_unit
- character(len=20), intent(in) :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
 
  integer :: i,ierr
 
@@ -1140,7 +1141,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use setdisc,         only:set_disc
  use growth,          only:alpha_dg
  integer,           intent(in)    :: id
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real,              intent(out)   :: hfact
  real,              intent(in)    :: gamma
  integer,           intent(out)   :: npart
@@ -2134,7 +2135,7 @@ subroutine set_tmax_dtmax(fileprefix)
  use setorbit, only:write_trajectory_to_file
  use timestep, only:tmax,dtmax
  use units,    only:in_code_units
- character(len=*), intent(in) :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real :: period,period1,period2,mu
  real :: flyby_d
  integer :: ierr

@@ -82,12 +82,13 @@ contains
 !  This doesn't doesn't actually get used in gr...
 !+
 !-----------------------------------------------------------------------
-subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
+subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii,rhoi)
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xi,yi,zi,hi,ti
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
- integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
+ integer, intent(in),  optional :: ii
+ real,    intent(in),  optional :: rhoi
  !
  !  This doesn't doesn't actually get used in gr...
  !

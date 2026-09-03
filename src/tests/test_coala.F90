@@ -65,8 +65,8 @@ subroutine test_dustgrowth_coala(ntests, npass)
  use testutils,    only:checkval,update_test_scores
  use physcon,      only:micron,mm,years
  use units,        only:unit_density,udist,unit_velocity
- use part,         only:dustfrac,grainsize,graindens,ndusttypes,ndustsmall,hrho,ics,eos_vars,&
-                        xyzh,vxyzu,fxyzu,fext,dustevol,deltav,npart,igas,massoftype
+ use part,         only:dustfrac,grainsize,graindens,ndusttypes,ndustsmall,hn,ics,eos_vars,&
+                        xyzh,vxyzu,fxyzu,fext,dustevol,deltav,npart,igas,massoftype,rho
  use growth_coala, only:init_growth_coala,get_growth_rate_coala
  integer, intent(inout) :: ntests,npass
  integer :: i,idust,ierr,nfailed(1)
@@ -95,7 +95,7 @@ subroutine test_dustgrowth_coala(ntests, npass)
 
  npart = 1
  xyzh(1:3,i) = 0.
- xyzh(4,i) = hrho(rhoi,massoftype(igas))
+ xyzh(4,i) = hn(rhoi/massoftype(igas))
  vxyzu(:,i) = 0.
  deltav(:,:,i) = 0.
  do idust=1,ndusttypes
@@ -108,7 +108,7 @@ subroutine test_dustgrowth_coala(ntests, npass)
 
  ! first check that dt = 0 does not change dustevol
  dt = 0.
- call get_growth_rate_coala(npart,xyzh,vxyzu,fxyzu,fext,grainsize,dustfrac,&
+ call get_growth_rate_coala(npart,xyzh,vxyzu,rho,fxyzu,fext,grainsize,dustfrac,&
                             dustevol,deltav,dt,eos_vars)
  call checkval(ndusttypes,dustevol(:,i),dustevol_prev,epsilon(0.),nfailed(1),'dustevol = dustevol_prev with dt=0')
  call update_test_scores(ntests,nfailed,npass)

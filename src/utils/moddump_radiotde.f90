@@ -59,7 +59,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,      only:solarm,years,mass_proton_cgs,kb_on_mh,kboltz,radconst
  use setup_params, only:npart_total
- use part,         only:igas,set_particle_type,pxyzu,delete_particles_inside_radius, &
+ use part,         only:igas,set_particle_type,pxyzu,delete_particles_inside_radius,&
                         delete_particles_outside_sphere,kill_particle,shuffle_part, &
                         eos_vars,itemp,igamma,igasP
  use io,           only:fatal,master,id
@@ -480,7 +480,7 @@ end subroutine write_setupfile
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use io,           only: fatal
+ use io,           only:fatal
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit=21,in_num=50

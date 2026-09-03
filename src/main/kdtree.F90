@@ -59,6 +59,9 @@ module kdtree
  public :: compute_M2L,expand_fgrav_in_taylor_series
  integer, public :: maxlevel_indexed, maxlevel
 
+ ! neighbour cache indices (xyzcache); imported with only: from dens/force
+ integer, parameter, public :: ix=1, iy=2, iz=3, ih1=4, im=5, irho=6, izetaomega=7, isoftomega=8
+
  type kdbuildstack
     integer :: node
     integer :: parent
@@ -1173,12 +1176,17 @@ end subroutine special_sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
+ use part, only:rho,gradh
+ use dim,  only:igradomega,igradzeta
+#ifdef GRAVITY
+ use dim,  only:igradsoft
+#endif
  integer, intent(in)    :: isrc,ixyzcachesize,maxcache
  real,    intent(in)    :: xoffset,yoffset,zoffset
  integer, intent(inout) :: nneigh
  integer, intent(out)   :: listneigh(:)
  real,    intent(out)   :: xyzcache(:,:)
- integer :: npnode,ipart,num_to_cache
+ integer :: npnode,ipart,num_to_cache,ip,inode
 
  npnode = inoderange(2,isrc) - inoderange(1,isrc) + 1
 
@@ -1192,13 +1200,36 @@ subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcach
 
  if (num_to_cache > 0) then
     do ipart=1,num_to_cache
-       listneigh(nneigh+ipart)  = abs(inodeparts(inoderange(1,isrc)+ipart-1))
-       xyzcache(1,nneigh+ipart) = treecache(1,inoderange(1,isrc)+ipart-1) + xoffset
-       xyzcache(2,nneigh+ipart) = treecache(2,inoderange(1,isrc)+ipart-1) + yoffset
-       xyzcache(3,nneigh+ipart) = treecache(3,inoderange(1,isrc)+ipart-1) + zoffset
+       inode = inoderange(1,isrc)+ipart-1
+       ip = abs(inodeparts(inode))
+       listneigh(nneigh+ipart)  = ip
+       xyzcache(1,nneigh+ipart) = treecache(1,inode) + xoffset
+       xyzcache(2,nneigh+ipart) = treecache(2,inode) + yoffset
+       xyzcache(3,nneigh+ipart) = treecache(3,inode) + zoffset
        if (maxcache >= 4) then
-          xyzcache(4,nneigh+ipart) = 1./treecache(4,inoderange(1,isrc)+ipart-1)
+          xyzcache(ih1,nneigh+ipart) = 1./treecache(4,inode)
        endif
+       if (maxcache >= 5) then
+          xyzcache(im,nneigh+ipart) = treecache(5,inode)
+       endif
+       if (maxcache >= 7) then
+          if (ip <= maxpsph) then
+             xyzcache(irho,nneigh+ipart)        = rho(ip)
+             xyzcache(izetaomega,nneigh+ipart) = real(gradh(igradzeta,ip))*real(gradh(igradomega,ip))
+          else
+             xyzcache(irho,nneigh+ipart)        = 0.
+             xyzcache(izetaomega,nneigh+ipart) = 0.
+          endif
+       endif
+#ifdef GRAVITY
+       if (maxcache >= 8) then
+          if (ip <= maxpsph) then
+             xyzcache(isoftomega,nneigh+ipart) = real(gradh(igradsoft,ip))*real(gradh(igradomega,ip))
+          else
+             xyzcache(isoftomega,nneigh+ipart) = 0.
+          endif
+       endif
+#endif
     enddo
  endif
 
@@ -1433,8 +1464,10 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     node(iparent)%tobecached = min(node(iparent)%tobecached,0)
     !$omp end atomic
     if (tobecached==1) then
-       !-- store fnode in the cache array
+       !-- store fnode in the cache array; flush so other threads see
+       !   the payload before the cached flag (OpenMP 3.1, no 5.0 atomics)
        fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
+       !$omp flush
        !$omp atomic write
        node(iparent)%cached = .true.
        !$omp end atomic
@@ -1443,6 +1476,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
        cached = node(iparent)%cached
        !$omp end atomic
        if (cached) then
+          !$omp flush
           !-- fetch fnode from the cache array
           fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif

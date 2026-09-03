@@ -58,7 +58,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use centreofmass,   only:reset_centreofmass
  use units,          only:set_units,get_G_code
  use physcon,        only:pc,solarm,gg
- use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,iboundary,maxp
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,igas,set_particle_type,&
+                          iboundary,maxp,init_rho_from_h
  use stretchmap,     only:get_mass_r,rho_func
  use infile_utils,   only:get_options
  use kernel,         only:hfact_default
@@ -74,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: polyk,gamma,hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  integer, parameter :: ntab=10000
  real               :: rhotab(ntab)
  real               :: vol,psep,tff,rhor,vr,ur,rho_bh
@@ -215,6 +216,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! actually compute density so that entropy is set correctly
  call check_setup(nerror,nwarn)
  call allocate_memory(int(maxp,kind=8)) ! allocate memory for tree
+ call init_rho_from_h()
  call get_derivs_global()
 
 end subroutine setpart

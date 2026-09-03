@@ -23,7 +23,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use HIIRegion, only:HII_feedback,initialize_H2R,update_ionrates,iH2R
  use part,      only:xyzmh_ptmass,vxyz_ptmass,nptmass,eos_vars,itemp,&
-                     delete_dead_or_accreted_particles,accrete_particles_outside_sphere
+                     delete_dead_or_accreted_particles,accrete_particles_outside_sphere,rho
  use ptmass,    only:h_acc
  use deriv,     only:get_density_global
  use io,        only:fatal
@@ -74,7 +74,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call get_density_global(2)
  call initialize_H2R()
  call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
- call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,eos_vars)
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
 
  !call delete_dead_or_accreted_particles(npart,npartoftype)
 

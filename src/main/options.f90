@@ -41,6 +41,9 @@ module options
 ! additional .ev data
  logical, public :: calc_erot
 
+! if true, use a distinct (flatter) kernel to set h from number density
+ logical, public :: two_kernel
+
 ! dust method
  logical, public :: use_dustfrac, use_hybrid, use_porosity
 
@@ -97,6 +100,7 @@ subroutine set_default_options
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
+ two_kernel = .false.        ! use a flatter kernel to set h (even neighbour counts)
 
  ! equation of state
  call set_defaults_eos

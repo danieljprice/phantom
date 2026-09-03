@@ -219,9 +219,9 @@ end subroutine print_growthinfo
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt,Vrel_disp)
- use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
-                           massoftype,Omega_k,dustfrac,tstop,deltav
+subroutine get_growth_rate(npart,xyzh,vxyzu,rho,dustgasprop,VrelVf,dustprop,filfac,dmdt,Vrel_disp)
+ use part,            only:idust,igas,iamtype,iphase,isdead_or_accreted,&
+                           Omega_k,dustfrac,tstop,deltav
  use options,         only:use_dustfrac,use_porosity
  use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
@@ -229,28 +229,28 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  real,    intent(inout) :: dustprop(:,:)
  real,    intent(in)    :: Vrel_disp(:)
  real,    intent(inout) :: dustgasprop(:,:)
- real,    intent(in)    :: xyzh(:,:)
+ real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(in)    :: filfac(:)
  real,    intent(inout) :: VrelVf(:,:),vxyzu(:,:)
  real,    intent(out)   :: dmdt(:)
  integer, intent(in)    :: npart
- real                     :: rhog,rhod,vrel,rho,sdust
+ real                     :: rhog,rhod,vrel,rhoi,sdust
  real                     :: massgrain,rhograin,filfaci
  real                     :: dtarb,frac_masschange,att_factor
  integer                  :: i,iam
 
  vrel = 0.
  rhod = 0.
- rho  = 0.
+ rhoi = 0.
  filfaci = 1.
 
  !--get dm/dt over all particles
 
  !$omp parallel do default(none) &
- !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity,grainsizemin) &
+ !$omp shared(npart,iphase,ieos,use_dustfrac,dustfrac,use_porosity,grainsizemin,rho) &
  !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc,dtmax) &
  !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav,Vrel_disp) &
- !$omp private(i,iam,rho,rhog,rhod,vrel,sdust) &
+ !$omp private(i,iam,rhoi,rhog,rhod,vrel,sdust) &
  !$omp private(massgrain,rhograin,dtarb,frac_masschange,att_factor) &
  !$omp firstprivate(filfaci)
  do i=1,npart
@@ -261,15 +261,15 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
 
           if (use_dustfrac .and. iam == igas) then
              !- no need for interpolations
-             rho              = rhoh(xyzh(4,i),massoftype(igas))
-             rhog             = rho*(1-dustfrac(1,i))
-             rhod             = rho*dustfrac(1,i)
+             rhoi             = rho(i)
+             rhog             = rhoi*(1-dustfrac(1,i))
+             rhod             = rhoi*dustfrac(1,i)
              dustgasprop(1,i) = get_spsound(ieos,xyzh(:,i),rhog,vxyzu(:,i))
              dustgasprop(2,i) = rhog
              dustgasprop(3,i) = tstop(1,i) * Omega_k(i)
              dustgasprop(4,i) = sqrt(deltav(1,1,i)**2 + deltav(2,1,i)**2 + deltav(3,1,i)**2)
           else
-             rhod = rhoh(xyzh(4,i),massoftype(idust))
+             rhod = rho(i)
           endif
 
           !--dust size from mass, intrinsic density, and filling factor

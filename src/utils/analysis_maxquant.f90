@@ -27,7 +27,7 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  use io,      only:fatal
  use physcon, only:pi
- use part,    only:xyzmh_ptmass,dustfrac,rhoh!dustprop
+ use part,    only:rho,xyzmh_ptmass,dustfrac!dustprop
  use infile_utils, only:open_db_from_file,read_inopt,close_db,inopts
  use units, only:unit_density
  use growth, only:get_size
@@ -43,7 +43,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  maxquant = -1e99
  imax = 0
  do i=1,npart
-    dens = rhoh(xyzh(4,i),pmass) * dustfrac(1,i) * unit_density !1-f
+    dens = rho(i) * dustfrac(1,i) * unit_density !1-f
     !dens = get_size(dustprop(1,i),dustprop(2,i),1.0) * udist   !2-f
     if (dens>maxquant) then
        maxquant = dens
