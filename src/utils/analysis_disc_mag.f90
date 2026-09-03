@@ -51,7 +51,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  real :: psi_x,psi_y,psi_z,psi,Bx,By,Bz
  real :: B_x(nr),B_y(nr),B_z(nr),B_r(nr),B_phi(nr),B_theta(nr),B_mag(nr)
  real :: rcyli,pressure,Bx_net,By_net,Bz_net
- real :: Br,Bphi,Bmag,delta_vphi,delta_vr
+ real :: Br,Bphi,Bmag,delta_vphi,delta_vr,rhoi
  real :: den_sum(nmaganalysis),num_sum(nmaganalysis)
  real :: alpha_estimates(nmaganalysis)
 
@@ -328,7 +328,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     Bz_net = Bz_net + Bz
 
     rhoi = rho(i)
-    pressure = get_pressure(3,xyzh(:,i),rho,vxyz(:,i))
+    pressure = get_pressure(3,xyzh(:,i),rhoi,vxyz(:,i))
     !pressure = cssqrd*rho  BUG?  This is the original version, which is pressure = spsound * rho
 
     Br = (Bx*xyzh(1,i)/ri) + (By*xyzh(2,i)/ri) + (Bz*xyzh(3,i)/ri)
@@ -337,13 +337,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
     delta_vr = (vxyz(1,i)*xyzh(1,i)/ri) + (vxyz(2,i)*xyzh(2,i)/ri) + (vxyz(3,i)*xyzh(3,i)/ri)
     delta_vphi = (-vxyz(1,i)*xyzh(2,i)/rcyli) + (vxyz(2,i)*xyzh(1,i)/rcyli) - (1./sqrt(ri))
 
-    num_sum(1) = num_sum(1) + pmass*(rho*delta_vr*delta_vphi - Br*Bphi)
+    num_sum(1) = num_sum(1) + pmass*(rhoi*delta_vr*delta_vphi - Br*Bphi)
     den_sum(1) = den_sum(1) + pmass*pressure
 
     num_sum(2) = num_sum(2) - 2.*pmass*Br*Bphi
     den_sum(2) = den_sum(2) + pmass*Bmag**2
 
-    num_sum(3) = num_sum(3) + pmass*(delta_vphi*delta_vr - (Bphi*Br/rho))
+    num_sum(3) = num_sum(3) + pmass*(delta_vphi*delta_vr - (Bphi*Br/rhoi))
     den_sum(3) = den_sum(3) + pmass*pressure
 
     num_sum(4) = num_sum(4) - 2./3.*Br*Bphi/pressure
