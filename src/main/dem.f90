@@ -63,6 +63,7 @@ subroutine get_ssdem_force(Rsinki,Rsinkj,mi,mj,ddr,dx,dy,dz,fx,fy,fz,veli,velj,w
  kn = 0.
  kn_dem = kn_cgs / (umass/utime**2)  ! convert to code units
  kt_dem = kt_cgs / (umass/utime**2)
+ reduced_mass = mj * mi / (mj + mi)
  if (coh_gap_max_cgs > 0.) then
     coh_gap_max = coh_gap_max_cgs / udist
  else
@@ -73,7 +74,36 @@ subroutine get_ssdem_force(Rsinki,Rsinkj,mi,mj,ddr,dx,dy,dz,fx,fy,fz,veli,velj,w
     fx = fx + kn * overlap * nvec(1) / mj
     fy = fy + kn * overlap * nvec(2) / mj
     fz = fz + kn * overlap * nvec(3) / mj
-    !print*,' fx = ',fx,' fy = ',fy,' fz = ',fz
+
+    !----------------------------------------------------------------
+    ! Damping force (only when overlapping; Schwartz+2012 Eqs. 8-15;
+    ! contact-only by design, see docs/DEM_COHESION_MIGRATION.md #1.4)
+    !----------------------------------------------------------------
+    ! Cross products: n x omega, where omega is the spin vector of the sphere
+    n_cross_wi = cross_product(nvec,wi)
+    n_cross_wj = cross_product(nvec,wj)
+
+    ! Eqs. (9) and (10)from Schwartz+2012
+    li = (Rsinki**2 - Rsinkj**2 + r**2) / (2.0 * r)
+    lj = (Rsinkj**2 - Rsinki**2 + r**2) / (2.0 * r)
+
+    ! Relative velocity at contact point (Eq. 8 from Schwartz+2012)
+    vrel = veli - velj + li * n_cross_wi - lj * n_cross_wj
+
+    ! Normal and tangential components
+    u_dot_n = dot_product(vrel, nvec)
+    u_n = u_dot_n * nvec
+    u_t = vrel - u_n
+
+    ! Eqn (15) from Schwartz+2012
+    log_epsilon_n_dem = log(epsilon_n_dem)
+    cn = -2.0 * sqrt(reduced_mass * kn) * log_epsilon_n_dem / sqrt(pi**2 + log_epsilon_n_dem**2)
+    ct = 0.
+
+    ! Damping forces
+    fx = fx - cn * u_n(1) / mj - ct * u_t(1)
+    fy = fy - cn * u_n(2) / mj - ct * u_t(2)
+    fz = fz - cn * u_n(3) / mj - ct * u_t(3)
  elseif (kt_dem > 0. .and. gap > 0. .and. gap < coh_gap_max) then
     ! tensile spring when spheres are bonded but not overlapping
     kn = kt_dem
@@ -82,38 +112,8 @@ subroutine get_ssdem_force(Rsinki,Rsinkj,mi,mj,ddr,dx,dy,dz,fx,fy,fz,veli,velj,w
     fz = fz - kn * gap * nvec(3) / mj
  endif
 
- !----------------------------------------------------------------
- ! Damping force
- !----------------------------------------------------------------
-
- ! Cross products: n x omega, where omega is the spin vector of the sphere
- n_cross_wi = cross_product(nvec,wi)
- n_cross_wj = cross_product(nvec,wj)
-
- ! Eqs. (9) and (10)from Schwartz+2012
- li = (Rsinki**2 - Rsinkj**2 + r**2) / (2.0 * r)
- lj = (Rsinkj**2 - Rsinki**2 + r**2) / (2.0 * r)
-
- ! Relative velocity at contact point (Eq. 8 from Schwartz+2012)
- vrel = veli - velj + li * n_cross_wi - lj * n_cross_wj
-
- ! Normal and tangential components
- u_dot_n = dot_product(vrel, nvec)
- u_n = u_dot_n * nvec
- u_t = vrel - u_n
-
- ! Eqn (15) from Schwartz+2012
- reduced_mass = mj *  mi / (mj + mi)
- log_epsilon_n_dem = log(epsilon_n_dem)
- cn = -2.0 * sqrt(reduced_mass * kn) * log_epsilon_n_dem / sqrt(pi**2 + log_epsilon_n_dem**2)
- ct = 0.
- !print*,' cn = ',cn
-
- ! Damping forces
- fx = fx - cn * u_n(1) / mj - ct * u_t(1)
- fy = fy - cn * u_n(2) / mj - ct * u_t(2)
- fz = fz - cn * u_n(3) / mj - ct * u_t(3)
-
+ ! spring timescale sets the stable timestep in both regimes (overlap or
+ ! tensile bond), independent of whether damping is applied (contact-only)
  if (kn > 0.) dtmin = min(dtmin,sqrt(reduced_mass/kn))
 
 end subroutine get_ssdem_force
