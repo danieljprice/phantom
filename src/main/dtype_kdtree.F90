@@ -31,6 +31,7 @@ module dtypekdtree
                     + 4 &    ! idum
 #ifdef GRAVITY
                     + 8*6 &  ! quads(6)
+                    + 8*10 & ! octs(10)
                     + 4 &    ! tobecached
                     + 4 &    ! cached
 #endif
@@ -64,6 +65,7 @@ module dtypekdtree
     integer :: tobecached
     logical :: cached
     real    :: quads(6)
+    real    :: octs(10)  ! xxx,xxy,xxz,xyy,xyz,xzz,yyy,yyz,yzz,zzz
 #endif
  end type kdnode
 
@@ -156,6 +158,12 @@ subroutine get_mpitype_of_kdnode(dtype)
  blens(nblock) = size(node%quads)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(node%quads,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(node%octs)
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(node%octs,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1

@@ -94,6 +94,7 @@ subroutine test_kdtree(ntests,npass)
 #ifdef GRAVITY
        node(i)%mass    = 0.
        node(i)%quads(:)= 0.
+       node(i)%octs(:) = 0.
 #endif
        leaf_is_active(i) = 0
     enddo
