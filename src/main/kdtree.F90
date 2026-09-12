@@ -1696,10 +1696,13 @@ subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yo
  real,         intent(inout) :: fnode(lenfgrav)
  real,         intent(out)   :: xoffset,yoffset,zoffset
  logical,      intent(out)   :: stackit
- real    :: dx,dy,dz,r2,dr1
+ real    :: dx,dy,dz,r2
  real    :: rcut_dst,rcut_src,rcut,rcut2
  real    :: size_dst,size_src
  logical :: wellsep,cached
+#ifdef GRAVITY
+ real    :: dr1
+#endif
 
  call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
