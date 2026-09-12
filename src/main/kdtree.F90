@@ -1699,9 +1699,6 @@ subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yo
  real    :: dx,dy,dz,r2,dr1
  real    :: rcut_dst,rcut_src,rcut,rcut2
  real    :: size_dst,size_src
-#ifndef GRAVITY
- real    :: quads_zero(6)
-#endif
  logical :: wellsep,cached
 
  call get_sep(node_dst%xcen,node_src%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
@@ -1718,18 +1715,14 @@ subroutine node_interaction(node_dst,node_src,tree_acc2,fnode,stackit,xoffset,yo
  wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
 
  if (wellsep) then
+#ifdef GRAVITY
     if (.not.cached) then
        dr1 = 1./sqrt(r2)
-       ! pass node moments by reference — avoid copying quads/octs every M2L
-#ifdef GRAVITY
        call compute_M2L(dx,dy,dz,dr1,node_src%mass,node_src%quads,fnode)
        call add_torque_correction(dx,dy,dz,dr1,node_dst%mass,node_src%mass, &
                                   node_dst%octs,node_src%octs,fnode)
-#else
-       quads_zero = 0.
-       call compute_M2L(dx,dy,dz,dr1,0.,quads_zero,fnode)
-#endif
     endif
+#endif
     stackit = .false.
  else
     stackit = .true.
