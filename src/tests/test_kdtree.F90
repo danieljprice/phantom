@@ -43,8 +43,8 @@ subroutine test_kdtree(ntests,npass)
  use mpidomain,   only:i_belong
  integer, intent(inout) :: ntests,npass
  logical :: test_revtree, test_all
- integer :: i,nfailed(12),nchecked(12),nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1)
- real    :: psep,tol,errmax(12)
+ integer :: i,nfailed(22),nchecked(22),nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1)
+ real    :: psep,tol,tol_octs,errmax(22)
  real(4) :: t2,t1,tmaketree
  type(kdnode), allocatable :: old_tree(:)
  integer, allocatable :: leaf_is_active_saved(:)
@@ -94,6 +94,7 @@ subroutine test_kdtree(ntests,npass)
 #ifdef GRAVITY
        node(i)%mass    = 0.
        node(i)%quads(:)= 0.
+       node(i)%octs(:) = 0.
 #endif
        leaf_is_active(i) = 0
     enddo
@@ -115,6 +116,8 @@ subroutine test_kdtree(ntests,npass)
     nchecked(:) = 0
     errmax(:)   = 0.
     tol = 2.e-11
+    ! use larger tolerance for some octupole moments due to variation from openMP loop ordering
+    tol_octs = 1.e-9
     do i=1,int(ncells)
        if (i > 1 .and. node(i)%parent == 0) cycle
        ! if (leaf_is_active(i) /= 0) then
@@ -132,6 +135,16 @@ subroutine test_kdtree(ntests,npass)
        call checkvalbuf(node(i)%quads(4),old_tree(i)%quads(4),tol,'qyy',nfailed(10),nchecked(10),errmax(10))
        call checkvalbuf(node(i)%quads(5),old_tree(i)%quads(5),tol,'qyz',nfailed(11),nchecked(11),errmax(11))
        call checkvalbuf(node(i)%quads(6),old_tree(i)%quads(6),tol,'qzz',nfailed(12),nchecked(12),errmax(12))
+       call checkvalbuf(node(i)%octs(1),old_tree(i)%octs(1),tol_octs,'oxxx',nfailed(13),nchecked(13),errmax(13))
+       call checkvalbuf(node(i)%octs(2),old_tree(i)%octs(2),tol,'oxxy',nfailed(14),nchecked(14),errmax(14))
+       call checkvalbuf(node(i)%octs(3),old_tree(i)%octs(3),tol,'oxxz',nfailed(15),nchecked(15),errmax(15))
+       call checkvalbuf(node(i)%octs(4),old_tree(i)%octs(4),tol_octs,'oxyy',nfailed(16),nchecked(16),errmax(16))
+       call checkvalbuf(node(i)%octs(5),old_tree(i)%octs(5),tol,'oxyz',nfailed(17),nchecked(17),errmax(17))
+       call checkvalbuf(node(i)%octs(6),old_tree(i)%octs(6),tol_octs,'oxzz',nfailed(18),nchecked(18),errmax(18))
+       call checkvalbuf(node(i)%octs(7),old_tree(i)%octs(7),tol,'oyyy',nfailed(19),nchecked(19),errmax(19))
+       call checkvalbuf(node(i)%octs(8),old_tree(i)%octs(8),tol,'oyyz',nfailed(20),nchecked(20),errmax(20))
+       call checkvalbuf(node(i)%octs(9),old_tree(i)%octs(9),tol,'oyzz',nfailed(21),nchecked(21),errmax(21))
+       call checkvalbuf(node(i)%octs(10),old_tree(i)%octs(10),tol,'ozzz',nfailed(22),nchecked(22),errmax(22))
 #endif
        ! endif
     enddo
@@ -148,6 +161,16 @@ subroutine test_kdtree(ntests,npass)
     call checkvalbuf_end('qyy',nchecked(10),nfailed(10),errmax(10),tol)
     call checkvalbuf_end('qyz',nchecked(11),nfailed(11),errmax(11),tol)
     call checkvalbuf_end('qzz',nchecked(12),nfailed(12),errmax(12),tol)
+    call checkvalbuf_end('oxxx',nchecked(13),nfailed(13),errmax(13),tol_octs)
+    call checkvalbuf_end('oxxy',nchecked(14),nfailed(14),errmax(14),tol)
+    call checkvalbuf_end('oxxz',nchecked(15),nfailed(15),errmax(15),tol)
+    call checkvalbuf_end('oxyy',nchecked(16),nfailed(16),errmax(16),tol_octs)
+    call checkvalbuf_end('oxyz',nchecked(17),nfailed(17),errmax(17),tol)
+    call checkvalbuf_end('oxzz',nchecked(18),nfailed(18),errmax(18),tol_octs)
+    call checkvalbuf_end('oyyy',nchecked(19),nfailed(19),errmax(19),tol)
+    call checkvalbuf_end('oyyz',nchecked(20),nfailed(20),errmax(20),tol)
+    call checkvalbuf_end('oyzz',nchecked(21),nfailed(21),errmax(21),tol)
+    call checkvalbuf_end('ozzz',nchecked(22),nfailed(22),errmax(22),tol)
 #endif
     call update_test_scores(ntests,nfailed,npass)
 
