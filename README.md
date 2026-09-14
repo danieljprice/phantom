@@ -11,7 +11,7 @@ Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code fo
 - Compressible hydrodynamics and magnetohydrodynamics
 - Advanced shock capturing using state-of-the-art methods
 - Sink particles with 4th order symplectic integration of gravitational dynamics
-- Self-gravity using a momentum-conserving fast multipole method and adaptive gravitational force softening
+- Self-gravity using a momentum conserving and angular momentum conserving tree code with adaptive gravitational force softening
 - Multi-species dust-gas mixtures (dust-as-mixture or dust-as-particles)
 - Dust growth and porosity evolution
 - General relativistic hydrodynamics in Kerr, Schwarzschild and Minkowski metrics
