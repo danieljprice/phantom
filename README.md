@@ -22,7 +22,7 @@ Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code fo
 - N-body regularisation for fast simulation of star clusters
 - Easy and flexible setup of binary, triple and multiple stars with discs and planets in arbitrary configurations
 - Direct coupling with Monte Carlo radiative transfer for easy comparison with observations
-
+- Conservation of linear and angular momentum to machine precision with global timestepping
 
 Status
 ------
