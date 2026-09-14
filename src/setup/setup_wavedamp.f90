@@ -69,14 +69,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options,infile_exists
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- real,              intent(out)   :: polyk,gamma
- real,              intent(in)    :: hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ real,             intent(out)   :: polyk,gamma
+ real,             intent(in)    :: hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  integer                          :: i,idir,ierr
  real                             :: totmass,deltax,deltay,deltaz
  real                             :: x_min,x_max,y_min,y_max,z_min,z_max

@@ -69,15 +69,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,&
  use units,        only:set_units,get_G_code
  use infile_utils, only:get_options
  use io,           only:master
- integer,           intent(in)  :: id
- integer,           intent(out) :: npart
- integer,           intent(out) :: npartoftype(:)
- real,              intent(out) :: xyzh(:,:)
- real,              intent(out) :: polyk,gamma,hfact
- real,              intent(out) :: vxyzu(:,:)
- real,              intent(out) :: massoftype(:)
- real,              intent(in)  :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)  :: id
+ integer,          intent(out) :: npart
+ integer,          intent(out) :: npartoftype(:)
+ real,             intent(out) :: xyzh(:,:)
+ real,             intent(out) :: polyk,gamma,hfact
+ real,             intent(out) :: vxyzu(:,:)
+ real,             intent(out) :: massoftype(:)
+ real,             intent(in)  :: time
+ character(len=*), intent(in)  :: fileprefix
  integer :: ipart,npartphi,ierr
  real :: massp,deltar,polyn,np
  real :: ri,zi,rhofac,deltaphi,densi,bigG

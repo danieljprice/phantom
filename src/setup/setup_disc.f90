@@ -241,17 +241,17 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- integer,           intent(in)    :: id
- integer,           intent(out)   :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: polyk
- real,              intent(out)   :: gamma
- real,              intent(out)   :: hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)   :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(out)   :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: polyk
+ real,             intent(out)   :: gamma
+ real,             intent(out)   :: hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
 
  write(*,"(/,65('-'),/,/,5x,a,/,/,65('-'))") 'Welcome to the New Disc Setup'
 
@@ -533,8 +533,8 @@ end subroutine set_default_options
 !
 !--------------------------------------------------------------------------
 subroutine get_setup_parameters(id,fileprefix)
- integer,           intent(in) :: id
- character(len=*),  intent(in) :: fileprefix
+ integer,          intent(in) :: id
+ character(len=*), intent(in) :: fileprefix
  logical :: iexist,seq_exists
  integer :: j,ierr
 
@@ -823,7 +823,7 @@ subroutine setup_central_objects(fileprefix)
  use sethierarchical,      only:set_hierarchical,set_multiple
  use setorbit,             only:set_orbit
  use setunits,             only:dist_unit,mass_unit
- character(len=*),  intent(in)    :: fileprefix
+ character(len=*), intent(in) :: fileprefix
 
  integer :: i,ierr
 
@@ -1140,16 +1140,16 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use sethier_utils,   only:findloc_local
  use setdisc,         only:set_disc
  use growth,          only:alpha_dg
- integer,           intent(in)    :: id
- character(len=*),  intent(in)    :: fileprefix
- real,              intent(out)   :: hfact
- real,              intent(in)    :: gamma
- integer,           intent(out)   :: npart
- real,              intent(out)   :: polyk
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(inout) :: xyzh(:,:)
- real,              intent(inout) :: vxyzu(:,:)
+ integer,          intent(in)    :: id
+ character(len=*), intent(in)    :: fileprefix
+ real,             intent(out)   :: hfact
+ real,             intent(in)    :: gamma
+ integer,          intent(out)   :: npart
+ real,             intent(out)   :: polyk
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(inout) :: xyzh(:,:)
+ real,             intent(inout) :: vxyzu(:,:)
 
  integer            :: i,j,itype
  integer            :: npingasdisc,npindustdisc
@@ -2135,7 +2135,7 @@ subroutine set_tmax_dtmax(fileprefix)
  use setorbit, only:write_trajectory_to_file
  use timestep, only:tmax,dtmax
  use units,    only:in_code_units
- character(len=*),  intent(in)    :: fileprefix
+ character(len=*), intent(in) :: fileprefix
  real :: period,period1,period2,mu
  real :: flyby_d
  integer :: ierr

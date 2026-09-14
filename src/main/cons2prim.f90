@@ -52,7 +52,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(out) :: pxyzu(:,:)
  real,    intent(inout), optional :: dens(:)
- logical, intent(in), optional :: use_sink
+ logical, intent(in),    optional :: use_sink
  integer :: i
  real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
 

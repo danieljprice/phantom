@@ -58,16 +58,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use stretchmap,   only:set_density_profile
  use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
  use infile_utils, only:get_options
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma
- real,              intent(inout) :: hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
- real,              intent(out)   :: vxyzu(:,:)
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma
+ real,             intent(inout) :: hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
+ real,             intent(out)   :: vxyzu(:,:)
  character(len=40) :: lattice,pspec_filename1,pspec_filename2,pspec_filename3
  real    :: totmass,deltax,pi
  integer :: i,ierr,ncross

@@ -112,7 +112,7 @@ subroutine read_options_eos_zerotemp(db,nerr)
 
  use infile_utils, only:inopts, read_inopt
  type(inopts), intent(inout) :: db(:)
- integer, intent(inout) :: nerr
+ integer,      intent(inout) :: nerr
 
  call read_inopt(xh ,'xh',db,nerr)
  call read_inopt(xhe,'xhe',db,nerr)
@@ -254,8 +254,8 @@ end subroutine get_zerotemp_pressure
 !+!  get internal energy from density for zero temperature EOS
 !-----------------------------------------------------------------------
 subroutine get_zerotemp_u(rhoi,u)
- real,    intent(in)    :: rhoi
- real,    intent(out)   :: u
+ real, intent(in)  :: rhoi
+ real, intent(out) :: u
  real :: x, gx
 
  x = x_from_rho(rhoi)
@@ -292,8 +292,8 @@ end subroutine get_zerotemp_spsoundi
 !----------------------------------------------------------------
 subroutine get_zerotemp_rhofrompres(presi,densi,ierr)
 
- real, intent(in)  :: presi
- real, intent(out) :: densi
+ real,    intent(in)  :: presi
+ real,    intent(out) :: densi
  integer, intent(out) :: ierr
 
  real :: ne, x, fx

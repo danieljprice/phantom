@@ -3686,8 +3686,8 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,rhoi
  real(4), intent(in)  :: poten
  real,    intent(in)  :: xyzh(:),vxyzu(:),rad(:)
  real,    intent(in)  :: xyzmh_ptmass(5,nptmass)
- real, intent(in), optional :: mui
  real,    intent(out) :: phii,epoti,ekini,egasi,eradi,ereci,etoti
+ real,    intent(in), optional :: mui
  real                                   :: fxi,fyi,fzi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi,erec_cgs,cveff,mu_local
  integer                                :: ierr
 

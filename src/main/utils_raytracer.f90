@@ -50,10 +50,10 @@ contains
  !------------------------------------------------------------------------------------
 subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, rho, kappa_cgs, order, outwards, tau)
  use part,   only: iReff
- integer, intent(in) :: npart, order, nptmass
- real, intent(in)    :: kappa_cgs(:), xyzh(:,:), xyzmh_ptmass(:,:), rho(:)
- logical, intent(in) :: outwards
- real, intent(out)   :: tau(:)
+ integer, intent(in)  :: npart, order, nptmass
+ real,    intent(in)  :: kappa_cgs(:), xyzh(:,:), xyzmh_ptmass(:,:), rho(:)
+ logical, intent(in)  :: outwards
+ real,    intent(out) :: tau(:)
  real :: Rinject
 
  Rinject = xyzmh_ptmass(iReff,1)
@@ -87,15 +87,15 @@ end subroutine get_all_tau
  !---------------------------------------------------------------------------------
 subroutine get_all_tau_single(npart, primary, Rstar, xyzh, rho, kappa, Rinject, order, outwards, tau)
  use part, only:isdead_or_accreted
- integer, intent(in) :: npart,order
- real, intent(in)    :: primary(3), Rstar, xyzh(:,:), kappa(:), Rinject, rho(:)
- logical, intent(in) :: outwards
- real, intent(out)   :: tau(:)
+ integer, intent(in)  :: npart,order
+ real,    intent(in)  :: primary(3), Rstar, xyzh(:,:), kappa(:), Rinject, rho(:)
+ logical, intent(in)  :: outwards
+ real,    intent(out) :: tau(:)
 
  integer  :: i, nrays, nsides
  real     :: ray_dir(3),part_dir(3)
- real, dimension(:,:), allocatable  :: rays_dist, rays_tau
- integer, dimension(:), allocatable :: rays_dim
+ real, allocatable :: rays_dist(:,:), rays_tau(:,:)
+ integer, allocatable :: rays_dim(:)
  integer, parameter :: ndim = 200 ! maximum number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
@@ -168,16 +168,16 @@ end subroutine get_all_tau_single
  !--------------------------------------------------------------------------
 subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, rho, kappa, Rinject, companion, Rcomp, order, outwards, tau)
  use part, only:isdead_or_accreted
- integer, intent(in) :: npart, order
- real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, Rinject, xyzh(:,:), Rcomp, rho(:)
- logical, intent(in) :: outwards
- real, intent(out)   :: tau(:)
+ integer, intent(in)  :: npart, order
+ real,    intent(in)  :: primary(3), companion(3), kappa(:), Rstar, Rinject, xyzh(:,:), Rcomp, rho(:)
+ logical, intent(in)  :: outwards
+ real,    intent(out) :: tau(:)
 
  integer  :: i, nrays, nsides
  real     :: normCompanion,theta0,phi,cosphi,sinphi,theta,sep,root
  real     :: ray_dir(3),part_dir(3),uvecCompanion(3)
- real, dimension(:,:), allocatable  :: rays_dist, rays_tau
- integer, dimension(:), allocatable :: rays_dim
+ real, allocatable :: rays_dist(:,:), rays_tau(:,:)
+ integer, allocatable :: rays_dim(:)
  integer, parameter :: ndim = 200 ! maximum number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
@@ -268,9 +268,9 @@ end subroutine get_all_tau_companion
  !+
  !--------------------------------------------------------------------------
 subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
- integer, intent(in) :: nsides, rays_dim(:)
- real, intent(in)    :: vec(:), rays_dist(:,:), rays_tau(:,:)
- real, intent(out)   :: tau
+ integer, intent(in)  :: nsides, rays_dim(:)
+ real,    intent(in)  :: vec(:), rays_dist(:,:), rays_tau(:,:)
+ real,    intent(out) :: tau
 
  integer :: rayIndex, neighbours(8), nneigh, i, k
  real    :: tautemp, ray(3), vectemp(3), weight, tempdist(8), distRay_sq, vec_norm2
@@ -333,9 +333,9 @@ end subroutine interpolate_tau
  !+
  !--------------------------------------------------------------------------
 subroutine get_tau_on_ray(distance, tau_along_ray, dist_along_ray, len, tau)
- real, intent(in)    :: distance, tau_along_ray(:), dist_along_ray(:)
- integer, intent(in) :: len
- real, intent(out)   :: tau
+ real,    intent(in)  :: distance, tau_along_ray(:), dist_along_ray(:)
+ integer, intent(in)  :: len
+ real,    intent(out) :: tau
 
  integer :: L, R, m ! left, right and middle index for binary search
 
@@ -384,11 +384,11 @@ end subroutine get_tau_on_ray
 subroutine ray_tracer(primary, ray, xyzh, rho, kappa, Rstar, Rinject, outwards, tau_along_ray, dist_along_ray, len, maxDistance)
  use units, only:unit_opacity
  use part,  only:itauL_alloc
- real, intent(in)     :: primary(3), ray(3), Rstar, Rinject, xyzh(:,:), kappa(:), rho(:)
+ real,    intent(in)  :: primary(3), ray(3), Rstar, Rinject, xyzh(:,:), kappa(:), rho(:)
+ real,    intent(out) :: dist_along_ray(:), tau_along_ray(:)
+ integer, intent(out) :: len
  logical, optional    :: outwards
  real, optional       :: maxDistance
- real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
- integer, intent(out) :: len
  real, parameter      :: tau_max = 99.
 
  real    :: dr, next_dr, h, dtaudr, previousdtaudr, nextdtaudr, distance
@@ -452,7 +452,7 @@ end subroutine ray_tracer
 
 logical function hasNext(inext, tau, distance, maxDistance)
  integer, intent(in) :: inext
- real, intent(in)    :: tau, distance
+ real,    intent(in) :: tau, distance
  real, optional      :: maxDistance
  real                :: tau_max = 99.
  if (present(maxDistance)) then
