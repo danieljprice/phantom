@@ -514,8 +514,8 @@ end subroutine string_replace
 pure subroutine split_string(string,delim,stringarr,nsplit)
  character(len=*), intent(in)  :: string
  character(len=*), intent(in)  :: delim
- character(len=*), intent(out), dimension(:), optional :: stringarr
  integer,          intent(out) :: nsplit
+ character(len=*), intent(out), optional :: stringarr(:)
  integer :: i,j,imax,iend,nmax
 
  i = 1

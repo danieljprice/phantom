@@ -14,9 +14,9 @@ module testptmass
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, cons2prim,
-!   deriv, dim, energies, eos, eos_HIIR, extern_binary, extern_gr,
-!   externalforces, gravwaveutils, io, kdtree, kernel, metric,
+! :Dependencies: HIIRegion, apr, boundary, centreofmass, checksetup,
+!   cons2prim, deriv, dim, energies, eos, eos_HIIR, extern_binary,
+!   extern_gr, externalforces, gravwaveutils, io, kdtree, kernel, metric,
 !   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
 !   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
 !   setup_params, spherical, step_lf_global, stretchmap, subgroup,

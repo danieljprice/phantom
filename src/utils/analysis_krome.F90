@@ -174,35 +174,35 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
           if (iprev(i) /= 0) then
              ! if particle existed in previous dump, evolve abundances
-            if (iamtype(iphase(i)) /= iboundary .and. iorig(i) > 2460) then ! 2460 is the amount of boundary particles
-             print*, "Evolving abundances for particle ", i, " (previous particle ", iprev(i), ")"
-             abundance_part(:) = abundance_prev(:,iprev(i))
-                  !Thermodynamic quantities
-                  rho_cgs = rho(i)*unit_density
-                  gammai = gamma
-                  mui    = gmw
-                  numberdensity = rho_cgs / (mui * atomic_mass_unit)
-                  T_gas = get_temperature(ieos,xyzh(1:3, i),rho(i),vxyzu(:,i),gammai,mui)
-                  T_gas = max(T_gas,20.0d0)
+             if (iamtype(iphase(i)) /= iboundary .and. iorig(i) > 2460) then ! 2460 is the amount of boundary particles
+                print*, "Evolving abundances for particle ", i, " (previous particle ", iprev(i), ")"
+                abundance_part(:) = abundance_prev(:,iprev(i))
+                !Thermodynamic quantities
+                rho_cgs = rho(i)*unit_density
+                gammai = gamma
+                mui    = gmw
+                numberdensity = rho_cgs / (mui * atomic_mass_unit)
+                T_gas = get_temperature(ieos,xyzh(1:3, i),rho(i),vxyzu(:,i),gammai,mui)
+                T_gas = max(T_gas,20.0d0)
 
-                  !Radiation quantities
-                  AUV = AuvAv * column_density(i) / (mui * atomic_mass_unit) / 1.87e21
-                  xi = get_xi(AUV)
+                !Radiation quantities
+                AUV = AuvAv * column_density(i) / (mui * atomic_mass_unit) / 1.87e21
+                xi = get_xi(AUV)
 
-                  call krome_set_user_Auv(AUV)
-                  call krome_set_user_xi(xi)
-                  call krome_set_user_alb(ALBEDO)
-                  call krome_set_user_AuvAv(AuvAv)
+                call krome_set_user_Auv(AUV)
+                call krome_set_user_xi(xi)
+                call krome_set_user_alb(ALBEDO)
+                call krome_set_user_AuvAv(AuvAv)
 
-                  Y = abundance_part*numberdensity
-                  call krome(Y,T_gas,dt_cgs)
-                  abundance_part = Y/numberdensity
-                  abundance(:,i) = abundance_part
+                Y = abundance_part*numberdensity
+                call krome(Y,T_gas,dt_cgs)
+                abundance_part = Y/numberdensity
+                abundance(:,i) = abundance_part
              endif
           else
-               ! if particle is new, set initial abundances
-               call chem_init(abundance_part)
-               abundance(:,i) = abundance_part
+             ! if particle is new, set initial abundances
+             call chem_init(abundance_part)
+             abundance(:,i) = abundance_part
           endif
 
        endif
@@ -327,10 +327,10 @@ subroutine read_chem(npart, dumpfile)
     return
  endif
 
-  ! open dataset for particle abundances
-  ! open group for particle data
+ ! open dataset for particle abundances
+ ! open group for particle data
  call h5gopen_f(file_id, 'chemistry', group_id, hdferr)
-  ! open dataset for particle abundances
+ ! open dataset for particle abundances
  call h5dopen_f(group_id, 'abundances', dset_id, hdferr)
 
  call h5dget_space_f(dset_id, filespace_id, hdferr)

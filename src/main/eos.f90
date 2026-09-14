@@ -1188,10 +1188,10 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  real,    intent(inout) :: temp
  real,    intent(out)   :: P
  integer, intent(in)    :: ieos
- real                :: cgsrho,cgspres,cgss
+ integer, intent(out), optional :: niter_out
  real,    parameter  :: eoserr=1e-12
  integer, parameter  :: nitermax = 1000
- integer, intent(out), optional :: niter_out
+ real                :: cgsrho,cgspres,cgss
 
  ! change to cgs unit
  cgsrho = rho*unit_density
@@ -1230,9 +1230,9 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
  use units,   only:unit_density,unit_ergg
  use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
- real,    intent(in)    :: S,rho
- real,    intent(out)   :: u
- integer, intent(in)    :: ieos
+ real,    intent(in)  :: S,rho
+ real,    intent(out) :: u
+ integer, intent(in)  :: ieos
  real                :: cgsrho,cgss, cgsu
 
  ! change to cgs unit

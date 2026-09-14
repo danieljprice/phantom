@@ -47,16 +47,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,         only:igas,istar,idarkmatter,iamtype,iphase
  use datafiles,    only:find_phantom_datafile
  use infile_utils, only:get_options,infile_exists
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma
- real,              intent(in)    :: hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma
+ real,             intent(in)    :: hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  character(len=120)               :: filename
  integer                          :: i,ndark,nstar,ngas,ierr
  real                             :: time_in,dist_in,mass_in

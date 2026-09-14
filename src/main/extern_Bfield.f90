@@ -87,9 +87,9 @@ subroutine externBfield(xi,yi,zi,hi,vxi,vyi,vzi,rhoi, &
 !
 !--set defaults in case of early return / no external B field
 !
-Bextx = 0.; Bexty = 0.; Bextz = 0.
-fextx = 0.; fexty = 0.; fextz = 0.
-vdotgradBx = 0.; vdotgradBy = 0.; vdotgradBz = 0.
+ Bextx = 0.; Bexty = 0.; Bextz = 0.
+ fextx = 0.; fexty = 0.; fextz = 0.
+ vdotgradBx = 0.; vdotgradBy = 0.; vdotgradBz = 0.
 !
 !--get 1/rho
 !

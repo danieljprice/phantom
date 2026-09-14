@@ -21,7 +21,7 @@ module externalforces
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !   extern_densprofile, extern_geopot, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!   infile_utils, io, units
+!   infile_utils, io, part, units
 !
  use extern_binary,        only:accradius1,mass1,accretedmass1,accretedmass2
  use extern_corotate,      only:omega_corotate  ! so public from this module

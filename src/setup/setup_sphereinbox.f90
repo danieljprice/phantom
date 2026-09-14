@@ -104,15 +104,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,       only:hfact_default
  use infile_utils, only:get_options,infile_exists
  use units,        only:umass,udist
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: vxyzu(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma,hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: vxyzu(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  integer            :: ierr,iBElast,npartsphere
  real               :: totmass,vol_box,vol_sphere,cs_sphere
  real               :: dens_sphere,dens_medium,cs_medium,angvel_code,przero
@@ -614,9 +614,9 @@ subroutine setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
  use ptmass,       only:icreate_sinks,h_acc,r_crit
  use eos,          only:ieos,icooling
  use infile_utils, only:infile_exists
- character(len=*),  intent(in)    :: fileprefix
- real,              intent(in) :: t_ff
- real,              intent(in) :: h_acc_setup
+ character(len=*), intent(in) :: fileprefix
+ real,             intent(in) :: t_ff
+ real,             intent(in) :: h_acc_setup
  ! set default runtime parameters if .in file does not exist
  !
  dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup

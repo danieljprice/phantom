@@ -199,7 +199,7 @@ subroutine init_send_requests(irequestsend)
  integer, intent(out) :: irequestsend(nprocs)
 
 !--instead of simply assigning 0, assign MPI_REQUEST_NULL
-!  it is infact 0 in open mpi, but 0x2c000000 for MPICH-derived MPI. 
+!  it is infact 0 in open mpi, but 0x2c000000 for MPICH-derived MPI.
 
 #ifdef MPI
  irequestsend = MPI_REQUEST_NULL

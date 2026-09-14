@@ -1540,8 +1540,8 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,ni,gradhi,zeta,gra
  real,         intent(in)  :: hi
  logical,      intent(in)  :: iterating
  real,         intent(out) :: rhoi
- real,         intent(out), optional :: ni
  real(kind=8), intent(out) :: gradhi
+ real,         intent(out), optional :: ni
  real,         intent(out), optional :: zeta
  real(kind=8), intent(out), optional :: gradsofti
  real,         intent(out), optional :: dhdni_out

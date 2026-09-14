@@ -70,12 +70,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use table_utils,        only:yinterp
  use units,              only:unit_density,unit_velocity
  use infile_utils,       only:get_options
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:),polyk,gamma,hfact
- real,              intent(inout) :: time
- character(len=*),  intent(in)    :: fileprefix
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:),polyk,gamma,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
  real               :: rhocentre,rmin,densi,presi,ri
  real, allocatable  :: r(:),den(:),pres(:),temp(:),Xfrac(:),Yfrac(:),mu(:)
  integer            :: ierr,ierr_relax,npts,np,i,iptmass_core
