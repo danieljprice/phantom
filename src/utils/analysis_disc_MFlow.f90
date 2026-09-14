@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: discanalysisutils, io, part, physcon, sortutils
+! :Dependencies: discanalysisutils, io, physcon, sortutils
 !
  use discanalysisutils, only:read_discparams,createbins
  implicit none

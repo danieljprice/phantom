@@ -17,7 +17,7 @@ module readwrite_infile
 !   - dumpfile : *dump file to start from*
 !   - hfact    : *h in units of particle spacing [h = hfact*n^(-1/3)]*
 !   - logfile  : *file to which output is directed*
-!   - tolh     : *tolerance on h-rho iterations*
+!   - tolh     : *tolerance on h-n iterations*
 !
 ! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, fileutils, forcing, gravwaveutils,

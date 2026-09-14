@@ -14,7 +14,7 @@ module testexternf
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: extern_corotate, extern_geopot, externalforces, io,
+! :Dependencies: dim, extern_corotate, extern_geopot, externalforces, io,
 !   kernel, mpidomain, part, physcon, testutils, unifdis, units
 !
  implicit none
