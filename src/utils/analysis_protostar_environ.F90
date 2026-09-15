@@ -539,6 +539,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     no_file(isink) = .false.
  enddo
  no_file(maxptmass+1) = .false.
+ deallocate(etaart)
 
 end subroutine do_analysis
 !
@@ -1194,7 +1195,6 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        endif
     endif
  enddo parts
- deallocate(etaart)
 
  angx = 0.0
  angy = 0.0
