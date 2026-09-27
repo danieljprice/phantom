@@ -33,7 +33,7 @@ module dtypekdtree
                     + 4 &    ! tobecached
                     + 4 &    ! ncached
                     + 4 &    ! fcached
-                    + 8*9 &  ! quads(9) (dips+quads)
+                    + 8*1 &  ! quads(6) (quads)
                     + 8*10 & ! octs(10)
 #endif
                     + 0
@@ -66,7 +66,7 @@ module dtypekdtree
     integer :: tobecached
     logical :: ncached
     logical :: fcached
-    real    :: quads(9)
+    real    :: quads(6)
     real    :: octs(10)  ! xxx,xxy,xxz,xyy,xyz,xzz,yyy,yyz,yzz,zzz
 #endif
  end type kdnode

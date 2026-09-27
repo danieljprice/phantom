@@ -325,8 +325,6 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  if ((maxlevel < maxlevel_indexed) .and. (.not. use_geosplit)) then
     ncells = 2**(maxlevel+1) - 1
  endif
- !-- if octree is used, we need to propagate information from leaf to root (hmax and quads)
- ! if (use_geosplit) call propagate_upward(int(ncells), node)
 
  if (maxlevel > maxlevel_indexed .and. .not.already_warned) then
     write(string,"(i10)") 2**(maxlevel-maxlevel_indexed)
@@ -645,7 +643,7 @@ subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmi
  real    :: hmax,r2max,totmass
  integer :: i1,i
 #ifdef GRAVITY
- real    :: quads(9)
+ real    :: quads(6)
  real    :: octs(10)
 #endif
 
@@ -742,9 +740,6 @@ subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmi
     quads(4)  = reduce_group(quads(4),'+',level)
     quads(5)  = reduce_group(quads(5),'+',level)
     quads(6)  = reduce_group(quads(6),'+',level)
-    quads(7)  = reduce_group(quads(7),'+',level)
-    quads(8)  = reduce_group(quads(8),'+',level)
-    quads(9)  = reduce_group(quads(9),'+',level)
     octs(1)   = reduce_group(octs(1),'+',level)
     octs(2)   = reduce_group(octs(2),'+',level)
     octs(3)   = reduce_group(octs(3),'+',level)
@@ -1255,156 +1250,6 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
 
 end subroutine special_sort_particles_in_cell
 
-subroutine propagate_upward(ncells,node)
- use io, only: fatal
-!$ use omp_lib, only: omp_get_max_threads, omp_get_thread_num
- integer,      intent(in)    :: ncells
- type(kdnode), intent(inout) :: node(:)
- integer, allocatable :: levcount(:), levstart(:), nodelist(:)
- integer, allocatable :: levcount_t(:,:)
- integer :: i,lvl,id,istart,iend,il,ir,npnode,nthreads,it,tid
- integer :: rcnt(0:maxlevel)
- real    :: mnode
-
- !--
- !  sort internal nodes (both children present) by tree level using a
- !  parallel counting sort. The count pass keeps a histogram per thread
- !  (levcount_t); prefix sums give the start of each level in nodelist;
- !  for the scatter each thread uses a private running offset (rcnt),
- !  initialised from the cumulative histogram of the threads that precede
- !  it, so that each thread writes a disjoint slice of nodelist, race-free.
- !  Count and scatter use the same schedule(static), which guarantees that
- !  thread tid counts exactly the nodes it later scatters.
- !--
- nthreads = 1
-!$ nthreads = omp_get_max_threads()
- allocate(levcount(0:maxlevel), levstart(0:maxlevel+1), nodelist(ncells))
- allocate(levcount_t(0:maxlevel,1:nthreads))
- levcount_t = 0
- levcount = 0
-
- !$omp parallel default(none) &
- !$omp shared(node,ncells,maxlevel,nthreads,nodelist,levcount,levstart,levcount_t,inoderange) &
- !$omp private(i,lvl,id,istart,iend,il,ir,mnode,npnode) &
- !$omp private(it,tid,rcnt)
- tid = omp_get_thread_num()
-
- !$omp do schedule(static)
- do i = 1, ncells
-    if (node(i)%leftchild > 0) then
-       lvl = node(i)%level
-       if (lvl < 0 .or. lvl > maxlevel) cycle
-       levcount_t(lvl,tid+1) = levcount_t(lvl,tid+1) + 1
-    endif
- enddo
- !$omp end do
-
- !--combine the per-thread histograms and build the per-level starts
- !$omp single
- do it=1,nthreads
-    levcount(:) = levcount(:) + levcount_t(:,it)
- enddo
- levstart(0) = 1
- do lvl = 1, maxlevel+1
-    levstart(lvl) = levstart(lvl-1) + levcount(lvl-1)
- enddo
- !$omp end single
-
- !--scatter: start each thread's offsets after the counts of the preceding
- !  threads, then fill nodelist within each thread's own level slices
- rcnt(:) = levstart(0:maxlevel)
- do it=1,tid
-    rcnt(:) = rcnt(:) + levcount_t(:,it)
- enddo
- !$omp do schedule(static)
- do i = 1, ncells
-    if (node(i)%leftchild > 0) then
-       lvl = node(i)%level
-       if (lvl < 0 .or. lvl > maxlevel) cycle
-       nodelist(rcnt(lvl)) = i
-       rcnt(lvl) = rcnt(lvl) + 1
-    endif
- enddo
- !$omp end do
-
- !--
- !  propagate properties upward, one level at a time (deepest first).
- !  nodes in the same level are not ancestor/descendant of each other, so
- !  each level can be processed in parallel, in place: a node only reads
- !  its children (already final from the previous level) and writes itself.
- !--
- do lvl = maxlevel, 0, -1
-
-    istart = levstart(lvl)
-    iend = levstart(lvl) + levcount(lvl) - 1
-    if (iend < istart) cycle
-
-    !$omp do schedule(runtime)
-    do id = istart, iend
-       i  = nodelist(id)
-       il = node(i)%leftchild
-       ir = node(i)%rightchild
-       call translate_node(node,i,il,ir)
-
-       npnode = inoderange(2,i) - inoderange(1,i) + 1
-       mnode  = node(i)%mass
-       if (npnode > 1 .and. mnode < epsilon(mnode)) then
-          call fatal('mtree','mnode==0',val=mnode)
-       endif
-    enddo
-    !$omp end do
-
- enddo
- !$omp end parallel
-
- deallocate(levcount,levstart,nodelist,levcount_t)
-
-end subroutine propagate_upward
-
-subroutine translate_node(node,ip,il,ir)
- type(kdnode), intent(inout) :: node(:)
- integer,      intent(in)    :: ip,il,ir
- real    :: dx(3),massp,massc,quadsp(9),quadsc(9),dips(3),hmaxc,hmaxp
- integer :: j,ic(2),k
-
- ic = (/il,ir/)
- massp  = 0.
- hmaxp  = 0.
- quadsp = 0.
- dips   = 0.
-
- do j=1,2
-    k = ic(j)
-    massc  = node(k)%mass
-    quadsc = node(k)%quads
-    hmaxc  = node(k)%hmax
-    dx     = node(k)%xcen - node(ip)%xcen
-
-    massp       = massp + massc
-    dips(1)     = quadsc(1) + dx(1)*massc
-    dips(2)     = quadsc(2) + dx(2)*massc
-    dips(3)     = quadsc(3) + dx(3)*massc
-    quadsp(1)   = quadsp(1) + dips(1)
-    quadsp(2)   = quadsp(2) + dips(2)
-    quadsp(3)   = quadsp(3) + dips(3)
-    quadsp(4)   = quadsp(4) + quadsc(4) + dx(1)*dips(1) + quadsc(1)*dx(1)
-    quadsp(5)   = quadsp(5) + quadsc(5) + dx(1)*dips(2) + quadsc(1)*dx(2)
-    quadsp(6)   = quadsp(6) + quadsc(6) + dx(1)*dips(3) + quadsc(1)*dx(3)
-    quadsp(7)   = quadsp(7) + quadsc(7) + dx(2)*dips(2) + quadsc(2)*dx(2)
-    quadsp(8)   = quadsp(8) + quadsc(8) + dx(2)*dips(3) + quadsc(2)*dx(3)
-    quadsp(9)   = quadsp(9) + quadsc(9) + dx(3)*dips(3) + quadsc(3)*dx(3)
-
-    hmaxp = max(hmaxp,hmaxc)
-
- enddo
-
- node(ip)%mass  = massp
- node(ip)%quads = quadsp
- node(ip)%hmax  = hmaxp
-
-end subroutine translate_node
-
-
 !----------------------------------------------------------------
 !+
 !  Cache particles within identified neighbour nodes
@@ -1511,7 +1356,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  logical :: open_tree_node
  logical :: global_walk
 #ifdef GRAVITY
- real :: quads(9)
+ real :: quads(6)
  real :: dr,totmass_node
 #endif
  tree_acc2 = tree_accuracy*tree_accuracy
@@ -2029,9 +1874,9 @@ end subroutine node_interaction
 !-----------------------------------------------------------
 pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  real, intent(in)    :: dx,dy,dz,dr1,q0
- real, intent(in)    :: quads(9)
+ real, intent(in)    :: quads(6)
  real, intent(inout) :: fnode(lenfgrav)
- real :: qx,qy,qz,qxx,qxy,qxz,qyy,qyz,qzz,dx2,dx3,dy2,dy3,dz2,dz3
+ real :: qxx,qxy,qxz,qyy,qyz,qzz,dx2,dx3,dy2,dy3,dz2,dz3
  real :: dr12,D3(10),D2(6),D1(3),g0,g1,g2,g3,g2dx,g2dy,g2dz
 
 ! note: dr == 1/sqrt(r2)
@@ -2075,28 +1920,22 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  D1(2)  = g1*dy
  D1(3)  = g1*dz
 
- qx  = quads(1)
- qy  = quads(2)
- qz  = quads(3)
- qxx = quads(4)
- qxy = quads(5)
- qxz = quads(6)
- qyy = quads(7)
- qyz = quads(8)
- qzz = quads(9)
+ qxx = quads(1)
+ qxy = quads(2)
+ qxz = quads(3)
+ qyy = quads(4)
+ qyz = quads(5)
+ qzz = quads(6)
 
- fnode(1)  = fnode(1)  + (D1(1)*q0  + D2(1)*qx + D2(2)*qy + D2(3)*qz +&
-                     0.5*(D3(1)*qxx + 2.*(D3(2)*qxy + D3(3)*qxz + D3(5)*qyz) + D3(4)*qyy + D3(6)*qzz ))    ! C¹_x
- fnode(2)  = fnode(2)  + (D1(2)*q0  + D2(2)*qx + D2(4)*qy + D2(5)*qz +&
-                     0.5*(D3(2)*qxx + 2.*(D3(4)*qxy + D3(5)*qxz + D3(8)*qyz) + D3(7)*qyy + D3(9)*qzz ))    ! C¹_y
- fnode(3)  = fnode(3)  + (D1(3)*q0  + D2(3)*qx + D2(5)*qy + D2(6)*qz +&
-                     0.5*(D3(3)*qxx + 2.*(D3(5)*qxy + D3(6)*qxz + D3(9)*qyz) + D3(8)*qyy + D3(10)*qzz))   ! C¹_z
- fnode(4)  = fnode(4)  - (D2(1) * q0 + D3(1)*qx + D3(2)*qy + D3(3)*qz)  ! C²_xx
- fnode(5)  = fnode(5)  - (D2(2) * q0 + D3(2)*qx + D3(4)*qy + D3(5)*qz)! C²_xy
- fnode(6)  = fnode(6)  - (D2(3) * q0 + D3(3)*qx + D3(5)*qy + D3(6)*qz)! C²_xz
- fnode(7)  = fnode(7)  - (D2(4) * q0 + D3(4)*qx + D3(7)*qy + D3(8)*qz)! C²_yy
- fnode(8)  = fnode(8)  - (D2(5) * q0 + D3(5)*qx + D3(8)*qy + D3(9)*qz)! C²_yz
- fnode(9)  = fnode(9)  - (D2(6) * q0 + D3(6)*qx + D3(9)*qy + D3(10)*qz)! C²_zz
+ fnode(1)  = fnode(1)  + D1(1)*q0 + 0.5*(D3(1)*qxx + 2.*(D3(2)*qxy + D3(3)*qxz + D3(5)*qyz) + D3(4)*qyy + D3(6)*qzz)    ! C¹_x
+ fnode(2)  = fnode(2)  + D1(2)*q0 + 0.5*(D3(2)*qxx + 2.*(D3(4)*qxy + D3(5)*qxz + D3(8)*qyz) + D3(7)*qyy + D3(9)*qzz)    ! C¹_y
+ fnode(3)  = fnode(3)  + D1(3)*q0 + 0.5*(D3(3)*qxx + 2.*(D3(5)*qxy + D3(6)*qxz + D3(9)*qyz) + D3(8)*qyy + D3(10)*qzz)   ! C¹_z
+ fnode(4)  = fnode(4)  - (D2(1) * q0)  ! C²_xx
+ fnode(5)  = fnode(5)  - (D2(2) * q0)  ! C²_xy
+ fnode(6)  = fnode(6)  - (D2(3) * q0)  ! C²_xz
+ fnode(7)  = fnode(7)  - (D2(4) * q0)  ! C²_yy
+ fnode(8)  = fnode(8)  - (D2(5) * q0)  ! C²_yz
+ fnode(9)  = fnode(9)  - (D2(6) * q0)  ! C²_zz
  fnode(10) = fnode(10) + D3(1) * q0    ! C³_xxx
  fnode(11) = fnode(11) + D3(2) * q0    ! C³_xxy
  fnode(12) = fnode(12) + D3(3) * q0    ! C³_xxz
@@ -2107,8 +1946,7 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
  fnode(17) = fnode(17) + D3(8) * q0    ! C³_yyz
  fnode(18) = fnode(18) + D3(9) * q0    ! C³_yzz
  fnode(19) = fnode(19) + D3(10)* q0    ! C³_zzz
- fnode(20) = fnode(20) + g0*q0 + (D1(1)*qx + D1(2)*qy + D1(3)*qz)  + &
-                         0.5*(D2(1)*qxx + D2(4)*qyy + D2(6)*qzz + 2*(D2(2)*qxy + D2(3)*qxz + D2(5)*qyz))! C⁰ (potential)
+ fnode(20) = fnode(20) + g0*q0 + 0.5*(D2(1)*qxx + D2(4)*qyy + D2(6)*qzz + 2*(D2(2)*qxy + D2(3)*qxz + D2(5)*qyz))! C⁰ (potential)
 
 end subroutine compute_M2L
 
@@ -2121,21 +1959,18 @@ end subroutine compute_M2L
 !----------------------------------------------------------------
 pure subroutine add_node_moments(pmassi,dx,dy,dz,quads,octs)
  real, intent(in)    :: pmassi,dx,dy,dz
- real, intent(inout) :: quads(9),octs(10)
+ real, intent(inout) :: quads(6),octs(10)
  real :: dx2,dy2,dz2
 
  dx2 = dx*dx
  dy2 = dy*dy
  dz2 = dz*dz
- quads(1) = quads(1) + pmassi*dx  ! Q_x
- quads(2) = quads(2) + pmassi*dy  ! Q_y
- quads(3) = quads(3) + pmassi*dz  ! Q_z
- quads(4) = quads(4) + pmassi*dx2          ! Q_xx
- quads(5) = quads(5) + pmassi*dx*dy        ! Q_xy
- quads(6) = quads(6) + pmassi*dx*dz        ! Q_xz
- quads(7) = quads(7) + pmassi*dy2          ! Q_yy
- quads(8) = quads(8) + pmassi*dy*dz        ! Q_yz
- quads(9) = quads(9) + pmassi*dz2          ! Q_zz
+ quads(1) = quads(1) + pmassi*dx2          ! Q_xx
+ quads(2) = quads(2) + pmassi*dx*dy        ! Q_xy
+ quads(3) = quads(3) + pmassi*dx*dz        ! Q_xz
+ quads(4) = quads(4) + pmassi*dy2          ! Q_yy
+ quads(5) = quads(5) + pmassi*dy*dz        ! Q_yz
+ quads(6) = quads(6) + pmassi*dz2          ! Q_zz
  octs(1)  = octs(1)  + pmassi*dx2*dx       ! xxx
  octs(2)  = octs(2)  + pmassi*dx2*dy       ! xxy
  octs(3)  = octs(3)  + pmassi*dx2*dz       ! xxz
@@ -2276,7 +2111,7 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
  real :: xi, yi, zi, hi
  real :: dx, dy, dz, dr2
 #ifdef GRAVITY
- real :: quads(9)
+ real :: quads(6)
  real :: octs(10)
 #endif
  integer :: inode, ipart, ipartidx, i, nptot

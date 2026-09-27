@@ -101,7 +101,7 @@ subroutine test_taylorseries(ntests,npass)
  integer :: nfailed(18),i,npnode
  real :: xposi(3),xposj(3),x0(3),dx(3),fexact(3),f0(3)
  real :: xposjd(3,3)
- real :: fnode(20),quads(9)
+ real :: fnode(20),quads(6)
  real :: dr,dr2,phi,phiexact,pmassi,totmass
 
  if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about current node'
@@ -151,15 +151,12 @@ subroutine test_taylorseries(ntests,npass)
  do i=1,npnode
     dx(:) = xposjd(:,i) - xposj
     dr2   = dot_product(dx,dx)
-    quads(1) = quads(1) + pmassi*dx(1)
-    quads(2) = quads(2) + pmassi*dx(2)
-    quads(3) = quads(3) + pmassi*dx(3)
-    quads(4) = quads(4) + pmassi*(dx(1)*dx(1))
-    quads(5) = quads(5) + pmassi*(dx(1)*dx(2))
-    quads(6) = quads(6) + pmassi*(dx(1)*dx(3))
-    quads(7) = quads(7) + pmassi*(dx(2)*dx(2))
-    quads(8) = quads(8) + pmassi*(dx(2)*dx(3))
-    quads(9) = quads(9) + pmassi*(dx(3)*dx(3))
+    quads(1) = quads(1) + pmassi*(dx(1)*dx(1))
+    quads(2) = quads(2) + pmassi*(dx(1)*dx(2))
+    quads(3) = quads(3) + pmassi*(dx(1)*dx(3))
+    quads(4) = quads(4) + pmassi*(dx(2)*dx(2))
+    quads(5) = quads(5) + pmassi*(dx(2)*dx(3))
+    quads(6) = quads(6) + pmassi*(dx(3)*dx(3))
  enddo
 
  x0 = 0.      ! position of nearest node centre
