@@ -30,9 +30,6 @@ module dtypekdtree
                     + 4 &    ! parent
                     + 4 &    ! level
 #ifdef GRAVITY
-                    + 4 &    ! tobecached
-                    + 4 &    ! ncached
-                    + 4 &    ! fcached
                     + 8*1 &  ! quads(6) (quads)
                     + 8*10 & ! octs(10)
 #endif
@@ -63,9 +60,6 @@ module dtypekdtree
     integer :: parent
     integer :: level ! avoid ifort warning: align on 4-byte boundary
 #ifdef GRAVITY
-    integer :: tobecached
-    logical :: ncached
-    logical :: fcached
     real    :: quads(6)
     real    :: octs(10)  ! xxx,xxy,xxz,xyy,xyz,xzz,yyy,yyz,yzz,zzz
 #endif
@@ -166,24 +160,6 @@ subroutine get_mpitype_of_kdnode(dtype)
  blens(nblock) = size(node%octs)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(node%octs,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(node%tobecached,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(node%ncached,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(node%fcached,addr,mpierr)
  disp(nblock) = addr - start
 #endif
 
