@@ -1720,7 +1720,7 @@ end subroutine propagate_fnode_to_node
 !  return list of parents of current node
 !+
 !-----------------------------------------------------------
-pure subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
+subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
  integer,      intent(in)  :: inode
  type(kdnode), intent(in)  :: node(:)
  integer,      intent(out) :: parents(:)
@@ -1759,6 +1759,7 @@ end subroutine get_list_of_parent_nodes
 subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
                            listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                            maxcache,xoffset,yoffset,zoffset)
+ use io, only:fatal
  type(kdnode), intent(in)    :: srcnode
  integer,      intent(in)    :: isrc,idstbranch
  integer,      intent(in)    :: branch(:)
