@@ -49,6 +49,7 @@ module kdtree
  integer,          parameter         :: maxdepth     = 64
  integer,          parameter         :: maxnodecache_local = 512
  integer,          parameter         :: maxneigh_per_node  = 16
+ integer,          parameter         :: maxstacksize = 2048
 !
 !--runtime options for this module
 !
@@ -1413,7 +1414,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
              call cache_neighbours(nneigh,n,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
           endif if_global_walk
        else
-          if (istack+2 > ncellsmax+1) call fatal('getneigh','stack overflow in getneigh')
+          if (istack+2 > maxdepth+1) call fatal('getneigh','stack overflow in getneigh')
           if (il /= 0) then
              istack = istack + 1
              nstack(istack) = il
@@ -1480,7 +1481,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  real,         intent(out)   :: fnode(lenfgrav)
  integer,      intent(in)    :: icell
  integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,tobecached,ibase
- integer :: branch(maxdepth),nparents,stack(3,2048),startwith(2)
+ integer :: branch(maxdepth),nparents,stack(3,maxstacksize),startwith(2)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
@@ -1507,7 +1508,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  zoffset = 0.
 
  if (use_cache .and. startwith(2) > 0) then
-    ! print*, real(nparents-startwith(2)+1)/nparents,nparents,neighnodecache_count(startwith(1))*2
     do i=1,neighnodecache_count(startwith(1))
        isrc = neighnodecache(neighnodecache_start(startwith(1)) + i)
        call open_nodes(stack,istack,node(isrc),isrc,branch,startwith(2),&
@@ -1585,11 +1585,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
                 !$omp atomic write
                 node(iparent)%ncached = .true.
                 !$omp end atomic
-                ! else
-                !    print*,"overflow global !!! "
              endif
-             ! else
-             !    print*,"overflow local !!!",neighnodecount_branch(i),i
           endif
        else
           !$omp atomic read
@@ -1731,7 +1727,7 @@ pure subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
  integer,      intent(out) :: nparents
  integer,      intent(out) :: startwith(2)
  integer :: j
- logical :: notfound
+ logical :: notfound,ncached
 
  j = inode
  notfound  = .true.
@@ -1742,7 +1738,10 @@ pure subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
  do while (node(j)%parent  /=  0)
     j = node(j)%parent
     nparents = nparents + 1
-    if (node(j)%ncached .and. notfound ) then
+    !$omp atomic read
+    ncached = node(j)%ncached
+    !$omp end atomic
+    if (ncached .and. notfound ) then
        startwith(1) = j
        startwith(2) = nparents
        notfound = .false.
@@ -1791,6 +1790,7 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
     is_P2P: if (isdstleaf) then !-- P2P detected should be cached and tagged as neighbours
        call cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
     else ! then you're a leaf -> leaf lowering
+       if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
        istack = istack + 1
        stack(1,istack) = idstnext
        stack(2,istack) = isrc
@@ -1798,12 +1798,14 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
     endif is_P2P
  else
     if (il /= 0) then
+       if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
        istack = istack + 1
        stack(1,istack) = idstnext
        stack(2,istack) = il
        stack(3,istack) = ibranchnext
     endif
     if (ir /= 0) then
+       if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
        istack = istack + 1
        stack(1,istack) = idstnext
        stack(2,istack) = ir
