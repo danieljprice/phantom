@@ -1481,7 +1481,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  logical,      intent(in)    :: get_f
  real,         intent(out)   :: fnode(lenfgrav)
  integer,      intent(in)    :: icell
- integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,claimed,ibase,nodestate
+ integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate
  integer :: branch(maxdepth),nparents,stack(3,maxstacksize),startwith(2)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
@@ -1562,10 +1562,10 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     ! -- Cache node if first thread to reach it or fetch fnode in memory
     if (use_cache) then
        !$omp atomic capture
-       claimed = cachestate(iparent)
+       nodestate = cachestate(iparent)
        cachestate(iparent) = max(cachestate(iparent),1)
        !$omp end atomic
-       if (claimed==1) then
+       if (nodestate==0) then
           !-- winner: publish fnode first ...
           fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
 
@@ -1587,14 +1587,9 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
                 !$omp end atomic
              endif
           endif
-       else
-          !$omp atomic read
-          nodestate = cachestate(iparent)
-          !$omp end atomic
-          if (nodestate>=2) then
-             !-- fetch fnode from the cache array
-             fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
-          endif
+       elseif (nodestate>=2) then
+          !-- fetch fnode from the cache array
+          fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif
     endif
 
