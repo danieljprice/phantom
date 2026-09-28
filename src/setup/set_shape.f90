@@ -29,7 +29,7 @@ module shape
 
 contains
 
-subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,objfile)
+subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,objfile,vol)
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(in)    :: np_requested
@@ -38,8 +38,9 @@ subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,
  real,             intent(out)   :: xyzh(:,:)
  integer(kind=8),  intent(inout) :: nptot
  character(len=*), intent(in)    :: objfile
+ real,             intent(out), optional :: vol
  integer :: i,iter,np_try,np_keep,ncube
- real    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,ratio
+ real    :: xmin,xmax,ymin,ymax,zmin,zmax,delta,ratio,vol_keep
  character(len=32) :: shape_kind
  character(len=1)  :: axis
  real :: p1,p2,p3
@@ -48,6 +49,7 @@ subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,
  integer, allocatable :: faces(:,:)
  real :: bmin(3),bmax(3)
  logical :: mesh_ok
+ real :: rbox  !to hold the enlarged half-width, so max(p1,p2,p3) is evaluated one time instead of six
 
  xmin = -rmax; xmax = rmax
  ymin = -rmax; ymax = rmax
@@ -65,11 +67,25 @@ subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,
       axis = 'z'
     endif
  endif
+ !
+ ! the lattice must enclose the shape or it is silently clipped (rmax is the
+ ! ephemeris radius and knows nothing about the shape file)
+ !
+ if (mesh_ok) then !mesh files
+    xmin = bmin(1); xmax = bmax(1) !bmax and bmin are meshes own bounding box, filled by load_obj_mesh at line 391 after scaling
+    ymin = bmin(2); ymax = bmax(2)
+    zmin = bmin(3); zmax = bmax(3)
+ elseif (max(p1,p2,p3) > rmax) then  !analytic shapes and altered shapes (only activated if actually exceeds rmax)
+    rbox = max(p1,p2,p3)   !these have no bmin or bmax, only max(p1,p2,p3)
+    xmin = -rbox; xmax = rbox
+    ymin = -rbox; ymax = rbox
+    zmin = -rbox; zmax = rbox
+ endif
 
  np = 0
  nptot = 0_8
  ncube = max(6,nint(np_requested**(1.0/3.0)))
- delta = 2.0*rmax/real(ncube)
+ delta = maxval((/xmax-xmin,ymax-ymin,zmax-zmin/))/real(ncube)
 
  do iter=1,8
     np = 0
@@ -85,6 +101,15 @@ subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,
     endif
     np = np_keep
     nptot = int(np_keep,kind=8)
+    !
+    ! volume of the kept body = particles kept x space each lattice point occupies
+    !
+    select case(trim(lattice))
+    case('closepacked','hcp','hexagonal')
+       vol_keep = np_keep*delta**3/sqrt(2.)
+    case default
+       vol_keep = np_keep*(xmax-xmin)*(ymax-ymin)*(zmax-zmin)/max(np_try,1)
+    end select
 
     if (np_try <= 0) exit
     if (np_requested <= 0) exit
@@ -97,6 +122,7 @@ subroutine set_shape(lattice,id,master,np_requested,x0,rmax,hfact,np,xyzh,nptot,
        delta = delta*ratio**(1.0/3.0)
     endif
  enddo
+ if (present(vol)) vol = vol_keep
 
  if (id==master) then
     write(*,"(1x,a,1x,a)") 'shape type:',trim(shape_kind)

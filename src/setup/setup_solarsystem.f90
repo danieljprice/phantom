@@ -43,6 +43,7 @@ character(len=256) :: apophis_shape_file
  real :: scale_earth_sep
  real :: scale_r_apophis
  real :: scale_rho
+ real :: mass_apophis
  real :: apophis_spin_period
  real :: apophis_spin_axis(3)
  real :: apophis_spin_torque_align_deg ! torque-align angle (deg); -1 = use apophis_spin_axis_*
@@ -86,7 +87,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: iearth = 4  ! Earth sink index when apophis_only=F
  !integer :: values(8),year,month,day
  real    :: period,semia,mtot,dx
- real    :: r_apophis,m_apophis,rtidal,spsoundmin
+ real    :: r_apophis,m_apophis,vol_apophis,rtidal,spsoundmin
  real    :: dr(3),sep_km,sep_re,rperi,rperi_km,rperi_re,ecc,vrel_kms
  real    :: dv(3),spin_axis_resolved(3),torque_align_deg
 !
@@ -108,6 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  scale_earth_sep=1.
  scale_r_apophis=1.
  scale_rho=1.
+ mass_apophis=0.
  apophis_shape_file='apophis.shape'
  apophis_spin_period = 0.
  apophis_spin_axis   = (/ 0., 0., 1. /)
@@ -210,15 +212,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(5,nptmass) = r_apophis
     print "(a,1pg10.3)",' apophis radius scaled by ',scale_r_apophis
 
-    m_apophis = 4./3.*pi*(rho_0*scale_rho/unit_density)*r_apophis**3
-    xyzmh_ptmass(4,nptmass) = m_apophis
-    print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
-                            ' g or ',m_apophis*umass/ceresm,' ceres masses'
-    print "(a,1pg10.3,a)",' density is ',m_apophis/(4./3.*pi*r_apophis**3)*unit_density,' g/cm^3'
-    rtidal = (2.)**(1./3.)*r_apophis*(earthm/umass/m_apophis)**(1./3.)
-    print "(3(a,1pg10.3),a)",' fluid Roche limit r_tidal is ',rtidal,' au, ',&
-         rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
-
     vxyz_ptmass(1:3,nptmass) = vxyz_ptmass(1:3,nptmass)*scale_vel
     print "(a,1pg10.3)",' velocity of apophis scaled by ',scale_vel
 
@@ -248,13 +241,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call warning('setup_solarsystem','scale_earth_sep ignored when apophis_only=T (Earth absent)')
     endif
 
+    !
+    ! volume of apophis: a sphere of r_apophis for a sink, or the body actually built by set_shape
+    !
+    vol_apophis = 4./3.*pi*r_apophis**3
+    if (np_apophis > 1) then
+       call set_shape('closepacked',id,master,np_apophis,xyzmh_ptmass(1:3,nptmass),r_apophis,&
+                      hfact,npart,xyzh,npart_total,objfile=apophis_shape_file,vol=vol_apophis)
+    endif
+    !
+    ! fix either the mass (mass_apophis > 0) or the density (scale_rho); the other follows from the volume
+    !
+    if (mass_apophis > 0.) then
+       m_apophis = mass_apophis/umass
+    else
+       m_apophis = (rho_0*scale_rho/unit_density)*vol_apophis
+    endif
+    xyzmh_ptmass(4,nptmass) = m_apophis
+    print "(a,2(es10.3,a))",' mass of apophis is ',m_apophis*umass,&
+                            ' g or ',m_apophis*umass/ceresm,' ceres masses'
+    print "(a,1pg10.3,a)",' density is ',m_apophis/vol_apophis*unit_density,' g/cm^3'
+    if (np_apophis > 1 .and. .not.use_dem .and. &
+        abs(m_apophis/vol_apophis*unit_density - rho_0*scale_rho) > 0.02*rho_0*scale_rho) &
+       call warning('apophis','SPH body density differs from rho_0*scale_rho used by the EOS')
+    rtidal = (2.)**(1./3.)*(3.*vol_apophis/(4.*pi))**(1./3.)*(earthm/umass/m_apophis)**(1./3.)
+    print "(3(a,1pg10.3),a)",' fluid Roche limit r_tidal is ',rtidal,' au, ',&
+         rtidal*udist/km,' km, or ',rtidal*udist/earthr,' earth radii'
 
     if (np_apophis > 1) then
        !
        ! replace the sink particle with a ball of stuff
        !
-       call set_shape('closepacked',id,master,np_apophis,xyzmh_ptmass(1:3,nptmass),r_apophis,&
-                      hfact,npart,xyzh,npart_total,objfile=apophis_shape_file)
        !call set_sphere('closepacked',id,master,0.,r_apophis,dx,hfact,npart,xyzh,npart_total,&
        !                xyz_origin=xyzmh_ptmass(1:3,nptmass),exactN=.true.,np_requested=np_apophis)
 
@@ -661,6 +678,7 @@ subroutine write_setupfile(filename)
    'scale geocentric Earth-Apophis distance (1=ephemeris; apophis_only=F)',iunit)
  call write_inopt(scale_r_apophis,'scale_r_apophis','scaling factor for apophis radius',iunit)
  call write_inopt(scale_rho,'scale_rho','scaling factor for apophis bulk density',iunit)
+ call write_inopt(mass_apophis,'mass_apophis','apophis mass in g (0 = from scale_rho and actual body volume)',iunit)
  call write_inopt(apophis_shape_file,'apophis_shape_file','shape config file for lattice cropping',iunit)
  call write_inopt(apophis_spin_period,'apophis_spin_period','Apophis spin period in seconds (0=no spin)',iunit)
  call write_inopt(apophis_spin_axis(1),'apophis_spin_axis_x','Apophis spin axis, x component',iunit)
@@ -705,6 +723,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(scale_earth_sep,'scale_earth_sep',db,default=1.0,errcount=nerr)
  call read_inopt(scale_r_apophis,'scale_r_apophis',db,default=1.0,errcount=nerr)
  call read_inopt(scale_rho,'scale_rho',db,default=1.0,errcount=nerr)
+ call read_inopt(mass_apophis,'mass_apophis',db,min=0.,default=0.,errcount=nerr)
  call read_inopt(apophis_shape_file,'apophis_shape_file',db,default='apophis.shape',errcount=nerr)
  call read_inopt(apophis_spin_period,'apophis_spin_period',db,min=0.,errcount=nerr)
  call read_inopt(apophis_spin_axis(1),'apophis_spin_axis_x',db,errcount=nerr)
