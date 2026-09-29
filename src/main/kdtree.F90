@@ -202,12 +202,12 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
 
  ! maximum level where 2^k indexing can be used (thus avoiding critical sections)
  ! deeper than this we access cells via a stack as usual
- maxlevel_indexed = int(log(real(ncellsmax+1))/log(2.)) - 1
+ maxlevel_indexed = int(log(real(ncellsmax+1))/log(2.)) - 2
 
  ! default number of cells is the size of the `indexed' part of the tree
  ! this can be *increased* by building tree beyond indexed levels
  ! and is decreased afterwards according to the maximum depth actually reached
- if (.not. use_geosplit) ncells = 2**(maxlevel_indexed+1) - 1
+ ncells = 2**(maxlevel_indexed+1) - 1
 
  ! need to number of particles in node during build
  ! this is counted above to remove dead/accreted particles
@@ -326,7 +326,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  endif done
 
  ! decrease number of cells if tree is entirely within 2^k indexing limit
- if ((maxlevel < maxlevel_indexed) .and. (.not. use_geosplit)) then
+ if ((maxlevel < maxlevel_indexed) ) then
     ncells = 2**(maxlevel+1) - 1
  endif
 
@@ -902,7 +902,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     if (maxlevel > maxdepth) call fatal('maketree','maximum tree depth reached !!')
     ! create two children nodes and point to them from current node
     ! always use G&R indexing for global tree
-    if (((level < maxlevel_indexed) .or. global_build) .and. (.not. use_geosplit)) then
+    if (((level < maxlevel_indexed) .or. global_build)) then !.and. (.not. use_geosplit)) then
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
        ir = il + 1
     else
