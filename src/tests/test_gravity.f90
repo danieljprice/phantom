@@ -1208,35 +1208,29 @@ subroutine tree_gravity(treetype,theta_crit,tbuild,tforce)
  use kdtree,      only:tree_accuracy,use_geosplit
  use neighkdtree, only:use_dualtree,build_tree
  use directsum,   only:directsum_parallel
+ use timing,      only:wallclock
  character(len=*), intent(in) :: treetype
  real,             intent(in) :: theta_crit
- real(kind=8),     intent(out) :: tbuild,tforce
- integer(kind=8) :: ic1, ic2, icrate
+ real,            intent(out) :: tbuild,tforce
 
  use_geosplit  = (index(trim(treetype),'Oct') > 0)
  use_dualtree  = (index(trim(treetype),'tree') > 0)
  tree_accuracy = theta_crit
 
- call system_clock(count_rate=icrate)
- if (icrate<=0) icrate = 1
-
- call system_clock(count=ic1)
+ tbuild = wallclock()
  call build_tree(npart,npart,xyzh,vxyzu)
- call system_clock(count=ic2)
- tbuild = real(ic2-ic1,kind=8)/real(icrate,kind=8)
+ tbuild = wallclock() - tbuild
 
  if (tree_accuracy > epsilon(tree_accuracy)) then
-    call system_clock(count=ic1)
+    tforce = wallclock()
     call get_derivs_global(icall=2)
-    call system_clock(count=ic2)
-    tforce = real(ic2-ic1,kind=8)/real(icrate,kind=8)
+    tforce = wallclock() - tforce
  else
-    call system_clock(count=ic1)
-    call get_density_global(icall=1)
+    tforce = wallclock()
     call directsum_parallel()
-    call system_clock(count=ic2)
-    tforce = real(ic2-ic1,kind=8)/real(icrate,kind=8)
+    tforce = wallclock() - tforce
  endif
+
 
 end subroutine tree_gravity
 

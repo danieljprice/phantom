@@ -1498,10 +1498,10 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
 
  call get_list_of_parent_nodes(icell,node,branch,nparents,startwith)
 
- neighnodecount_branch = 0
- neighnode_branch = 0
- fnode_branch = 0.
- fnode_acc    = 0.
+ neighnodecount_branch(1:nparents) = 0
+ ! neighnode_branch(:,1:nparents) = 0 ! no need to reset neighnode_branch as neighnodecount_branch act as a switch
+ fnode_branch(:,1:nparents) = 0.
+ fnode_acc = 0.
  nneigh = 0
  istack = 0
  xoffset = 0.
@@ -1561,30 +1561,35 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
     if (use_cache) then
-       !$omp atomic capture
+       !$omp atomic read
        nodestate = cachestate(iparent)
-       cachestate(iparent) = max(cachestate(iparent),1)
        !$omp end atomic
-       if (nodestate==0) then
-          !-- winner: publish fnode first ...
-          fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
-
-          !$omp atomic write
-          cachestate(iparent) = 2
+       if (nodestate == 0) then ! first fence to avoid capture collision
+          !$omp atomic capture
+          nodestate = cachestate(iparent)
+          cachestate(iparent) = max(cachestate(iparent),1)
           !$omp end atomic
-          !-- ... then store interaction list in the cache array if it fits
-          if (neighnodecount_branch(i)> 0 .and. neighnodecount_branch(i) <= maxnodecache_local) then
-             !$omp atomic capture
-             ibase = itail_neigh
-             itail_neigh = itail_neigh + neighnodecount_branch(i)
+          if (nodestate == 0) then ! if still the winner then cache
+             !-- winner: publish fnode first ...
+             fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
+             !$omp atomic write
+             cachestate(iparent) = 2
              !$omp end atomic
-             if (ibase+neighnodecount_branch(i) <= size(neighnodecache)) then
-                neighnodecache(ibase+1:ibase+neighnodecount_branch(i)) = neighnode_branch(1:neighnodecount_branch(i),i)
-                neighnodecache_start(iparent) = ibase
-                neighnodecache_count(iparent) = neighnodecount_branch(i)
-                !$omp atomic write
-                cachestate(iparent) = 3
+
+             !-- then store interaction list in the cache array if it fits
+             if (neighnodecount_branch(i)> 0 .and. neighnodecount_branch(i) <= maxnodecache_local) then
+                !$omp atomic capture
+                ibase = itail_neigh
+                itail_neigh = itail_neigh + neighnodecount_branch(i)
                 !$omp end atomic
+                if (ibase+neighnodecount_branch(i) <= size(neighnodecache)) then
+                   neighnodecache(ibase+1:ibase+neighnodecount_branch(i)) = neighnode_branch(1:neighnodecount_branch(i),i)
+                   neighnodecache_start(iparent) = ibase
+                   neighnodecache_count(iparent) = neighnodecount_branch(i)
+                   !$omp atomic write
+                   cachestate(iparent) = 3
+                   !$omp end atomic
+                endif
              endif
           endif
        elseif (nodestate>=2) then
