@@ -614,10 +614,14 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        inoderange(2,il) = i1 + nl - 1
        inoderange(1,ir) = i1 + nl
        inoderange(2,ir) = i1 + n - 1
-       call push_onto_stack(newq(2*j-1),il,nnode,queue(j)%level+1,nl, &
-                            minval(pbox(1:3,jc0(j):jc1(j)),dim=2),maxval(pbox(4:6,jc0(j):jc1(j)),dim=2))
-       call push_onto_stack(newq(2*j),ir,nnode,queue(j)%level+1,n-nl, &
-                            minval(pbox(7:9,jc0(j):jc1(j)),dim=2),maxval(pbox(10:12,jc0(j):jc1(j)),dim=2))
+       ! children's boxes from the chunks' partial boxes (into bl/br first, so that no
+       ! array temporaries are passed to push_onto_stack)
+       bl(1:3) = minval(pbox(1:3,jc0(j):jc1(j)),dim=2)
+       bl(4:6) = maxval(pbox(4:6,jc0(j):jc1(j)),dim=2)
+       br(1:3) = minval(pbox(7:9,jc0(j):jc1(j)),dim=2)
+       br(4:6) = maxval(pbox(10:12,jc0(j):jc1(j)),dim=2)
+       call push_onto_stack(newq(2*j-1),il,nnode,queue(j)%level+1,nl,bl(1:3),bl(4:6))
+       call push_onto_stack(newq(2*j),ir,nnode,queue(j)%level+1,n-nl,br(1:3),br(4:6))
     enddo
     !$omp enddo
     !$omp end parallel
