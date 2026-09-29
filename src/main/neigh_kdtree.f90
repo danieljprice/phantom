@@ -120,9 +120,11 @@ subroutine set_hmaxcell(inode,hmaxcell)
  n = inode
  node(n)%hmax = hmaxcell
 
- ! walk tree up
+ ! walk tree up, stopping at the first ancestor whose hmax already covers hmaxcell:
+ ! a node's hmax is never below its children's, so neither is any of its ancestors'
  do while (node(n)%parent /= 0)
     n = node(n)%parent
+    if (node(n)%hmax >= hmaxcell) exit
 !$omp critical (crit_node_hmax)
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
 !$omp end critical (crit_node_hmax)
