@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: "Clone krome"
-        run: git clone https://bitbucket.org/tgrassi/krome.git krome
+        run: git clone https://github.com/tgrassi/krome.git krome
 
       - name: "make krome.setup"
         run: echo -e "-n=networks/react_umist\n-iRHS\n-noSinkCheck\n-noRecCheck\n-noTlimits\n-unsafe\n-skipODEthermo\n-skipJacobian" > krome.setup && cat krome.setup
