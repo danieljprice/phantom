@@ -1219,16 +1219,16 @@ subroutine tree_gravity(treetype,theta_crit,tbuild,tforce)
 
  tbuild = wallclock()
  call build_tree(npart,npart,xyzh,vxyzu)
- tbuild = wallclock() - tbuild
+ tbuild = wallclock()
 
  if (tree_accuracy > epsilon(tree_accuracy)) then
     tforce = wallclock()
     call get_derivs_global(icall=2)
-    tforce = wallclock() - tforce
+    tforce = wallclock()
  else
     tforce = wallclock()
     call directsum_parallel()
-    tforce = wallclock() - tforce
+    tforce = wallclock()
  endif
 
 
