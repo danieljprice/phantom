@@ -24,7 +24,7 @@ To calculate chemical abundances in Phantom dumps, you first need to install KRO
 
 Downloading KROME
 ~~~~~~~~~~~~~~~~~~
-You can download KROME from the publicly available repository (https://bitbucket.org/tgrassi/krome/src/master/). For an introduction on how KROME works, follow the tutorials provided in their documentation. 
+You can download KROME from the publicly available repository (https://github.com/tgrassi/krome). For an introduction on how KROME works, follow the tutorials provided in their documentation.
 Make sure to store it in a directory that will be accessible to your Phantom installation. You do not need to compile KROME right now, it will be compiled automatically when you compile Phantom with KROME support.
 You should set the environment variable ``KROMEPATH`` to point to the installation directory of KROME: 
 ::
