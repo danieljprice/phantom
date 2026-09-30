@@ -261,7 +261,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,            intent(in)    :: Bevol(:,:)
  real,            intent(out)   :: dBevol(:,:)
  real(kind=4),    intent(inout) :: divcurlv(:,:)
- real(kind=4),    intent(in)    :: divcurlB(:,:)
+ real(kind=4),    intent(inout) :: divcurlB(:,:)
  real,            intent(in)    :: dt,stressmax
  integer,         intent(out)   :: ipart_rhomax ! test this particle for point mass creation
  real,            intent(in)    :: rad(:,:)
@@ -558,7 +558,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call write_cell(stack_waiting,cell)
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,Vrel_disp,fxyz_drag,fext,dragreg,&
+                             divBsymm,divcurlB,divcurlv,dBevol,ddustevol,deltav,dustgasprop,Vrel_disp,fxyz_drag,fext,dragreg,&
                              filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,ncheckbin, &
@@ -649,7 +649,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        cell = get_cell(stack_waiting,i)
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
-                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,Vrel_disp, &
+                                          divBsymm,divcurlB,divcurlv,dBevol,ddustevol,deltav,dustgasprop,Vrel_disp, &
                                           fxyz_drag,fext,dragreg, &
                                           filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -1017,7 +1017,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: gradp,projsx,projsy,projsz,Bxj,Byj,Bzj,Bj,Bj1,psij
  real    :: grkernj,grgrkernj,autermj,avBtermj,vsigj,spsoundj,tempj
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
- real    :: visctermisoj,visctermanisoj,enj,hj,mrhoj5,alphaj,pmassj,rho1j
+ real    :: visctermisoj,visctermanisoj,enj,hj,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
  real    :: hj1,hj21,q2j,qj,vwavej,divvj
  real    :: dvdxi(9),dvdxj(9)
@@ -1033,7 +1033,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: winter
  real    :: dBevolx,dBevoly,dBevolz,divBsymmterm,divBdiffterm
  real    :: rho21i,rho21j,Bxi,Byi,Bzi,psii,pmjrho21grkerni,pmjrho21grkernj
- real    :: auterm,avBterm,mrhoi5,vsigB
+ real    :: auterm,avBterm,vsigB
  real    :: jcbcbj(3),jcbj(3),dBnonideal(3),dBnonidealj(3),divBi,curlBi(3),curlBj(3)
  real    :: vsigavi,vsigavj
  real    :: dustfraci(maxdusttypes),dustfracj(maxdusttypes),tsi(maxdusttypes)
@@ -1195,10 +1195,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     sqrtrhodustfraci(:) = 0.
  endif
  rho21i = rho1i*rho1i
- mrhoi5  = 0.5*pmassi*rho1i
- !avterm  = mrhoi5*alphai       !  artificial viscosity parameter
- auterm  = mrhoi5*alphau       !  artificial thermal conductivity parameter
- avBterm = mrhoi5*alphaB*rho1i
+ ! shock conductivity / resistivity (mass applied in pair loop)
+ auterm  = 0.5*rho1i*alphau
+ avBterm = 0.5*alphaB*rho21i
 !
 !--initialise the following to zero for the case
 !
@@ -1209,7 +1208,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  dvdxj(:)  = 0.
  rhoj      = 0.
  rho1j     = 0.
- mrhoj5    = 0.
  gradpj    = 0.
  projsxj   = 0.
  projsyj   = 0.
@@ -1550,14 +1548,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !
              !--calculate j terms (which were precalculated outside loop for i)
              !
-             call get_stress(prj,spsoundj,rhoj,rho1j,xj,yj,zj,pmassj,Bxj,Byj,Bzj, &
+             call get_stress(prj,spsoundj,rhoj,rho1j,xj,yj,zj,Bxj,Byj,Bzj, &
                         pro2j,vwavej, &
                         sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
                         realviscosity,divvj,bulkvisc,dvdxj,stressmax,radPj)
 
-             mrhoj5   = 0.5*pmassj*rho1j
-             autermj  = mrhoj5*alphau
-             avBtermj = mrhoj5*alphaB*rho1j
+             ! shock conductivity / resistivity (mass applied in pair loop)
+             autermj  = 0.5*rho1j*alphau
+             avBtermj = 0.5*alphaB*rho1j*rho1j
 
              if (gr) then
                 ! Relativistic version vij + csi
@@ -1581,7 +1579,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           rho1j     = 0.
           rho21j    = 0.
 
-          mrhoj5    = 0.
           autermj   = 0.
           avBtermj  = 0.
           psij = 0.
@@ -1685,7 +1682,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 rhoav1 = 2./(rhoi + rhoj)
                 vsigu = sqrt(abs(pri - prj)*rhoav1)
              endif
-             dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
+             dendissterm = vsigu*denij*pmassj*(auterm*grkerni + autermj*grkernj)
           else
              dendissterm = 0.
           endif
@@ -1695,7 +1692,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              ! artificial resistivity
              !
              vsigB = sqrt((dvx - projv*runix)**2 + (dvy - projv*runiy)**2 + (dvz - projv*runiz)**2)
-             dBdissterm = (avBterm*grkerni + avBtermj*grkernj)*vsigB
+             dBdissterm = pmassj*(avBterm*grkerni + avBtermj*grkernj)*vsigB
 
              !--energy dissipation due to artificial resistivity
              if (useresistiveheat) dudtresist = -0.5*dB2*dBdissterm
@@ -1741,31 +1738,31 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !--get projection of anisotropic part of stress tensor
           !  in direction of particle pair
           !
-          projsxi = (sxxi*runix + sxyi*runiy + sxzi*runiz)*grkerni
-          projsyi = (sxyi*runix + syyi*runiy + syzi*runiz)*grkerni
-          projszi = (sxzi*runix + syzi*runiy + szzi*runiz)*grkerni
+          projsxi = pmassj*(sxxi*runix + sxyi*runiy + sxzi*runiz)*grkerni
+          projsyi = pmassj*(sxyi*runix + syyi*runiy + syzi*runiz)*grkerni
+          projszi = pmassj*(sxzi*runix + syzi*runiy + szzi*runiz)*grkerni
           if (usej) then
-             projsxj = (sxxj*runix + sxyj*runiy + sxzj*runiz)*grkernj
-             projsyj = (sxyj*runix + syyj*runiy + syzj*runiz)*grkernj
-             projszj = (sxzj*runix + syzj*runiy + szzj*runiz)*grkernj
+             projsxj = pmassj*(sxxj*runix + sxyj*runiy + sxzj*runiz)*grkernj
+             projsyj = pmassj*(sxyj*runix + syyj*runiy + syzj*runiz)*grkernj
+             projszj = pmassj*(sxzj*runix + syzj*runiy + szzj*runiz)*grkernj
           endif
           !
           !--physical viscosity term (direct second derivatives)
           !
           if (realviscosity .and. maxdvdx /= maxp) then
              grgrkerni = -2.*grkerni*rij1
-             gradpi = gradpi + visctermiso*projv*grgrkerni
-             projsxi = projsxi + visctermaniso*dvx*grgrkerni
-             projsyi = projsyi + visctermaniso*dvy*grgrkerni
-             projszi = projszi + visctermaniso*dvz*grgrkerni
-             dudtdissi = dudtdissi + grgrkerni*(visctermiso*projv**2 &
+             gradpi = gradpi + pmassj*visctermiso*projv*grgrkerni
+             projsxi = projsxi + pmassj*visctermaniso*dvx*grgrkerni
+             projsyi = projsyi + pmassj*visctermaniso*dvy*grgrkerni
+             projszi = projszi + pmassj*visctermaniso*dvz*grgrkerni
+             dudtdissi = dudtdissi + pmassj*grgrkerni*(visctermiso*projv**2 &
                                  + visctermaniso*(dvx*dvx + dvy*dvy + dvz*dvz))
              if (usej) then
                 grgrkernj = -2.*grkernj*rij1
-                gradpj = gradpj + visctermisoj*projv*grgrkernj
-                projsxj = projsxj + visctermanisoj*dvx*grgrkernj
-                projsyj = projsyj + visctermanisoj*dvy*grgrkernj
-                projszj = projszj + visctermanisoj*dvz*grgrkernj
+                gradpj = gradpj + pmassj*visctermisoj*projv*grgrkernj
+                projsxj = projsxj + pmassj*visctermanisoj*dvx*grgrkernj
+                projsyj = projsyj + pmassj*visctermanisoj*dvy*grgrkernj
+                projszj = projszj + pmassj*visctermanisoj*dvz*grgrkernj
              endif
           endif
 
@@ -2133,7 +2130,7 @@ end subroutine compute_forces
 !+
 !----------------------------------------------------------------
 subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
-                 pmassi,Bxi,Byi,Bzi, &
+                 Bxi,Byi,Bzi, &
                  pro2i,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
                  realviscosity,divvi,bulkvisc,dvdx,stressmax, &
@@ -2143,7 +2140,7 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
  use part,            only:mhd,strain_from_dvdx
  use viscosity,       only:shearfunc
 
- real,    intent(in)  :: pri,spsoundi,rhoi,rho1i,xi,yi,zi,pmassi
+ real,    intent(in)  :: pri,spsoundi,rhoi,rho1i,xi,yi,zi
  real,    intent(in)  :: Bxi,Byi,Bzi
  real,    intent(out) :: pro2i,vwavei
  real,    intent(out) :: sxxi,sxyi,sxzi,syyi,syzi,szzi
@@ -2178,7 +2175,7 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
     if (maxdvdx==maxp) then
        strain = strain_from_dvdx(dvdx)
        !--get stress (multiply by coefficient for use in second derivative)
-       term = -shearvisc*pmassi*rho1i  ! shearvisc = eta/rho, so this is eta/rho**2
+       term = -shearvisc*rho1i  ! shearvisc = eta/rho, so this is eta/rho**2
        sxxi = term*strain(1)
        sxyi = term*strain(2)
        sxzi = term*strain(3)
@@ -2191,8 +2188,8 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
        del2vcoeff    = 0.5*etavisc                   ! average between particle pairs
 
        !--construct isotropic and anisotropic terms from above
-       visctermiso   = 2.5*graddivvcoeff*pmassi*rho1i*rho1i
-       visctermaniso = (del2vcoeff - 0.5*graddivvcoeff)*pmassi*rho1i*rho1i
+       visctermiso   = 2.5*graddivvcoeff*rho1i*rho1i
+       visctermaniso = (del2vcoeff - 0.5*graddivvcoeff)*rho1i*rho1i
     endif
  endif
 
@@ -2209,12 +2206,12 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
     vwavei    = sqrt(spsoundi*spsoundi + valfven2i)
 
     !--MHD terms in stress tensor
-    sxxi  = sxxi - pmassi*Brhoxi*Brhoxi
-    sxyi  = sxyi - pmassi*Brhoxi*Brhoyi
-    sxzi  = sxzi - pmassi*Brhoxi*Brhozi
-    syyi  = syyi - pmassi*Brhoyi*Brhoyi
-    syzi  = syzi - pmassi*Brhoyi*Brhozi
-    szzi  = szzi - pmassi*Brhozi*Brhozi
+    sxxi  = sxxi - Brhoxi*Brhoxi
+    sxyi  = sxyi - Brhoxi*Brhoyi
+    sxzi  = sxzi - Brhoxi*Brhozi
+    syyi  = syyi - Brhoyi*Brhoyi
+    syzi  = syzi - Brhoyi*Brhozi
+    szzi  = szzi - Brhozi*Brhozi
 !
 !--construct total isotropic pressure term (gas + magnetic + stress)
 !
@@ -2401,7 +2398,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        !
        call get_stress(pri,spsoundi,rhoi,rho1i, &
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
-                  pmassi, &
                   Bxi,Byi,Bzi, &
                   pro2i, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
@@ -2717,7 +2713,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,Vrel_disp, &
+                                         divBsymm,divcurlB,divcurlv,dBevol,ddustevol,deltav,dustgasprop,Vrel_disp, &
                                          fxyz_drag,fext,dragreg, &
                                          filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -2737,7 +2733,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
-                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,ind_timesteps
+                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,&
+                          ind_timesteps,ndivcurlB
  use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,C_ent
  use options,        only:alpha,use_dustfrac,implicit_radiation,use_porosity
  use part,           only:iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
@@ -2779,6 +2776,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real(kind=4),    intent(in)    :: dvdx(:,:)
  real(kind=4),    intent(out)   :: poten(:)
  real(kind=4),    intent(out)   :: divBsymm(:)
+ real(kind=4),    intent(inout) :: divcurlB(:,:)
  real(kind=4),    intent(out)   :: divcurlv(:,:)
  real,            intent(out)   :: dBevol(:,:)
  real,            intent(out)   :: ddustevol(:,:)
@@ -3032,6 +3030,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fsum(ifyi) = fsum(ifyi) - Bxyzi(2)*divBsymmi*frac_divB
        fsum(ifzi) = fsum(ifzi) - Bxyzi(3)*divBsymmi*frac_divB
        divBsymm(i) = real(rhoi*divBsymmi,kind=kind(divBsymm)) ! for output store div B as rho*div B
+       !
+       ! store difference-operator div B (same sum as used for cleaning)
+       !
+       if (ndivcurlB >= 1) then
+          divcurlB(1,i) = real(fsum(idivBdiffi)*rho1i,kind=kind(divcurlB))
+       endif
     endif
 
     f2i = fsum(ifxi)**2 + fsum(ifyi)**2 + fsum(ifzi)**2
@@ -3245,7 +3249,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
           if (dustgasprop(2,i) > 0.) then
-             !- interpolations are mass weigthed, divide result by rhog,i
+             !- interpolations are mass weighted, divide result by rhog,i
              dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
              dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
           else
