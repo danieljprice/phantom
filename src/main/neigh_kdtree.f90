@@ -120,18 +120,21 @@ subroutine set_hmaxcell(inode,hmaxcell)
  integer, intent(in) :: inode
  real,    intent(in) :: hmaxcell
  integer :: n
+ real    :: hmaxn
 
  n = inode
  node(n)%hmax = hmaxcell
 
  ! walk tree up, stopping at the first ancestor whose hmax already covers hmaxcell:
- ! a node's hmax is never below its children's, so neither is any of its ancestors'
+ ! a node's hmax is never below its children's, so neither is any of its ancestors'.
+ ! Other threads update the same ancestors, so both the test and the update are atomic
  do while (node(n)%parent /= 0)
     n = node(n)%parent
-    if (node(n)%hmax >= hmaxcell) exit
-!$omp critical (crit_node_hmax)
+!$omp atomic read
+    hmaxn = node(n)%hmax
+    if (hmaxn >= hmaxcell) exit
+!$omp atomic
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
-!$omp end critical (crit_node_hmax)
  enddo
 
 end subroutine set_hmaxcell
