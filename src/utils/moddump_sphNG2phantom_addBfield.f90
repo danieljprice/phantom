@@ -14,10 +14,16 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: kernel, part, setup_params
+! :Dependencies: kernel, moddump_utils, part, setup_params
 !
+ use moddump_utils, only:init_moddump=>init_moddump_empty, &
+                         read_moddump=>read_moddump_empty,write_moddump=>write_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
+
+ public :: init_moddump,read_moddump,write_moddump
+ logical, parameter :: moddump_interactive = .true.
+ public :: moddump_interactive
 
 contains
 

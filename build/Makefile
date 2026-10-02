@@ -777,9 +777,16 @@ ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = ${OBJSETSTAR} eos_stamatellos.o velfield_fromcubes.o set_vfield.o\
-          set_disc.o set_Bfield.o utils_omp.o\
+          set_disc.o set_Bfield.o utils_omp.o utils_moddump.o\
 	  ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
+
+# Each modifier produces moddump.mod. Rebuild it and the driver when switching MODFILE.
+MODDUMP_OBJS = $(filter moddump_%.o,$(OBJMOD))
+.PHONY: force_moddump
+force_moddump:
+$(MODDUMP_OBJS): utils_moddump.o force_moddump
+phantom_moddump.o: $(MODDUMP_OBJS) utils_moddump.o force_moddump
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
 	@echo ""

@@ -12,20 +12,41 @@ module moddump
 !
 ! :Owner: Terrence Tricco
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - fac             : *radial pulsation factor, where v_r = fac*r (ioperation=6)*
+!   - icreate         : *how to create 2nd star for GW/pulsation (0=none,1=duplicate,2=add from dump)*
+!   - omega_inner     : *angular velocity at centre (ioperation=7)*
+!   - omega_outer     : *angular velocity at surface (ioperation=7)*
+!   - second_dumpfile : *name of second dumpfile to add (ioperation/icreate=2)*
+!   - sep             : *radial separation between stars [code units]*
+!   - synchro         : *synchronise the binary rotation to the orbit*
 !
 ! :Dependencies: centreofmass, checkconserved, dim, extern_gwinspiral,
-!   externalforces, io, options, part, physcon, prompting, readwrite_dumps,
-!   timestep, units
+!   externalforces, infile_utils, io, moddump_utils, options, part,
+!   physcon, prompting, readwrite_dumps, timestep, units
 !
+ use moddump_utils, only:prompt_for_params,write_moddump_header, &
+                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
+
+ integer :: ioperation = 1     ! see :Runtime parameters: list above
+ integer :: icreate    = 1     ! how to create 2nd star for GW/pulsation (0/1/2)
+ real    :: sep        = 1.0   ! radial separation between stars [code units]
+ logical :: synchro    = .true.! synchronise binary rotation to orbit
+ real    :: fac        = 0.2   ! radial pulsation factor (v_r = fac*r)
+ real    :: omega_inner = 0.025! angular velocity at centre
+ real    :: omega_outer = 0.014! angular velocity at surface
+ character(len=120) :: second_dumpfile = ''  ! name of second dumpfile to add
+
+ public :: init_moddump,read_moddump,write_moddump
+ logical, parameter :: moddump_interactive = .true.
+ public :: moddump_interactive
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,igas,set_particle_type,igas,mhd
- use prompting,      only:prompt
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,igas,igas,mhd
  use centreofmass,   only:reset_centreofmass,get_centreofmass
  use physcon,        only:c
  use units,          only:unit_velocity
@@ -33,86 +54,49 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use checkconserved, only:get_conserv
  use options,        only:iexternalforce
  use externalforces, only:iext_gwinspiral
+
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: opt, synchro, Nstar1, Nstar2, nx
- real :: sep,mtot,angvel,vel1,vel2
+ integer :: opt, Nstar1, Nstar2
+ real :: mtot,angvel,vel1,vel2
  real :: xcom(3), vcom(3), x1com(3), v1com(3), x2com(3), v2com(3)
  real :: pmassi,m1,m2,rad1,rad2
- real :: tmax0,fac,omega_inner,omega_outer
+ real :: tmax0
  logical :: add_gw,add_v
 
- !
- ! Option selection
- !
  print *, 'Running moddump_binarystar:'
- print *, ''
- print *, 'This utility sets two stars in binary orbit around each other, or modifies an existing binary.'
- print *, ''
- print *, 'Options:'
- print *, '   1) Duplicate a relaxed star'
- print *, '   2) Add a star from another dumpfile'
- print *, '   3) Adjust separation of existing binary'
- print *, '   4) Add magnetic field'
- print *, '   5) Add gravitational waves'
- print *, '   6) Add radial pulsation'
- print *, '   7) Add rotational velocity pulsation'
+ !
+ ! prompt only when the driver did not find a parameter file
+ !
+ if (prompt_for_params) call read_interactive_moddumpfile()
 
- opt = 1
- synchro = 1
  add_gw = .false.
  add_v  = .false.
- call prompt('Choice',opt, 1, 7)
 
  !
- ! Add gravitational waves
+ ! resolve the requested operation; for GW/pulsation, the second star
+ ! is created using icreate (0=none, 1=duplicate, 2=add from dump)
  !
- if (opt == 5) then
+ select case(ioperation)
+ case(5)
     add_gw = .true.
     iexternalforce = iext_gwinspiral
-    print*, 'This option requires creating a binary system.  How would you like to create the second star?'
-    print*, 'Pick option 1 or 2 from above'
-    opt = 1
-    ! Then create binary
-    call prompt('Choice',opt, 1, 2)
- endif
-
- !
- ! Add radial or rotational velocity pulsations
- !
- if (opt == 6 .or. opt == 7) then
+    opt = icreate
+ case(6)
     add_v = .true.
     call reset_velocity(npart,vxyzu)
-    if (opt == 6) then
-       fac = 0.2
-       call prompt('Enter fac, where v_r = fac*r:',fac,0.)
-       call add_vradial(npart,xyzh,vxyzu,fac)
-    endif
-    if (opt == 7) then
-       omega_inner = 0.025
-       omega_outer = 0.014
-       call prompt('Enter angular velocity at center: ',omega_inner)
-       call prompt('Enter angular velocity at surface:',omega_outer)
-       call add_vrotational(npart,xyzh,vxyzu,omega_inner,omega_outer)
-    endif
-    print*, 'Would you like to create the second star?'
-    print*, 'Pick option 1 or 2 from above, or 0 for no additional star'
-    opt = 0
-    ! Then create binary
-    call prompt('Choice',opt, 0, 2)
- endif
-
- if (opt == 1 .or. opt == 2 .or. opt == 3) then
-    sep = 1.0
-    if (add_gw) sep = 50.0
-    print *, ''
-    call prompt('Enter radial separation between stars (code unit)', sep, 0.)
-
-    call prompt('Synchronise binaries? [0 false; 1 true]',synchro, 0, 1)
-    print *, ''
- endif
+    call add_vradial(npart,xyzh,vxyzu,fac)
+    opt = icreate
+ case(7)
+    add_v = .true.
+    call reset_velocity(npart,vxyzu)
+    call add_vrotational(npart,xyzh,vxyzu,omega_inner,omega_outer)
+    opt = icreate
+ case default
+    opt = ioperation
+ end select
 
  !
  ! Create binary
@@ -137,19 +121,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print *, 'ERROR: To add magnetic field, compile with MHD=yes.'
     endif
     print *, ''
- endif
-
- ! This is turned off.
- ! To get a sufficiently low resolution background requires ~10^9 particles in each star. Not realistic.
- if (.false.) then
-    nx = 128
-    call prompt('Specify number of particles in x-direction for low-density background',nx,0)
-    print *, ''
-    call determine_Nstar(npart,xyzh,Nstar1,Nstar2)
-    call get_centreofmass(xcom,  vcom,  npart,  xyzh,                   vxyzu)
-    call get_centreofmass(x1com, v1com, Nstar1, xyzh(:,1:Nstar1),       vxyzu(:,1:Nstar1))
-    call get_centreofmass(x2com, v2com, Nstar2, xyzh(:,Nstar1+1:npart), vxyzu(:,Nstar1+1:npart))
-!    call add_background(npart,npartoftype,massoftype,xyzh,vxyzu,Nstar1,Nstar2,x1com,x2com,nx)
  endif
 
  ! Only if duplicating, adding, or adjusting separation
@@ -192,7 +163,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     !call set_corotate_velocity(angvel)
 
     ! synchronise rotation
-    if (synchro == 1) then
+    if (synchro) then
        call synchronise(npart,xyzh,vxyzu,Nstar1,Nstar2,angvel,x1com,x2com)
     endif
 
@@ -214,11 +185,123 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 !
+!---Interactively set the moddump parameters--------------------------------
+!
+subroutine read_interactive_moddumpfile()
+ use prompting, only:prompt
+ integer :: opt
+
+ print *, ''
+ print *, 'This utility sets two stars in binary orbit around each other, or modifies an existing binary.'
+ print *, ''
+ print *, 'Options:'
+ print *, '   1) Duplicate a relaxed star'
+ print *, '   2) Add a star from another dumpfile'
+ print *, '   3) Adjust separation of existing binary'
+ print *, '   4) Add magnetic field'
+ print *, '   5) Add gravitational waves'
+ print *, '   6) Add radial pulsation'
+ print *, '   7) Add rotational velocity pulsation'
+
+ call prompt('Choice',ioperation, 1, 7)
+
+ select case(ioperation)
+ case(5)
+    print*, 'This option requires creating a binary system.  How would you like to create the second star?'
+    print*, 'Pick option 1 or 2 from above'
+    icreate = 1
+    call prompt('Choice',icreate, 1, 2)
+ case(6)
+    call prompt('Enter fac, where v_r = fac*r:',fac,0.)
+    print*, 'Would you like to create the second star?'
+    print*, 'Pick option 1 or 2 from above, or 0 for no additional star'
+    icreate = 0
+    call prompt('Choice',icreate, 0, 2)
+ case(7)
+    call prompt('Enter angular velocity at center: ',omega_inner)
+    call prompt('Enter angular velocity at surface:',omega_outer)
+    print*, 'Would you like to create the second star?'
+    print*, 'Pick option 1 or 2 from above, or 0 for no additional star'
+    icreate = 0
+    call prompt('Choice',icreate, 0, 2)
+ end select
+
+ ! resolve which creation op will run
+ if (ioperation >= 5) then
+    opt = icreate
+ else
+    opt = ioperation
+ endif
+
+ if (opt == 1 .or. opt == 2 .or. opt == 3) then
+    sep = 1.0
+    if (ioperation == 5) sep = 50.0
+    call prompt('Enter radial separation between stars (code unit)', sep, 0.)
+    call prompt('Synchronise binaries?',synchro)
+ endif
+
+ if (opt == 2) call prompt('Name of second dumpfile',second_dumpfile)
+
+end subroutine read_interactive_moddumpfile
+
+!
+!---Write the moddump parameter file----------------------------------------
+!
+subroutine write_moddump(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing moddump params file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ call write_moddump_header(iunit)
+ call write_inopt(ioperation,'ioperation',&
+   'operation (1=duplicate,2=add from dump,3=adjust sep,4=add Bfield,5=add GW,6=radial puls,7=rot puls)',iunit)
+ call write_inopt(icreate,'icreate','how to create 2nd star for GW/pulsation (0=none,1=duplicate,2=add from dump)',iunit)
+ call write_inopt(sep,'sep','radial separation between stars [code units]',iunit)
+ call write_inopt(synchro,'synchro','synchronise the binary rotation to the orbit',iunit)
+ call write_inopt(fac,'fac','radial pulsation factor, where v_r = fac*r (ioperation=6)',iunit)
+ call write_inopt(omega_inner,'omega_inner','angular velocity at centre (ioperation=7)',iunit)
+ call write_inopt(omega_outer,'omega_outer','angular velocity at surface (ioperation=7)',iunit)
+ call write_inopt(second_dumpfile,'second_dumpfile','name of second dumpfile to add (ioperation/icreate=2)',iunit)
+ close(iunit)
+
+end subroutine write_moddump
+
+!
+!---Read the moddump parameter file-----------------------------------------
+!
+subroutine read_moddump(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
+
+ print "(a)",' reading moddump options from '//trim(filename)
+ nerr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(ioperation,'ioperation',db,min=1,max=7,errcount=nerr)
+ call read_inopt(icreate,'icreate',db,min=0,max=2,errcount=nerr)
+ call read_inopt(sep,'sep',db,min=0.,errcount=nerr)
+ call read_inopt(synchro,'synchro',db,errcount=nerr)
+ call read_inopt(fac,'fac',db,min=0.,errcount=nerr)
+ call read_inopt(omega_inner,'omega_inner',db,errcount=nerr)
+ call read_inopt(omega_outer,'omega_outer',db,errcount=nerr)
+ call read_inopt(second_dumpfile,'second_dumpfile',db,errcount=nerr)
+ call close_db(db)
+ if (nerr > 0) ierr = nerr
+
+end subroutine read_moddump
+
+!
 ! Take the star from the input file and duplicate it some distance apart.
 ! This assumes the dump file only has one star.
 !
 subroutine duplicate_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
- use part,         only:igas,set_particle_type,copy_particle
+ use part,         only:igas,copy_particle
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -261,7 +344,6 @@ end subroutine duplicate_star
 !
 subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  use part,            only:igas,set_particle_type,eos_vars,alphaind,maxeosvars
- use prompting,       only:prompt
  use dim,             only:maxp,maxvxyzu,nalpha,maxalpha
  use readwrite_dumps, only:read_dump
  use io,              only:idisk1,iprint
@@ -284,8 +366,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  ! To save all particle properties the only way is to use the "copy_particles" routine
  ! to copy particles into a temporary buffer
 
- fn = ''
- call prompt('Name of second dumpfile',fn)
+ fn = second_dumpfile
 
  ! read_dump will overwrite the current particles, so store them in a temporary array
  allocate(xyzh2(4,maxp),stat=ierr)  ! positions + smoothing length

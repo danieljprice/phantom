@@ -10,25 +10,37 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Antoine Alaguero
+! :Owner: Josh Calcino
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - sink_ind : *index of the sink to centre on*
 !
-! :Dependencies: part
+! :Dependencies: infile_utils, moddump_utils, part, prompting
 !
+ use moddump_utils, only:prompt_for_params,write_moddump_header, &
+                         init_moddump=>init_moddump_empty
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
+
+ ! runtime parameter
+ integer :: sink_ind = 1   ! index of the sink to centre positions/velocities on
+
+ public :: init_moddump,read_moddump,write_moddump
+ logical, parameter :: moddump_interactive = .true.
+ public :: moddump_interactive
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,                 only:xyzmh_ptmass,vxyz_ptmass,nptmass
+ use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass
+
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: i,sink_ind
+ integer                :: i
 
- sink_ind=1
+ if (prompt_for_params) call read_interactive_moddumpfile()
 
  if (nptmass < sink_ind) then
     print*,'Selected sink index larger than number of sinks'
@@ -55,5 +67,56 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-end module moddump
+!----------------------------------------------------------------
+!+
+!  set parameters interactively (when no .moddump file is found)
+!+
+!----------------------------------------------------------------
+subroutine read_interactive_moddumpfile()
+ use prompting, only:prompt
 
+ call prompt('Enter index of the sink to centre on',sink_ind,1)
+
+end subroutine read_interactive_moddumpfile
+
+!----------------------------------------------------------------
+!+
+!  write options to .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_moddump(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 23
+
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ call write_moddump_header(iunit)
+ write(iunit,"(/,a)") '# centre-on-sink parameters'
+ call write_inopt(sink_ind,'sink_ind','index of the sink to centre on',iunit)
+ close(iunit)
+
+end subroutine write_moddump
+
+!----------------------------------------------------------------
+!+
+!  read options from .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_moddump(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ type(inopts), allocatable :: db(:)
+ integer :: nerr
+
+ nerr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(sink_ind,'sink_ind',db,errcount=nerr,min=1)
+ call close_db(db)
+ if (nerr > 0) ierr = nerr
+
+end subroutine read_moddump
+
+end module moddump

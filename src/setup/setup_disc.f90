@@ -22,67 +22,75 @@ module setup
 ! :Owner: Daniel Mentiplay
 !
 ! :Runtime parameters:
-!   - R_rot          : *Set rotational velocity as Keplerian velocity at R=R_rot*
-!   - Ratm_in        : *inner atmosphere radius (planet radii)*
-!   - Ratm_out       : *outer atmosphere radius (planet radii)*
-!   - Rin_sphere     : *Inner edge of sphere*
-!   - Rout_sphere    : *Outer edge of sphere*
-!   - T_floor        : *The minimum temperature in the simulation (for any locally isothermal EOS).*
-!   - accr1          : *single star accretion radius*
-!   - accr1a         : *single star accretion radius*
-!   - accr1b         : *single star accretion radius*
-!   - accr2          : *secondary accretion radius*
-!   - accr2a         : *tight binary primary accretion radius*
-!   - accr2b         : *tight binary secondary accretion radius*
-!   - add_sphere     : *add sphere around disc?*
-!   - add_turbulence : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
-!   - alphaSS        : *desired alphaSS (0 for minimal needed for shock capturing)*
-!   - alpha_z        : *height of transition in tanh vertical temperature profile*
-!   - atm_type       : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
-!   - beta_z         : *variation in transition height over radius*
-!   - bhspin         : *black hole spin*
-!   - bhspinangle    : *black hole spin angle (deg)*
-!   - deltat         : *output interval as fraction of orbital period*
-!   - discstrat      : *stratify disc? (0=no,1=yes)*
-!   - einst_prec     : *include Einstein precession*
-!   - eos_file       : *Equation of state file for using lumdisc*
-!   - ipotential     : *potential (1=central point mass,*
-!   - istrat         : *temperature prescription (0=MAPS, 1=Dartois)*
-!   - k              : *Scaling factor of Keplerian rotational velocity*
-!   - lumdisc        : *Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)*
-!   - m1             : *first hierarchical level primary mass*
-!   - m2             : *first hierarchical level secondary mass*
-!   - mass_sphere    : *Mass of sphere*
-!   - norbits        : *maximum number of orbits at outer disc*
-!   - np             : *number of gas particles*
-!   - nplanets       : *number of planets*
-!   - nsinks         : *number of sinks*
-!   - omega_cloud    : *Rotational velocity of the cloud (s^-1)*
-!   - q1             : *tight binary 1 mass ratio*
-!   - q2             : *tight binary 2 mass ratio*
-!   - qatm           : *sound speed power law index of atmosphere*
-!   - radkappa       : *constant radiation opacity kappa*
-!   - ramp           : *Do you want to ramp up the planet mass slowly?*
-!   - rho_core       : *planet core density (cgs units)*
-!   - rms_mach       : *RMS Mach number of turbulence*
-!   - set_freefall   : *Set the sphere in freefall (0=no freefall, 1=freefall)*
-!   - subst          : *star to substitute*
-!   - subst1         : *first star to substitute*
-!   - subst2         : *second star to substitute*
-!   - surface_force  : *model m1 as planet with surface*
-!   - temp_atm0      : *atmosphere temperature scaling factor*
-!   - temp_mid0      : *midplane temperature scaling factor*
-!   - tfact          : *Scale the maximum length scale of the turbulence*
-!   - use_mcfost     : *use the mcfost library*
-!   - z0             : *z scaling factor*
+!   - R_rot           : *Set rotational velocity as Keplerian velocity at R=R_rot*
+!   - Ratm_in         : *inner atmosphere radius (planet radii)*
+!   - Ratm_out        : *outer atmosphere radius (planet radii)*
+!   - Rin_sphere      : *Inner edge of sphere*
+!   - Rout_sphere     : *Outer edge of sphere*
+!   - T_floor         : *The minimum temperature in the simulation (for any locally isothermal EOS).*
+!   - T_warm          : *temperature of atomic warm neutral background in K*
+!   - accr1           : *single star accretion radius*
+!   - accr1a          : *single star accretion radius*
+!   - accr1b          : *single star accretion radius*
+!   - accr2           : *secondary accretion radius*
+!   - accr2a          : *tight binary primary accretion radius*
+!   - accr2b          : *tight binary secondary accretion radius*
+!   - add_sphere      : *add sphere around disc?*
+!   - add_turbulence  : *Add turbulence to the sphere (0=no turbulence, 1=turbulence)*
+!   - add_warm        : *add atomic warm neutral background gas?*
+!   - alphaSS         : *desired alphaSS (0 for minimal needed for shock capturing)*
+!   - alpha_z         : *height of transition in tanh vertical temperature profile*
+!   - atm_type        : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
+!   - beta_z          : *variation in transition height over radius*
+!   - bhspin          : *black hole spin*
+!   - bhspinangle     : *black hole spin angle (deg)*
+!   - box_size        : *user-specified periodic cube side length in au*
+!   - deltat          : *output interval as fraction of orbital period*
+!   - discstrat       : *stratify disc? (0=no,1=yes)*
+!   - einst_prec      : *include Einstein precession*
+!   - eos_file        : *Equation of state file for using lumdisc*
+!   - ipotential      : *potential (1=central point mass,*
+!   - istrat          : *temperature prescription (0=MAPS, 1=Dartois)*
+!   - k               : *Scaling factor of Keplerian rotational velocity*
+!   - lumdisc         : *Set qindex from stellar luminosity (ieos=24) (0=no 1=yes)*
+!   - m1              : *first hierarchical level primary mass*
+!   - m2              : *first hierarchical level secondary mass*
+!   - mass_sphere     : *Mass of sphere*
+!   - mu_warm         : *mean molecular weight of atomic warm neutral background*
+!   - norbits         : *maximum number of orbits at outer disc*
+!   - np              : *number of gas particles*
+!   - nplanets        : *number of planets*
+!   - nsinks          : *number of sinks*
+!   - omega_cloud     : *Rotational velocity of the cloud (s^-1)*
+!   - periodic_domain : *use finite periodic computational domain?*
+!   - q1              : *tight binary 1 mass ratio*
+!   - q2              : *tight binary 2 mass ratio*
+!   - qatm            : *sound speed power law index of atmosphere*
+!   - radkappa        : *constant radiation opacity kappa*
+!   - ramp            : *Do you want to ramp up the planet mass slowly?*
+!   - rho_branch_cgs  : *EOS density threshold for warm branch in g cm^-3*
+!   - rho_core        : *planet core density (cgs units)*
+!   - rho_warm_cgs    : *initial atomic warm neutral background density in g cm^-3*
+!   - rms_mach        : *RMS Mach number of turbulence*
+!   - set_freefall    : *Set the sphere in freefall (0=no freefall, 1=freefall)*
+!   - subst           : *star to substitute*
+!   - subst1          : *first star to substitute*
+!   - subst2          : *second star to substitute*
+!   - surface_force   : *model m1 as planet with surface*
+!   - temp_atm0       : *atmosphere temperature scaling factor*
+!   - temp_mid0       : *midplane temperature scaling factor*
+!   - tfact           : *Scale the maximum length scale of the turbulence*
+!   - use_mcfost      : *use the mcfost library*
+!   - z0              : *z scaling factor*
 !
-! :Dependencies: centreofmass, datafiles, dim, eos, eos_stamatellos,
-!   extern_binary, extern_corotate, extern_lensethirring, externalforces,
-!   fileutils, grids_for_setup, growth, infile_utils, io, io_control,
-!   kernel, memory, options, orbits, part, partinject, physcon, prompting,
-!   radiation_utils, set_dust, set_dust_options, setbinary, setdisc,
-!   sethier_utils, sethierarchical, setorbit, setunits, shock_capturing,
-!   spherical, systemutils, timestep, units, vectorutils, velfield
+! :Dependencies: boundary, centreofmass, datafiles, dim, eos,
+!   eos_stamatellos, extern_binary, extern_corotate, extern_lensethirring,
+!   externalforces, fileutils, grids_for_setup, growth, infile_utils, io,
+!   io_control, kernel, memory, options, orbits, part, partinject, physcon,
+!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
+!   setdisc, sethier_utils, sethierarchical, setorbit, setunits,
+!   shock_capturing, spherical, systemutils, timestep, units, vectorutils,
+!   velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
@@ -225,6 +233,10 @@ module setup
  real :: Kep_factor, R_rot, rms_mach, tfact, omega_cloud
  integer :: add_rotation, add_turbulence,set_freefall,dustfrac_method
 
+ !--atomic warm neutral periodic background
+ logical :: periodic_domain, add_warm
+ real    :: box_size, rho_warm_cgs
+
  !--time
  real    :: tinitial
  real    :: deltat
@@ -241,16 +253,19 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- integer,          intent(in)    :: id
- integer,          intent(out)   :: npart
- integer,          intent(out)   :: npartoftype(:)
- real,             intent(out)   :: xyzh(:,:)
- real,             intent(out)   :: massoftype(:)
- real,             intent(out)   :: vxyzu(:,:)
- real,             intent(out)   :: polyk
- real,             intent(out)   :: gamma
- real,             intent(out)   :: hfact
- real,             intent(inout) :: time
+ use boundary, only:set_boundary,print_boundaries
+ use dim,      only:periodic
+ use eos,      only:ieos
+ integer,           intent(in)    :: id
+ integer,           intent(out)   :: npart
+ integer,           intent(out)   :: npartoftype(:)
+ real,              intent(out)   :: xyzh(:,:)
+ real,              intent(out)   :: massoftype(:)
+ real,              intent(out)   :: vxyzu(:,:)
+ real,              intent(out)   :: polyk
+ real,              intent(out)   :: gamma
+ real,              intent(out)   :: hfact
+ real,              intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
 
  write(*,"(/,65('-'),/,/,5x,a,/,/,65('-'))") 'Welcome to the New Disc Setup'
@@ -263,6 +278,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--get disc setup parameters from file or interactive setup
  call get_setup_parameters(id,fileprefix)
+
+ if (periodic_domain) then
+    if (.not.periodic) call fatal('setpart','periodic_domain=T requires compiling with PERIODIC=yes')
+    if (box_size <= 0.) call fatal('setpart','periodic_domain requires box_size > 0')
+    call set_boundary(l=box_size*au/udist)
+    call print_boundaries(6,.true.)
+ endif
 
  !--allocate memory
  !nalloc = np
@@ -277,6 +299,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--setup equation of state
  call equation_of_state(gamma)
+ if (add_warm) then
+    ieos = 26
+    print "(/,a)",' setting ieos=26 for two-phase locally isothermal/atomic warm neutral gas'
+ endif
 
  !--set surface density profile based on setup options
  call surface_density_profile()
@@ -289,6 +315,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--setup disc(s)
  call setup_discs(id,fileprefix,hfact,gamma,npart,polyk,npartoftype,massoftype,xyzh,vxyzu)
+
+ if (add_warm) call set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
 
  !--planet atmospheres
  call planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
@@ -312,10 +340,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (add_sphere) call set_sphere_around_disc(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
 
  !--reset centre of mass to the origin
- if (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
+ if (periodic_domain) then
+    write(*,*) 'Periodic warm-background setup: not resetting centre of mass.'
+ elseif (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
     print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
  else
     call set_centreofmass(npart,xyzh,vxyzu)
+ endif
+
+ if (periodic .and. .not.periodic_domain) then
+    call set_periodic_boundary_from_particles(npart,xyzh)
  endif
 
  !--set tmax and dtmax
@@ -340,12 +374,155 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
+subroutine set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
+ use dim,        only:maxp
+ use io,         only:master,fatal
+ use part,       only:igas,nptmass,xyzmh_ptmass,ihacc
+ use partinject, only:add_or_update_particle
+ use units,      only:umass,udist
+ integer, intent(in)    :: id
+ integer, intent(inout) :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(inout) :: massoftype(:)
+ real,    intent(in)    :: hfact
+ real :: rho_unit,rho_warm_code,box_code,mass_warm_code,pmass,h_warm,dx
+ real :: xyzi(3),vxyz(3),dr_sink(3),racc2,x,y,z
+ integer :: n_warm,nx,i,j,k,ipart,n_added,n_excluded,isink
+ logical :: inside_sink
+
+ box_code = box_size*au/udist
+ rho_unit = umass/udist**3
+ rho_warm_code = rho_warm_cgs/rho_unit
+ pmass = massoftype(igas)
+
+ if (box_code <= 0.) call fatal('set_warm_neutral_box','box_size must be positive')
+ if (rho_warm_code <= 0.) call fatal('set_warm_neutral_box','rho_warm_cgs must be positive')
+ if (pmass <= 0.) call fatal('set_warm_neutral_box','gas particle mass must be positive')
+
+ mass_warm_code = rho_warm_code*box_code**3
+ n_warm = nint(mass_warm_code/pmass)
+ if (n_warm <= 0) then
+    if (id==master) write(*,*) 'Warm neutral background requested, but n_warm <= 0; skipping.'
+    return
+ endif
+ if (npart + n_warm > maxp) then
+    call fatal('set_warm_neutral_box','atomic warm neutral particle count exceeds maxp',var='n_warm',ival=n_warm)
+ endif
+
+ h_warm = hfact*(pmass/rho_warm_code)**(1./3.)
+ nx = max(1,ceiling(real(n_warm)**(1./3.)))
+
+ dx = box_code/real(nx)
+ vxyz = 0.
+ ipart = npart + 1
+ n_added = 0
+ n_excluded = 0
+ fill_box: do k=0,nx-1
+    z = -0.5*box_code + (real(k) + 0.5)*dx
+    do j=0,nx-1
+       y = -0.5*box_code + (real(j) + 0.5)*dx
+       do i=0,nx-1
+          x = -0.5*box_code + (real(i) + 0.5)*dx
+          xyzi = (/x,y,z/)
+          inside_sink = .false.
+          do isink=1,nptmass
+             racc2 = xyzmh_ptmass(ihacc,isink)**2
+             if (racc2 <= 0.) cycle
+             dr_sink = xyzi - xyzmh_ptmass(1:3,isink)
+             if (periodic_domain) dr_sink = dr_sink - box_code*anint(dr_sink/box_code)
+             if (dot_product(dr_sink,dr_sink) <= racc2) then
+                inside_sink = .true.
+                exit
+             endif
+          enddo
+          if (inside_sink) then
+             n_excluded = n_excluded + 1
+             cycle
+          endif
+          call add_or_update_particle(igas,xyzi,vxyz,h_warm,0.,ipart,npart,npartoftype,xyzh,vxyzu)
+          ipart = ipart + 1
+          n_added = n_added + 1
+          if (n_added >= n_warm) exit fill_box
+       enddo
+    enddo
+ enddo fill_box
+
+ if (n_added < n_warm) then
+    call fatal('set_warm_neutral_box','not enough lattice sites outside sink accretion radii', &
+               var='n_added',ival=n_added)
+ endif
+
+ if (id==master) then
+    write(*,"(/,a,i0,a,es10.3,a)") ' Added ',n_added,' atomic warm neutral particles at rho = ',rho_warm_cgs,' g cm^-3'
+    if (n_excluded > 0) write(*,"(a,i0,a)") ' Skipped ',n_excluded,' warm-background lattice sites inside sink accretion radii'
+ endif
+end subroutine set_warm_neutral_box
+
+!--------------------------------------------------------------------------
+!
+! Set a setup-only periodic boundary large enough to contain the disc.
+! Runtime injectors can replace this boundary when the calculation starts.
+!
+!--------------------------------------------------------------------------
+subroutine set_periodic_boundary_from_particles(npart,xyzh)
+ use boundary, only:set_boundary,print_boundaries
+ implicit none
+ integer, intent(in) :: npart
+ real,    intent(in) :: xyzh(:,:)
+ real :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
+ real :: dx,dy,dz,span,pad
+
+ if (npart <= 0) return
+
+ xminp = minval(xyzh(1,1:npart))
+ xmaxp = maxval(xyzh(1,1:npart))
+ yminp = minval(xyzh(2,1:npart))
+ ymaxp = maxval(xyzh(2,1:npart))
+ zminp = minval(xyzh(3,1:npart))
+ zmaxp = maxval(xyzh(3,1:npart))
+
+ dx = xmaxp - xminp
+ dy = ymaxp - yminp
+ dz = zmaxp - zminp
+ span = max(dx,dy,dz,1.0)
+ pad = 0.05*span
+
+ if (dx <= 0.) then
+    xminp = xminp - 0.5*span
+    xmaxp = xmaxp + 0.5*span
+ else
+    xminp = xminp - pad
+    xmaxp = xmaxp + pad
+ endif
+ if (dy <= 0.) then
+    yminp = yminp - 0.5*span
+    ymaxp = ymaxp + 0.5*span
+ else
+    yminp = yminp - pad
+    ymaxp = ymaxp + pad
+ endif
+ if (dz <= 0.) then
+    zminp = zminp - 0.5*span
+    zmaxp = zmaxp + 0.5*span
+ else
+    zminp = zminp - pad
+    zmaxp = zmaxp + pad
+ endif
+
+ call set_boundary(xminp,xmaxp,yminp,ymaxp,zminp,zmaxp)
+ write(*,"(/,a)") 'Periodic setup boundary set from disc particle extent.'
+ call print_boundaries(6,.true.)
+
+end subroutine set_periodic_boundary_from_particles
+
 !--------------------------------------------------------------------------
 !
 ! Set default options
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()
+ use eos,             only:T_warm,mu_warm,rho_branch_cgs
  use sethierarchical, only:set_hierarchical_default_options
  use systemutils,     only:get_command_option
  use setorbit,        only:set_defaults_orbit
@@ -456,6 +633,15 @@ subroutine set_default_options()
 
  !--floor temperature
  T_floor      = 0.0
+
+ !--atomic warm neutral background; off by default for ordinary disc setups
+ periodic_domain = .false.
+ box_size        = 3000.0
+ add_warm        = .false.
+ T_warm          = 1.42e3
+ mu_warm         = 1.17
+ rho_warm_cgs    = 3.0e-20
+ rho_branch_cgs  = 5.0e-19
 
  !--disc eccentricity
  eccprofile=0
@@ -688,6 +874,7 @@ subroutine equation_of_state(gamma)
              !--eos around sink
              if (iuse_disc(i)) isink = i-1
           enddo
+          if (icentral == 1 .and. nsinks == 1 .and. iuse_disc(1)) isink = 1
           !--locally isothermal
           if (isink /= 0 .and. isink /= 3) then ! isink == 3 special case, to be generalised
              ieos = 6
@@ -753,7 +940,7 @@ subroutine equation_of_state(gamma)
  endif
 
  if ( any( ieos==(/3,6,7,13,14/) ) ) then
-    print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+    print "(/,a,g0,a)",' Setting floor temperature to ', T_floor, ' K.'
     cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
  endif
 
@@ -2209,6 +2396,7 @@ end subroutine set_tmax_dtmax
 !--------------------------------------------------------------------------
 subroutine setup_interactive(id)
  use prompting,        only:prompt
+ use eos,              only:T_warm,mu_warm,rho_branch_cgs
  use set_dust_options, only:set_dust_interactive
  use sethierarchical,  only:set_hierarchical_default_options,get_hier_level_mass
  use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
@@ -2598,6 +2786,21 @@ subroutine setup_interactive(id)
     endif
  enddo
 
+ !--atomic warm neutral background
+ print "(/,a)",'==========================='
+ print "(a)",  '+++  OPTIONAL BACKGROUND +++'
+ print "(a)",  '==========================='
+ call prompt('Do you want to add atomic warm neutral background gas?',add_warm)
+ if (add_warm) then
+    periodic_domain = .true.
+    call prompt('Use a finite periodic computational domain for the warm background?',periodic_domain)
+    if (periodic_domain) call prompt('Enter periodic cube side length in au',box_size,0.)
+    call prompt('Enter warm background temperature in K',T_warm,0.)
+    call prompt('Enter warm background mean molecular weight',mu_warm,0.)
+    call prompt('Enter warm background density in g/cm^3',rho_warm_cgs,0.)
+    call prompt('Enter EOS warm branch density threshold in g/cm^3',rho_branch_cgs,0.)
+ endif
+
  !--dust disc
  if (use_dust) then
     print "(/,a)",'=============='
@@ -2698,7 +2901,7 @@ end subroutine setup_interactive
 !
 !--------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2,T_warm,mu_warm,rho_branch_cgs
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  use sethierarchical,  only:write_hierarchical_setupfile,hs
@@ -3043,6 +3246,17 @@ subroutine write_setupfile(filename)
  !-- minimum temperature
  write(iunit,"(/,a)") '# Minimum Temperature in the Simulation'
  call write_inopt(T_floor,'T_floor','The minimum temperature in the simulation (for any locally isothermal EOS).',iunit)
+ !--atomic warm neutral periodic background
+ write(iunit,"(/,a)") '# optional atomic warm neutral background'
+ call write_inopt(add_warm,'add_warm','add atomic warm neutral background gas?',iunit)
+ if (add_warm) then
+    call write_inopt(periodic_domain,'periodic_domain','use finite periodic computational domain?',iunit)
+    call write_inopt(box_size,'box_size','user-specified periodic cube side length in au',iunit)
+    call write_inopt(T_warm,'T_warm','temperature of atomic warm neutral background in K',iunit)
+    call write_inopt(mu_warm,'mu_warm','mean molecular weight of atomic warm neutral background',iunit)
+    call write_inopt(rho_warm_cgs,'rho_warm_cgs','initial atomic warm neutral background density in g cm^-3',iunit)
+    call write_inopt(rho_branch_cgs,'rho_branch_cgs','EOS density threshold for warm branch in g cm^-3',iunit)
+ endif
  !--sphere of gas around disc
  write(iunit,"(/,a)") '# set sphere around disc'
  call write_inopt(add_sphere,'add_sphere','add sphere around disc?',iunit)
@@ -3137,7 +3351,7 @@ end subroutine write_setupfile
 !
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2,T_warm,mu_warm,rho_branch_cgs
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options
  use sethierarchical,  only:read_hierarchical_setupfile,hs
@@ -3278,7 +3492,13 @@ subroutine read_setupfile(filename,ierr)
  end select
 
  call read_inopt(T_floor,'T_floor',db,errcount=nerr)
-
+ call read_inopt(periodic_domain,'periodic_domain',db,errcount=nerr,default=periodic_domain)
+ call read_inopt(box_size,'box_size',db,min=0.,errcount=nerr,default=box_size)
+ call read_inopt(add_warm,'add_warm',db,errcount=nerr,default=add_warm)
+ call read_inopt(T_warm,'T_warm',db,min=0.,errcount=nerr,default=T_warm)
+ call read_inopt(mu_warm,'mu_warm',db,min=0.,errcount=nerr,default=mu_warm)
+ call read_inopt(rho_warm_cgs,'rho_warm_cgs',db,min=0.,errcount=nerr,default=rho_warm_cgs)
+ call read_inopt(rho_branch_cgs,'rho_branch_cgs',db,min=0.,errcount=nerr,default=rho_branch_cgs)
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  call read_inopt(lumdisc,'lumdisc',db,default=0)
 
@@ -3697,7 +3917,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
  !--Determine a global scaling to enforce the requested dust_to_gas
  dust_to_gas_scale = 1.
- if (idust_to_gas_norm == 0) then
+ if (idust_to_gas_norm == 1) then
     if (maxval(dust_to_gas_sum_part) > 0.) then
        dust_to_gas_scale_lo = 0.
        dust_to_gas_scale_hi = 1.
@@ -3808,7 +4028,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  if (abs(dust_to_gas_disc-dust_to_gas)/dust_to_gas > tol) then
     write(*,"(a,es15.8)") ' Requested dust-to-gas ratio is ',dust_to_gas
     write(*,"(a,es15.8)") '    Actual dust-to-gas ratio is ',dust_to_gas_disc
-    if (idust_to_gas_norm == 1) then
+    if (idust_to_gas_norm == 0) then
        call warning('setup_disc','dust-to-gas ratio differs from requested')
     else
        call fatal('setup_disc','dust-to-gas ratio is not correct')

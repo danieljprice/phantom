@@ -18,11 +18,12 @@ module moddump
 !   - m2      : *mass of secondary (in code units)*
 !   - norbits : *maximum number of binary orbits*
 !
-! :Dependencies: centreofmass, dim, infile_utils, io, part, physcon,
-!   prompting, setorbit, timestep, units
+! :Dependencies: centreofmass, dim, infile_utils, io, moddump_utils, part,
+!   prompting, setorbit, timestep
 !
 
  use setorbit,      only:orbit_t
+ use moddump_utils, only:prompt_for_params,write_moddump_header
  implicit none
 
  type(orbit_t) :: orbit
@@ -31,19 +32,19 @@ module moddump
 
  character(len=*), parameter, public :: moddump_flags = ''
 
+ public :: init_moddump,read_moddump,write_moddump
+ logical, parameter :: moddump_interactive = .true.
+ public :: moddump_interactive
+
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:nsinkproperties
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,igas,ihacc
- use prompting,         only:prompt
- use physcon,           only:au,solarm,pi,years
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
  use centreofmass,      only:reset_centreofmass
- use setorbit,          only:set_defaults_orbit,set_orbit,get_orbital_time
- use io,             only:id,master,fatal,fileprefix
- use infile_utils,   only:get_options,infile_exists
+ use setorbit,          only:set_orbit,get_orbital_time
+ use io,             only:id,master,fatal
  use timestep,       only:tmax,dtmax
- use units,          only:in_code_units
 
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -61,21 +62,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call fatal('moddump','no sink particles in dump file')
  endif
 
-!--defaults (will be overridden by addflyby.moddump if present)
- call set_defaults_orbit(orbit)
- orbit%input_type = 1
- m2 = 0.1
- accr2 = 1.0
- norbits = 100
- deltat = 0.1
-
- !--read parameter file (or write template and stop)
- ! read/write from .moddump file
- !
- call get_options(trim(fileprefix)//'.moddump',id==master,ierr,&
-                  read_moddumpfile,write_moddumpfile,read_interactive_moddumpfile)
-
- if (ierr /= 0) stop 'run phantommoddump again with new .moddump file'
+ if (prompt_for_params) call read_interactive_moddumpfile()
 
  xyzmh_ptmass_in = 0.
  vxyz_ptmass_in = 0.
@@ -147,7 +134,7 @@ end subroutine read_interactive_moddumpfile
 !  write options to .moddump file
 !+
 !----------------------------------------------------------------
-subroutine write_moddumpfile(filename)
+subroutine write_moddump(filename)
  use infile_utils,    only:write_inopt
  use setorbit,        only:write_options_orbit
  character(len=*), intent(in) :: filename
@@ -170,16 +157,15 @@ subroutine write_moddumpfile(filename)
 
  close(iunit)
 
-end subroutine write_moddumpfile
+end subroutine write_moddump
 
 !----------------------------------------------------------------
 !+
 !  read options from .moddump file
 !+
 !----------------------------------------------------------------
-subroutine read_moddumpfile(filename,ierr)
+subroutine read_moddump(filename,ierr)
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
- use io,              only:error,fatal
  use setorbit,        only:read_options_orbit
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
@@ -204,7 +190,18 @@ subroutine read_moddumpfile(filename,ierr)
     ierr = nerr
  endif
 
-end subroutine read_moddumpfile
+end subroutine read_moddump
+
+subroutine init_moddump()
+ use setorbit, only:set_defaults_orbit
+
+ call set_defaults_orbit(orbit)
+ orbit%input_type = 1
+ m2 = 0.1
+ accr2 = 1.0
+ norbits = 100
+ deltat = 0.1
+end subroutine init_moddump
 
 end module moddump
 

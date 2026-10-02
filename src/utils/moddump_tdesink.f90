@@ -12,22 +12,29 @@ module moddump
 !
 ! :Owner: Megha Sharma
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - sink_radius : *sink radius [Rsun]*
 !
-! :Dependencies: centreofmass, io, part, physcon, prompting, sortutils,
-!   units
+! :Dependencies: infile_utils, io, moddump_utils, part, physcon, prompting,
+!   sortutils, units
 !
+ use moddump_utils, only:prompt_for_params,write_moddump_header, &
+                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
+
+ real :: sink_radius = 1.0   ! sink radius in Rsun
+
+ public :: init_moddump,read_moddump,write_moddump
+ logical, parameter :: moddump_interactive = .true.
+ public :: moddump_interactive
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part, only:rho,xyzmh_ptmass,vxyz_ptmass,nptmass,igas,ihacc,ihsoft
+ use part, only:rho,xyzmh_ptmass,vxyz_ptmass,nptmass,ihsoft
  use part, only:delete_particles_inside_radius
  use io,             only:fatal
- use prompting,      only:prompt
- use centreofmass,   only:reset_centreofmass
  use units,          only:umass,udist
  use sortutils,      only:set_r2func_origin,indexxfunc,r2func_origin
  use physcon,        only:solarr,solarm
@@ -57,13 +64,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  location = maxloc(den_all,dim=1)
  !
- ! prompt user for rcore/hsoft and check if these are reasonable values
+ ! read the sink radius (or write a template and stop)
  !
- call prompt('Enter sink radius in Rsun', rcore, 0.)
- if (rcore <= 0.0) then
+ if (prompt_for_params) call read_interactive_moddumpfile()
+
+ if (sink_radius <= 0.0) then
     call fatal('moddump','Invalid sink radius entered')
  endif
- rcore = rcore * solarr / udist
+ rcore = sink_radius * solarr / udist
 
  !
  ! sort particles by radius from dense core
@@ -102,5 +110,52 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*, 'Number of gas particles:',npart, ', Number of sink:',nptmass
 
 end subroutine modify_dump
+
+!
+!---Interactively set the moddump parameters--------------------------------
+!
+subroutine read_interactive_moddumpfile()
+ use prompting, only:prompt
+
+ call prompt('Enter sink radius in Rsun', sink_radius, 0.)
+
+end subroutine read_interactive_moddumpfile
+
+!
+!---Write the moddump parameter file----------------------------------------
+!
+subroutine write_moddump(filename)
+ use infile_utils, only:write_inopt
+ character(len=*), intent(in) :: filename
+ integer, parameter :: iunit = 20
+
+ print "(a)",' writing moddump params file '//trim(filename)
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ call write_moddump_header(iunit)
+ call write_inopt(sink_radius,'sink_radius','sink radius [Rsun]',iunit)
+ close(iunit)
+
+end subroutine write_moddump
+
+!
+!---Read the moddump parameter file-----------------------------------------
+!
+subroutine read_moddump(filename,ierr)
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 21
+ integer :: nerr
+ type(inopts), allocatable :: db(:)
+
+ print "(a)",' reading moddump options from '//trim(filename)
+ nerr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_inopt(sink_radius,'sink_radius',db,min=0.,errcount=nerr)
+ call close_db(db)
+ if (nerr > 0) ierr = nerr
+
+end subroutine read_moddump
 
 end module moddump

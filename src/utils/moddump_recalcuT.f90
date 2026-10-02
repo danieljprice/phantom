@@ -15,19 +15,25 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, eos_gasradrec, io, part, units
+! :Dependencies: eos, eos_gasradrec, io, moddump_utils, part, units
 !
+ use moddump_utils, only:init_moddump=>init_moddump_empty, &
+                         read_moddump=>read_moddump_empty,write_moddump=>write_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
+
+ public :: init_moddump,read_moddump,write_moddump
+ logical, parameter :: moddump_interactive = .true.
+ public :: moddump_interactive
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
+ use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos, &
                          gmw,X_in,Z_in,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
- use part,          only:rho,eos_vars,itemp,igasP,igas
+ use part,          only:rho,eos_vars,itemp,igasP
  use units,         only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)

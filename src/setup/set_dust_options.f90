@@ -110,7 +110,7 @@ subroutine set_dust_default_options()
  igrainsizesmall = 0
  igraindenssmall = 0
  isetdust = 0
- idust_to_gas_norm = 0
+ idust_to_gas_norm = 1
  smincgs      = 1.e-4
  sminsmallcgs = 1.e-4
  sminlargecgs = 1.e-4
@@ -262,10 +262,10 @@ subroutine set_dust_interactive(method)
 
  if (isetdust /= 0) then
     call prompt('How do you want to handle dust cutoffs?'//new_line('A')// &
-               ' 0=renormalise dust to keep global dust_to_gas'//new_line('A')// &
-               ' 1=do not renormalise (global dust_to_gas can decrease)',idust_to_gas_norm,0,1)
+               ' 0=do not renormalise (global dust_to_gas can decrease)'//new_line('A')// &
+               ' 1=renormalise dust to keep global dust_to_gas',idust_to_gas_norm,0,1)
  else
-    idust_to_gas_norm = 0
+    idust_to_gas_norm = 1
  endif
 
 end subroutine set_dust_interactive
@@ -604,7 +604,7 @@ subroutine write_dust_setup_options(iunit,method)
  endif
  call write_inopt(dust_to_gas,'dust_to_gas','dust to gas ratio',iunit)
  call write_inopt(idust_to_gas_norm,'idust_to_gas_norm', &
-    'renormalise dust to keep global dust_to_gas (0=yes,1=no)',iunit)
+    'renormalise dust to keep global dust_to_gas (0=no,1=yes)',iunit)
 
  if (dust_method == 3) then
     call write_inopt(ndustsmallinp,'ndustsmallinp','number of small grain sizes',iunit)

@@ -1055,6 +1055,18 @@ ifeq ($(SETUP), streamerdisc)
     SRCINJECT= inject_streamer_pineda.f90
 endif
 
+ifeq ($(SETUP), infalltwophase)
+#   disc setup with optional periodic warm atomic neutral reservoir and infall injection
+    DISC_VISCOSITY=yes
+    PERIODIC=yes
+    SETUPFILE= setup_disc.f90
+    ANALYSIS= analysis_disc.f90
+    ISOTHERMAL=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+    SRCINJECT= inject_streamer_pineda.f90
+endif
+
 ifeq ($(SETUP), isosgstream)
 #   isothermal self-gravitating disc with streamer of material
     SETUPFILE= setup_disc.f90
