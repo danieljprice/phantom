@@ -824,6 +824,8 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  use options,        only:iexternalforce
  use part,           only:gravity
  use dim,            only:gr
+ use grids_for_setup,only:datasigma,dsigmadx,sigma_initialised
+ use table_utils,    only:interpolate_1d
  integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
@@ -833,6 +835,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  logical, intent(in)    :: lumdisc
  real,    intent(inout) :: vxyzu(:,:)
  real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi,a_smj,ecc
+ real :: Rs,dRs,sigp,sigm,sigc,dlnsig,etar,rcapmin,rcapmax
+ real, parameter :: eta_max = 0.5   ! see note below
+ integer :: nsig,ncap
  integer :: i,itable,ipart,ierr
  real :: rg,vkep
  logical :: isecc
@@ -846,6 +851,9 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
 
  ierr = 0
  ipart = npart_start_count - 1
+ ncap = 0 
+ rcapmin = huge(0.)
+ rcapmax = 0.
 
  do i=npart_start_count,npart_tot
     if (i_belong_i4(i)) then
@@ -884,6 +892,32 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
           endif
           if (do_sigmapringle) then
              term_pr = 0.
+          elseif (sigma_initialised) then
+             !--if Sigma read in from a file use local logarithmic slope rather
+             !  than the scalar p_index
+             nsig = size(datasigma(:,1))
+             dRs  = datasigma(2,1) - datasigma(1,1)
+             Rs   = min(max(R, datasigma(1,1)+dRs), datasigma(nsig,1)-dRs)
+             sigc = interpolate_1d(Rs,       datasigma(:,1),datasigma(:,2),dsigmadx)
+             sigp = interpolate_1d(Rs+dRs,   datasigma(:,1),datasigma(:,2),dsigmadx)
+             sigm = interpolate_1d(Rs-dRs,   datasigma(:,1),datasigma(:,2),dsigmadx)
+             if (sigc > tiny(sigc)) then
+                dlnsig = Rs*(sigp - sigm)/(2.*dRs*sigc)
+             else
+                dlnsig = -p_index
+             endif
+             !--eta = h^2 (3/2 + q - dlnSigma/dlnR); h^2 = cs^2/vK^2 = cs^2*R/(G*M)
+             etar = cs**2*(1.5 + q_index - dlnsig)/(G*star_m/R)
+             if (etar > eta_max) then
+                !  a gradient this steep cannot be balanced by rotation at all
+                !  (it would need vphi^2 < 0). Cap rather than crash; count it
+                !  and report once after the loop instead of per particle.
+                ncap    = ncap + 1
+                rcapmin = min(rcapmin,R)
+                rcapmax = max(rcapmax,R)
+                etar    = eta_max
+             endif
+             term_pr = -etar*G*star_m/R
           else
              ! NB: We do NOT correct for the smoothing of the inner disc profile in
              ! the orbital speed (as we did previously), this produces a strong response
@@ -954,6 +988,13 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  enddo
  if (ierr /= 0) call warning('set_disc','set_disc_velocities: '// &
     'assuming that the disc and black hole are aligned')
+ if (ncap > 0) then
+    call warning('set_disc','sigma_grid.dat is too steep to balance by '// &
+                 'rotation; pressure correction capped for some particles', &
+                 ival=ncap)
+    print "(a,1pg10.3,a,1pg10.3,a)", &
+          '   (capped between R = ',rcapmin,' and ',rcapmax,')'
+ endif
 
 end subroutine set_disc_velocities
 
