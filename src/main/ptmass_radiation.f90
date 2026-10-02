@@ -9,6 +9,7 @@ module ptmass_radiation
 ! Implementation of radiation from sink particles
 !   Contains routines to compute dust temperature assuming radiative equilibrium
 !   Also routine to compute radiative acceleration based on sink particle luminosity
+!   or based on a prescribed beta for a given grainsize
 !
 ! :References: None
 !
@@ -32,10 +33,7 @@ module ptmass_radiation
  integer, public  :: iray_resolution = -1
  real,    public  :: tdust_exp       = 0.5
  real,    public  :: beta_vgrad      = 0.8
- !
- !--options for isink_radiation = 5: radiation pressure on dust grains, with
- !  beta(s) = beta0_dust*s0_dust/s   (beta inversely proportional to grain size)
- !
+ !  options for isink_radiation = 5: beta(s) = beta0_dust*s0_dust/s 
  real,    public  :: beta0_dust      = 0.
  real,    public  :: s0_dust         = 1.e-4  ! reference grain size, in cm
  integer, public  :: ibeta_sink      = 1      ! radiating sink (0 = all sinks with L > 0)
@@ -62,14 +60,10 @@ subroutine init_radiation_ptmass(ierr)
  ierr = 0
 
 end subroutine init_radiation_ptmass
-
 !-----------------------------------------------------------------------
-!+
 !  beta = Frad/Fgrav for a single grain of size s (s in CODE units)
-!
 !  beta(s) = beta0_dust*s0_dust/s, so that a grain of size s0_dust
 !  (specified in cm in the .in file) has beta = beta0_dust
-!+
 !-----------------------------------------------------------------------
 real function get_beta_grain(s) result(betai)
  use units, only:udist
@@ -79,30 +73,9 @@ real function get_beta_grain(s) result(betai)
  if (s > tiny(s)) betai = beta0_dust*real(s0_dust/udist)/s
 
 end function get_beta_grain
-
 !-----------------------------------------------------------------------
-!+
-!  effective beta for SPH particle i, i.e. the factor by which the
-!  gravitational attraction of the radiating sink(s) is reduced for
-!  that particle.  Handles all four combinations of dust method:
-!
-!   * two-fluid (dust-as-particles): particle i is a dust particle of
-!     type idust+l-1, so its grain size is grainsize(l).  Gas particles
-!     with no dust fraction get beta = 0.
-!
-!   * one-fluid (dust-as-mixture): particle i is a single mixture
-!     particle carrying dustfrac(l,i) for each small grain species.
-!     Only the dust component feels the radiation, so the acceleration
-!     of the BARYCENTRE is reduced by
-!         beta_eff = sum_l dustfrac(l,i)*beta(grainsize(l))
-!     (the differential dust-gas drift this drives is handled
-!      separately, in force.F90 -- see get_phi_rad below)
-!
-!   * hybrid (dust_method=3): both of the above, in that order
-!
-!   * single or multiple grain sizes: falls out automatically, since
-!     grainsize is an array over dust species
-!+
+!  effective beta for SPH particle i. 
+!  Handles two-fluid and one-fluid cases
 !-----------------------------------------------------------------------
 real function get_beta_particle(i) result(betai)
  use dim,     only:use_dust,maxp
@@ -113,19 +86,17 @@ real function get_beta_particle(i) result(betai)
 
  betai = 0.
  if (.not.use_dust) return
- if (i < 1) return   ! sink particles (called with ii=-i) never feel radiation pressure
- !
- !--two-fluid: dust lives on its own particles, one species per particle type
- !
+ if (i < 1) return ! sink particles never feel rad pressure
+ !--two-fluid: one species per particle type, gas gets beta=0
  if (maxphase==maxp) then
     if (iamdust(iphase(i))) then
        betai = get_beta_grain(grainsize(idusttype(iphase(i))))
        return
     endif
  endif
- !
- !--one-fluid: mass-weighted beta over the small grain species carried by particle i
- !
+ !--one-fluid: the acceleration of the BARYCENTRE is reduced by
+ !     beta_eff = sum_l dustfrac(l,i)*beta(grainsize(l))
+ !     differential dust-gas drift handled in force.F90
  if (use_dustfrac) then
     do l=1,ndustsmall
        betai = betai + dustfrac(l,i)*get_beta_grain(grainsize(l))
@@ -133,17 +104,10 @@ real function get_beta_particle(i) result(betai)
  endif
 
 end function get_beta_particle
-
 !-----------------------------------------------------------------------
-!+
-!  potential of the radiating sink(s) at position (x,y,z), in code units
-!
+!  potential of the radiating sink(s) at position (x,y,z)
 !  Used by force.F90 to build the radiation-driven dust drift for
-!  one-fluid dust: the differential acceleration between dust and gas is
-!      a_dust - a_gas = beta*grad(Phi_rad)
-!  so the dust flux has exactly the same mathematical form as the
-!  pressure-driven flux, with P replaced by beta*Phi_rad
-!+
+!  one-fluid dust since a_dust - a_gas = beta*grad(Phi_rad)
 !-----------------------------------------------------------------------
 subroutine get_phi_rad(x,y,z,nptmass,xyzmh_ptmass,phi)
  use part, only:ilum
@@ -165,13 +129,8 @@ subroutine get_phi_rad(x,y,z,nptmass,xyzmh_ptmass,phi)
  enddo
 
 end subroutine get_phi_rad
-
 !-----------------------------------------------------------------------
-!+
-!  grad(Phi_rad) at position (x,y,z), i.e. the outward unit vector times
-!  GM/r^2 summed over the radiating sinks.  Multiplied by beta this is
-!  the differential acceleration between dust and gas
-!+
+!  grad(Phi_rad) at position (x,y,z). see above
 !-----------------------------------------------------------------------
 subroutine get_grad_phi_rad(x,y,z,nptmass,xyzmh_ptmass,gradphi)
  use part, only:ilum
@@ -198,11 +157,8 @@ subroutine get_grad_phi_rad(x,y,z,nptmass,xyzmh_ptmass,gradphi)
  enddo
 
 end subroutine get_grad_phi_rad
-
 !-----------------------------------------------------------------------
-!+
-!  is sink j a source of radiation pressure?
-!+
+!  replaces the check if L>0 since isink_radiation=5 has no luminosity
 !-----------------------------------------------------------------------
 logical function sink_is_radiating(j,Lstar) result(is_rad)
  integer, intent(in) :: j
