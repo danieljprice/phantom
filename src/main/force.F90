@@ -1174,14 +1174,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     epstsi = sum(dustfraci(:)*tsi(:))
 !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
     sqrtrhodustfraci(:) = sqrt(dustfraci(:)/(1.-dustfraci(:)))
-!
-!--radiation pressure on dust grains (isink_radiation=5): pre-compute beta for
-!  each grain species and the stellar potential at the location of particle i.
-!  Only the dust feels the radiation, so it drifts relative to the gas with
-!    deltav_rad = ts*beta*grad(Phi_rad)
-!  which has exactly the same form as the pressure-driven drift with
-!  P -> beta*Phi_rad, and hence enters the dustfrac evolution the same way
-!
+!--radiation pressure on dust grains (isink_radiation=5)
     if (isink_radiation == 5 .and. nptmass > 0) then
        do l=1,ndustsmall
           betarad(l) = get_beta_grain(grainsize(l))
@@ -1817,9 +1810,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              enddo
              if (ilimitdustflux) tsj(:)   = min(tsj(:),hj/spsoundj) ! flux limiter from Ballabio et al. (2018)
              epstsj   = sum(dustfracj(:)*tsj(:))
-             !
-             !--stellar potential at the neighbour, for the radiation-driven dust flux
-             !
+             !--stellar potential at the neighbour, for the radiation pressure driven dust flux
              if (isink_radiation == 5 .and. nptmass > 0) then
                 call get_phi_rad(xi-dx,yi-dy,zi-dz,nptmass,xyzmh_ptmass,phiradj)
              else
@@ -1851,13 +1842,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    !--sqrt(rho*epsilon) method and sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
                    if (maxvxyzu >= 4) fsum(idudtdusti+(l-1)) = fsum(idudtdusti+(l-1)) - sqrtrhodustfraci(l)*dustfracterms(l)*denij
 
-                   !--radiation pressure on dust: identical Brookshaw operator with the
-                   !  dust flux rho*eps*(1-eps)*ts*beta*grad(Phi_rad) in place of the
-                   !  pressure-driven flux eps*ts*grad(P)
+                   !--radiation pressure on dust. same format as dustfracterms above 
                    if (betarad(l) > 0.) then
                       raddustterms(l) = pmassj*sqrtrhodustfracj(l)*rho1j*betarad(l)   &
-                                        *(rhoi*(1.-dustfracisum)*(tsi(l)-epstsi)*(1.-dustfraci(l))   &
-                                         +rhogasj*(tsj(l)-epstsj)*(1.-dustfracj(l)))  &
+                                        *(rhoi*(1.-dustfracisum)*(tsi(l)-epstsi)*(1.-dustfraci(l))/(1.-dustfracisum)   &
+                                         +rhoj*(1.-dustfracjsum)*(tsj(l)-epstsj)*(1.-dustfracj(l))/(1.-dustfracjsum))  &
                                         *(phiradi - phiradj)*grkernav*rij1
 
                       fsum(iddustevoli+(l-1)) = fsum(iddustevoli+(l-1)) - raddustterms(l)
@@ -2738,7 +2727,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use utils_gr,       only:get_u0
  use io,             only:error
  use growth,         only:get_size
- use dust,           only:idrag,get_ts
+ use dust,           only:idrag,get_ts,ilimitdustflux
  use part,           only:grainsize
  use ptmass_radiation, only:isink_radiation,get_beta_grain,get_grad_phi_rad
  use physcon,        only:fourpi
@@ -2794,6 +2783,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: eni,dudtnonideal
  real    :: dustfraci(maxdusttypes),dustfracisum
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
+ real    :: tsradi
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
  real    :: dudt_radi
@@ -3178,15 +3168,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           deltav(1,:,i)  = fsum(ideltavxi:ideltavxiend)
           deltav(2,:,i)  = fsum(ideltavyi:ideltavyiend)
           deltav(3,:,i)  = fsum(ideltavzi:ideltavziend)
-          !
-          !--radiation pressure on dust adds a dust-gas drift deltav = ts*beta*grad(Phi_rad),
-          !  i.e. an outward drift of the dust relative to the gas.  grad(Phi_rad) is
-          !  evaluated analytically from the sink positions
-          !
+          !--radiation pressure on dust 
           if (isink_radiation == 5 .and. nptmass > 0) then
              call get_grad_phi_rad(xi,yi,zi,nptmass,xyzmh_ptmass,gradphirad)
              do l=1,ndustsmall
-                deltav(1:3,l,i) = deltav(1:3,l,i) + tstopi(l)*get_beta_grain(grainsize(l))*gradphirad(1:3)
+                tsradi = tstopi(l)
+                if (ilimitdustflux) tsradi = min(tsradi,hi/spsoundi) 
+                ! adust-agas = beta*gradphi , deltav = ts*beta*gradphi
+                deltav(1:3,l,i) = deltav(1:3,l,i) + tsradi*get_beta_grain(grainsize(l))*gradphirad(1:3)
              enddo
           endif
           if (use_dustgrowth) then !-get dust velocity dispersion in the kernel for dust as a mixture
