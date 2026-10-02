@@ -122,8 +122,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use dim,         only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use neighkdtree, only:leaf_is_active,ncells,get_neighbour_list,get_hmaxcell,&
-                     listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
+ use neighkdtree, only:leaf_is_active,get_neighbour_list,get_hmaxcell,&
+                     listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi,&
+                     active_leaves,nactive_leaves
  use part,        only:mhd,get_partinfo,iactive,&
                        iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,    only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
@@ -157,7 +158,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,   save :: xyzcache(5,isizecellcache)
 !$omp threadprivate(xyzcache)
 
- integer :: i,icell
+ integer :: i,icell,ia
  integer :: nneigh,np
  integer :: nwarnup,nwarndown,nwarnroundoff
 
@@ -230,8 +231,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  rhomax = 0.0
 !$omp parallel default(none) &
 !$omp shared(icall) &
-!$omp shared(ncells) &
-!$omp shared(leaf_is_active) &
+!$omp shared(leaf_is_active,active_leaves,nactive_leaves) &
 !$omp shared(xyzh) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
@@ -290,7 +290,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:ncalls_neigh) &
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
-!$omp private(i)
+!$omp private(i,icell)
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
@@ -302,7 +302,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  call init_send_requests(irequestsend)
 
  !$omp do schedule(runtime)
- over_cells: do icell=1,int(ncells)
+ over_cells: do ia=1,nactive_leaves
+    icell = active_leaves(ia)
 
     !--skip empty cells AND inactive cells
     if (leaf_is_active(icell) <= 0) cycle over_cells
