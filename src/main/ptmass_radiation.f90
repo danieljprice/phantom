@@ -258,8 +258,7 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
     vwind  = xyzmh_ptmass(ivwind,j)
     alpha_rad = xyzmh_ptmass(iwalpha,j)
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
-    !(for isink_radiation=5, beta is prescribed directly so no luminosity is needed)
-    if (sink_is_radiating(j,Lstar)) then
+    if (sink_is_radiating(j,Lstar)) then ! instead of L > 0 since isink_rad=5 has no L
        if (extrap) then
           dx = xi - xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j)
           dy = yi - xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j)
@@ -291,11 +290,9 @@ subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,a
  real                             :: r,ax,ay,az,alpha,kappa,fac
 
  r = sqrt(dx**2 + dy**2 + dz**2)
- !
- !--radiation pressure on dust grains with beta = beta0_dust*s0_dust/s
- !  (no Poynting-Robertson drag: this is a pure 1/r^2 repulsion, so it
- !   simply reduces the gravity of the sink by a factor (1-beta))
- !
+ ! radiation pressure on dust grains with beta = beta0_dust*s0_dust/s
+ !  (no P-R drag: simply reducing grav potential by a factor of (1-beta))
+ !  two-fluid method
  if (isink_radiation == 5) then
     if (r > tiny(r)) then
        fac   = get_beta_particle(i)*Mstar/(r*r*r)
@@ -424,6 +421,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar,Lstar,rstar,vwi
  case (4)
     ! beta-velocity law
     call calc_alpha(r,Mstar,rstar,vwind,alpha,dalpha_dr)
+    ! if case(5) see calc_rad_accel_from_ptmass
  case default
     ! no radiation pressure
     alpha = 0.
