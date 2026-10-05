@@ -1999,16 +1999,16 @@ pure subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
 
 #ifdef PERIODIC
  if (abs(dx) > hdlx) then ! mod distances across boundary if periodic BCs
-    xoffset = dxbound*SIGN(1.0,dx)
-    dx = dx - xoffset
+    xoffset = -dxbound*SIGN(1.0,dx)
+    dx = dx + xoffset
  endif
  if (abs(dy) > hdly) then
-    yoffset = dybound*SIGN(1.0,dy)
-    dy = dy - yoffset
+    yoffset = -dybound*SIGN(1.0,dy)
+    dy = dy + yoffset
  endif
  if (abs(dz) > hdlz) then
-    zoffset = dzbound*SIGN(1.0,dz)
-    dz = dz - zoffset
+    zoffset = -dzbound*SIGN(1.0,dz)
+    dz = dz + zoffset
  endif
 #endif
 
