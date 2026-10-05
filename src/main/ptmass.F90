@@ -1157,7 +1157,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  integer            :: nneigh
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
- real, save :: xyzcache(3,maxcache)
+ real, allocatable, save :: xyzcache(:,:)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz
  real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz,rhomax
@@ -1291,6 +1291,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
  ! find neighbours within the checking radius of hcheck
+ if (.not. allocated(xyzcache)) allocate(xyzcache(3,maxcache))
  call getneigh_pos((/xi,yi,zi/),0.,hcheck,listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
  ! determine if we should approximate epot
  calc_exact_epot = .true.

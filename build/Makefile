@@ -1386,6 +1386,7 @@ compilers:
 	@if type -p ifort > /dev/null; then echo "make SYSTEM=ifort"; fi;
 	@if type -p pathf90 > /dev/null; then echo "make SYSTEM=pathf90"; fi;
 	@if type -p pgf90 > /dev/null; then echo "make SYSTEM=pgf90"; fi;
+	@if type -p nvfortran > /dev/null; then echo "make SYSTEM=nvfortran"; fi;
 	@if type -p xlf90_r > /dev/null; then echo "make SYSTEM=ukaff1a [uses xlf90_r]"; fi;
 	@if type -p gfortran > /dev/null; then echo "make SYSTEM=gfortran"; fi;
 	@if type -p g95 > /dev/null; then echo "make SYSTEM=g95"; fi;
