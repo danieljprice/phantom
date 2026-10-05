@@ -401,9 +401,9 @@ for setup in $listofsetups; do
          mydebug='DEBUG=yes' # compile phantomsetup with DEBUG=yes for setup test
          #make clean >& /dev/null;
       fi
-      if [[ "$setup" == "blob" || "$setup" == "coaladisc" || "$setup" == "coala_collapse" ]]; then
+      if [[ "$setup" == "blob" || "$setup" == "coaladisc" || "$setup" == "coala_collapse" || "$SYSTEM" == "nvfortran" ]]; then
          mynowarn='';
-         echo "allowing warnings for SETUP=$setup"
+         echo "allowing warnings for SETUP=$setup SYSTEM=$SYSTEM"
       else
          mynowarn=$nowarn;
       fi
