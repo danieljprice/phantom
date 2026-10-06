@@ -16,6 +16,7 @@ jobs:
           - gfortran
           - ifort
           - ifx
+          - nvfortran
         debug:
           - no
           - yes
@@ -44,11 +45,11 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    - name: Setup Intel repo
-      if: matrix.system == 'ifort' || matrix.system == 'ifx'
+    - name: Setup Fortran compiler
+      if: matrix.system == 'ifort' || matrix.system == 'ifx' || matrix.system == 'nvfortran'
       uses: fortran-lang/setup-fortran@v1
       with:
-          compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || 'intel' }}
+          compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || matrix.system == 'ifx' && 'intel' || 'nvidia-hpc' }}
 
     - name: "Clone phantom"
       uses: actions/checkout@v4

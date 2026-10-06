@@ -1,9 +1,9 @@
 # default settings for the NVIDIA HPC Fortran compiler (nvfortran)
 # override these in the Makefile
 FC= nvfortran
-FFLAGS= -O3 -tp=native
+FFLAGS= -O3 -tp=native -Mbackslash
 DBLFLAG= -r8
-DEBUGFLAG= -g -C -Mchkptr -Mchkstk -Mframe -traceback -Ktrap=fp -Minit-real=snan
+DEBUGFLAG= -g -C -Mchkptr -Mchkstk -Mframe -traceback -Ktrap=fp
 # host OpenMP only; -mp=gpu would offload target regions
 OMPFLAGS= -mp=multicore
 ENDIANFLAGBIG= -Mbyteswapio
