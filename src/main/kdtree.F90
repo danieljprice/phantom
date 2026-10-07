@@ -390,10 +390,10 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  integer,            intent(inout) :: istack
  integer,            intent(in)    :: nqueue
  integer,            intent(inout) :: leaf_is_active(:)
- integer, allocatable :: cnode(:),clo(:),chi(:),cnl(:),coffl(:),coffr(:)
- integer, allocatable :: jc0(:),jc1(:),jnl(:),jaxis(:),ncjv(:)
+ integer, allocatable :: cnode(:),chunkl(:),chunkr(:),cnl(:),coffl(:),coffr(:)
+ integer, allocatable :: nodecl(:),nodecr(:),jnl(:),nodeax(:),chunk(:)
  logical, allocatable :: jdegen(:)
- real,    allocatable :: psum(:,:),pr2(:),pbox(:,:),jcofm(:,:),jcgeo(:,:),frem(:)
+ real,    allocatable :: psum(:,:),phm(:),pr2(:),pbox(:,:),nodecom(:,:),nodecog(:,:),remain(:)
 #ifdef GRAVITY
  real,    allocatable :: pmom(:,:)
  real    :: quads(6),octs(10)
@@ -424,10 +424,11 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  !
  kmax = size(queue)/2
  cmax = numthreads + kmax
- allocate(jc0(kmax),jc1(kmax),jnl(kmax),jaxis(kmax),jdegen(kmax),jcofm(3,kmax),jcgeo(3,kmax),newq(2*kmax))
- allocate(ncjv(kmax),frem(kmax))
- allocate(cnode(cmax),clo(cmax),chi(cmax),cnl(cmax),coffl(cmax),coffr(cmax))
- allocate(psum(5,cmax),pr2(cmax),pbox(12,cmax))
+ allocate(nodecl(kmax),nodecr(kmax),jnl(kmax),jdegen(kmax))
+ allocate(nodeax(kmax),nodecom(3,kmax),nodecog(3,kmax))
+ allocate(chunk(kmax),remain(kmax),newq(2*kmax))
+ allocate(cnode(cmax),chunkl(cmax),chunkr(cmax),cnl(cmax),coffl(cmax),coffr(cmax))
+ allocate(psum(4,cmax),pr2(cmax),pbox(12,cmax))
 #ifdef GRAVITY
  allocate(pmom(16,cmax))
 #endif
@@ -439,7 +440,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     ! together, or hand over to the serial loop if the next level would not fit in the
     ! queue, would pass the levels numbered 2n/2n+1, or any node is small
     !
-    if (2*k > size(queue) .or. queue(1)%level >= maxlevel_indexed) exit levels
+    if (k > kmax .or. queue(1)%level >= maxlevel_indexed) exit levels
     if (any(queue(1:k)%npnode <= max(minpart,64))) exit levels
     !
     ! each node gets its share of the threads as chunks: the share rounded down (at
@@ -449,35 +450,36 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     !
     ntot = sum(int(queue(1:k)%npnode,kind=8))
     do j = 1,k
-       share   = real(numthreads)*real(queue(j)%npnode)/real(ntot)
-       ncjv(j) = max(1,int(share))
-       frem(j) = share - int(share)
-       if (int(share) == 0) frem(j) = -1.   ! already given its minimum of one
+       !-- first share estimate (how many threads need a node)
+       share     = real(numthreads)*real(queue(j)%npnode)/real(ntot)
+       chunk(j)  = max(1,int(share)) !-- cap to 1 as a node should at least have a chunk
+       remain(j) = share - int(share)
+       if (int(share) == 0) remain(j) = -1. ! already given its minimum of one skip from the remainder share
     enddo
-    do while (sum(ncjv(1:k)) < numthreads)
-       j = maxloc(frem(1:k),1)
-       if (frem(j) < 0.) exit
-       ncjv(j) = ncjv(j) + 1
-       frem(j) = -1.
+    do while (sum(chunk(1:k)) < numthreads)
+       j = maxloc(remain(1:k),1)
+       if (remain(j) < 0.) exit
+       chunk(j) = chunk(j) + 1
+       remain(j) = -1.
     enddo
     nchunk = 0
     do j = 1,k
-       ncj = min(ncjv(j),queue(j)%npnode)
-       jc0(j) = nchunk + 1
-       nchunk = nchunk + ncj
-       jc1(j) = nchunk
-       jaxis(j) = maxloc(queue(j)%xmax - queue(j)%xmin,1)   ! split along the longest axis
-       jcgeo(:,j) = 0.5*(queue(j)%xmin + queue(j)%xmax)
+       ncj = min(chunk(j),queue(j)%npnode)
+       nodecl(j) = nchunk + 1 !-- node chunk left
+       nchunk    = nchunk + ncj
+       nodecr(j) = nchunk     !-- node chunk right
+       nodeax(j) = maxloc(queue(j)%xmax - queue(j)%xmin,1)   ! split along the longest axis
+       nodecog(:,j) = 0.5*(queue(j)%xmin + queue(j)%xmax)
     enddo
     do j = 1,k
        i1  = inoderange(1,queue(j)%node)
        n   = queue(j)%npnode
-       ncj = jc1(j) - jc0(j) + 1
-       do m = 0,ncj-1
-          c = jc0(j) + m
+       ncj = nodecr(j) - nodecl(j) + 1
+       do m = 1,ncj
+          c = nodecl(j) + (m-1)
           cnode(c) = j
-          clo(c)   = i1 + int((int(m,8)*n)/ncj)
-          chi(c)   = i1 + int((int(m+1,8)*n)/ncj) - 1
+          chunkl(c)   = i1 + int((int(m-1,8)*n)/ncj)
+          chunkr(c)   = i1 + int((int(m,8)*n)/ncj) - 1
        enddo
     enddo
 
@@ -493,25 +495,23 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     !$omp do schedule(static,1)
     do c = 1,nchunk
        sx = 0.; sy = 0.; sz = 0.; sm = 0.; hm = 0.
-       do i = clo(c),chi(c)
+       do i = chunkl(c),chunkr(c)
           pmassi = treecache(5,i)
           fac = pmassi*dfac
-          hm  = max(hm,treecache(4,i))
           sm  = sm + pmassi
           sx  = sx + fac*treecache(1,i)
           sy  = sy + fac*treecache(2,i)
           sz  = sz + fac*treecache(3,i)
        enddo
-       psum(:,c) = (/sx,sy,sz,sm,hm/)
+       psum(:,c) = (/sx,sy,sz,sm/)
     enddo
     !$omp enddo
     ! ... combined per node, which also fixes the pivot (the centre of mass)
     !$omp do schedule(static)
     do j = 1,k
-       totmass = sum(psum(4,jc0(j):jc1(j)))
+       totmass = sum(psum(4,nodecl(j):nodecr(j)))
        if (totmass <= 0.) call fatal('mtree','totmass_node==0',val=totmass)
-       jcofm(:,j) = sum(psum(1:3,jc0(j):jc1(j)),dim=2)/(totmass*dfac)
-       node(queue(j)%node)%hmax = maxval(psum(5,jc0(j):jc1(j)))
+       nodecom(:,j) = sum(psum(1:3,nodecl(j):nodecr(j)),dim=2)/(totmass*dfac)
 #ifdef GRAVITY
        node(queue(j)%node)%mass = totmass
 #endif
@@ -523,10 +523,10 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     !
     !$omp do schedule(static,1)
     do c = 1,nchunk
-       iax  = jaxis(cnode(c))
-       x0   = jcofm(:,cnode(c))
+       iax  = nodeax(cnode(c))
+       x0   = nodecom(:,cnode(c))
        if (use_geosplit) then
-          xpiv = jcgeo(iax,cnode(c))
+          xpiv = nodecog(iax,cnode(c))
        else
           xpiv = x0(iax)
        endif
@@ -536,10 +536,11 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        quads = 0.
        octs  = 0.
 #endif
-       do i = clo(c),chi(c)
+       do i = chunkl(c),chunkr(c)
           dx = treecache(1,i) - x0(1)
           dy = treecache(2,i) - x0(2)
           dz = treecache(3,i) - x0(3)
+          hm = max(hm,treecache(4,i))
           r2 = max(r2,dx*dx + dy*dy + dz*dz)
           if (treecache(iax,i) <= xpiv) nl = nl + 1
 #ifdef GRAVITY
@@ -547,6 +548,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
           call add_node_moments(pmassi,dx,dy,dz,quads,octs)
 #endif
        enddo
+       phm(c) = hm
        pr2(c) = r2
        cnl(c) = nl
 #ifdef GRAVITY
@@ -561,14 +563,15 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        nnode = queue(j)%node
        i1 = inoderange(1,nnode)
        n  = queue(j)%npnode
-       r2 = maxval(pr2(jc0(j):jc1(j)))
-       node(nnode)%xcen   = jcofm(:,j)
+       r2 = maxval(pr2(nodecl(j):nodecr(j)))
+       node(nnode)%xcen   = nodecom(:,j)
        node(nnode)%size   = sqrt(r2) + epsilon(r2)
+       node(nnode)%hmax   = maxval(phm(nodecl(j):nodecr(j)))
        node(nnode)%parent = queue(j)%parent
        node(nnode)%level  = queue(j)%level
 #ifdef GRAVITY
-       node(nnode)%quads  = sum(pmom(1:6,jc0(j):jc1(j)),dim=2)
-       node(nnode)%octs   = sum(pmom(7:16,jc0(j):jc1(j)),dim=2)
+       node(nnode)%quads  = sum(pmom(1:6,nodecl(j):nodecr(j)),dim=2)
+       node(nnode)%octs   = sum(pmom(7:16,nodecl(j):nodecr(j)),dim=2)
        cachestate(nnode)  = 0 ! set as untouched
 #endif
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011), as in construct_node
@@ -576,18 +579,18 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        node(nnode)%leftchild  = il
        node(nnode)%rightchild = ir
        leaf_is_active(nnode)  = 0
-       nl = sum(cnl(jc0(j):jc1(j)))
+       nl = sum(cnl(nodecl(j):nodecr(j)))
        ! all particles on one side: split in half without moving them, as construct_node does
        jdegen(j) = (nl == 0 .or. nl == n)
        if (jdegen(j)) nl = n/2
        jnl(j) = nl
        pl = i1
        pr = i1 + nl
-       do c = jc0(j),jc1(j)
+       do c = nodecl(j),nodecr(j)
           coffl(c) = pl
           coffr(c) = pr
           pl = pl + cnl(c)
-          pr = pr + (chi(c) - clo(c) + 1 - cnl(c))
+          pr = pr + (chunkr(c) - chunkl(c) + 1 - cnl(c))
        enddo
     enddo
     !$omp enddo
@@ -598,19 +601,19 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     do c = 1,nchunk
        if (jdegen(cnode(c))) then
           ! nothing moves, but the buffer becomes the particle list: copy as it is
-          tcbuf(:,clo(c):chi(c)) = treecache(:,clo(c):chi(c))
-          ipbuf(clo(c):chi(c))   = inodeparts(clo(c):chi(c))
+          tcbuf(:,chunkl(c):chunkr(c)) = treecache(:,chunkl(c):chunkr(c))
+          ipbuf(chunkl(c):chunkr(c))   = inodeparts(chunkl(c):chunkr(c))
           cycle
        endif
-       iax  = jaxis(cnode(c))
+       iax  = nodeax(cnode(c))
        if (use_geosplit) then
-          xpiv = jcgeo(iax,cnode(c))
+          xpiv = nodecog(iax,cnode(c))
        else
-          xpiv = jcofm(iax,cnode(c))
+          xpiv = nodecom(iax,cnode(c))
        endif
        pl = coffl(c)
        pr = coffr(c)
-       do i = clo(c),chi(c)
+       do i = chunkl(c),chunkr(c)
           if (treecache(iax,i) <= xpiv) then
              tcbuf(:,pl) = treecache(:,i)
              ipbuf(pl)   = inodeparts(i)
@@ -630,7 +633,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        isplit = inoderange(1,queue(j)%node) + jnl(j)   ! first particle of the right child
        bl(1:3) =  huge(1.); bl(4:6) = -huge(1.)
        br = bl
-       do i = clo(c),chi(c)
+       do i = chunkl(c),chunkr(c)
           if (i < isplit) then
              bl(1:3) = min(bl(1:3),tcbuf(1:3,i))
              bl(4:6) = max(bl(4:6),tcbuf(1:3,i))
@@ -658,10 +661,10 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        inoderange(2,ir) = i1 + n - 1
        ! children's boxes from the chunks' partial boxes (into bl/br first, so that no
        ! array temporaries are passed to push_onto_stack)
-       bl(1:3) = minval(pbox(1:3,jc0(j):jc1(j)),dim=2)
-       bl(4:6) = maxval(pbox(4:6,jc0(j):jc1(j)),dim=2)
-       br(1:3) = minval(pbox(7:9,jc0(j):jc1(j)),dim=2)
-       br(4:6) = maxval(pbox(10:12,jc0(j):jc1(j)),dim=2)
+       bl(1:3) = minval(pbox(1:3,nodecl(j):nodecr(j)),dim=2)
+       bl(4:6) = maxval(pbox(4:6,nodecl(j):nodecr(j)),dim=2)
+       br(1:3) = minval(pbox(7:9,nodecl(j):nodecr(j)),dim=2)
+       br(4:6) = maxval(pbox(10:12,nodecl(j):nodecr(j)),dim=2)
        call push_onto_stack(newq(2*j-1),il,nnode,queue(j)%level+1,nl,bl(1:3),bl(4:6))
        call push_onto_stack(newq(2*j),ir,nnode,queue(j)%level+1,n-nl,br(1:3),br(4:6))
     enddo
