@@ -517,6 +517,7 @@ end subroutine set_binary_perturbation
 !+
 !----------------------------------------------------------------
 subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
+ use centreofmass, only:get_centreofmass
  use velfield,  only:set_velfield_from_cubes
  use datafiles, only:find_phantom_datafile
  use io,        only:fatal
@@ -527,7 +528,7 @@ subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
  real,    intent(in)    :: cs_sphere
  integer, intent(inout) :: npartsphere
  integer :: i,ierr
- real :: v2i,rmsmach,turbfac
+ real :: v2i,rmsmach,turbfac,xcom(3),vcom(3)
  character(len=120) :: filex,filey,filez
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
@@ -548,6 +549,12 @@ subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
  call set_velfield_from_cubes(xyzh(:,1:npartsphere),vxyzu(:,:npartsphere),npartsphere, &
                               filex,filey,filez,1.,r_sphere,.false.,ierr)
  if (ierr /= 0) call fatal('setup','error setting up velocity field on clouds')
+
+ ! remove the net velocity of the field sampled onto the sphere
+ call get_centreofmass(xcom,vcom,npartsphere,xyzh,vxyzu)
+ do i = 1,npartsphere
+    vxyzu(1:3,i) = vxyzu(1:3,i) - vcom
+ enddo
 
  rmsmach = 0.0
  print*, 'Turbulence being set by user'
