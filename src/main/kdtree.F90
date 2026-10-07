@@ -22,7 +22,7 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, io, kernel,
 !   mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
- use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
+ use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph,gravity
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,lenfgrav
  use part,        only:ll,iphase,treecache,maxphase, &
@@ -55,8 +55,8 @@ module kdtree
 !--runtime options for this module
 !
  real,    public  :: tree_accuracy    = 0.5
- logical, public  :: use_geosplit     = .true.
- logical, public  :: use_cache        = .true.
+ logical, public  :: use_geosplit     = gravity ! only debug flag / should be on gravity
+ logical, public  :: use_cache        = .true.  ! only debug flag
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned   = .false.
  integer, private :: numthreads
@@ -634,14 +634,14 @@ subroutine compute_nodes_cofm(npnode,nnode,xyzcofm,totmass_node,doparallel)
 end subroutine compute_nodes_cofm
 
 subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                                level,global_build,doparallel,comp_node)
+                                level,global_build,doparallel)
  use mpitree,   only:reduce_group
  use dim,       only:mpi
  type(kdnode),    intent(out)   :: nodeentry
  integer,         intent(in)    :: npnode,mymum,level,nnode
  real,            intent(inout) :: xmini(3), xmaxi(3), totmass_node
  real,            intent(in)    :: x0(3)
- logical,         intent(in)    :: doparallel,global_build,comp_node
+ logical,         intent(in)    :: doparallel,global_build
  real    :: pmassi
  real    :: dx,dy,dz,dr2,xi,yi,zi,hi
  real    :: hmax,r2max,totmass
@@ -662,68 +662,58 @@ subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmi
 
  i1=inoderange(1,nnode)
 
- if (comp_node) then
-    !--compute size of node
-    ! parallelise this loop if node is large enough
-    ! use !$omp parallel do when doparallel=.true. (not in parallel region)
-    ! when doparallel=.false., we're already in a parallel region but can't use nested reductions
-    ! so we'll use thread-local accumulators and combine at the end
-    if (npnode > 1000 .and. doparallel) then
-       !$omp parallel do schedule(static) default(none) &
-       !$omp shared(npnode,treecache,x0,i1,use_geosplit) &
-       !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
-       !$omp firstprivate(pmassi) &
+ !--compute size of node ! Parallel obsolete when build top tree is on but APR don't have it
+ ! parallelise this loop if node is large enough
+ ! use !$omp parallel do when doparallel=.true. (not in parallel region)
+ ! when doparallel=.false., we're already in a parallel region but can't use nested reductions
+ ! so we'll use thread-local accumulators and combine at the end
+ if (npnode > 1000 .and. doparallel) then
+    !$omp parallel do schedule(static) default(none) &
+    !$omp shared(npnode,treecache,x0,i1,use_geosplit) &
+    !$omp private(i,xi,yi,zi,hi,dx,dy,dz,dr2) &
+    !$omp firstprivate(pmassi) &
 #ifdef GRAVITY
-       !$omp reduction(+:totmass,quads,octs) &
+    !$omp reduction(+:totmass,quads,octs) &
 #endif
-       !$omp reduction(max:r2max,hmax)
-       do i=i1,i1+npnode-1
-          xi = treecache(1,i)
-          yi = treecache(2,i)
-          zi = treecache(3,i)
-          hi = treecache(4,i)
-          dx    = xi - x0(1)
-          dy    = yi - x0(2)
-          dz    = zi - x0(3)
-          ! if (.not.use_geosplit) then
-          dr2   = dx*dx + dy*dy + dz*dz
-          r2max = max(r2max,dr2)
-          ! endif
-          hmax  = max(hmax,hi)
+    !$omp reduction(max:r2max,hmax)
+    do i=i1,i1+npnode-1
+       xi = treecache(1,i)
+       yi = treecache(2,i)
+       zi = treecache(3,i)
+       hi = treecache(4,i)
+       dx    = xi - x0(1)
+       dy    = yi - x0(2)
+       dz    = zi - x0(3)
+       dr2   = dx*dx + dy*dy + dz*dz
+       r2max = max(r2max,dr2)
+       hmax  = max(hmax,hi)
 #ifdef GRAVITY
-          pmassi = treecache(5,i)
-          totmass  = totmass  + pmassi
-          call add_node_moments(pmassi,dx,dy,dz,quads,octs)
+       pmassi = treecache(5,i)
+       totmass  = totmass  + pmassi
+       call add_node_moments(pmassi,dx,dy,dz,quads,octs)
 #endif
-       enddo
-       !$omp end parallel do
-    else
-       do i=i1,i1+npnode-1
-          xi = treecache(1,i)
-          yi = treecache(2,i)
-          zi = treecache(3,i)
-          hi = treecache(4,i)
-          dx    = xi - x0(1)
-          dy    = yi - x0(2)
-          dz    = zi - x0(3)
-          ! if (.not.use_geosplit) then
-          dr2   = dx*dx + dy*dy + dz*dz
-          r2max = max(r2max,dr2)
-          ! endif
-          hmax = max(hmax,hi)
+    enddo
+    !$omp end parallel do
+ else
+    do i=i1,i1+npnode-1
+       xi = treecache(1,i)
+       yi = treecache(2,i)
+       zi = treecache(3,i)
+       hi = treecache(4,i)
+       dx    = xi - x0(1)
+       dy    = yi - x0(2)
+       dz    = zi - x0(3)
+       dr2   = dx*dx + dy*dy + dz*dz
+       r2max = max(r2max,dr2)
+       hmax = max(hmax,hi)
 #ifdef GRAVITY
-          pmassi = treecache(5,i)
-          totmass  = totmass  + pmassi
-          call add_node_moments(pmassi,dx,dy,dz,quads,octs)
+       pmassi = treecache(5,i)
+       totmass  = totmass  + pmassi
+       call add_node_moments(pmassi,dx,dy,dz,quads,octs)
 #endif
-       enddo
-    endif
+    enddo
  endif
 
- ! if (use_geosplit) then
- !    r2max = 0.25*sum((xmaxi-xmini)**2)
- !    totmass_node  = totmass
- ! endif
  ! reduce node limits and quads across MPI tasks belonging to this group
  if (mpi .and. global_build) then
     r2max     = reduce_group(r2max,'max',level)
@@ -808,7 +798,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real    :: xyzcofmg(3)
  real    :: totmassg
  integer :: npnodetot
- logical :: nodeisactive,comp_node
+ logical :: nodeisactive
  integer :: i,npcounter,ipart
  real    :: x0(3)
  integer :: iaxis
@@ -861,17 +851,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     'totmass_node==0, something almost certainly wrong with aprmassoftype')
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
- if (use_geosplit) then !--for geotree we use the middle point to split the node and propagate properties after
-    x0        = (xmaxi+xmini)*0.5       ! middle point of the node
-    comp_node = .true. !.not.wassplit
- else  !--for gravity and default KDtree, we need the centre of the node to be the centre of mass
+ if (use_geosplit) then !--for gravity KDtree, we need the geo centre to split the node
+    x0 = (xmaxi+xmini)*0.5
+ else  !--for default KDtree, we need the split centre to be the centre of mass
     x0 = xyzcofm
-    comp_node = .true.
  endif
 
 
  call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                           level,global_build,doparallel,comp_node)
+                           level,global_build,doparallel)
 
  if (apr_tree)   wassplit = (npnode > 2)
 
@@ -896,7 +884,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     endif
  else ! split this node and add children to stack
     iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
-    xpivot = x0(iaxis)               ! split middle longest axis
+    xpivot = x0(iaxis)
 
     if (maxlevel > maxdepth) call fatal('maketree','maximum tree depth reached !!')
     ! create two children nodes and point to them from current node
@@ -1498,7 +1486,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  call get_list_of_parent_nodes(icell,node,branch,nparents,startwith)
 
  neighnodecount_branch(1:nparents) = 0
- ! neighnode_branch(:,1:nparents) = 0 ! no need to reset neighnode_branch as neighnodecount_branch act as a switch
  fnode_branch(:,1:nparents) = 0.
  fnode_acc = 0.
  nneigh = 0
