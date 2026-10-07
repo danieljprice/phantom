@@ -14,9 +14,10 @@ module mesa_microphysics
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, physcon
+! :Dependencies: datafiles, io, physcon
 !
  use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
 
  implicit none
  public
@@ -76,14 +77,15 @@ contains
 ! Get the constants to be used in the MESA opacities
 subroutine get_opacity_constants_mesa
  character(len=500) :: opacs_file,filename
- integer            :: fnum
+ integer            :: fnum,ierr
 
  ! Find the opacity table
  filename   = 'opacs'//trim(mesa_opacs_suffix)//'.bindata'
  opacs_file = find_phantom_datafile(filename,'eos/mesa_opac')
 
  ! Read the constants from the header of the opacity file
- open(newunit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted')
+ open(newunit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted',iostat=ierr)
+ if (ierr /= 0) call fatal('mesa_microphysics','data file not found: '//trim(opacs_file))
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
  close(fnum)
 
@@ -102,7 +104,7 @@ subroutine read_opacity_mesa(x,z)
  real :: dz, dx
  real, allocatable :: kappas(:,:,:,:)
  character(len=500) :: opacs_file,filename
- integer :: zz, xx, k, i
+ integer :: zz, xx, k, i, ierr
  character(len=7) :: empty
  integer :: nz2,nx2
  integer :: fnum
@@ -115,7 +117,8 @@ subroutine read_opacity_mesa(x,z)
  filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
 ! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
  opacs_file = find_phantom_datafile(filename,'eos/mesa_opac')
- open(unit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted')
+ open(unit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted',iostat=ierr)
+ if (ierr /= 0) call fatal('mesa_microphysics','data file not found: '//trim(opacs_file))
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
 
  ! Read in the size of the table and the data

@@ -41,6 +41,9 @@ environment variable is specified, e.g.:
    $ export PHANTOM_DIR=~/phantom
    $ ./phantomsetup
 
+If the file is required for the setup or physics module to proceed, the
+calling routine call ``fatal`` if it is missing.
+
 Large files
 -----------
 
@@ -83,3 +86,29 @@ For large data files, the procedure is as follows:
    file from the web into your phantom/data directory at runtime.
    Alternatively you can manually download the file to the
    appropriate folder
+
+6. Add the same files (by pull request) to the **phantom-datafiles** GitHub mirror
+   (https://github.com/phantomSPH/phantom-datafiles), which Phantom
+   uses as a fallback if Zenodo is unreachable. You can do this by running the
+   ``sync_from_zenodo.sh`` script in that repository (or copy the new
+   files into the matching ``data/`` subdirectory, commit, push and pull request).
+   Files larger than 100 Mb must be uploaded as GitHub Release assets (tag
+   ``large-files``) instead of committing them to the git repo.
+
+Download behaviour
+------------------
+
+When Phantom downloads a file from Zenodo it:
+
+1. Uses ``curl -fLk`` so HTTP errors (e.g. 404) fail instead of saving an
+   HTML error page as the data file
+2. Rejects downloads whose content looks like HTML
+3. Fetches the MD5 checksum from the Zenodo record API and verifies the
+   file after download
+4. Writes a ``<filename>.md5`` next to the file for checking the checksum
+5. If the Zenodo download fails, retries from the phantom-datafiles
+   GitHub mirror
+
+You do not need to embed MD5 hashes in the Phantom source code for
+Zenodo-hosted files; they are retrieved automatically from the record
+API.
