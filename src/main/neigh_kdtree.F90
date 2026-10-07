@@ -1090,7 +1090,6 @@ subroutine node_interaction(idst,node_dst,node_src,tree_acc2,fnode,stackit,xoffs
 
 end subroutine node_interaction
 
-#ifdef GRAVITY
 !-----------------------------------------------------------
 !+
 !  Compute the Taylor expansion coeffs between the node
@@ -1218,7 +1217,6 @@ pure subroutine add_torque_correction(dx,dy,dz,dr1,mass_dst,mass_src,octs_dst,oc
  fnode(3) = fnode(3) - fac*(szkk*r5i - 5.*szrr*r7i)/mass_dst
 
 end subroutine add_torque_correction
-#endif
 
 !-----------------------------------------------------------
 !+
