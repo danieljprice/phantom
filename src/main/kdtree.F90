@@ -737,7 +737,6 @@ subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmi
     xmaxi(2)  = reduce_group(xmaxi(2),'max',level)
     xmaxi(3)  = reduce_group(xmaxi(3),'max',level)
 #ifdef GRAVITY
-    totmass_node = reduce_group(totmass_node, "+", level)
     quads(1)  = reduce_group(quads(1),'+',level)
     quads(2)  = reduce_group(quads(2),'+',level)
     quads(3)  = reduce_group(quads(3),'+',level)
@@ -1630,16 +1629,16 @@ pure subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
 
 #ifdef PERIODIC
  if (abs(dx) > hdlx) then ! mod distances across boundary if periodic BCs
-    xoffset = dxbound*SIGN(1.0,dx)
-    dx = dx - xoffset
+    xoffset = -dxbound*SIGN(1.0,dx)
+    dx = dx + xoffset
  endif
  if (abs(dy) > hdly) then
-    yoffset = dybound*SIGN(1.0,dy)
-    dy = dy - yoffset
+    yoffset = -dybound*SIGN(1.0,dy)
+    dy = dy + yoffset
  endif
  if (abs(dz) > hdlz) then
-    zoffset = dzbound*SIGN(1.0,dz)
-    dz = dz - zoffset
+    zoffset = -dzbound*SIGN(1.0,dz)
+    dz = dz + zoffset
  endif
 #endif
 
