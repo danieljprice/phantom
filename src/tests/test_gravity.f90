@@ -95,7 +95,7 @@ end subroutine test_gravity
 !+
 !-----------------------------------------------------------------------
 subroutine test_taylorseries(ntests,npass)
- use kdtree,    only:compute_M2L,expand_fgrav_in_taylor_series
+ use neighkdtree,    only:get_node_node_interaction,expand_fgrav_in_taylor_series
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18),i,npnode
@@ -117,7 +117,7 @@ subroutine test_taylorseries(ntests,npass)
  call get_dx_dr(xposj,x0,dx,dr)
  fnode = 0.
  quads = 0.
- call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call get_node_node_interaction(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -174,7 +174,7 @@ subroutine test_taylorseries(ntests,npass)
 
  call get_dx_dr(xposj,x0,dx,dr)
  fnode = 0.
- call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call get_node_node_interaction(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
@@ -206,7 +206,7 @@ subroutine test_taylorseries(ntests,npass)
 
  call get_dx_dr(xposj,x0,dx,dr)
  fnode = 0.
- call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call get_node_node_interaction(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
