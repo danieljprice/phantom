@@ -202,7 +202,11 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
 
  ! maximum level where 2^k indexing can be used (thus avoiding critical sections)
  ! deeper than this we access cells via a stack as usual
- maxlevel_indexed = int(log(real(ncellsmax+1))/log(2.)) - 2
+ if (use_geosplit) then
+    maxlevel_indexed = int(log(real(ncellsmax+1))/log(2.)) - 2
+ else
+    maxlevel_indexed = int(log(real(ncellsmax+1))/log(2.)) - 1
+ endif
 
  ! default number of cells is the size of the `indexed' part of the tree
  ! this can be *increased* by building tree beyond indexed levels
