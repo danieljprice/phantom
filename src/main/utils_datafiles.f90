@@ -178,14 +178,7 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
 
  ierr = 0
  expected_md5 = ' '
- call execute_command_line('type -p curl > /dev/null',wait=.true.,exitstat=ierr,cmdstat=cmdstat)
- if (cmdstat /= 0) ierr = 1
-
- if (ierr /= 0) then
-    print "(a)",' ERROR: curl utility does not exist'
-    localfile = trim(file)
-    return
- endif
+ cmdstat = 0
 
  if (len_trim(dir) > 0) then
     localfile = trim(dir)//trim(file)
@@ -211,7 +204,7 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  inquire(file=trim(localfile),exist=iexist,size=ilen)
 
  if (ierr /= 0) then
-    print "(a)",' ERROR: file not found on server'
+    print "(a)",' ERROR: file not found on server (or curl failed / is not available)'
     call delete_if_exists(localfile)
     return
  endif
