@@ -1232,7 +1232,6 @@ subroutine tree_gravity(treetype,theta_crit,tbuild,tforce)
     tforce = wallclock()
  endif
 
-
 end subroutine tree_gravity
 
 !-----------------------------------------------------------------------

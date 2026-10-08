@@ -193,7 +193,6 @@ pure subroutine get_node_node_interaction(dx,dy,dz,dr1,q0,quads,fnode)
 
 end subroutine get_node_node_interaction
 
-
 !-----------------------------------------------------------------------
 !+
 !  get the distance from the centre of mass of a cell
@@ -743,7 +742,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           neighnode_branch(neighnodecount_branch(idstbranch),idstbranch) = isrc
        endif
 
-
        call open_nodes(stack,istack,node(isrc),isrc,branch,idstbranch,&
                        listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                        maxcache,xoffset,yoffset,zoffset)
@@ -863,7 +861,6 @@ pure subroutine get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_
  size_dst = node_dst%size
 
 end subroutine get_node_size
-
 
 !-----------------------------------------------------------
 !+
