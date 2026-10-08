@@ -1259,6 +1259,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     iaxis  = maxloc(xmaxi - xmini,1) ! split along longest axis
     xpivot = x0(iaxis)
 
+    maxlevel = max(level,maxlevel)
     if (maxlevel > maxdepth) call fatal('maketree','maximum tree depth reached !!')
     ! create two children nodes and point to them from current node
     ! always use G&R indexing for global tree

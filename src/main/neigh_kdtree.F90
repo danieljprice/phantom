@@ -100,10 +100,10 @@ subroutine allocate_neigh
 
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
- call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth)
+ call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth+1)
  if (use_dualcache) then
-    call allocate_array('neighnodecount_branch',neighnodecount_branch,maxdepth)
-    call allocate_array('neighnode_branch',neighnode_branch,maxnodecache_local,maxdepth)
+    call allocate_array('neighnodecount_branch',neighnodecount_branch,maxdepth+1)
+    call allocate_array('neighnode_branch',neighnode_branch,maxnodecache_local,maxdepth+1)
  endif
 !$omp end parallel
 
@@ -548,7 +548,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  integer,      intent(in),  optional :: nq
  integer :: maxcache
  integer :: n,istack,il,ir
- integer :: nstack(maxdepth)
+ integer :: nstack(maxdepth+1)
  real :: dx,dy,dz,xsizej,rcutj
  real :: rcut,rcut2,r2
  real :: xoffset,yoffset,zoffset,tree_acc2
@@ -679,7 +679,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  real,         intent(out)   :: fnode(lenfgrav)
  integer,      intent(in)    :: icell
  integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate
- integer :: branch(maxdepth),nparents,stack(3,maxstacksize),startwith(2)
+ integer :: branch(maxdepth+1),nparents,stack(3,maxstacksize),startwith(2)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
