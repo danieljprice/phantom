@@ -301,7 +301,7 @@ subroutine list_active_leaves()
     enddo
     nlist(ic) = k
  enddo
- !$omp end do
+ !$omp enddo
  !$omp single
  do ic=1,nchunk
     nlist(ic) = nlist(ic) + nlist(ic-1)
@@ -318,7 +318,7 @@ subroutine list_active_leaves()
        endif
     enddo
  enddo
- !$omp end do
+ !$omp enddo
  !$omp end parallel
  deallocate(nlist)
 

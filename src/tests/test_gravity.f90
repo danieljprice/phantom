@@ -1174,7 +1174,7 @@ subroutine setup_distribution(iprofile,npart_target,iseed)
  elseif (iprofile == 3) then
     call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,&
                     np_requested=npart_target,verbose=.false.)
- elseif(iprofile == 4) then
+ elseif (iprofile == 4) then
     call set_units(dist=au,mass=solarm,G=1.0)
     mass_total = 0.1
     call set_disc(id,master,nparttot=npart_target,npart=npart,rmin=1.,rmax=5.,p_index=1.0,q_index=0.75,&
