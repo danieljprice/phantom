@@ -88,9 +88,9 @@ subroutine allocate_neigh
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
  call allocate_array('listneigh_global',listneigh_global,maxp)
+ call allocate_array('cachestate', cachestate, ncellsmax+1)
 
  if (use_dualcache) then
-    call allocate_array('cachestate', cachestate, ncellsmax+1)
     call allocate_array('fnodecache', fnodecache, lenfgrav, ncellsmax+1)
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
     call allocate_array('neighnodecache_start',neighnodecache_start,ncellsmax+1)
@@ -100,10 +100,10 @@ subroutine allocate_neigh
 
 !$omp parallel
  call allocate_array('listneigh',listneigh,maxp)
+ call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth)
  if (use_dualcache) then
     call allocate_array('neighnodecount_branch',neighnodecount_branch,maxdepth)
     call allocate_array('neighnode_branch',neighnode_branch,maxnodecache_local,maxdepth)
-    call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth)
  endif
 !$omp end parallel
 
@@ -757,7 +757,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
     if (use_dualcache) then
-       !$omp atomic read
+       ! acquire: if the state says cached, the fnodecache written before it is visible
+       !$omp atomic read acquire
        nodestate = cachestate(iparent)
        !$omp end atomic
        if (nodestate == 0) then ! first fence to avoid capture collision
@@ -768,7 +769,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           if (nodestate == 0) then ! if still the winner then cache
              !-- winner: publish fnode first ...
              fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
-             !$omp atomic write
+             ! release: fnodecache must be visible before the state says it is cached
+             !$omp atomic write release
              cachestate(iparent) = 2
              !$omp end atomic
 
@@ -782,7 +784,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
                    neighnodecache(ibase+1:ibase+neighnodecount_branch(i)) = neighnode_branch(1:neighnodecount_branch(i),i)
                    neighnodecache_start(iparent) = ibase
                    neighnodecache_count(iparent) = neighnodecount_branch(i)
-                   !$omp atomic write
+                   ! release: interaction list must be visible before the state says it is cached
+                   !$omp atomic write release
                    cachestate(iparent) = 3
                    !$omp end atomic
                 endif
@@ -884,7 +887,8 @@ subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
     j = node(j)%parent
     nparents = nparents + 1
     parents(nparents) = j
-    !$omp atomic read
+    ! acquire: state 3 means the walk will read this node's cached interaction list
+    !$omp atomic read acquire
     nodestate = cachestate(j)
     !$omp end atomic
     if (nodestate==3 .and. startwith(2)==0) then
@@ -1318,9 +1322,9 @@ pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
              + dy*(dfyz + 0.5*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)) &
              + dz*(dfzz + 0.5*(dx*d2fxzz + dy*d2fyzz + dz*d2fzzz))
  ! Minus sign here as we are shifted of 1 in the (-1)^k compared to force
- poti = poti - dx*(fxi - 0.5*(dx*dfxx + dy*dfxy + dz*dfxz)) &
-             - dy*(fyi - 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) &
-             - dz*(fzi - 0.5*(dx*dfxz + dy*dfyz + dz*dfzz))
+ poti = poti - dx*(fnode(1) + 0.5*(dx*dfxx + dy*dfxy + dz*dfxz)) &
+             - dy*(fnode(2) + 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) &
+             - dz*(fnode(3) + 0.5*(dx*dfxz + dy*dfyz + dz*dfzz))
 
 end subroutine expand_fgrav_in_taylor_series
 
