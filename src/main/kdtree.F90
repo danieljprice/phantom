@@ -457,7 +457,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     !
     !$omp do schedule(static,1)
     do c = 1,nchunk
-       sx = 0.; sy = 0.; sz = 0.; sm = 0.; hm = 0.
+       sx = 0.; sy = 0.; sz = 0.; sm = 0.;
        do i = chunkl(c),chunkr(c)
           pmassi = treecache(5,i)
           fac = pmassi*dfac
@@ -494,6 +494,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
           xpiv = x0(iax)
        endif
        r2 = 0.
+       hm = 0.
        nl = 0
 #ifdef GRAVITY
        quads = 0.
@@ -1222,15 +1223,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     'totmass_node==0, something almost certainly wrong with aprmassoftype')
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
+ call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
+                           level,global_build,doparallel)
+
  if (use_geosplit) then !--for gravity KDtree, we need the geo centre to split the node
     x0 = (xmaxi+xmini)*0.5
  else  !--for default KDtree, we need the split centre to be the centre of mass
     x0 = xyzcofm
  endif
-
-
- call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                           level,global_build,doparallel)
 
  if (apr_tree)   wassplit = (npnode > 2)
 
