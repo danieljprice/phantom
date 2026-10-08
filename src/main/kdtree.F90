@@ -1239,6 +1239,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     nodeentry%rightchild = 0
     maxlevel = max(level,maxlevel)
     minlevel = min(level,minlevel)
+
+    if (maxlevel > maxdepth) call fatal('maketree','maximum tree depth reached !!')
     ! individual timesteps where we mark leaf node as active/inactive
     if (ind_timesteps) then
        !
