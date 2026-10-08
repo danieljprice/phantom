@@ -63,6 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: massdark,massstar,massgas
  real                             :: polykset
  real, allocatable                :: utmp(:)
+ logical                          :: iexist
 
  lowres = .true.
 
@@ -77,6 +78,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     filename = find_phantom_datafile('galaxiesP25e5.dat','galaxy_merger')
  endif
+ inquire(file=trim(filename),exist=iexist)
+ if (.not.iexist) call fatal('setup','data file not found: '//trim(filename))
 
  ! allocate temporary array for internal energy
  allocate(utmp(maxp),stat=ierr)
