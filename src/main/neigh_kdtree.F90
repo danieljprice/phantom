@@ -1175,6 +1175,7 @@ pure subroutine compute_M2L(dx,dy,dz,dr1,q0,quads,fnode)
 
 end subroutine compute_M2L
 
+#ifdef GRAVITY
 !----------------------------------------------------------------
 !+
 !  Marcello (2017) TCO torque correction: add a constant
@@ -1218,6 +1219,7 @@ pure subroutine add_torque_correction(dx,dy,dz,dr1,mass_dst,mass_src,octs_dst,oc
  fnode(3) = fnode(3) - fac*(szkk*r5i - 5.*szrr*r7i)/mass_dst
 
 end subroutine add_torque_correction
+#endif
 
 !-----------------------------------------------------------
 !+
