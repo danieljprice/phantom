@@ -349,7 +349,6 @@ subroutine extract_md5_from_zenodo_json(jsonfile,filename,md5hex,ierr)
  character(len=*), intent(out) :: md5hex
  integer,          intent(out) :: ierr
  integer :: iunit,ios,n,i,j,k,keypos,cpos
- character(len=4096) :: chunk
  character(len=128)  :: keystr
  character(len=:), allocatable :: buf
  logical :: iexist
@@ -359,25 +358,21 @@ subroutine extract_md5_from_zenodo_json(jsonfile,filename,md5hex,ierr)
  inquire(file=trim(jsonfile),exist=iexist,size=n)
  if (.not.iexist .or. n <= 0) return
 
+ ! read the whole file as a stream; do NOT assign buf=' ' afterwards —
+ ! that would reallocate a deferred-length character to len=1 and corrupt memory
  allocate(character(len=n) :: buf)
- open(newunit=iunit,file=trim(jsonfile),status='old',action='read',iostat=ios)
+ open(newunit=iunit,file=trim(jsonfile),status='old',action='read', &
+      access='stream',form='unformatted',iostat=ios)
  if (ios /= 0) then
     deallocate(buf)
     return
  endif
- buf = ' '
- i = 1
- do
-    read(iunit,'(a)',iostat=ios) chunk
-    if (ios /= 0) exit
-    j = len_trim(chunk)
-    if (i+j-1 > n) j = n - i + 1
-    if (j > 0) then
-       buf(i:i+j-1) = chunk(1:j)
-       i = i + j
-    endif
- enddo
+ read(iunit,iostat=ios) buf
  close(iunit)
+ if (ios /= 0) then
+    deallocate(buf)
+    return
+ endif
 
  keystr = '"key":"'//trim(filename)//'"'
  keypos = index(buf,trim(keystr))
