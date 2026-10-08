@@ -10,13 +10,13 @@ module testgravity
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
 !   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
-!   part, physcon, ptmass, random, setplummer, setup_params,
+!   part, physcon, ptmass, setdisc, setplummer, setup_params,
 !   sort_particles, sortutils, spherical, table_utils, testapr, testutils,
 !   timing, units
 !

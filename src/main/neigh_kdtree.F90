@@ -13,7 +13,7 @@ module neighkdtree
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters:
 !   - tree_accuracy : *tree opening criterion (0.0-1.0)*
