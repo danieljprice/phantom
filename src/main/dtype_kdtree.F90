@@ -152,7 +152,7 @@ subroutine get_mpitype_of_kdnode(dtype)
  nblock = nblock + 1
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(node%parent,addr,mpierr)
+ call MPI_GET_ADDRESS(node%level,addr,mpierr)
  disp(nblock) = addr - start
 
 #ifdef GRAVITY
