@@ -198,9 +198,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  nqueue = numthreads
  ! build the first levels with all threads working on every level (not for the APR
  ! merge tree, whose partition has to leave an even number of particles in each child)
- ! if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
- !    call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
- ! endif
+ if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
+    call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+ endif
  ! build using a queue to build level by level until number of nodes = number of threads
  over_queue: do while (istack  <  nqueue)
     ! if the tree finished while building the queue, then we should just return
@@ -391,7 +391,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  allocate(nodeax(kmax),nodecom(3,kmax),nodecog(3,kmax))
  allocate(chunk(kmax),remain(kmax),newq(2*kmax))
  allocate(cnode(cmax),chunkl(cmax),chunkr(cmax),cnl(cmax),coffl(cmax),coffr(cmax))
- allocate(psum(4,cmax),pr2(cmax),pbox(12,cmax))
+ allocate(psum(4,cmax),phm(cmax),pr2(cmax),pbox(12,cmax))
 #ifdef GRAVITY
  allocate(pmom(16,cmax))
 #endif
