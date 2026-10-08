@@ -134,10 +134,11 @@ endif
 ifeq ($(SYSTEM), complexity)
 #   complexity.leicester.dirac.ac.uk
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -xhost -ipo -shared-intel -warn uninitialized \
+    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo
+    CCFLAGS = -O3
+    LTO_DEFAULT= yes
     QSYS=pbs
     QNAME=q64
     WALLTIME='48:00:00'
@@ -159,9 +160,10 @@ ifeq ($(SYSTEM), skylake)
 #   HPCs Skylake cluster at Cambridge
     include Makefile_defaults_ifort
     FFLAGS= -O3 -shared-intel -warn uninitialized -warn unused -warn \
-            truncated_source -xCORE-AVX512 -ipo
+            truncated_source -xCORE-AVX512
     OMPFLAGS = -qopenmp
-    CCFLAGS = -O3 -xCORE-AVX512 -ipo
+    CCFLAGS = -O3 -xCORE-AVX512
+    LTO_DEFAULT= yes
     QSYS = slurm
     QPROJECT='DIRAC-DP005-CPU'
     WALLTIME='36:00:00'

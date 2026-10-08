@@ -101,6 +101,14 @@ Code performance and accuracy
 |                 |                 |                 | debugging flags |
 |                 |                 |                 | (slow)          |
 +-----------------+-----------------+-----------------+-----------------+
+| LTO             | yes/no          | yes for         | link-time       |
+|                 |                 | gfortran, aocc  | optimisation    |
+|                 |                 | and some        | (-flto/-ipo);   |
+|                 |                 | SYSTEMs; no for |                 |
+|                 |                 | ifort/ifx       |                 |
+|                 |                 |                 | ignored with    |
+|                 |                 |                 | DEBUG=yes       |
++-----------------+-----------------+-----------------+-----------------+
 | APR             | yes/no          | no              | use adaptive    |
 |                 |                 |                 | particle        |
 |                 |                 |                 | refinement,     |

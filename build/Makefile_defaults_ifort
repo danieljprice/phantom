@@ -12,6 +12,7 @@ CC = icc
 CCFLAGS = -O3
 LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
+LTOFLAGS= -ipo
 
 # for ifort version 18+ -openmp flag is obsolete
 IFORT_VERSION_MAJOR=${shell ifort -v 2>&1 | head -1 | cut -d' ' -f 3 | cut -d'.' -f 1}

@@ -21,6 +21,10 @@ KNOWN_SYSTEM=yes
 ENDIANFLAGBIG= -fconvert=big-endian
 ENDIANFLAGLITTLE= -fconvert=little-endian
 OMPFLAGS = -fopenmp
+# with LTO the whole program is one unit: the default 40% growth budget is
+# used up before kernel_softening gets inlined into the force pair loop
+LTOFLAGS = -flto=auto --param inline-unit-growth=60
+LTO_DEFAULT = yes
 CC = gcc
 CCFLAGS = -O3
 LIBCXX = -lstdc++

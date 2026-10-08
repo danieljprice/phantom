@@ -166,12 +166,24 @@ endif
 ifdef STACKSIZE
     FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
 endif
+
+# link-time optimisation (LTOFLAGS set by the compiler defaults);
+# default is no, unless the SYSTEM sets LTO_DEFAULT=yes; never with DEBUG
+ifndef LTO
+    LTO = $(or $(LTO_DEFAULT),no)
+endif
+
 # Set other optional flags depending on settings
 
 ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
-    FFLAGS := $(FFLAGS:-ipo= )
+    override LTO = no
+endif
+
+ifeq ($(LTO), yes)
+    FFLAGS  += ${LTOFLAGS}
+    CCFLAGS += ${LTOFLAGS}
 endif
 
 ifeq ($(ENDIAN), BIG)
