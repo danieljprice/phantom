@@ -30,7 +30,7 @@ module dtypekdtree
                     + 4 &    ! parent
                     + 4 &    ! level
 #ifdef GRAVITY
-                    + 8*1 &  ! quads(6) (quads)
+                    + 8*6 &  ! quads(6) (quads)
                     + 8*10 & ! octs(10)
 #endif
                     + 0
@@ -141,6 +141,12 @@ subroutine get_mpitype_of_kdnode(dtype)
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(node%rightchild,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(node%parent,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
