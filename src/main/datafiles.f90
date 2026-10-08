@@ -40,8 +40,7 @@ function find_phantom_datafile(filename,loc)
  use io,        only:id,master
  use mpiutils,  only:barrier_mpi
  character(len=*), intent(in) :: filename,loc
- character(len=120) :: search_dir
- character(len=120) :: find_phantom_datafile
+ character(len=:), allocatable :: search_dir,find_phantom_datafile
 
  search_dir = 'data/'//trim(adjustl(loc))
  if (id == master) then ! search for and download datafile if necessary
@@ -66,7 +65,7 @@ end function find_phantom_datafile
 !----------------------------------------------------------------
 function map_dir_to_web(search_dir) result(url)
  character(len=*), intent(in) :: search_dir
- character(len=120) :: url
+ character(len=:), allocatable :: url
 
  select case(search_dir)
  case('data/eos/mesa')
@@ -118,7 +117,7 @@ end function map_dir_to_web
 !----------------------------------------------------------------
 function map_dir_to_mirror(search_dir,filename) result(url)
  character(len=*), intent(in) :: search_dir,filename
- character(len=200) :: url
+ character(len=:), allocatable :: url
 
  if (is_large_mirror_file(filename)) then
     ! release assets sit at the release root; prefix is the download base
