@@ -1466,8 +1466,10 @@ end function eos_outputs_mu
 logical function eos_outputs_gamma(ieos)
  integer, intent(in) :: ieos
 
+ ! true if equationofstate computes gamma as an output (ieos=5 stores
+ ! gamma via update_muGamma from H2 chemistry, but uses it as an input)
  select case(ieos)
- case(5,10,20)
+ case(10,20)
     eos_outputs_gamma = .true.
  case default
     eos_outputs_gamma = .false.
