@@ -755,8 +755,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
     if (use_dualcache) then
-       ! acquire: if the state says cached, the fnodecache written before it is visible
-       !$omp atomic read acquire
+       !$omp atomic read
        nodestate = cachestate(iparent)
        !$omp end atomic
        if (nodestate == 0) then ! first fence to avoid capture collision
@@ -767,8 +766,9 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           if (nodestate == 0) then ! if still the winner then cache
              !-- winner: publish fnode first ...
              fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
-             ! release: fnodecache must be visible before the state says it is cached
-             !$omp atomic write release
+             ! flush: fnodecache must be visible before the state says it is cached
+             !$omp flush
+             !$omp atomic write
              cachestate(iparent) = 2
              !$omp end atomic
 
@@ -782,8 +782,9 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
                    neighnodecache(ibase+1:ibase+neighnodecount_branch(i)) = neighnode_branch(1:neighnodecount_branch(i),i)
                    neighnodecache_start(iparent) = ibase
                    neighnodecache_count(iparent) = neighnodecount_branch(i)
-                   ! release: interaction list must be visible before the state says it is cached
-                   !$omp atomic write release
+                   ! flush: interaction list must be visible before the state says it is cached
+                   !$omp flush
+                   !$omp atomic write
                    cachestate(iparent) = 3
                    !$omp end atomic
                 endif
@@ -791,6 +792,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           endif
        elseif (nodestate>=2) then
           !-- fetch fnode from the cache array
+          ! flush: see the fnodecache published before the state was set
+          !$omp flush
           fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif
     endif
@@ -884,8 +887,7 @@ subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
     j = node(j)%parent
     nparents = nparents + 1
     parents(nparents) = j
-    ! acquire: state 3 means the walk will read this node's cached interaction list
-    !$omp atomic read acquire
+    !$omp atomic read
     nodestate = cachestate(j)
     !$omp end atomic
     if (nodestate==3 .and. startwith(2)==0) then
@@ -897,6 +899,10 @@ subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
        startwith = 0
     endif
  enddo
+ ! flush: the walk will read the cached interaction list published before state 3 was set
+ if (startwith(2) > 0) then
+    !$omp flush
+ endif
 
 end subroutine get_list_of_parent_nodes
 
