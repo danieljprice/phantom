@@ -137,6 +137,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  logical :: wassplit,finished,sinktree
  character(len=10) :: string
 
+ ! must initialise: otherwise a garbage .true. takes the sinktree branch
+ ! with absent optionals (illegal access of nptmass/xyzmh_ptmass)
+ sinktree = .false.
  if (present(nptmass) .and. present(xyzmh_ptmass)) then
     sinktree = .true.
  endif
@@ -446,8 +449,12 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        enddo
     enddo
 
-    !$omp parallel default(shared) &
+    !$omp parallel default(none) &
+    !$omp shared(nchunk,k,clo,chi,cnode,treecache,dfac,psum,jc0,jc1,jcofm) &
+    !$omp shared(jaxis,jnl,jdegen,node,queue,leaf_is_active,inoderange) &
+    !$omp shared(pr2,cnl,coffl,coffr,tcbuf,ipbuf,inodeparts,pbox,newq) &
 #ifdef GRAVITY
+    !$omp shared(pmom) &
     !$omp private(quads,octs) &
 #endif
     !$omp private(c,j,i,i1,n,nl,pl,pr,iax,nnode,il,ir,isplit) &
@@ -657,7 +664,7 @@ subroutine empty_tree(node)
  type(kdnode), intent(out) :: node(:)
  integer :: i
 
-!$omp parallel do private(i)
+!$omp parallel do default(none) shared(node) private(i)
  do i=1,size(node)
     node(i)%xcen = 0.
     node(i)%size = 0.

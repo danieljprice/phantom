@@ -234,7 +234,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  ! then the memory might be lost. So the following lines are a failsafe
  ! to ensure that the listneigh array is always allocated for each thread
  !
- !$omp parallel
+ !$omp parallel default(none) shared(maxp)
  if (.not. allocated(listneigh)) call allocate_array('listneigh',listneigh,maxp)
  !$omp end parallel
 

@@ -211,7 +211,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
  if (do_radiation .and. implicit_radiation .and. .not.implicit_radiation_store_drad) then
-    !$omp parallel do shared(drad,fxyzu,npart) private(i)
+    !$omp parallel do default(none) shared(drad,fxyzu,npart) private(i)
     do i=1,npart
        drad(:,i) = 0.
        fxyzu(4,i) = 0.
