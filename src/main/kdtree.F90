@@ -208,9 +208,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  nqueue = numthreads
  ! build the first levels with all threads working on every level (not for the APR
  ! merge tree, whose partition has to leave an even number of particles in each child)
-if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
-   call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
-endif
+ if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
+    call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+ endif
  ! build using a queue to build level by level until number of nodes = number of threads
  over_queue: do while (istack  <  nqueue)
     ! if the tree finished while building the queue, then we should just return
@@ -727,26 +727,26 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  !$omp reduction(+:ncross)
  !$omp do schedule(static)
  do ic=1,nchunk
- nl = 0
- do i=int((int(ic-1,8)*np)/nchunk)+1,int((int(ic,8)*np)/nchunk)
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       nl = nl + 1
-       if (periodic) call cross_boundary(isperiodic,xyzh(:,i),ncross)
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-       if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
-          call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+    nl = 0
+    do i=int((int(ic-1,8)*np)/nchunk)+1,int((int(ic,8)*np)/nchunk)
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          nl = nl + 1
+          if (periodic) call cross_boundary(isperiodic,xyzh(:,i),ncross)
+          xi = xyzh(1,i)
+          yi = xyzh(2,i)
+          zi = xyzh(3,i)
+          if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+             call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+          endif
+          xminpart = min(xminpart,xi)
+          yminpart = min(yminpart,yi)
+          zminpart = min(zminpart,zi)
+          xmaxpart = max(xmaxpart,xi)
+          ymaxpart = max(ymaxpart,yi)
+          zmaxpart = max(zmaxpart,zi)
        endif
-       xminpart = min(xminpart,xi)
-       yminpart = min(yminpart,yi)
-       zminpart = min(zminpart,zi)
-       xmaxpart = max(xmaxpart,xi)
-       ymaxpart = max(ymaxpart,yi)
-       zmaxpart = max(zmaxpart,zi)
-    endif
- enddo
- nlive(ic) = nl   ! once per chunk: neighbouring counters share a cache line
+    enddo
+    nlive(ic) = nl   ! once per chunk: neighbouring counters share a cache line
  enddo
  !$omp enddo
  !$omp barrier
