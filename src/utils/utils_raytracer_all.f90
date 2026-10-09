@@ -172,6 +172,7 @@ subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLeve
  !$omp shared(npart,maxOrder,xyzh,primary,distr) private(ind,i)
  do i = 1, npart
     call vec2pix_nest(2**maxOrder, xyzh(1:3, i)-primary, ind)
+    !$omp atomic update
     distr(ind+1) = distr(ind+1)+1
  enddo
  max = maxval(distr)
