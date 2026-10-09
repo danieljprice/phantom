@@ -1070,7 +1070,7 @@ subroutine perf_bench(npart_target,iprofile,treetype)
  character(len=8) :: label
  character(len=64) :: filename_max
  logical :: exists
- real(kind=8) :: tbuild,tforce
+ real :: tbuild,tforce
  real :: theta_crit
 
  theta_crit = 0.5
@@ -1144,7 +1144,7 @@ subroutine setup_distribution(iprofile,npart_target,iseed)
  real :: rgrid(ntab),rhotab(ntab)
 
  call init_part()
- call set_units(1.,1.,1.)
+ call set_units(1.d0,1.d0,1.d0)
  hfact      = hfact_default
  gamma      = 5./3.
  polyk      = 0.
@@ -1175,7 +1175,7 @@ subroutine setup_distribution(iprofile,npart_target,iseed)
     call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,&
                     np_requested=npart_target,verbose=.false.)
  elseif (iprofile == 4) then
-    call set_units(dist=au,mass=solarm,G=1.0)
+    call set_units(dist=au,mass=solarm,G=1.d0)
     mass_total = 0.1
     call set_disc(id,master,nparttot=npart_target,npart=npart,rmin=1.,rmax=5.,p_index=1.0,q_index=0.75,&
                      HoverR=0.1,disc_mass=0.01,star_mass=1.,gamma=gamma,&
