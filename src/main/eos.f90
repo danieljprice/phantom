@@ -176,7 +176,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  X_i    = X_in
  Z_i    = Z_in
  if (present(gamma_local)) gammai = gamma_local
- if (present(mu_local)) mui = mu_local
+ ! mu_local is usually input but if the eos computes mu (e.g. ieos=20)
+ ! it's an output. So adopt mu_local only if positive value supplied
+ if (present(mu_local)) then
+    if (mu_local > 0.) mui = mu_local
+ endif
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
 
