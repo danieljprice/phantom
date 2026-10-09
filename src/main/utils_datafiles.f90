@@ -15,7 +15,7 @@ module datautils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: iso_c_binding
 !
  implicit none
  public :: find_datafile,download_datafile
