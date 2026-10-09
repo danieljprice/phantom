@@ -101,11 +101,9 @@ Code performance and accuracy
 |                 |                 |                 | debugging flags |
 |                 |                 |                 | (slow)          |
 +-----------------+-----------------+-----------------+-----------------+
-| LTO             | yes/no          | yes for         | link-time       |
-|                 |                 | gfortran, aocc  | optimisation    |
-|                 |                 | and some        | (-flto/-ipo);   |
-|                 |                 | SYSTEMs; no for |                 |
-|                 |                 | ifort/ifx       |                 |
+| LTO             | yes/no          | no (yes for     | link-time       |
+|                 |                 | aocc and some   | optimisation    |
+|                 |                 | SYSTEMs)        | (-flto/-ipo);   |
 |                 |                 |                 | ignored with    |
 |                 |                 |                 | DEBUG=yes       |
 +-----------------+-----------------+-----------------+-----------------+
