@@ -450,9 +450,9 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     enddo
 
     !$omp parallel default(none) &
-    !$omp shared(nchunk,k,clo,chi,cnode,treecache,dfac,psum,jc0,jc1,jcofm) &
-    !$omp shared(jaxis,jnl,jdegen,node,queue,leaf_is_active,inoderange) &
-    !$omp shared(pr2,cnl,coffl,coffr,tcbuf,ipbuf,inodeparts,pbox,newq) &
+    !$omp shared(nchunk,k,chunkl,chunkr,cnode,treecache,dfac,psum,nodecl,nodecr) &
+    !$omp shared(nodecom,nodecog,nodeax,jnl,jdegen,node,queue,leaf_is_active,inoderange) &
+    !$omp shared(pr2,phm,cnl,coffl,coffr,tcbuf,ipbuf,inodeparts,pbox,newq,use_geosplit) &
 #ifdef GRAVITY
     !$omp shared(pmom) &
     !$omp private(quads,octs) &
