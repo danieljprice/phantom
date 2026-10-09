@@ -69,10 +69,12 @@ subroutine allocate_neigh
  call allocate_array('node',           node,           ncellsmax+1       )
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
-!$omp parallel
+!$omp parallel default(none) shared(maxp)
  call allocate_array('listneigh',listneigh,maxp)
 !$omp end parallel
  call allocate_array('listneigh_global',listneigh_global,maxp)
+ ! contents of active_leaves are undefined until list_active_leaves runs
+ nactive_leaves = 0
 
 end subroutine allocate_neigh
 
@@ -87,10 +89,11 @@ subroutine deallocate_neigh
  if (allocated(cellatid)) deallocate(cellatid)
  if (allocated(leaf_is_active)) deallocate(leaf_is_active)
  if (allocated(active_leaves)) deallocate(active_leaves)
+ nactive_leaves = 0
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
-!$omp parallel
+!$omp parallel default(none)
  if (allocated(listneigh)) deallocate(listneigh)
 !$omp end parallel
  if (allocated(listneigh_global)) deallocate(listneigh_global)
@@ -188,7 +191,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  ! then the memory might be lost. So the following lines are a failsafe
  ! to ensure that the listneigh array is always allocated for each thread
  !
- !$omp parallel
+ !$omp parallel default(none) shared(maxp)
  if (.not. allocated(listneigh)) call allocate_array('listneigh',listneigh,maxp)
  !$omp end parallel
 

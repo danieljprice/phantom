@@ -1023,9 +1023,11 @@ subroutine test_accretion(ntests,npass,itest)
  ibin_wakei = 0
  naccreted  = 0
  dptmass(:,1:nptmass) = 0.
- !$omp parallel default(shared)&
- !$omp private(i,accreted,nneigh,xyz)&
- !$omp firstprivate(dptmass_thread,rsearch)&
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,itest,ptmasskdtree,pxyzu,fxyzu,massoftype) &
+ !$omp shared(xyzmh_ptmass,pxyzu_ptmass,vxyzu,vxyz_ptmass,dptmass,t,ibin_wakei) &
+ !$omp private(i,j,accreted,nneigh,xyz) &
+ !$omp firstprivate(dptmass_thread,rsearch) &
  !$omp reduction(+:naccreted)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do

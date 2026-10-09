@@ -446,7 +446,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dt) &
 !$omp shared(nprocs,icall) &
 !$omp shared(poten) &
-!$omp private(icell,i) &
+!$omp private(icell,i,ia) &
 !$omp private(cell) &
 !$omp private(remote_export) &
 !$omp private(idone) &

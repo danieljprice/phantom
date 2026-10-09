@@ -290,7 +290,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:ncalls_neigh) &
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
-!$omp private(i,icell)
+!$omp private(i,icell,ia)
 
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
