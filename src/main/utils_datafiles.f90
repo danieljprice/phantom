@@ -34,11 +34,9 @@ function find_datafile(filename,dir,env_var,url,url_fallback,verbose) result(fil
  character(len=*), intent(in) :: filename
  character(len=*), intent(in), optional :: dir,env_var,url,url_fallback
  logical,          intent(in), optional :: verbose
- character(len=120) :: filepath
- character(len=120) :: mydir,env_dir,my_url
- character(len=40)  :: my_env_var
+ character(len=:), allocatable :: filepath,mydir,env_dir,my_url,my_env_var
  logical :: iexist,isverbose,ok
- integer :: ierr
+ integer :: ierr,env_len
 
  isverbose = .true.
  if (present(verbose)) isverbose = verbose
@@ -59,7 +57,10 @@ function find_datafile(filename,dir,env_var,url,url_fallback,verbose) result(fil
     my_env_var = ' '
     if (present(env_var)) then
        my_env_var = env_var
-       call get_environment_variable(my_env_var,env_dir)
+       call get_environment_variable(my_env_var,length=env_len)
+       allocate(character(len=env_len) :: env_dir)
+       call get_environment_variable(my_env_var,env_dir,status=ierr)
+       if (ierr /= 0) env_dir = ''
     elseif (present(dir)) then
        env_dir = dir
     else
@@ -141,7 +142,7 @@ end function find_datafile
 subroutine download_datafile(url,dir,filename,filepath,ierr)
  character(len=*), intent(in)  :: url, dir
  character(len=*), intent(in)  :: filename
- character(len=*), intent(out) :: filepath
+ character(len=:), allocatable, intent(out) :: filepath
  integer,          intent(out) :: ierr
 
  if (has_write_permission(dir)) then     ! download to data/ directory
@@ -164,13 +165,13 @@ end subroutine download_datafile
 !---------------------------------------------------------
 subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  character(len=*), intent(in)  :: url,file,dir
- character(len=*), intent(out) :: localfile
+ character(len=:), allocatable, intent(out) :: localfile
  integer,          intent(out) :: ierr
  integer :: ilen,ierr1,cmdstat
  logical :: iexist,ishtml
- character(len=512) :: cmdline
+ character(len=:), allocatable :: cmdline
  character(len=64)  :: expected_md5,actual_md5
- character(len=*), parameter :: curlcmd = 'curl -fLk'
+ character(len=*), parameter :: curlcmd = 'curl -fL'
 
  print "(80('-'))"
  print "(a)",'  Downloading '//trim(file)//' from '//trim(url)
@@ -307,8 +308,7 @@ subroutine get_zenodo_md5(url,filename,md5hex,ierr)
  character(len=*), intent(in)  :: url,filename
  character(len=*), intent(out) :: md5hex
  integer,          intent(out) :: ierr
- character(len=32)  :: recid
- character(len=256) :: apiurl,tmpfile,cmdline
+ character(len=:), allocatable :: recid,apiurl,tmpfile,cmdline
  integer :: i1,i2,ierr1,cmdstat
 
  md5hex = ' '
@@ -325,8 +325,8 @@ subroutine get_zenodo_md5(url,filename,md5hex,ierr)
  if (len_trim(recid) == 0) return
 
  apiurl = 'https://zenodo.org/api/records/'//trim(recid)
- tmpfile = 'zenodo_api_tmp.json'
- cmdline = 'curl -fLk '//trim(apiurl)//' -o '//trim(tmpfile)
+ tmpfile = 'zenodo_api_tmp_'//process_suffix()//'.json'
+ cmdline = 'curl -fL '//trim(apiurl)//' -o '//trim(tmpfile)
  call execute_command_line(trim(cmdline),wait=.true.,exitstat=ierr1,cmdstat=cmdstat)
  if (cmdstat /= 0 .or. ierr1 /= 0) then
     call delete_if_exists(tmpfile)
@@ -349,8 +349,7 @@ subroutine extract_md5_from_zenodo_json(jsonfile,filename,md5hex,ierr)
  character(len=*), intent(out) :: md5hex
  integer,          intent(out) :: ierr
  integer :: iunit,ios,n,i,j,k,keypos,cpos
- character(len=128)  :: keystr
- character(len=:), allocatable :: buf
+ character(len=:), allocatable :: buf,keystr
  logical :: iexist
 
  md5hex = ' '
@@ -422,13 +421,15 @@ subroutine compute_md5(path,md5hex,ierr)
  character(len=*), intent(in)  :: path
  character(len=*), intent(out) :: md5hex
  integer,          intent(out) :: ierr
- character(len=256) :: cmdline,tmpfile,line
+ character(len=:), allocatable :: cmdline,tmpfile
+ character(len=256) :: line
  integer :: iunit,ios,cmdstat,ierr1,i,j
 
  md5hex = ' '
  ierr = 1
- tmpfile = 'datafile_md5_tmp.txt'
- cmdline = 'openssl dgst -md5 '//trim(path)//' > '//trim(tmpfile)//' 2>/dev/null'
+ tmpfile = 'datafile_md5_tmp_'//process_suffix()//'.txt'
+ ! Read via stdin so the output line does not contain a potentially long path.
+ cmdline = 'openssl dgst -md5 < '//trim(path)//' > '//trim(tmpfile)//' 2>/dev/null'
  call execute_command_line(trim(cmdline),wait=.true.,exitstat=ierr1,cmdstat=cmdstat)
  if (cmdstat /= 0 .or. ierr1 /= 0) then
     call delete_if_exists(tmpfile)
@@ -535,6 +536,27 @@ end subroutine verify_sidecar_md5
 
 !---------------------------------------------------------
 !+
+!  suffix to keep temporary files separate between processes
+!+
+!---------------------------------------------------------
+function process_suffix() result(suffix)
+ use iso_c_binding, only:c_int
+ character(len=:), allocatable :: suffix
+ character(len=32) :: pid_string
+ interface
+    function process_id() bind(C,name='getpid') result(pid)
+     import c_int
+     integer(c_int) :: pid
+    end function process_id
+ end interface
+
+ write(pid_string,'(i0)') process_id()
+ suffix = trim(pid_string)
+
+end function process_suffix
+
+!---------------------------------------------------------
+!+
 !  function to check if a directory has write permissions
 !+
 !---------------------------------------------------------
@@ -543,8 +565,11 @@ logical function has_write_permission(dir)
  integer :: iunit,ierr
 
  has_write_permission = .true.
- open(newunit=iunit,file=trim(dir)//'data.tmp.abcd',action='write',iostat=ierr)
- if (ierr /= 0) has_write_permission = .false.
+ open(newunit=iunit,file=trim(dir)//'data.tmp.'//process_suffix(),action='write',iostat=ierr)
+ if (ierr /= 0) then
+    has_write_permission = .false.
+    return
+ endif
 
  close(iunit,status='delete',iostat=ierr)
  if (ierr /= 0) has_write_permission = .false.

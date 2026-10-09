@@ -27,7 +27,7 @@ module to retrieve the file:
 
    #!fortran
    use datafiles, only:find_phantom_datafile
-   character(len=120) :: filename
+   character(len=:), allocatable :: filename
    ...
 
    filename=find_phantom_datafile('mydata.txt','star_data_files/red_giant')
@@ -100,8 +100,8 @@ Download behaviour
 
 When Phantom downloads a file from Zenodo it:
 
-1. Uses ``curl -fLk`` so HTTP errors (e.g. 404) fail instead of saving an
-   HTML error page as the data file
+1. Uses ``curl -fL`` with TLS certificate verification enabled, so HTTP
+   errors (e.g. 404) fail instead of saving an HTML error page as the data file
 2. Rejects downloads whose content looks like HTML
 3. Fetches the MD5 checksum from the Zenodo record API and verifies the
    file after download
