@@ -15,7 +15,7 @@ module datautils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: iso_c_binding
 !
  implicit none
  public :: find_datafile,download_datafile
@@ -544,10 +544,10 @@ function process_suffix() result(suffix)
  character(len=:), allocatable :: suffix
  character(len=32) :: pid_string
  interface
-    function process_id() bind(C,name='getpid') result(pid)
-     import c_int
-     integer(c_int) :: pid
-    end function process_id
+  function process_id() bind(C,name='getpid') result(pid)
+   import c_int
+   integer(c_int) :: pid
+  end function process_id
  end interface
 
  write(pid_string,'(i0)') process_id()

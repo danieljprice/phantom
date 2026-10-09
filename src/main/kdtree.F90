@@ -88,7 +88,7 @@ subroutine allocate_kdtree
  call allocate_array('inodeparts', inodeparts, maxp)
  if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
  call allocate_array('fnodecache', fnodecache, lenfgrav, ncellsmax+1)
-!$omp parallel
+!$omp parallel default(none)
  call allocate_array('fnode_branch', fnode_branch, lenfgrav, maxdepth)
 !$omp end parallel
 
@@ -100,7 +100,7 @@ subroutine deallocate_kdtree
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
  if (allocated(fnodecache)) deallocate(fnodecache)
-!$omp parallel
+!$omp parallel default(none)
  if (allocated(fnode_branch)) deallocate(fnode_branch)
 !$omp end parallel
  if (allocated(tcbuf)) deallocate(tcbuf,ipbuf)
@@ -148,6 +148,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  logical :: wassplit,finished,sinktree
  character(len=10) :: string
 
+ ! must initialise: otherwise a garbage .true. takes the sinktree branch
+ ! with absent optionals (illegal access of nptmass/xyzmh_ptmass)
+ sinktree = .false.
  if (present(nptmass) .and. present(xyzmh_ptmass)) then
     sinktree = .true.
  endif
@@ -205,9 +208,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
  nqueue = numthreads
  ! build the first levels with all threads working on every level (not for the APR
  ! merge tree, whose partition has to leave an even number of particles in each child)
-if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
-   call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
-endif
+ if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
+    call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+ endif
  ! build using a queue to build level by level until number of nodes = number of threads
  over_queue: do while (istack  <  nqueue)
     ! if the tree finished while building the queue, then we should just return
@@ -449,8 +452,12 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        enddo
     enddo
 
-    !$omp parallel default(shared) &
+    !$omp parallel default(none) &
+    !$omp shared(nchunk,k,clo,chi,cnode,treecache,dfac,psum,jc0,jc1,jcofm) &
+    !$omp shared(jaxis,jnl,jdegen,node,queue,leaf_is_active,inoderange) &
+    !$omp shared(pr2,cnl,coffl,coffr,tcbuf,ipbuf,inodeparts,pbox,newq) &
 #ifdef GRAVITY
+    !$omp shared(pmom) &
     !$omp private(quads,octs) &
 #endif
     !$omp private(c,j,i,i1,n,nl,pl,pr,iax,nnode,il,ir,isplit) &
@@ -651,7 +658,7 @@ subroutine empty_tree(node)
  type(kdnode), intent(out) :: node(:)
  integer :: i
 
-!$omp parallel do private(i)
+!$omp parallel do default(none) shared(node) private(i)
  do i=1,size(node)
     node(i)%xcen = 0.
     node(i)%size = 0.
@@ -720,26 +727,26 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  !$omp reduction(+:ncross)
  !$omp do schedule(static)
  do ic=1,nchunk
- nl = 0
- do i=int((int(ic-1,8)*np)/nchunk)+1,int((int(ic,8)*np)/nchunk)
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
-       nl = nl + 1
-       if (periodic) call cross_boundary(isperiodic,xyzh(:,i),ncross)
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-       if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
-          call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+    nl = 0
+    do i=int((int(ic-1,8)*np)/nchunk)+1,int((int(ic,8)*np)/nchunk)
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          nl = nl + 1
+          if (periodic) call cross_boundary(isperiodic,xyzh(:,i),ncross)
+          xi = xyzh(1,i)
+          yi = xyzh(2,i)
+          zi = xyzh(3,i)
+          if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+             call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
+          endif
+          xminpart = min(xminpart,xi)
+          yminpart = min(yminpart,yi)
+          zminpart = min(zminpart,zi)
+          xmaxpart = max(xmaxpart,xi)
+          ymaxpart = max(ymaxpart,yi)
+          zmaxpart = max(zmaxpart,zi)
        endif
-       xminpart = min(xminpart,xi)
-       yminpart = min(yminpart,yi)
-       zminpart = min(zminpart,zi)
-       xmaxpart = max(xmaxpart,xi)
-       ymaxpart = max(ymaxpart,yi)
-       zmaxpart = max(zmaxpart,zi)
-    endif
- enddo
- nlive(ic) = nl   ! once per chunk: neighbouring counters share a cache line
+    enddo
+    nlive(ic) = nl   ! once per chunk: neighbouring counters share a cache line
  enddo
  !$omp enddo
  !$omp barrier
