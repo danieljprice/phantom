@@ -175,12 +175,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  mui    = gmw
  X_i    = X_in
  Z_i    = Z_in
- if (present(gamma_local)) gammai = gamma_local
- ! mu_local is usually input but if the eos computes mu (e.g. ieos=20)
- ! it's an output. So adopt mu_local only if positive value supplied
- if (present(mu_local)) then
-    if (mu_local > 0.) mui = mu_local
- endif
+ ! gamma_local / mu_local are inputs for most eos, but for eos that compute
+ ! them (eos_outputs_gamma / eos_outputs_mu) they are outputs only — do not read
+ if (present(gamma_local) .and. .not.eos_outputs_gamma(eos_type)) gammai = gamma_local
+ if (present(mu_local) .and. .not.eos_outputs_mu(eos_type)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
 
