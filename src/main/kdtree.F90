@@ -709,12 +709,14 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  real    :: xminpart,yminpart,zminpart,xmaxpart,ymaxpart,zmaxpart
  real    :: xi, yi, zi
 
- xminpart = xyzh(1,1)
- yminpart = xyzh(2,1)
- zminpart = xyzh(3,1)
- xmaxpart = xminpart
- ymaxpart = yminpart
- zmaxpart = zminpart
+ ! seed with the identity of min/max: an empty task (or a dead first particle)
+ ! must not change the box reduced across MPI tasks
+ xminpart =  huge(xminpart)
+ yminpart =  huge(yminpart)
+ zminpart =  huge(zminpart)
+ xmaxpart = -huge(xmaxpart)
+ ymaxpart = -huge(ymaxpart)
+ zmaxpart = -huge(zmaxpart)
 
  ncross = 0
  nproot = 0
@@ -1318,13 +1320,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        endif
 
        ! compute min/max with explicit loops for better cache behavior
-       xminl(1) = treecache(1,inoderange(1,il))
-       xminl(2) = treecache(2,inoderange(1,il))
-       xminl(3) = treecache(3,inoderange(1,il))
-       xmaxl(1) = xminl(1)
-       xmaxl(2) = xminl(2)
-       xmaxl(3) = xminl(3)
-       do ipart=inoderange(1,il)+1,inoderange(2,il)
+       xminl(:) =  huge(xminl)
+       xmaxl(:) = -huge(xmaxl)
+       do ipart=inoderange(1,il),inoderange(2,il)
           xminl(1) = min(xminl(1),treecache(1,ipart))
           xminl(2) = min(xminl(2),treecache(2,ipart))
           xminl(3) = min(xminl(3),treecache(3,ipart))
@@ -1333,13 +1331,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           xmaxl(3) = max(xmaxl(3),treecache(3,ipart))
        enddo
 
-       xminr(1) = treecache(1,inoderange(1,ir))
-       xminr(2) = treecache(2,inoderange(1,ir))
-       xminr(3) = treecache(3,inoderange(1,ir))
-       xmaxr(1) = xminr(1)
-       xmaxr(2) = xminr(2)
-       xmaxr(3) = xminr(3)
-       do ipart=inoderange(1,ir)+1,inoderange(2,ir)
+       xminr(:) =  huge(xminr)
+       xmaxr(:) = -huge(xmaxr)
+       do ipart=inoderange(1,ir),inoderange(2,ir)
           xminr(1) = min(xminr(1),treecache(1,ipart))
           xminr(2) = min(xminr(2),treecache(2,ipart))
           xminr(3) = min(xminr(3),treecache(3,ipart))
@@ -1350,10 +1344,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     else
        nl = 0
        nr = 0
-       xminl = 0.0
-       xmaxl = 0.0
-       xminr = 0.0
-       xmaxr = 0.0
+       xminl =  huge(xminl)
+       xmaxl = -huge(xmaxl)
+       xminr =  huge(xminr)
+       xmaxr = -huge(xmaxr)
     endif
 
     ! Reduce node limits of children across MPI tasks belonging to this group.
