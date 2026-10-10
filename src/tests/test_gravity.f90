@@ -10,13 +10,13 @@ module testgravity
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
 !   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
-!   part, physcon, ptmass, random, setplummer, setup_params,
+!   part, physcon, ptmass, setdisc, setplummer, setup_params,
 !   sort_particles, sortutils, spherical, table_utils, testapr, testutils,
 !   timing, units
 !
@@ -37,14 +37,14 @@ subroutine test_gravity(ntests,npass,string)
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  logical :: testdirectsum,test_mom,testtaylorseries,testall,test_plummer
- logical :: plot_plummer
+ logical :: test_compare
 
  testdirectsum    = .false.
  testtaylorseries = .false.
  test_mom         = .false.
  testall          = .false.
  test_plummer     = .false.
- plot_plummer     = .false.
+ test_compare     = .false.
  select case(string)
  case('taylorseries')
     testtaylorseries = .true.
@@ -54,8 +54,8 @@ subroutine test_gravity(ntests,npass,string)
     test_mom = .true.
  case('spheres','plummer','hernquist')
     test_plummer = .true.
- case('plotplummer')
-    plot_plummer = .true.
+ case('selfgrav_comp')
+    test_compare = .true.
  case default
     testall = .true.
  end select
@@ -78,9 +78,9 @@ subroutine test_gravity(ntests,npass,string)
     !
     if (test_plummer .or. testall) call test_spheres(ntests,npass)
     !
-    !--Plot routine of Plummer and Homogeneous sphere (store data to be plotted)
+    !--unit tests to compare self-gravity solver (store data to be plotted)
     !
-    if (plot_plummer) call plot_SFMM()
+    if (test_compare) call selfgrav_comparison()
 
     if (id==master) write(*,"(/,a)") '<-- SELF-GRAVITY TESTS COMPLETE'
  else
@@ -95,7 +95,7 @@ end subroutine test_gravity
 !+
 !-----------------------------------------------------------------------
 subroutine test_taylorseries(ntests,npass)
- use kdtree,    only:compute_M2L,expand_fgrav_in_taylor_series
+ use neighkdtree,    only:get_node_node_interaction,expand_fgrav_in_taylor_series
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18),i,npnode
@@ -114,13 +114,15 @@ subroutine test_taylorseries(ntests,npass)
  fexact = -totmass*dr**3*dx   ! exact force between i and j
  phiexact = -totmass*dr       ! exact potential between i and j
 
- call get_dx_dr(x0,xposj,dx,dr)
+ call get_dx_dr(xposj,x0,dx,dr)
  fnode = 0.
  quads = 0.
- call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call get_node_node_interaction(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
+ f0 = -f0  ! inverse the sign as g(r) = 1/r
+ phi = -phi
  !print*,'           exact force = ',fexact,' phi = ',phiexact
  !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
  !print*,'force w. taylor series = ',f0, ' phi = ',phi
@@ -170,12 +172,14 @@ subroutine test_taylorseries(ntests,npass)
  fexact = fexact*pmassi
  phiexact = phiexact*pmassi
 
- call get_dx_dr(x0,xposj,dx,dr)
+ call get_dx_dr(xposj,x0,dx,dr)
  fnode = 0.
- call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call get_node_node_interaction(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
+ f0 = -f0 ! inverse the sign as g(r) = 1/r
+ phi = -phi
  !print*,'           exact force = ',fexact,' phi = ',phiexact
  !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
  !print*,'force w. taylor series = ',f0, ' phi = ',phi
@@ -200,13 +204,14 @@ subroutine test_taylorseries(ntests,npass)
  fexact = fexact*pmassi
  phiexact = phiexact*pmassi
 
- dx = x0 - xposj
- dr = 1./sqrt(dot_product(dx,dx))  ! compute approx force between node and j
+ call get_dx_dr(xposj,x0,dx,dr)
  fnode = 0.
- call compute_M2L(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
+ call get_node_node_interaction(dx(1),dx(2),dx(3),dr,totmass,quads,fnode)
 
  dx = xposi - x0   ! perform expansion about x0
  call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
+ f0 = -f0 ! inverse the sign as g(r) = 1/r
+ phi = -phi
  !print*,'           exact force = ',fexact,' phi = ',phiexact
  !print*,'       force at origin = ',fnode(1:3), ' phi = ',fnode(20)
  !print*,'force w. taylor series = ',f0, ' phi = ',phi
@@ -769,7 +774,7 @@ end subroutine test_spheres
 !+
 !-----------------------------------------------------------------------
 subroutine test_sphere(ntests,npass,iprofile)
- use dim,         only:maxp
+ use dim,         only:maxp,use_sinktree
  use deriv,       only:get_derivs_global
  use eos,         only:gamma,polyk
  use mpiutils,    only:reduceall_mpi
@@ -874,6 +879,7 @@ subroutine test_sphere(ntests,npass,iprofile)
  endif
 
  mase_tol = 8.5e-4
+ if (use_sinktree) mase_tol = 9.e-4
  nfailed = 0
  call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
  call update_test_scores(ntests,nfailed,npass)
@@ -886,162 +892,347 @@ end subroutine test_sphere
 ! in Phantom (see Bernard et al. 2026)
 !+
 !-----------------------------------------------------------------------
-subroutine plot_SFMM()
+subroutine selfgrav_comparison()
  use setplummer, only:iprofile_plummer
- integer :: ntarg(7),i
+ use kdtree,     only:use_geosplit
+ integer :: ntarg(9),i,itree,iprofile
+ integer :: ntrees,nprofiles
+ integer :: profile_id(3)
+ character(len=8) :: treelabel(3)
 
- ntarg = (/1000,3000,10000,30000,100000,300000,1000000/)
+ ntarg = (/1000,3000,10000,30000,100000,300000,1000000,3000000,10000000/)
+ treelabel    = (/'KDtree  ','Octree  ','STTrav  '/)
+ profile_id   = (/iprofile_plummer,3,4/)
+ ntrees    = size(treelabel)
+ nprofiles = size(profile_id)
 
  if (id==master) write(*,*) '--> Plot routine : Plummer sphere tests with different Npart'
- do i=1,size(ntarg)
-    if (id==master) write(*,*) 'Test with Npart = ',ntarg(i)
-    call get_plummer_prec_perf(ntarg(i),iprofile_plummer)
+
+ !--single control loop over tree type, particle number and density profile
+ do itree=1,ntrees
+    if (id==master) write(*,*) '--> Comparing tree type = ',trim(treelabel(itree))
+    do i=1,size(ntarg)
+       if (id==master) write(*,*) 'Test with Npart = ',ntarg(i)
+       do iprofile=1,nprofiles
+          if (itree <3) call prec_bench(ntarg(i),profile_id(iprofile),trim(treelabel(itree)))  ! accuracy vs exact direct sum
+          call perf_bench(ntarg(i),profile_id(iprofile),trim(treelabel(itree)))  ! wall-clock build + force time
+       enddo
+    enddo
  enddo
 
-end subroutine plot_SFMM
+ !--leave the module in its default state
+ use_geosplit = .false.
+
+end subroutine selfgrav_comparison
 
 !-----------------------------------------------------------------------
 !+
-! test function to compare FMM,SFMM to directsum for Plummer and Homo
-! sphere. It tests precision and perf for different theta max and Npart
+!  Accuracy benchmark: compares the tree gravity acceleration computed with
+!  a dual-tree (SFMM) and single-tree (FMM) walk against the exact direct
+!  summation, as a function of the opening angle theta. Per-particle
+!  relative force errors are binned into percentiles. Timing is handled by
+!  perf_bench.
 !+
 !-----------------------------------------------------------------------
-subroutine get_plummer_prec_perf(npart_target,iprofile)
- use dim,         only:maxp
- use deriv,       only:get_derivs_global
- use eos,         only:gamma,polyk
- use mpiutils,    only:reduceall_mpi
- use options,     only:ieos,alpha,alphau,alphaB,tolh
- use part,        only:init_part,npart,xyzh,fxyzu,hfact,&
-                       npartoftype,massoftype,istar,maxphase,iphase,isetphase
- use setup_params,only:npart_total
- use testutils,   only:checkval,update_test_scores
- use setplummer,  only:get_accel_profile,profile_label,radius_from_mass,density_profile
- use spherical,   only:set_sphere,iseed_mc
- use random,      only:ran2
- use kdtree,      only:tree_accuracy
- use kernel,      only:hfact_default
- use table_utils, only:linspace
- use mpidomain,   only:i_belong
- use io,          only:id,master,iverbose
- use neighkdtree, only:use_dualtree
- use timing,      only:get_timings
+subroutine prec_bench(npart_target,iprofile,treetype)
+ use deriv,       only:get_density_global
+ use part,        only:npart,fxyzu
+ use setplummer,  only:iprofile_plummer
+ use kdtree,      only:maxlevel,maxlevel_indexed,use_geosplit
+ use neighkdtree, only:ncells,use_dualtree
+ use io,          only:id,master
  use sortutils,   only:indexx
- integer, intent(in) :: iprofile,npart_target
- integer :: i,it,itest
- integer, parameter :: niter=10
- real, allocatable :: fxyz_dir(:,:),err_rel(:)
+ integer,          intent(in) :: iprofile,npart_target
+ character(len=*), intent(in) :: treetype
+ character(len=64) :: label,filename_max,fn_fcache
+ integer :: it,itest,iunit,iunitcache,iper
+ logical :: exists
+ real,    allocatable :: fxyz_dir(:,:),err_rel(:)
  integer, allocatable :: erridx(:)
- real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep,theta_crit
- character(len=64) :: label,filename_max,type
- integer, parameter :: ntab = 1000
- real :: rgrid(ntab),rhotab(ntab)
- real :: maxerr(3,niter+1),minerr(3,niter+1),meanerr(3,niter+1)
- integer :: iunit
- real(kind=4) :: t1,t2,tcpu1,tcpu2,timings(3,niter+1)
+ integer, parameter   :: niter=10
+ integer, parameter   :: npercentile=8
+ real :: theta_crit,tbuild,tforce
+ real :: error_array(2,npercentile+1,niter+1)
+ real :: percentiles(npercentile)
+ real :: timings(3,niter+1)
 
- label = profile_label(iprofile)
+ if (iprofile == iprofile_plummer) then
+    label = "Plum"
+ elseif (iprofile == 3) then
+    label = "Homo"
+ elseif (iprofile == 4) then
+    label = "Disc"
+ endif
 
- write(filename_max,'("data_plot_plummer_sphere_",i8.8,".ev")') npart_target
+ percentiles = (/0.01,0.1,0.5,0.9,0.99,0.999,0.9999,1./)
+
+ write(filename_max,'(a,"_",a,"_N",i8.8,".ev")') trim(treetype),trim(label),npart_target
  filename_max = adjustl(filename_max)
 
  open(newunit=iunit,file=trim(filename_max),action='write',status='replace')
- write(iunit,"(a)") '# \theta, emax_SFMM, emax_FMM, emin_SFMM, emin_FMM, &
- &tcpu_SFMM, tcpu_FMM, tcpu_direct'
+ write(iunit,"(a)") '# PHANTOM self-gravity test: accuracy of tree-based summation vs exact direct sum'
+ write(iunit,"(a,a)") '# tree type       = ',trim(treetype)
+ write(iunit,"(a,a)") '# density profile = ',trim(label)
+ write(iunit,"(a,i0)") '# npart           = ',npart_target
+ write(iunit,"(a)") '# opening angle theta = 0.10, 0.15, ..., 0.60 (theta=0 gives the exact reference)'
+ write(iunit,"(a)") '# SFMM = dual-tree walk (use_dualtree = T) ; FMM = single-tree walk (use_dualtree = F)'
+ write(iunit,"(a)") '# error metric : per-particle relative force error |F_tree-F_direct|/|F_direct|'
+ write(iunit,"(a)") '# error columns per scheme (SFMM then FMM): p01,p10,p50,p90,p99,p99.9,p99.99,p100,rms'
+ write(iunit,"(a)") '# timings for the 3 methods (1 SFMM, 2 FMM, 3 direct)'
+ write(iunit,"(a)") '# columns: theta, SFMM(9 errors), FMM(9 errors),timings(3 methods)'
 
- call init_part()
- hfact = hfact_default
- gamma = 5./3.
- polyk = 0.
- ieos  = 11
- alpha  = 0.; alphau = 0.; alphaB = 0.
- tolh = 1.e-5
- rsoft = 1.0
- mass_total = 1.0
-
- ! construct tables for radius and density
- cut_fraction = 0.999
- rmin = 0.
- rmax = radius_from_mass(iprofile,cut_fraction,rsoft)
- call linspace(rgrid,0.,rmax)
-
- do i=1,ntab
-    rhotab(i) = density_profile(iprofile,rgrid(i),rsoft,mass_total)
- enddo
-
- psep = rmax/real(ntab) ! this is not used for random placement anyway
- iverbose = 1
-
- iseed_mc = 1
- npart = 0
- npart_total = 0
-
- call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart, &
-                  xyzh,npart_total,rhotab=rhotab,rtab=rgrid,exactN=.true.,&
-                  np_requested=npart_target,mask=i_belong,verbose=.false.)
- !call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=npart_target)
-
- massoftype(istar) = mass_total/real(npart_total)
- npartoftype(istar) = npart
-
- if (maxphase==maxp) then
-    iphase(1:npart) = isetphase(istar,iactive=.true.)
- endif
+ !--generic particle distribution for this profile
+ call setup_distribution(iprofile,npart_target,-111)
+ use_geosplit = (index(trim(treetype),'Oct') > 0)
+ call get_density_global(icall=1)
+ if (id==master) print*,"[",trim(treetype),"] npart=",npart," ncells=",ncells,&
+        " (maxlevel,maxlevel_indexed)= ",maxlevel,maxlevel_indexed
 
  allocate(fxyz_dir(3,npart))
  allocate(err_rel(npart))
  allocate(erridx(npart))
 
- call get_derivs_global(icall=1)
+ !- dump the direct force to avoid multiple computation
+ write(fn_fcache,'(a,"_",a,"_",i0)') "fcache", trim(label), npart_target
+ inquire(file=trim(fn_fcache),exist=exists)
+
+ if (exists) then
+    print*,"--> read direct force from dump"
+    open(newunit=iunitcache,file=trim(fn_fcache),form="unformatted",status="old",action="read")
+    read(iunitcache) fxyz_dir
+    read(iunitcache) tforce
+    close(iunitcache)
+ else
+    !--exact reference acceleration (theta=0, single tree)
+    call tree_gravity(trim(treetype),0.,tbuild,tforce)
+    fxyz_dir  = fxyzu(1:3,1:npart)
+    print*,"--> dump direct force for later use"
+    open(newunit=iunitcache,file=trim(fn_fcache),form="unformatted",status="replace",action="write")
+    write(iunitcache) fxyz_dir
+    write(iunitcache) tforce
+    close(iunitcache)
+ endif
+
+ timings(3,:) = tforce
 
  tree_acc: do it=0,niter
     theta_crit = 0.1 + it*0.05
-    do itest=3,1,-1
+    do itest=1,2
        if (itest==1) then
-          type = "SFMM"
-          use_dualtree = .true.
-          tree_accuracy = theta_crit
-       elseif (itest==2) then
-          type = "FMM"
-          use_dualtree = .false.
-          tree_accuracy = theta_crit
+          call tree_gravity(trim(treetype),theta_crit,tbuild,tforce)  ! SFMM: dual-tree walk
        else
-          type = "direct"
-          use_dualtree = .false.
-          tree_accuracy = 0.
+          call tree_gravity('STTrav',theta_crit,tbuild,tforce)  ! FMM: single-tree walk
        endif
 
-       if (itest==3 .and. it>0) cycle
-       call get_timings(t1,tcpu1)
-       call get_derivs_global(icall=2)
-       call get_timings(t2,tcpu2)
-
-       if (itest==3) fxyz_dir = fxyzu(0:3,1:npart)
+       timings(itest,it+1) = tforce
 
        err_rel = norm2(fxyzu(1:3,1:npart)-fxyz_dir,1)/norm2(fxyz_dir,1)
        call indexx(npart, err_rel, erridx)
 
-       maxerr(itest,it+1)  = maxval(err_rel)
-       minerr(itest,it+1)  = err_rel(erridx(npart/10))
-       meanerr(itest,it+1) = sum(err_rel)/npart
-
-       if (itest==3) then
-          timings(itest,1:niter+1) = tcpu2-tcpu1
-       else
-          timings(itest,it+1) = tcpu2-tcpu1
-       endif
+       do iper=1,npercentile
+          error_array(itest,iper,it+1)  = err_rel(erridx(int(npart*percentiles(iper))))
+       enddo
+       error_array(itest,npercentile+1,it+1)  = sqrt(sum(err_rel**2)/npart)
     enddo
  enddo tree_acc
 
  do it=0,niter
-    write(iunit,*) 0.1 + it*0.05, maxerr(1:2,it+1), minerr(1:2,it+1), meanerr(1:2,it+1), timings(1:3,it+1)
+    write(iunit,"(f9.4,9(es13.5),9(es13.5),3(es13.5))") 0.1 + it*0.05,&
+    error_array(1,1:npercentile+1,it+1),error_array(2,1:npercentile+1,it+1),timings(1:3,it+1)
  enddo
 
  close(iunit)
 
+ deallocate(fxyz_dir,err_rel,erridx)
+
  use_dualtree = .true.
 
-end subroutine get_plummer_prec_perf
+end subroutine prec_bench
+
+!-----------------------------------------------------------------------
+!+
+!  Performance benchmark: times the tree build and the global force
+!  evaluation for the given tree type, density profile and particle
+!  number, and stores the result together with structural tree metrics in
+!  the per-profile benchmark table tree_bench_<Plum|Homo>.ev (created and
+!  initialised on first use, appended to afterwards).
+!+
+!-----------------------------------------------------------------------
+subroutine perf_bench(npart_target,iprofile,treetype)
+ use deriv,       only:get_density_global
+ use kdtree,      only:maxlevel,maxlevel_indexed
+ use neighkdtree, only:ncells,leaf_is_active,node
+ use io,          only:id,master
+ use setplummer,  only:iprofile_plummer
+ integer,          intent(in) :: iprofile,npart_target
+ character(len=*), intent(in) :: treetype
+ integer :: nleaf,ncells_used,iunit
+ character(len=8) :: label
+ character(len=64) :: filename_max
+ logical :: exists
+ real :: tbuild,tforce
+ real :: theta_crit
+
+ theta_crit = 0.5
+
+ if (id==master) write(*,"(/,a)") '--> Benchmarking octree vs k-d tree (build + force time)'
+
+ !--generic particle distribution for this profile
+ call setup_distribution(iprofile,npart_target,-111)
+ call get_density_global(icall=1)
+ !--timed tree build + force evaluation
+ call tree_gravity(trim(treetype),theta_crit,tbuild,tforce)
+
+ nleaf = count(leaf_is_active(1:int(ncells)) /= 0)
+ ncells_used = nleaf + count(node(1:int(ncells))%leftchild /= 0)
+ if (id==master) then
+    if (iprofile == iprofile_plummer) then
+       label = "Plum"
+    elseif (iprofile == 3) then
+       label = "Homo"
+    elseif (iprofile == 4) then
+       label = "Disc"
+    endif
+    filename_max = 'tree_bench_'//trim(label)//'.ev'
+    inquire(file=trim(filename_max),exist=exists)
+    open(newunit=iunit,file=trim(filename_max),status='unknown',position='append')
+    if (.not. exists) write(iunit,"(a)") '# N, tree, ncells, maxlevel, maxlevel_indexed, nleaf, '//&
+                  'ncells_used, nnode_alloc, tbuild(s), tforce(s)'
+    write(iunit,*) npart_target,' ',trim(treetype),' ',ncells,' ',maxlevel,' ',maxlevel_indexed,' ',&
+                   nleaf,' ',ncells_used,' ',size(node),' ',tbuild,' ',tforce
+    close(iunit)
+    write(*,"(a,i8,3a,i12,a,i4,a,i10,a,i12,a,i12,2(a,es12.4))") &
+       '  N=',npart_target,' ',trim(treetype),' ncells=',ncells,' maxlevel=',maxlevel,&
+       ' nleaf=',nleaf,' ncells_used=',ncells_used,' nnode_alloc=',size(node),&
+       ' tbuild(s)=',tbuild,' tforce(s)=',tforce
+ endif
+
+end subroutine perf_bench
+
+!-----------------------------------------------------------------------
+!+
+!  Generic particle-set generator for the tree comparison tests.
+!  Creates a random, equal-mass SPH distribution drawn from the requested
+!  density profile (iprofile = iprofile_plummer => Plummer sphere with an
+!  exact particle number, anything else => homogeneous sphere), and
+!  initialises masses, phases and the SPH options so the caller can go
+!  straight to tree construction and force evaluation. The resulting
+!  particle count is left in the global npart variable of the part module.
+!+
+!-----------------------------------------------------------------------
+subroutine setup_distribution(iprofile,npart_target,iseed)
+ use dim,         only:maxp
+ use eos,         only:gamma,polyk
+ use options,     only:ieos,alpha,alphau,alphaB,tolh
+ use part,        only:init_part,npart,xyzh,vxyzu,hfact,&
+                       npartoftype,massoftype,istar,maxphase,iphase,isetphase,&
+                       init_rho_from_h
+ use setup_params,only:npart_total
+ use setplummer,  only:radius_from_mass,density_profile,iprofile_plummer
+ use spherical,   only:set_sphere,iseed_mc
+ use setdisc,     only:set_disc
+ use kernel,      only:hfact_default
+ use table_utils, only:linspace
+ use mpidomain,   only:i_belong
+ use io,          only:id,master
+ use units,       only:set_units
+ use physcon,     only:au,solarm
+ integer,         intent(in) :: iprofile,npart_target,iseed
+ integer :: i
+ integer, parameter :: ntab = 1000
+ real :: rsoft,mass_total,cut_fraction,rmin,rmax,psep
+ real :: rgrid(ntab),rhotab(ntab)
+
+ call init_part()
+ call set_units(1.d0,1.d0,1.d0)
+ hfact      = hfact_default
+ gamma      = 5./3.
+ polyk      = 0.
+ ieos       = 11
+ alpha      = 0.; alphau = 0.; alphaB = 0.
+ tolh       = 1.e-5
+ rsoft      = 1.0
+ mass_total = 1.0
+ iseed_mc   = iseed
+
+ ! tables for radius and density of the requested profile
+ cut_fraction = 0.999
+ rmin = 0.
+ rmax = radius_from_mass(iprofile_plummer,cut_fraction,rsoft)
+ call linspace(rgrid,0.,rmax)
+ do i=1,ntab
+    rhotab(i) = density_profile(iprofile,rgrid(i),rsoft,mass_total)
+ enddo
+ psep = rmax/real(ntab)
+
+ npart = 0
+ npart_total = 0
+ if (iprofile == iprofile_plummer) then
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,&
+                    rhotab=rhotab,rtab=rgrid,exactN=.true.,&
+                    np_requested=npart_target,mask=i_belong,verbose=.false.)
+ elseif (iprofile == 3) then
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,&
+                    np_requested=npart_target,verbose=.false.)
+ elseif (iprofile == 4) then
+    call set_units(dist=au,mass=solarm,G=1.d0)
+    mass_total = 0.1
+    call set_disc(id,master,nparttot=npart_target,npart=npart,rmin=1.,rmax=5.,p_index=1.0,q_index=0.75,&
+                     HoverR=0.1,disc_mass=0.01,star_mass=1.,gamma=gamma,&
+                     particle_mass=massoftype(istar),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                     polyk=polyk,verbose=.false.)
+    npart_total = npart
+ endif
+
+ massoftype(istar) = mass_total/real(npart_total)
+ npartoftype(istar) = npart
+ if (maxphase==maxp) then
+    iphase(1:npart) = isetphase(istar,iactive=.true.)
+ endif
+
+ call init_rho_from_h()
+
+end subroutine setup_distribution
+
+!-----------------------------------------------------------------------
+!+
+!  Core gravity computation shared by the tree comparison tests:
+!  configures the tree from treetype (KDtree/Octree), the opening angle
+!  theta_crit and the dual-tree flag, then times the tree build and the
+!  global force evaluation (get_derivs_global). The resulting
+!  accelerations are left in the global fxyzu array.
+!+
+!-----------------------------------------------------------------------
+subroutine tree_gravity(treetype,theta_crit,tbuild,tforce)
+ use part,        only:npart,xyzh,vxyzu
+ use deriv,       only:get_derivs_global,get_density_global
+ use kdtree,      only:tree_accuracy,use_geosplit
+ use neighkdtree, only:use_dualtree,build_tree
+ use directsum,   only:directsum_parallel
+ use timing,      only:wallclock
+ character(len=*), intent(in) :: treetype
+ real,             intent(in) :: theta_crit
+ real,            intent(out) :: tbuild,tforce
+
+ use_geosplit  = (index(trim(treetype),'Oct') > 0)
+ use_dualtree  = (index(trim(treetype),'tree') > 0)
+ tree_accuracy = theta_crit
+
+ tbuild = wallclock()
+ call build_tree(npart,npart,xyzh,vxyzu)
+ tbuild = wallclock()
+
+ if (tree_accuracy > epsilon(tree_accuracy)) then
+    tforce = wallclock()
+    call get_derivs_global(icall=2)
+    tforce = wallclock()
+ else
+    tforce = wallclock()
+    call directsum_parallel()
+    tforce = wallclock()
+ endif
+
+end subroutine tree_gravity
 
 !-----------------------------------------------------------------------
 !+

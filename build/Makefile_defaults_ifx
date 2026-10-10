@@ -14,6 +14,7 @@ LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
 
 OMPFLAGS= -qopenmp
+LTOFLAGS= -ipo
 
 ifeq ($(NOWARN),yes)
    FFLAGS+= -diag-error=warn,remark,vec,par,openmp
