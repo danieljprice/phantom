@@ -175,8 +175,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  mui    = gmw
  X_i    = X_in
  Z_i    = Z_in
- if (present(gamma_local)) gammai = gamma_local
- if (present(mu_local)) mui = mu_local
+ ! gamma_local / mu_local are inputs for most eos, but for eos that compute
+ ! them (eos_outputs_gamma / eos_outputs_mu) they are outputs only — do not read
+ if (present(gamma_local) .and. .not.eos_outputs_gamma(eos_type)) gammai = gamma_local
+ if (present(mu_local) .and. .not.eos_outputs_mu(eos_type)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
 
@@ -1464,8 +1466,10 @@ end function eos_outputs_mu
 logical function eos_outputs_gamma(ieos)
  integer, intent(in) :: ieos
 
+ ! true if equationofstate computes gamma as an output (ieos=5 stores
+ ! gamma via update_muGamma from H2 chemistry, but uses it as an input)
  select case(ieos)
- case(5,10,20)
+ case(10,20)
     eos_outputs_gamma = .true.
  case default
     eos_outputs_gamma = .false.

@@ -31,6 +31,7 @@ module growth_coala
 !   coala_polynomials_legendre, eos, infile_utils, io, part, physcon,
 !   precision, units
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:pi
 #ifdef COALA
@@ -84,9 +85,7 @@ subroutine check_coagflux_array(array,array_name,ierr)
  logical :: has_nan,has_inf,has_negative
  integer :: i
 
- ! Check for NaN using any(isnan())
- ! Note: isnan() is available in gfortran; for other compilers may need ieee_is_nan
- has_nan = any(isnan(array))
+ has_nan = any(ieee_is_nan(array))
 
  ! Check for Inf (very large values)
  has_inf = any(abs(array) > huge(1.0_wp)*0.1_wp)

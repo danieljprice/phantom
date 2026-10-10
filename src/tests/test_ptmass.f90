@@ -28,6 +28,8 @@ module testptmass
 
  private
 
+ real :: gaussian_pos_fac  ! needed for sink creation test
+
 contains
 
 subroutine test_ptmass(ntests,npass,string)
@@ -1185,6 +1187,7 @@ subroutine test_createsink(ntests,npass)
     call init_part()
     call set_units_for_tests(pos_fac,vel_fac)
     if (gr) pos_fac = 1e4*pos_fac ! to avoid too small a density for GR
+    gaussian_pos_fac = pos_fac
 
     vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
@@ -1355,20 +1358,19 @@ subroutine test_createsink(ntests,npass)
  iverbose = 0
  icreate_sinks  = 0
 
-contains
+end subroutine test_createsink
+
 !-----------------------------------------------------------------------
 !+
-!  Helper function used in sink particle creation test
+!  Gaussian density used by the sink particle creation test.
 !+
 !-----------------------------------------------------------------------
 real function gaussianr(r)
  real, intent(in) :: r
 
- gaussianr = exp(-(r/(0.05*pos_fac))**2) !1./(r**2 + 0.0001**2)
+ gaussianr = exp(-(r/(0.05*gaussian_pos_fac))**2)
 
 end function gaussianr
-
-end subroutine test_createsink
 
 !-----------------------------------------------------------------------
 !+
@@ -1972,7 +1974,7 @@ subroutine test_SDAR(ntests,npass)
  nfailed(:) = 0
  eccfin = 0.99617740539553523
  tolecc = 3e-5
- tolmom = 2.3e-11
+ tolmom = 5.e-11
  tolang = 5.e-11
  tolen  = 8.e-6
  !

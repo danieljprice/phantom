@@ -22,6 +22,7 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, io, kernel,
 !   mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,lenfgrav
@@ -735,7 +736,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
           xi = xyzh(1,i)
           yi = xyzh(2,i)
           zi = xyzh(3,i)
-          if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+          if (ieee_is_nan(xi) .or. ieee_is_nan(yi) .or. ieee_is_nan(zi)) then
              call fatal('maketree','NaN in particle position, likely caused by NaN in force',i,var='x',val=xi)
           endif
           xminpart = min(xminpart,xi)
@@ -759,7 +760,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
              xi = xyzmh_ptmass(1,i)
              yi = xyzmh_ptmass(2,i)
              zi = xyzmh_ptmass(3,i)
-             if (isnan(xi) .or. isnan(yi) .or. isnan(zi)) then
+             if (ieee_is_nan(xi) .or. ieee_is_nan(yi) .or. ieee_is_nan(zi)) then
                 call fatal('maketree','NaN in ptmass position, likely caused by NaN in force',i,var='x',val=xi)
              endif
              xminpart = min(xminpart,xi)

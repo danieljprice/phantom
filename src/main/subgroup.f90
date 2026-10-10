@@ -20,6 +20,7 @@ module subgroup
 !
 ! :Dependencies: dim, io, mpiutils, orbits, part, timing, utils_subgroup
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use utils_subgroup, only:ck_size,cck_sorted_id,cks,dks,cck_sorted
  use utils_subgroup, only:get_com,get_binary,get_nneigh,get_subgroup
  implicit none
@@ -1078,7 +1079,7 @@ subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_i
        kappa_max = max(0.001*timescale/Ti,1.0)
        kappa     = kref/((rapo3/mui)*pouti)
 
-       if (isnan(kappa)) call fatal('get_kappa','NaN in kappa value...',i=i,var="pouti",val=pouti)
+       if (ieee_is_nan(kappa)) call fatal('get_kappa','NaN in kappa value...',i=i,var="pouti",val=pouti)
 
        kappa     = min(kappa_max,kappa)
        kappa     = max(1.0,kappa)
@@ -1123,7 +1124,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
     kappa = 1.
  endif
 
- if (isnan(kappa)) call fatal('get_kappa_bin','NaN in kappa value...',i=i,var="pert",val=pert)
+ if (ieee_is_nan(kappa)) call fatal('get_kappa_bin','NaN in kappa value...',i=i,var="pert",val=pert)
 
  bin_info(ikap,i) = kappa
  bin_info(ikap,j) = kappa

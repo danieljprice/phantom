@@ -49,6 +49,7 @@ module setdisc
 !   mpidomain, mpiutils, options, part, physcon, random, table_utils,
 !   units, vectorutils
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use dim,      only:maxvxyzu,disc_viscosity
  use mpidomain,only:i_belong_i4
  use io,       only:warning,error,fatal
@@ -204,7 +205,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
 
  aspin = 0.
  if (present(bh_spin)) then
-    if (.not. isnan(bh_spin)) aspin = bh_spin
+    if (.not. ieee_is_nan(bh_spin)) aspin = bh_spin
  endif
 
  aspin_angle = 0.

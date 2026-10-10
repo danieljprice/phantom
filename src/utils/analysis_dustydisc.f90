@@ -17,6 +17,7 @@ module analysis
 ! :Dependencies: dim, dust, infile_utils, io, leastsquares, options, part,
 !   physcon, solvelinearsystem, table_utils, units
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use dim,  only:maxdusttypes
  use dust, only:grainsizecgs
  use part, only:ndusttypes
@@ -462,7 +463,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
           rhod(j,i)  = dustfraci(j)*rhoi
           if (ndusttypes > 1) then
              do k=1,ndusttypes
-                if (isnan(deltavsum(k,i))) then
+                if (ieee_is_nan(deltavsum(k,i))) then
                    deltavsum(k,i) = 0.
                    deltav(:,k,i) = 0.
                 endif

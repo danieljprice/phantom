@@ -18,6 +18,7 @@ module eos_idealplusrad
 !
 ! :Dependencies: physcon
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use physcon,  only:Rg,radconst,mass_proton_cgs,kboltz
  implicit none
  real, parameter :: tolerance = 1.e-15
@@ -47,7 +48,7 @@ subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
 
  gasfac = 1.5 !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
  imu = 1./mu
- if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
+ if (tempi <= 0. .or. ieee_is_nan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
  ierr = 0
  iter = 0
