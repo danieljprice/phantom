@@ -39,7 +39,8 @@ function get_ephemeris(object,got_elems,ierr,epoch) result(elems)
  character(len=*), intent(in), optional :: epoch
  real :: elems(nelem)
  character(len=512) :: url
- character(len=30)  :: localfile,filepath
+ character(len=30)  :: localfile
+ character(len=:), allocatable :: filepath
  logical :: iexist
  integer :: ierr2
 

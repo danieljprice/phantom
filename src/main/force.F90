@@ -202,7 +202,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
- use neighkdtree,  only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
+ use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
+                        active_leaves,nactive_leaves
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -269,7 +270,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,            intent(in)    :: dens(:), metrics(:,:,:,:)
  real, save :: xyzcache(nforcecache,maxcellcache)
 !$omp threadprivate(xyzcache)
- integer :: i,icell,nneigh
+ integer :: i,icell,ia,nneigh
  integer :: nstokes,nsuper,ndrag,ndustres,ndense
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
  real    :: dustresfacmean,dustresfacmax
@@ -417,7 +418,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 !$omp parallel default(none) &
 !$omp shared(maxp) &
-!$omp shared(ncells,leaf_is_active) &
+!$omp shared(leaf_is_active,active_leaves,nactive_leaves) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
 !$omp shared(dragreg) &
@@ -445,7 +446,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dt) &
 !$omp shared(nprocs,icall) &
 !$omp shared(poten) &
-!$omp private(icell,i) &
+!$omp private(icell,i,ia) &
 !$omp private(cell) &
 !$omp private(remote_export) &
 !$omp private(idone) &
@@ -510,7 +511,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  call init_send_requests(irequestsend)
 
  !$omp do schedule(runtime)
- over_cells: do icell=1,int(ncells)
+ over_cells: do ia=1,nactive_leaves
+    icell = active_leaves(ia)
 
     !--skip empty cells AND inactive cells
     if (leaf_is_active(icell) <= 0) cycle over_cells

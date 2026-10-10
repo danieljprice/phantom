@@ -440,7 +440,8 @@ subroutine test_dustydiffuse(ntests,npass)
  errmax = 0.
  do j=1,nsteps
     time = j*dt
-    !$omp parallel do private(i)
+    !$omp parallel do default(none) &
+    !$omp shared(npart,ddustevol_prev,ddustevol,dustevol,dt,dustfrac,ndustsmall) private(i)
     do i=1,npart
        ddustevol_prev(:,i) = ddustevol(:,i)
        dustevol(:,i) = dustevol(:,i) + dt*ddustevol(:,i)
@@ -450,7 +451,8 @@ subroutine test_dustydiffuse(ntests,npass)
     enddo
     !$omp end parallel do
     call get_derivs_global()
-    !$omp parallel do private(i)
+    !$omp parallel do default(none) &
+    !$omp shared(npart,dustevol,dt,ddustevol,ddustevol_prev) private(i)
     do i=1,npart
        dustevol(:,i) = dustevol(:,i) + 0.5*dt*(ddustevol(:,i) - ddustevol_prev(:,i))
     enddo
@@ -462,7 +464,8 @@ subroutine test_dustydiffuse(ntests,npass)
     term = 10.*eta*time + B
     n = 0
     errl2 = 0.
-    !$omp parallel do private(i,r2,exact,erri) reduction(+:errl2,n)
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,term,A,dustfrac) private(i,r2,exact,erri) reduction(+:errl2,n)
     do i=1,npart
        r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
        exact = A*abs(term)**(-0.6) - r2/term
