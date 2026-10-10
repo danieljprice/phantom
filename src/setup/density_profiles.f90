@@ -131,8 +131,9 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
     endif
  endif
 
- rtab   = r * rfac
- rhotab = rhocentre0 * den
+ ! only fill 1:npts; r/den beyond npts are unset and must not be used
+ rtab(1:npts)   = r(1:npts) * rfac
+ rhotab(1:npts) = rhocentre0 * den(1:npts)
  if (present(Rstar))     Rstar     = r(npts)*rfac
  if (present(rhocentre)) rhocentre = rhocentre0
 
