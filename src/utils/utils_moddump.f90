@@ -20,7 +20,7 @@ module moddump_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, io, systemutils
+! :Dependencies: infile_utils, io
 !
  use infile_utils, only:write_inopt,read_inopt,inopts
  implicit none
@@ -65,10 +65,9 @@ contains
 !  read/write moddump options from/to prefix.moddump via get_options:
 !   - file complete   -> read it and return
 !   - file incomplete -> missing options are added, then stop
-!   - file absent     -> prompt with set_options and write the file,
-!                        then return (unlike phantomsetup, the dump is
-!                        modified straight away); if set_options is not
-!                        given a template is written, then stop
+!   - file absent     -> prompt with set_options (or use any options
+!                        given on the command line), write the file,
+!                        then stop, as for phantomsetup
 !+
 !----------------------------------------------------------------
 subroutine get_moddump_options(read_options,write_options,set_options)
@@ -78,25 +77,14 @@ subroutine get_moddump_options(read_options,write_options,set_options)
  procedure(write_opts_func)    :: write_options
  procedure(set_func), optional :: set_options
  character(len=len(fileprefix)+8) :: filename
- integer :: ierr,noverride
- logical :: iexist
+ integer :: ierr
 
  read_opts  => read_options
  write_opts => write_options
 
  filename = trim(fileprefix)//'.moddump'
- inquire(file=filename,exist=iexist)
- noverride = count_command_line_options()
-
- ! options given on the command line: start from the defaults instead of prompting
- if (noverride > 0 .and. .not.iexist .and. id==master) then
-    call write_modfile(filename)
-    iexist = .true.
- endif
-
  if (present(set_options)) then
     call get_options(filename,id==master,ierr,read_modfile,write_modfile,set_options)
-    if (.not.iexist .and. ierr==1) ierr = 0
  else
     call get_options(filename,id==master,ierr,read_modfile,write_modfile)
  endif
@@ -104,9 +92,6 @@ subroutine get_moddump_options(read_options,write_options,set_options)
     if (id==master) print "(/,a,/)",' >> edit '//trim(filename)//' and rerun phantommoddump'
     stop
  endif
-
- ! record the values actually used, including those from the command line
- if (noverride > 0 .and. id==master) call write_modfile(filename)
 
 end subroutine get_moddump_options
 
@@ -137,25 +122,16 @@ end subroutine write_modfile
 !----------------------------------------------------------------
 subroutine read_modfile(filename,ierr)
  use infile_utils, only:open_db_from_file,close_db
- use io,           only:id,master
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 23
  type(inopts), allocatable :: db(:)
- integer :: nerr,nfile,i
+ integer :: nerr
 
  nerr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  if (ierr /= 0) return
- nfile = size(db)
- call add_command_line_options(db)
  call read_opts(db,nerr)
-
- ! warn about command line options not used by this moddump
- do i=nfile+1,size(db)
-    if (.not.db(i)%retrieved .and. id==master) print "(a)", &
-       ' WARNING: unknown option --'//trim(db(i)%tag)//' ignored'
- enddo
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i0,a)",nerr,' error(s) during read of moddump options file: re-writing...'
@@ -163,67 +139,5 @@ subroutine read_modfile(filename,ierr)
  endif
 
 end subroutine read_modfile
-
-!----------------------------------------------------------------
-!+
-!  append options given on the command line as --option=value to
-!  the database; as the last match is used, these take precedence
-!  over values from the file
-!+
-!----------------------------------------------------------------
-subroutine add_command_line_options(db)
- type(inopts), allocatable, intent(inout) :: db(:)
- type(inopts), allocatable :: dbnew(:)
- character(len=len(db(1)%tag)) :: tag
- character(len=len(db(1)%val)) :: val
- integer :: iarg,n,nadd
-
- nadd = count_command_line_options()
- if (nadd <= 0) return
- allocate(dbnew(size(db)+nadd))
- n = size(db)
- dbnew(1:n) = db
- do iarg=1,command_argument_count()
-    if (.not.is_moddump_option(iarg,tag,val)) cycle
-    n = n + 1
-    dbnew(n)%tag = tag
-    dbnew(n)%val = val
-    dbnew(n)%retrieved = .false.
- enddo
- call move_alloc(dbnew,db)
-
-end subroutine add_command_line_options
-
-!----------------------------------------------------------------
-!+
-!  number of options given on the command line as --option=value
-!+
-!----------------------------------------------------------------
-integer function count_command_line_options() result(n)
- character(len=120) :: tag,val
- integer :: iarg
-
- n = 0
- do iarg=1,command_argument_count()
-    if (is_moddump_option(iarg,tag,val)) n = n + 1
- enddo
-
-end function count_command_line_options
-
-!----------------------------------------------------------------
-!+
-!  check whether command line argument iarg sets a moddump option
-!  (--maxp is used by phantommoddump itself, so is skipped)
-!+
-!----------------------------------------------------------------
-logical function is_moddump_option(iarg,tag,val)
- use systemutils, only:get_option_arg
- integer,          intent(in)  :: iarg
- character(len=*), intent(out) :: tag,val
-
- is_moddump_option = get_option_arg(iarg,tag,val)
- if (is_moddump_option) is_moddump_option = (trim(tag) /= 'maxp')
-
-end function is_moddump_option
 
 end module moddump_utils

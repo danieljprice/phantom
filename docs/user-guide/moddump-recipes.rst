@@ -14,8 +14,9 @@ Run in the **same directory as the input ``.in`` file** (see :doc:`moddump`)::
 
    ./phantommoddump dump_in dump_out [time]
 
-Options chosen on the first run are saved to ``dump_out.moddump`` (using the prefix
-of the output dump) and reused on later runs; see :doc:`moddump`.
+The first run saves the options to ``dump_out.moddump`` (using the prefix of the
+output dump) and stops; run the same command again to modify the dump. See
+:doc:`moddump`.
 
 Add a flyby to an evolved disc
 ------------------------------
@@ -43,8 +44,8 @@ On the first run you will be prompted for:
 - orbit orientation (ascending node angle, inclination)
 - suggested time between dumps as a fraction of the flyby time
 
-Your answers are saved to ``flyby.moddump``, which is read instead of prompting
-on later runs (see :doc:`moddump`).
+Your answers are saved to ``flyby.moddump``; run the same command again to add
+the flyby (see :doc:`moddump`).
 
 The module reads the primary sink mass from the dump, recentres the system, and
 prints a suggested ``dtmax`` (in code units) for the output ``flyby.in``. Edit

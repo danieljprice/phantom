@@ -37,10 +37,12 @@ prefix of the OUTPUT dump. For example::
 
 uses ``flyby.moddump``:
 
-- if the file does not exist, you are prompted for the options, the dump is
-  modified, and your answers are saved to ``flyby.moddump``
-- if the file exists, the options are read from it without prompting, so you
-  can edit the file and rerun to repeat or adjust the operation
+- if the file does not exist, you are prompted for the options, your answers
+  are saved to ``flyby.moddump`` and phantommoddump stops, so you can check
+  the file before rerunning (as for phantomsetup and .setup files)
+- if the file exists, the options are read from it without prompting and the
+  dump is modified, so you can edit the file and rerun to repeat or adjust the
+  operation
 - if options are missing from the file, they are added with default values and
   phantommoddump stops so you can check them before rerunning
 
@@ -52,9 +54,10 @@ Any option in the ``.moddump`` file can also be set on the command line as
 
    ./splitpart dump_01000 split_01000 --nchild=2
 
-Options given this way override the values in the file (or the defaults, without
-prompting, if there is no file yet), and the file is rewritten with the values
-that were used.
+Options given this way override the values in the file, and the file is
+rewritten with the values that were used. If there is no file yet, the options
+are used with the defaults instead of prompting, the file is written and
+phantommoddump stops, so run the same command again to modify the dump.
 
 Writing your own moddump module
 -------------------------------

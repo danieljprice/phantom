@@ -14,6 +14,18 @@ Alternatively you can override this manually at compile-time::
 
 Possible values of the SETUP variable are listed below.
 
+Setting options from the command line
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Running phantomsetup for the first time prompts for the setup options and writes them to a .setup file, which
+is read on later runs. Any option in the .setup file can also be set on the command line as ``--option=value``,
+for example::
+
+   ./phantomsetup disc --np=10000
+
+If the .setup file exists, the value overrides the one in the file and the file is rewritten with the values used.
+If it does not exist yet, the value is used with the defaults instead of prompting, and the .setup file is written
+as usual before you rerun phantomsetup.
+
 Well-maintained setups
 ~~~~~~~~~~~~~~~~~~~~~~
 

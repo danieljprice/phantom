@@ -89,7 +89,7 @@ module setup
 !   io_control, kernel, memory, mpidomain, mpiutils, options, orbits, part,
 !   partinject, physcon, prompting, radiation_utils, set_dust,
 !   set_dust_options, setbinary, setdisc, sethier_utils, sethierarchical,
-!   setorbit, setunits, shock_capturing, spherical, systemutils, timestep,
+!   setorbit, setunits, shock_capturing, spherical, timestep,
 !   unifdis, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
@@ -518,7 +518,6 @@ end subroutine set_periodic_boundary_from_particles
 subroutine set_default_options()
  use eos,             only:T_warm,mu_warm,rho_branch_cgs
  use sethierarchical, only:set_hierarchical_default_options
- use systemutils,     only:get_command_option
  use setorbit,        only:set_defaults_orbit
  use setunits,        only:dist_unit,mass_unit
  use sethier_utils,   only:findloc_local
@@ -668,7 +667,7 @@ subroutine set_default_options()
 
  !--resolution, default is 1000000 but can be set with --np=N
  !  command line option (used to keep the test suite running fast)
- np = int(get_command_option('np',default=1000000))
+ np = 1000000
  np_dust = np/maxdustlarge/5
 
  !--planets
@@ -713,58 +712,42 @@ end subroutine set_default_options
 !
 !--------------------------------------------------------------------------
 subroutine get_setup_parameters(id,fileprefix)
+ use infile_utils, only:get_options
  integer,          intent(in) :: id
  character(len=*), intent(in) :: fileprefix
  logical :: iexist,seq_exists
  integer :: j,ierr
 
+ !--read setup file, or prompt and write one (options can be set with --option=value)
  filename=trim(fileprefix)//'.setup'
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    !--read from setup file
-    call read_setupfile(filename,ierr)
-    if (id==master) call write_setupfile(filename)
-    if (ierr /= 0) then
-       stop
-    endif
-
-    !--setup multiple discs each with different orbital parameters
-    !  specified in orbits.dat
-    inquire(file='orbits.dat',exist=iexist)
-    inquire(file=trim(fileprefix)//'A.setup',exist=seq_exists)
-    if (iexist .and. .not.seq_exists) then
-       open(unit=23,file='orbits.dat',status='old',iostat=ierr)
-       j = 0
-       do while(ierr==0)
-          binary%input_type = 0
-          read(23,*,iostat=ierr) binary%a,binary%e,binary%i,binary%O,binary%w,binary%f
-          write(binary%elems%a,"(g0)") binary%a
-          binary%elems%a = trim(adjustl(binary%elems%a)) ! convert to string
-          if (ierr==0) then
-             j = j + 1
-             write(filename,"(a)") trim(fileprefix)//achar(j+64)//'.setup'
-             if (id==master) call write_setupfile(filename)
-          endif
-       enddo
-       close(unit=23)
-       stop
-    endif
-
- elseif (id==master) then
-
-    !--interactive setup
-    print "(a,/)",' '//trim(filename)//' not found: using interactive setup'
-    call setup_interactive(id)
-
-    !--write setup file from interactive setup
-    call write_setupfile(filename)
-    print "(/,a)",' >>> please edit '//trim(filename)//' to set parameters for your problem then rerun phantomsetup <<<'
+ call get_options(filename,id==master,ierr,read_setupfile,write_setupfile,setup_interactive)
+ if (ierr /= 0) then
+    if (id==master) print "(/,a)",' >>> please edit '//trim(filename)// &
+                              ' to set parameters for your problem then rerun phantomsetup <<<'
     stop
+ endif
+ if (id==master) call write_setupfile(filename)
 
- else
-
+ !--setup multiple discs each with different orbital parameters
+ !  specified in orbits.dat
+ inquire(file='orbits.dat',exist=iexist)
+ inquire(file=trim(fileprefix)//'A.setup',exist=seq_exists)
+ if (iexist .and. .not.seq_exists) then
+    open(unit=23,file='orbits.dat',status='old',iostat=ierr)
+    j = 0
+    do while(ierr==0)
+       binary%input_type = 0
+       read(23,*,iostat=ierr) binary%a,binary%e,binary%i,binary%O,binary%w,binary%f
+       write(binary%elems%a,"(g0)") binary%a
+       binary%elems%a = trim(adjustl(binary%elems%a)) ! convert to string
+       if (ierr==0) then
+          j = j + 1
+          write(filename,"(a)") trim(fileprefix)//achar(j+64)//'.setup'
+          if (id==master) call write_setupfile(filename)
+       endif
+    enddo
+    close(unit=23)
     stop
-
  endif
 
 end subroutine get_setup_parameters
@@ -2389,7 +2372,7 @@ end subroutine set_tmax_dtmax
 !  Prompt user for desired setup options
 !
 !--------------------------------------------------------------------------
-subroutine setup_interactive(id)
+subroutine setup_interactive()
  use prompting,        only:prompt
  use eos,              only:T_warm,mu_warm,rho_branch_cgs
  use set_dust_options, only:set_dust_interactive
@@ -2397,7 +2380,6 @@ subroutine setup_interactive(id)
  use sethierarchical,  only:hs,hierarchy,print_chess_logo,generate_hierarchy_string
  use sethier_utils,    only:findloc_local
 
- integer, intent(in) :: id
  integer :: i
  real    :: disc_mfac(maxdiscs)
 

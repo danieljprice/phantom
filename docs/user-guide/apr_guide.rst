@@ -20,8 +20,8 @@ resolution simulation as follows::
 This will split each particle in the simulation into 13, placed on a regular lattice. The ``--nchild`` option
 specifies the number of children to split into. A regular lattice places 13 children; any other
 value of nchild places children randomly. You can also force random placement with 13 children using ``--lattice_type=1``.
-Without flags you will be prompted for these options. Choices are saved to ``split.moddump`` and reused
-for later runs (see :doc:`moddump`).
+Without flags you will be prompted for these options. The first run saves the choices to ``split.moddump``
+and stops; run the same command again to split the particles (see :doc:`moddump`).
 
 Merging a whole simulation
 --------------------------
@@ -30,7 +30,8 @@ You can merge particles as follows::
   make mergepart
   ./mergepart dump_01000 merge_01000 --nchild=2
 
-which will produce a snapshot with npart/nchild particles. The merging procedure uses the tree structure
+which will produce a snapshot with npart/nchild particles (as for splitpart, the first run writes
+``merge.moddump`` and stops, so run the command twice). The merging procedure uses the tree structure
 of the particles to merge them into the correct number of particles, as described in Nealon & Price (2025).
 
 .. _apr:

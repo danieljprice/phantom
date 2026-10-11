@@ -167,13 +167,14 @@ check_phantomsetup ()
    cp $phantomdir/bin/phantomsetup .;
    #
    # run ./phantomsetup prefix, answering any questions with "Enter"
+   # (without flags, which would skip the prompts)
    #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
-   flags="--np=1000"
+   flags="--np=1000 --np1=1000 --np2=1000"
    echo -e "$myinput" > myinput.txt;
    sed '/-e/d' myinput.txt > mycleanin.txt
-   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null; err=$?;
+   ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
    if [ $err -eq 0 ]; then
       print_result "runs" $pass;
    else
@@ -264,7 +265,7 @@ test_setupfile_options()
        valstring="$param = $x"
        echo "checking $valstring for SETUP=$setup"
        rm $setupfile;
-       ./phantomsetup $setupfile $flags < mycleanin.txt > /dev/null;
+       ./phantomsetup $setupfile < mycleanin.txt > /dev/null;
        sed "s/$param.*=.*$/$valstring/" $setupfile > ${setupfile}.tmp
        mv ${setupfile}.tmp $setupfile
        if [ "X$x" == "X6" ]; then

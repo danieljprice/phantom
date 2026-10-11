@@ -24,7 +24,7 @@ module setup
 !   - use_gr_ic     : *whether initial velocity condition computed in GR is used*
 !
 ! :Dependencies: eos, infile_utils, io, kernel, metric, mpidomain, orbits,
-!   part, physcon, relaxstar, setorbit, setstar, setup_params, systemutils,
+!   part, physcon, relaxstar, setorbit, setstar, setup_params,
 !   units
 !
  use setstar, only:star_t
@@ -52,7 +52,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                           nsinkproperties,ihacc
  use io,             only:master,fatal,warning
  use physcon,        only:solarm,pi,solarr
- use systemutils,    only:get_command_option
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero,npart_total
  use infile_utils,   only:get_options
@@ -103,7 +102,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  np_default      = 1e6
  ecc             = 1.0
  start_sep       = 5.0
- star%np         = int(get_command_option('np',default=np_default)) ! can set default value with --np=1e5 flag (mainly for testsuite)
+ star%np         = np_default
  beta            = 1.0
  impact_param    = 0.5 ! units of rsun
  semi_maj_val    = 10.130607675019033

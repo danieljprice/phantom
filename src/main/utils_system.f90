@@ -14,11 +14,10 @@ module systemutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: infile_utils
 !
  implicit none
  public :: get_command_option, get_command_option_real, get_command_option_logical
- public :: get_option_arg
 
  private
 
@@ -103,6 +102,7 @@ end function get_command_option_logical
 !+
 !-------------------------------------------------------------------
 logical function find_option(variable,valstring)
+ use infile_utils, only:get_option_arg
  character(len=*), intent(in)  :: variable
  character(len=*), intent(out) :: valstring
  character(len=80) :: name,val
@@ -120,31 +120,5 @@ logical function find_option(variable,valstring)
  enddo
 
 end function find_option
-
-!-------------------------------------------------------------------
-!+
-!  check whether command line argument iarg is of the form
-!  --name=value (or -name=value), returning the name and value
-!+
-!-------------------------------------------------------------------
-logical function get_option_arg(iarg,name,val)
- integer,          intent(in)  :: iarg
- character(len=*), intent(out) :: name,val
- character(len=240) :: arg
- integer :: ieq,istart
-
- call get_command_argument(iarg,arg)
- ieq = index(arg,'=')
- istart = verify(arg,'-')   ! first character after the leading dashes
- get_option_arg = (arg(1:1)=='-' .and. istart > 1 .and. ieq > istart)
- if (get_option_arg) then
-    name = arg(istart:ieq-1)
-    val  = arg(ieq+1:)
- else
-    name = ''
-    val  = ''
- endif
-
-end function get_option_arg
 
 end module systemutils

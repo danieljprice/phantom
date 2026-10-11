@@ -23,6 +23,7 @@ module infile_utils
  public :: int_to_string
  public :: get_options
  public :: infile_exists
+ public :: get_option_arg
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -90,6 +91,13 @@ module infile_utils
     ierr_inread = 1, &
     ierr_rangemin = 2, &
     ierr_rangemax = 3
+
+ ! options given on the command line as --option=value, which override
+ ! values read from parameter files by get_options
+ character(len=maxlen),    allocatable, private :: override_tag(:)
+ character(len=maxlenval), allocatable, private :: override_val(:)
+ logical,                  allocatable, private :: override_used(:)
+ logical, private :: use_overrides = .false.
 
  private
 
@@ -398,6 +406,7 @@ subroutine open_db_from_file(db,filename,iunit,ierr)
     ierr = -1
  endif
  close(unit=iunit)
+ if (ierr == 0 .and. use_overrides) call add_overrides_to_db(db)
 
 end subroutine open_db_from_file
 
@@ -737,6 +746,9 @@ logical function match_inopt_in_db(db,tag,valstring)
        db(n)%retrieved = .true.
     endif
  enddo
+ if (match_inopt_in_db .and. use_overrides) then
+    where (override_tag == adjustl(tag)) override_used = .true.
+ endif
 
 end function match_inopt_in_db
 
@@ -1486,28 +1498,15 @@ subroutine get_options(filename,iallow_write,ierr,read_pars,write_pars)
  integer,          intent(out) :: ierr
  procedure(read_func)  :: read_pars
  procedure(write_func) :: write_pars
- logical :: iexist
 
- ! check if file exists
- inquire(file=filename,exist=iexist)
- if (iexist) then
-    ! read from parameter file
-    call read_pars(filename,ierr)
-    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
- elseif (iallow_write) then
-    ! otherwise write one
-    call write_pars(filename)
-    ierr = 1
- else
-    ! threads not allowed to write just return an error
-    ierr = ierr_notfound
- endif
+ call get_options_any(filename,iallow_write,ierr,read_pars,write_pars)
 
 end subroutine get_options
 
 !--------------------------------------------------------------------
 !+
-!  routine to handle high level read/write of parameter files
+!  routine to handle high level read/write of parameter files,
+!  prompting for the options if the file does not exist
 !+
 !--------------------------------------------------------------------
 subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
@@ -1517,18 +1516,47 @@ subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pa
  procedure(read_func)  :: read_pars
  procedure(write_func) :: write_pars
  procedure(set_func)   :: set_pars
- logical :: iexist
+
+ call get_options_any(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+
+end subroutine get_options_interactive
+
+!--------------------------------------------------------------------
+!+
+!  read the parameter file if it exists, otherwise write one
+!  (prompting first if set_pars is given). Options given on the
+!  command line as --option=value override those in the file, or
+!  are used with the defaults instead of prompting if there is no
+!  file, and the file is rewritten with the values used
+!+
+!--------------------------------------------------------------------
+subroutine get_options_any(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+ character(len=*), intent(in)  :: filename
+ logical,          intent(in)  :: iallow_write
+ integer,          intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ procedure(set_func), optional :: set_pars
+ logical :: iexist,ioverride
+ integer :: ierr_defaults,i
+
+ ioverride = (count_overrides() > 0)
 
  ! check if file exists
  inquire(file=filename,exist=iexist)
  if (iexist) then
-    ! read from parameter file
-    call read_pars(filename,ierr)
-    if (ierr /= 0 .and. iallow_write) call write_pars(filename)
+    ! read from parameter file, applying command line options
+    call read_with_overrides(filename,read_pars,ierr)
+    if ((ierr /= 0 .or. ioverride) .and. iallow_write) call write_pars(filename)
  elseif (iallow_write) then
-    ! otherwise prompt then write one
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call set_pars()
+    if (ioverride) then
+       ! use the command line options with the defaults instead of prompting
+       call write_pars(filename)
+       call read_with_overrides(filename,read_pars,ierr_defaults)
+    elseif (present(set_pars)) then
+       print "(a,/)",trim(filename)//' not found: using interactive setup'
+       call set_pars()
+    endif
     call write_pars(filename)
     ierr = 1
  else
@@ -1536,7 +1564,113 @@ subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pa
     ierr = ierr_notfound
  endif
 
-end subroutine get_options_interactive
+ ! warn about command line options not used in this parameter file
+ if (ioverride .and. iallow_write) then
+    do i=1,size(override_tag)
+       if (.not.override_used(i)) print "(a)",' WARNING: unknown option --'//trim(override_tag(i))
+    enddo
+ endif
+
+end subroutine get_options_any
+
+!--------------------------------------------------------------------
+!+
+!  call read_pars with command line options applied to any
+!  database it opens
+!+
+!--------------------------------------------------------------------
+subroutine read_with_overrides(filename,read_pars,ierr)
+ character(len=*), intent(in)  :: filename
+ procedure(read_func)  :: read_pars
+ integer,          intent(out) :: ierr
+
+ ! overrides are loaded by count_overrides in get_options_any
+ use_overrides = allocated(override_tag)
+ call read_pars(filename,ierr)
+ use_overrides = .false.
+
+end subroutine read_with_overrides
+
+!--------------------------------------------------------------------
+!+
+!  number of options given on the command line as --option=value,
+!  (re)loading them from the command line arguments. Flags used by
+!  the programs themselves (--maxp, --nprocsfake) are skipped
+!+
+!--------------------------------------------------------------------
+integer function count_overrides() result(n)
+ character(len=maxlen)    :: tag
+ character(len=maxlenval) :: val
+ integer :: iarg,pass
+
+ do pass=1,2
+    n = 0
+    do iarg=1,command_argument_count()
+       if (.not.get_option_arg(iarg,tag,val)) cycle
+       if (tag=='maxp' .or. tag=='nprocsfake') cycle
+       n = n + 1
+       if (pass==2) then
+          override_tag(n) = tag
+          override_val(n) = val
+       endif
+    enddo
+    if (pass==1) then
+       if (allocated(override_tag)) deallocate(override_tag,override_val,override_used)
+       allocate(override_tag(n),override_val(n),override_used(n))
+       override_used = .false.
+    endif
+ enddo
+
+end function count_overrides
+
+!--------------------------------------------------------------------
+!+
+!  append the command line options to a database; as the last
+!  match is used, these take precedence over values from the file
+!+
+!--------------------------------------------------------------------
+subroutine add_overrides_to_db(db)
+ type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts), allocatable :: dbnew(:)
+ integer :: n,i
+
+ n = size(db)
+ allocate(dbnew(n+size(override_tag)))
+ dbnew(1:n) = db
+ do i=1,size(override_tag)
+    dbnew(n+i)%tag = override_tag(i)
+    dbnew(n+i)%val = override_val(i)
+    dbnew(n+i)%retrieved = .false.
+ enddo
+ call move_alloc(dbnew,db)
+
+end subroutine add_overrides_to_db
+
+!-------------------------------------------------------------------
+!+
+!  check whether command line argument iarg is of the form
+!  --name=value (or -name=value), returning the name and value
+!+
+!-------------------------------------------------------------------
+logical function get_option_arg(iarg,name,val)
+ integer,          intent(in)  :: iarg
+ character(len=*), intent(out) :: name,val
+ character(len=240) :: arg
+ integer :: ieq,istart
+
+ call get_command_argument(iarg,arg)
+ ieq = index(arg,'=')
+ istart = verify(arg,'-')   ! first character after the leading dashes
+ get_option_arg = (arg(1:1)=='-' .and. istart > 1 .and. ieq > istart)
+ if (get_option_arg) then
+    name = arg(istart:ieq-1)
+    val  = arg(ieq+1:)
+ else
+    name = ''
+    val  = ''
+ endif
+
+end function get_option_arg
 
 !--------------------------------------------------------------------
 !+

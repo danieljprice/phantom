@@ -46,7 +46,7 @@ module setup
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dynamic_dtmax,
 !   eos, eos_barotropic, infile_utils, io, io_control, kernel, mpidomain,
 !   options, part, physcon, prompting, ptmass, rho_profile,
-!   set_dust_options, setunits, setup_params, spherical, systemutils,
+!   set_dust_options, setunits, setup_params, spherical,
 !   timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge,rho
@@ -879,7 +879,6 @@ subroutine setup_interactive()
  use units,            only:udist,umass
  use physcon,          only:au,solarm
  use set_dust_options, only:set_dust_interactive
- use systemutils,      only:get_command_option
  integer :: ilattice,npmax
  character(len=100) :: string
  logical :: make_sinks
@@ -895,7 +894,6 @@ subroutine setup_interactive()
  elseif (npmax < np) then
     np = 300000
  endif
- np = int(get_command_option('np',default=np)) ! can override default value with flag e.g. --np=1000 (mainly for test suite)
  call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
 
  ilattice = i_closepacked
