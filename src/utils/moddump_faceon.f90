@@ -105,8 +105,7 @@ end subroutine modify_dump
 subroutine moddump_interactive()
  use prompting, only:prompt
 
- call prompt('System type (1=single/isink1, 2=binary, 3=triple centred on binary, 4=triple external)',&
-             system_type,1,4)
+ call prompt('System (1=single, 2=binary, 3=triple about binary, 4=triple external)',system_type,1,4)
  call prompt('Outer radius within which to measure angular momentum',outer_radius,0.)
 
 end subroutine moddump_interactive

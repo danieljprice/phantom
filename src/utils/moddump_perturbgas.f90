@@ -96,7 +96,7 @@ subroutine write_options_moddump(iunit)
  write(iunit,"(/,a)") '# gas velocity perturbation parameters'
  call write_inopt(perturb_factor,'perturb_factor','fractional velocity perturbation for gas',iunit)
  call write_inopt(perturb_sink,'perturb_sink','also perturb sink particle velocities',iunit)
- if (perturb_sink) call write_inopt(sink_perturb_factor,'sink_perturb_factor','fractional velocity perturbation for sinks',iunit)
+ if (perturb_sink) call write_inopt(sink_perturb_factor,'sink_perturb_factor','perturbation for sinks',iunit)
 
 end subroutine write_options_moddump
 

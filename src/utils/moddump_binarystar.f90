@@ -248,15 +248,15 @@ subroutine write_options_moddump(iunit)
  use moddump_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(ioperation,'ioperation',&
-   'operation (1=duplicate,2=add from dump,3=adjust sep,4=add Bfield,5=add GW,6=radial puls,7=rot puls)',iunit)
- call write_inopt(icreate,'icreate','how to create 2nd star for GW/pulsation (0=none,1=duplicate,2=add from dump)',iunit)
+ call write_inopt(ioperation,'ioperation','1=duplicate,2=add dump,3=adjust sep,4=Bfield,5=GW,'// &
+                  '6=radial pulsation,7=rotational pulsation',iunit)
+ call write_inopt(icreate,'icreate','2nd star for GW/pulsation (0=none,1=duplicate,2=from dump)',iunit)
  call write_inopt(sep,'sep','radial separation between stars [code units]',iunit)
  call write_inopt(synchro,'synchro','synchronise the binary rotation to the orbit',iunit)
  call write_inopt(fac,'fac','radial pulsation factor, where v_r = fac*r (ioperation=6)',iunit)
  call write_inopt(omega_inner,'omega_inner','angular velocity at centre (ioperation=7)',iunit)
  call write_inopt(omega_outer,'omega_outer','angular velocity at surface (ioperation=7)',iunit)
- call write_inopt(second_dumpfile,'second_dumpfile','name of second dumpfile to add (ioperation/icreate=2)',iunit)
+ call write_inopt(second_dumpfile,'second_dumpfile','dumpfile to add (if ioperation/icreate=2)',iunit)
 
 end subroutine write_options_moddump
 

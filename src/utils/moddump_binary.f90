@@ -247,8 +247,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        ! Move star 1 particles to avoid getting overwritten when reading second dump file.
        if (2*nstar1 > maxp) then  ! Check if particle array is large enough to provide particle-copying buffer
-          call fatal('moddump_binary','Two times number of particles in star 1 > array size. Run with --maxp=N '//&
-                     'where N is desired number of particles')
+          call fatal('moddump_binary','star 1 too large to duplicate: rerun with --maxp=N')
        endif
        if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar1+i
           do i=1,nstar1
@@ -265,7 +264,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        if (ierr /= 0) call fatal('read_dump','error reading second dump file')
        nptmass2 = nptmass
        if (nptmass2 > 1) then
-          call fatal('moddump_binary', 'unexpected number of sink particles in second dump file (nptmass > 1)')
+          call fatal('moddump_binary','second dump file has nptmass > 1')
        elseif (nptmass == 1) then
           xyzmh2_stash(4:nsinkproperties) = xyzmh_ptmass(4:nsinkproperties,1)
        endif
@@ -546,8 +545,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  case(9)  ! remove a sink from the simulation (requires nptmass == 3)
     !--------------------------------------------------------------------
     do i=1,nptmass
-       write(*,'(A,I2,A,ES10.3,A,ES10.3)') 'Point mass ',i,': M = ',xyzmh_ptmass(4,i),&
-                                          ' and radial position = ',sqrt(dot_product(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,i)))
+       print "(a,i2,2(a,es10.3))",' sink ',i,': M = ',xyzmh_ptmass(4,i),', r = ',norm2(xyzmh_ptmass(1:3,i))
     enddo
     if (iremove == 3) then
        xyzmh_ptmass(:,iremove) = 0.
@@ -650,7 +648,7 @@ subroutine moddump_interactive()
        call prompt('Enter accretion radius for the companion in code units', hacc, 0.)
        call prompt('Enter softening length for companion', companion_hsoft, 0.)
     endif
-    call prompt('Do you want to transform to a corotating frame and simulate corotating binary?', use_corotating_frame)
+    call prompt('Transform to a corotating frame?',use_corotating_frame)
     gwinspiral = .false.
     if (.not.use_corotating_frame) then
        call prompt('Do you want to add gravitational radiation reaction?',gwinspiral)
@@ -745,7 +743,7 @@ subroutine write_options_moddump(iunit)
     endif
     if (operation == 8) then
        call write_inopt(second_dumpfile,'second_dumpfile','name of the second dumpfile',iunit)
-       call write_inopt(nstar2,'nstar2','number of particles in the second dumpfile (0 = same as star 1)',iunit)
+       call write_inopt(nstar2,'nstar2','particles in second dumpfile (0 = same as star 1)',iunit)
     endif
  case(3)
     call write_inopt(densityfile,'densityfile','filename of the input stellar profile',iunit)
@@ -769,7 +767,7 @@ subroutine write_options_moddump(iunit)
     call write_inopt(companion_mass,'companion_mass','companion mass [Msun]',iunit)
     call write_inopt(separation,'separation','orbital separation [Rsun]',iunit)
     call write_inopt(infile_name,'infile_name','name of the .in file (used if no sink in dump)',iunit)
-    call write_inopt(iprimary_grav,'iprimary_grav','replace primary core with a fixed potential (if 1 sink)',iunit)
+    call write_inopt(iprimary_grav,'iprimary_grav','fixed potential for primary core (if 1 sink)',iunit)
  case(7)
     call write_inopt(infile_name,'infile_name','name of the .in file to read companion info from',iunit)
     call write_inopt(ecc,'ecc','orbital eccentricity',iunit)
@@ -782,7 +780,7 @@ subroutine write_options_moddump(iunit)
  case(11)
     call write_inopt(comp_shift,'comp_shift','code units to shift companion (+ve towards primary)',iunit)
  case(12)
-    call write_inopt(vel_shift,'vel_shift','velocity to add in the direction of the primary [code units]',iunit)
+    call write_inopt(vel_shift,'vel_shift','velocity to add towards the primary [code units]',iunit)
  case(13)
     call write_inopt(iselect,'iselect','which sink particle to (re)set properties for',iunit)
     call write_inopt(iproperty,'iproperty','sink property index to (re)set (0 = none)',iunit)

@@ -129,7 +129,7 @@ subroutine moddump_interactive()
  call prompt('Enter the number of planet you want to add: ', nplanets, 0, maxplanets-nptmass+1)
  do i=1,nplanets
     call prompt('Enter mass (code units) of planet '//trim(planets(i))//' :',mplanet(i),0.)
-    call prompt('Enter distance from the central star (code units) of planet '//trim(planets(i))//' :',rplanet(i),0.)
+    call prompt('Enter distance from star (code units) of planet '//trim(planets(i)),rplanet(i),0.)
     call prompt('Enter accretion radius (code units) of planet '//trim(planets(i))//' :',accrplanet(i),0.)
  enddo
 
@@ -149,7 +149,7 @@ subroutine write_options_moddump(iunit)
  do i=1,nplanets
     call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'mass of planet [code units]',iunit)
     call write_inopt(rplanet(i),'rplanet'//trim(planets(i)),'distance from central star [code units]',iunit)
-    call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'accretion radius of planet [code units]',iunit)
+    call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'accretion radius [code units]',iunit)
  enddo
 
 end subroutine write_options_moddump

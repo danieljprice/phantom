@@ -1659,9 +1659,8 @@ subroutine eosinfo(eos_type,iprint)
  case(3)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
  case(26)
-    write(iprint,"(/,a,f10.6,a,f10.6)") ' Two-phase locally isothermal EOS: cs^2_0 = ',polyk,' qfac = ',qfacdisc
-    write(iprint,"(a,es10.3,a,f10.3,a,f10.3)") '  warm branch: rho < ',rho_branch_cgs, &
-         ' g cm^-3, T = ',T_warm,' K, mu = ',mu_warm
+    write(iprint,"(/,a,f10.6,a,f10.6)") ' Two-phase eos: cs^2_0 = ',polyk,' qfac = ',qfacdisc
+    write(iprint,"(a,es10.3,2(a,f8.2))") ' warm if rho < ',rho_branch_cgs,' g/cc: T=',T_warm,' K, mu=',mu_warm
  case(5)
     if (maxvxyzu >= 4) then
        write(iprint,"(' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2')")

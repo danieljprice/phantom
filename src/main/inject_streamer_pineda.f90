@@ -27,8 +27,8 @@ module inject
 !   - tstart       : *start time of injection (code units or e.g. 100 yr)*
 !   - vr_0         : *radial velocity of cloud stream origin, in km/s*
 !
-! :Dependencies: dim, infile_utils, options, part, partinject, physcon,
-!   random, units, vectorutils
+! :Dependencies: dim, infile_utils, io, mpiutils, options, part,
+!   partinject, physcon, random, units, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'streamer'
@@ -78,10 +78,9 @@ module inject
 contains
 
 subroutine init_inject(ierr)
- use io,    only:error
- use units, only:umass,utime
+ use io, only:error,id,master
  integer, intent(out) :: ierr
- integer :: istream,istat,nerr
+ integer :: is,istat,nerr
  real :: speed
 
  ierr = 0
@@ -93,8 +92,10 @@ subroutine init_inject(ierr)
  call check_and_convert(tstart,'tstart','time',tstart_code,nerr)
  call check_and_convert(tend,'tend','time',tend_code,nerr)
  if (stream_model == 0) then
-    print*,' Mdot is ',trim(Mdot),' = ',Mdotcode,' in code units',umass,utime
-    print*,' injection time window: ',trim(tstart),' to ',trim(tend),' = ',tstart_code,' to ',tend_code,' code units'
+    if (id==master) then
+       print "(/,a,es10.3,a)",' Mdot = '//trim(Mdot)//' = ',Mdotcode,' in code units'
+       print "(a)",' injection from t = '//trim(tstart)//' to '//trim(tend)
+    endif
  else
     call ensure_stream_array(nstreams,istat)
     if (istat /= 0) then
@@ -107,22 +108,23 @@ subroutine init_inject(ierr)
        ierr = 1
        return
     endif
-    do istream=1,nstreams
-       call check_and_convert(streams(istream)%mdot,'Mdot_stream','mdot',streams(istream)%mdot_code,nerr)
-       call check_and_convert(streams(istream)%tstart,'tstart_stream','time',streams(istream)%tstart_code,nerr)
-       call check_and_convert(streams(istream)%tend,'tend_stream','time',streams(istream)%tend_code,nerr)
-       speed = sqrt(sum(streams(istream)%velocity**2))
-       if (streams(istream)%width <= 0. .or. speed <= tiny(speed) .or. streams(istream)%mdot_code < 0. .or. &
-           (streams(istream)%tend_code >= 0. .and. streams(istream)%tend_code < streams(istream)%tstart_code)) then
-          call error('init_inject','invalid Mdot, width, velocity, or time window for streamer',var='istream',ival=istream)
+    do is=1,nstreams
+       call check_and_convert(streams(is)%mdot,'Mdot_stream','mdot',streams(is)%mdot_code,nerr)
+       call check_and_convert(streams(is)%tstart,'tstart_stream','time',streams(is)%tstart_code,nerr)
+       call check_and_convert(streams(is)%tend,'tend_stream','time',streams(is)%tend_code,nerr)
+       speed = sqrt(sum(streams(is)%velocity**2))
+       if (streams(is)%width <= 0. .or. speed <= tiny(speed) .or. streams(is)%mdot_code < 0. .or. &
+           (streams(is)%tend_code >= 0. .and. streams(is)%tend_code < streams(is)%tstart_code)) then
+          call error('init_inject','invalid Mdot, width, velocity or times',var='streamer',ival=is)
           ierr = 1
           return
        endif
-       print*,' direct streamer ',istream,' Mdot: ',trim(streams(istream)%mdot)
-       print*,' direct streamer ',istream,' time window: ', &
-               trim(streams(istream)%tstart),' to ',trim(streams(istream)%tend)
-       print*,' direct streamer ',istream,' state (au, km/s): ', &
-               streams(istream)%position,streams(istream)%velocity
+       if (id==master) then
+          print "(/,a,i0,a)",' streamer ',is,': Mdot = '//trim(streams(is)%mdot)
+          print "(a)",'   from t = '//trim(streams(is)%tstart)//' to '//trim(streams(is)%tend)
+          print "(a,3(1x,es10.3))",'   x (au)   =',streams(is)%position
+          print "(a,3(1x,es10.3))",'   v (km/s) =',streams(is)%velocity
+       endif
     enddo
  endif
  if (nerr > 0) ierr = 1
@@ -166,6 +168,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
  use units,     only:udist,utime
  use random,    only:ran2
  use vectorutils, only:make_perp_frame
+ use mpiutils,  only:reduceall_mpi
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(in)    :: rho(:)
@@ -223,7 +226,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
  vr_0_cu = vr_0*1.0e5*utime/udist
  omega_cu = omega*utime
  if (gravity) then
-    mtot = sum(xyzmh_ptmass(4,1:nptmass)) + npartoftype(igas)*massoftype(igas)
+    ! include the gas mass summed over all MPI threads
+    mtot = sum(xyzmh_ptmass(4,1:nptmass)) + reduceall_mpi('+',npartoftype(igas))*massoftype(igas)
  else
     mtot = sum(xyzmh_ptmass(4,1:nptmass))
  endif
@@ -365,16 +369,14 @@ subroutine write_options_inject(iunit)
  character(len=12) :: label
 
  call write_inopt(imdot_func,'mdot_func','functional form of dM/dt(t) (0=const)',iunit)
- call write_inopt(stream_model,'stream_model', &
-                  'streamer kinematics (0=PIMS, 1=direct Cartesian states)',iunit)
- call write_inopt(sym_stream,'sym_stream', &
-                  'balance angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
+ call write_inopt(stream_model,'stream_model','streamer kinematics (0=PIMS, 1=Cartesian)',iunit)
+ call write_inopt(sym_stream,'sym_stream','balance ang. mom. (0=no,1=Lx,Ly,2=Lx,Ly,Lz,3=Lz)',iunit)
 
  if (stream_model == 0) then
-    call write_inopt(Mdot,'Mdot','mass injection rate (code units or e.g. 1e-7 Msun/yr; peak rate if imdot_func > 0)',iunit)
+    call write_inopt(Mdot,'Mdot','injection rate, e.g. 1e-7 Msun/yr (peak rate if mdot_func > 0)',iunit)
     call write_inopt(stream_width,'stream_width','radius of injected stream in au',iunit)
     call write_inopt(tstart,'tstart','start time of injection (code units or e.g. 100 yr)',iunit)
-    call write_inopt(tend,'tend','end time of injection (code units or e.g. 1000 yr); negative means infinite',iunit)
+    call write_inopt(tend,'tend','end time of injection, e.g. 1000 yr (negative = never)',iunit)
     call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
     call write_inopt(r0,'r0','r0 parameter from the Mendoza+09 streamer, in au',iunit)
     call write_inopt(phi0,'phi0','phi0 parameter from the Mendoza+09 streamer, in degrees',iunit)
@@ -387,26 +389,16 @@ subroutine write_options_inject(iunit)
     call write_inopt(nstreams,'nstreams','number of direct Cartesian streamers',iunit)
     do istream=1,nstreams
        label = trim(int_to_string(istream))
-       call write_inopt(streams(istream)%mdot,'Mdot_stream_'//trim(label), &
-                        'mass injection rate (code units or e.g. 1e-7 Msun/yr)',iunit)
-       call write_inopt(streams(istream)%width,'stream_width_'//trim(label), &
-                        'stream radius in au',iunit)
-       call write_inopt(streams(istream)%tstart,'tstart_stream_'//trim(label), &
-                        'injection start time (code units or e.g. 100 yr)',iunit)
-       call write_inopt(streams(istream)%tend,'tend_stream_'//trim(label), &
-                        'injection end time (code units or e.g. 1000 yr); negative is infinite',iunit)
-       call write_inopt(streams(istream)%position(1),'x_stream_'//trim(label), &
-                        'x/R.A. injection offset in au',iunit)
-       call write_inopt(streams(istream)%position(2),'y_stream_'//trim(label), &
-                        'y/Dec. injection offset in au',iunit)
-       call write_inopt(streams(istream)%position(3),'z_stream_'//trim(label), &
-                        'z/LOS injection offset in au',iunit)
-       call write_inopt(streams(istream)%velocity(1),'vx_stream_'//trim(label), &
-                        'x/R.A. injection velocity in km/s',iunit)
-       call write_inopt(streams(istream)%velocity(2),'vy_stream_'//trim(label), &
-                        'y/Dec. injection velocity in km/s',iunit)
-       call write_inopt(streams(istream)%velocity(3),'vz_stream_'//trim(label), &
-                        'z/LOS injection velocity in km/s',iunit)
+       call write_inopt(streams(istream)%mdot,'Mdot_stream_'//trim(label),'rate, e.g. 1e-7 Msun/yr',iunit)
+       call write_inopt(streams(istream)%width,'stream_width_'//trim(label),'stream radius in au',iunit)
+       call write_inopt(streams(istream)%tstart,'tstart_stream_'//trim(label),'start time, e.g. 100 yr',iunit)
+       call write_inopt(streams(istream)%tend,'tend_stream_'//trim(label),'end time (<0 = never)',iunit)
+       call write_inopt(streams(istream)%position(1),'x_stream_'//trim(label),'x/R.A. offset in au',iunit)
+       call write_inopt(streams(istream)%position(2),'y_stream_'//trim(label),'y/Dec. offset in au',iunit)
+       call write_inopt(streams(istream)%position(3),'z_stream_'//trim(label),'z/LOS offset in au',iunit)
+       call write_inopt(streams(istream)%velocity(1),'vx_stream_'//trim(label),'x/R.A. v in km/s',iunit)
+       call write_inopt(streams(istream)%velocity(2),'vy_stream_'//trim(label),'y/Dec. v in km/s',iunit)
+       call write_inopt(streams(istream)%velocity(3),'vz_stream_'//trim(label),'z/LOS v in km/s',iunit)
        call write_inopt(streams(istream)%ninjected,'ninjected_stream_'//trim(label), &
                         'primary particles injected (restart bookkeeping)',iunit)
     enddo

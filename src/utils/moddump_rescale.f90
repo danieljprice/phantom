@@ -60,7 +60,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (utime_fixed) fixed_tot = fixed_tot + 1
  if (udist_fixed) fixed_tot = fixed_tot + 1
  if (umass_fixed .and. fixed_tot >= 2) then
-    print*,'Cannot change the mass unit by a fixed value since two other units are being adjusted by fixed value.'
+    print "(a)",' Cannot change the mass unit by a fixed value since two other units are being adjusted'
     umass_fixed = .false.
  endif
 
@@ -143,7 +143,7 @@ subroutine moddump_interactive()
     if (fixed_tot<2) then
        call prompt('Would you like mass unit to be adjusted by a fixed value',umass_fixed)
     else
-       print*,'Cannot change the mass unit by a fixed value since two other units are being adjusted by fixed value.'
+       print "(a)",' Cannot change the mass unit by a fixed value since two other units are being adjusted'
     endif
     if (umass_fixed) call prompt('Enter in value you want to scale mass unit by',umass_factor,0.)
  endif

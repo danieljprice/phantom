@@ -124,7 +124,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     else
        maxdust = maxdustlarge
     endif
-    if (ndusttypes > maxdust) call fatal('moddump_dustadd','ngrainsizes exceeds the maximum for this dust method')
+    if (ndusttypes > maxdust) call fatal('moddump_dustadd','ngrainsizes too large for this dust method')
 
     if (ndusttypes > 1) then
        !--grainsizes + mass distribution
@@ -322,21 +322,21 @@ subroutine write_options_moddump(iunit)
  else
     write(iunit,"(/,a)") '# dust setup'
     call write_inopt(dust_method,'dust_method','dust method (1=one fluid, 2=two fluid)',iunit)
-    if (dust_method == 2) call write_inopt(np_ratio,'np_ratio','ratio between number of gas and dust particles (two fluid)',iunit)
+    if (dust_method == 2) call write_inopt(np_ratio,'np_ratio','gas to dust particle number ratio',iunit)
     call write_inopt(dust_to_gas,'dust_to_gas','total dust to gas ratio',iunit)
     call write_inopt(ngrainsizes,'ngrainsizes','number of grain sizes',iunit)
     if (ngrainsizes > 1) then
        call write_inopt(smincgs,'smincgs','minimum grain size [cm]',iunit)
        call write_inopt(smaxcgs,'smaxcgs','maximum grain size [cm]',iunit)
-       call write_inopt(sindex,'sindex','power-law index of the grain-size mass distribution (e.g. MRN)',iunit)
+       call write_inopt(sindex,'sindex','power-law index of grain-size mass distribution',iunit)
        call write_inopt(graindens_cgs,'graindens_cgs','grain density [g/cm^3]',iunit)
     else
        if (use_dustgrowth) then
           call write_inopt(iporosity,'iporosity','use porosity (0=no, 1=yes)',iunit)
           call write_inopt(sizedistrib,'sizedistrib','set dust size via a size distribution',iunit)
-          call write_inopt(grainsize_cgs,'grainsize_cgs','grain size [cm] (at R_ref if using a size distribution)',iunit)
+          call write_inopt(grainsize_cgs,'grainsize_cgs','grain size [cm] (at R_ref if distribution)',iunit)
           if (sizedistrib) then
-             call write_inopt(pwl_sizedistrib,'pwl_sizedistrib','power-law index of the size distribution',iunit)
+             call write_inopt(pwl_sizedistrib,'pwl_sizedistrib','power-law index of size distribution',iunit)
              call write_inopt(R_ref,'R_ref','reference radius (size distribution)',iunit)
              call write_inopt(H_R_ref,'H_R_ref','H/R at R_ref (size distribution)',iunit)
              call write_inopt(q_index,'q_index','q index (size distribution)',iunit)
@@ -359,7 +359,7 @@ subroutine write_options_moddump(iunit)
  call write_inopt(outcenter(1),'outcenterx','x coordinate of the centre of the outer sphere',iunit)
  call write_inopt(outcenter(2),'outcentery','y coordinate of the centre of the outer sphere',iunit)
  call write_inopt(outcenter(3),'outcenterz','z coordinate of the centre of the outer sphere',iunit)
- call write_inopt(iremoveparttype,'iremoveparttype','which particles to delete (0=all, 1=gas only, 2=dust only)',iunit)
+ call write_inopt(iremoveparttype,'iremoveparttype','particles to delete (0=all, 1=gas, 2=dust)',iunit)
 
 end subroutine write_options_moddump
 

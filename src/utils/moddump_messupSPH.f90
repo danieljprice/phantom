@@ -100,7 +100,7 @@ subroutine write_options_moddump(iunit)
  use moddump_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(ioption,'ioption','operation (1=randomize azimuth, 2=randomize gap, 3=delete Hill sphere)',iunit)
+ call write_inopt(ioption,'ioption','1=randomize azimuth, 2=randomize gap, 3=delete Hill sphere',iunit)
  call write_inopt(factor,'factor','gap randomization factor (ioption=2)',iunit)
  call write_inopt(inside,'inside','randomize inside (T) or outside (F) the Hill sphere (ioption=2)',iunit)
 

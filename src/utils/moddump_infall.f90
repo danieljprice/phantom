@@ -146,8 +146,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! gas particle mass for empty simulations
  if ((cloud_control_mode == 1 .or. cloud_control_mode == 2) .and. empty_sim) then
     write(*,*) "WARNING: Simulation has no mass, massoftype(igas) is not set."
-    if (m_gas <= 0.) call fatal('moddump_infall',&
-       'empty simulation: set m_gas (gas particle mass in Msun) in the .moddump file')
+    if (m_gas <= 0.) call fatal('moddump_infall','empty simulation: set m_gas (Msun) in .moddump file')
     pmass = m_gas
     massoftype(igas) = pmass
  elseif (cloud_control_mode == 0 .and. empty_sim) then
@@ -369,7 +368,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     hyp_h = b*v_inf_code
     v0 = sqrt(v_inf_code**2 + 2.0*mu/r0)
     vt0 = hyp_h/r0
-    if (vt0 > v0) call fatal('moddump_infall','invalid hyperbolic orbit: tangential speed exceeds total speed')
+    if (vt0 > v0) call fatal('moddump_infall','hyperbolic orbit requires vt0 <= v0')
     vr0 = -sqrt(max(0.0,v0**2 - vt0**2))
     rhat = xp/r0
     that = (/ -rhat(2), rhat(1), 0.0 /)
@@ -474,8 +473,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ieos==3) then
     select case (ieos_infall)
     case (6)
-       if (isink > nptmass) call fatal('moddump_infall',&
-          'ieos_infall=6 requires isink <= nptmass')
+       if (isink > nptmass) call fatal('moddump_infall','ieos_infall=6 requires isink <= nptmass')
        write(*,*) "WARNING: Changing ieos from 3 to 6, centred on sink ", isink
        ieos = 6
     case (14)
@@ -571,8 +569,7 @@ subroutine moddump_interactive()
  use part,      only:npartoftype,igas
 
  call prompt('Enter the infall material shape (0=sphere, 1=ellipse)',in_shape,0,1)
- call prompt('Enter cloud control mode (0=manual mass+size (rho not fixed), 1=mass/n_add set radius (fixed rho), '&
-            //'2=radius sets mass/n_add (fixed rho))',cloud_control_mode,0,2)
+ call prompt('Cloud control (0=set mass+size, 1=mass sets size, 2=size sets mass)',cloud_control_mode,0,2)
 
  if (cloud_control_mode == 0 .or. cloud_control_mode == 2) then
     if (in_shape == 0) then
@@ -640,7 +637,7 @@ subroutine write_options_moddump(iunit)
  call write_inopt(in_shape,'in_shape','infall material shape (0=sphere, 1=ellipse)',iunit)
  call write_inopt(in_orbit,'in_orbit','orbit type (0=parabolic, 1=hyperbolic)',iunit)
  call write_inopt(rho_mode,'rho_mode','density mode (0=current, 1=Dullemond Eq4/Eq5)',iunit)
- call write_inopt(cloud_control_mode,'cloud_control_mode','cloud control mode (0=manual, 1=N sets size, 2=size sets mass)',iunit)
+ call write_inopt(cloud_control_mode,'cloud_control_mode','0=manual,1=N sets size,2=size sets mass',iunit)
  call write_inopt(n_add,'n_add','number of particles per cloud (sym_infall > 0 doubles total)',iunit)
  call write_inopt(in_mass,'in_mass','infall mass per cloud (sym_infall > 0 doubles total)',iunit)
  call write_inopt(m_gas,'m_gas','gas particle mass in Msun for empty simulations (0 = use existing)',iunit)
@@ -664,8 +661,7 @@ subroutine write_options_moddump(iunit)
  call write_inopt(incx,'incx','rotation on x axis (deg)',iunit)
  call write_inopt(incy,'incy','rotation on y axis (deg)',iunit)
  call write_inopt(incz,'incz','rotation on z axis (deg)',iunit)
- call write_inopt(sym_infall,'sym_infall', &
-                  'companion cloud angular momentum (0=no, 1=Lx/Ly, 2=all, 3=Lz)',iunit)
+ call write_inopt(sym_infall,'sym_infall','companion ang. mom. (0=no,1=Lx/Ly,2=all,3=Lz)',iunit)
 
  call write_inopt(add_turbulence,'add_turbulence','add turbulence (0=no, 1=yes)',iunit)
  if (add_turbulence==1) then
@@ -673,7 +669,7 @@ subroutine write_options_moddump(iunit)
     call write_inopt(tfact,'tfact','tfact',iunit)
  endif
 
- call write_inopt(ieos_infall,'ieos_infall','eos to set after infall (6=isothermal about sink, 14=binary)',iunit)
+ call write_inopt(ieos_infall,'ieos_infall','eos after infall (6=isothermal on sink,14=binary)',iunit)
  if (ieos_infall==6) call write_inopt(isink,'isink','index of the sink the eos is centred on',iunit)
 
 end subroutine write_options_moddump

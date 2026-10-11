@@ -105,7 +105,7 @@ subroutine write_options_moddump(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# dustsinkfrac parameters'
- call write_inopt(outer_radius,'outer_radius','radius within which to taper the dust fraction [code units]',iunit)
+ call write_inopt(outer_radius,'outer_radius','taper dust fraction within this radius [code units]',iunit)
 
 end subroutine write_options_moddump
 

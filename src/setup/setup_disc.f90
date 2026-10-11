@@ -86,11 +86,11 @@ module setup
 ! :Dependencies: boundary, centreofmass, datafiles, dim, eos,
 !   eos_stamatellos, extern_binary, extern_corotate, extern_lensethirring,
 !   externalforces, fileutils, grids_for_setup, growth, infile_utils, io,
-!   io_control, kernel, memory, options, orbits, part, partinject, physcon,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, sethier_utils, sethierarchical, setorbit, setunits,
-!   shock_capturing, spherical, systemutils, timestep, units, vectorutils,
-!   velfield
+!   io_control, kernel, memory, mpidomain, mpiutils, options, orbits, part,
+!   partinject, physcon, prompting, radiation_utils, set_dust,
+!   set_dust_options, setbinary, setdisc, sethier_utils, sethierarchical,
+!   setorbit, setunits, shock_capturing, spherical, systemutils, timestep,
+!   unifdis, units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr
@@ -283,7 +283,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (.not.periodic) call fatal('setpart','periodic_domain=T requires compiling with PERIODIC=yes')
     if (box_size <= 0.) call fatal('setpart','periodic_domain requires box_size > 0')
     call set_boundary(l=box_size*au/udist)
-    call print_boundaries(6,.true.)
+    if (id==master) call print_boundaries(6,.true.)
  endif
 
  !--allocate memory
@@ -301,7 +301,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call equation_of_state(gamma)
  if (add_warm) then
     ieos = 26
-    print "(/,a)",' setting ieos=26 for two-phase locally isothermal/atomic warm neutral gas'
+    if (id==master) print "(/,a)",' setting ieos=26: locally isothermal disc in a warm neutral medium'
  endif
 
  !--set surface density profile based on setup options
@@ -341,9 +341,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !--reset centre of mass to the origin
  if (periodic_domain) then
-    write(*,*) 'Periodic warm-background setup: not resetting centre of mass.'
+    if (id==master) print "(a)",' Periodic warm-background setup: not resetting centre of mass.'
  elseif (any(iecc)) then !Means if eccentricity is present in .setup even if e0=0, it does not reset CM
-    print*,'!!!!!!!!! Not resetting CM because one disc is eccentric: CM and ellipse focus do not match !!!!!!!!!'!,e0>0
+    if (id==master) print "(a)",' Not resetting centre of mass: eccentric disc, so CM and focus differ'
  else
     call set_centreofmass(npart,xyzh,vxyzu)
  endif
@@ -381,11 +381,12 @@ end subroutine setpart
 !+
 !--------------------------------------------------------------------------
 subroutine set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
- use dim,     only:maxp
- use io,      only:master,fatal
- use part,    only:igas,set_particle_type
- use unifdis, only:set_unifdis
- use units,   only:umass,udist
+ use io,        only:master,fatal
+ use mpidomain, only:i_belong
+ use mpiutils,  only:reduceall_mpi
+ use part,      only:igas,set_particle_type
+ use unifdis,   only:set_unifdis
+ use units,     only:umass,udist
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -394,6 +395,7 @@ subroutine set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact
  real,    intent(in)    :: hfact
  real    :: box_code,rho_warm_code,xmin,xmax
  integer :: nx,i,npart_old,nlattice
+ integer(kind=8) :: nptot,nadded,nskipped
 
  box_code      = box_size*au/udist
  rho_warm_code = rho_warm_cgs/(umass/udist**3)
@@ -407,12 +409,14 @@ subroutine set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact
     if (id==master) print "(a)",' warm neutral background has < 1 particle: skipping'
     return
  endif
- if (npart + nx**3 > maxp) call fatal('set_warm_neutral_box','warm background exceeds maxp',var='nx^3',ival=nx**3)
 
+ ! each MPI thread keeps only its share of the lattice, indexed by the global particle count
  npart_old = npart
+ nptot = reduceall_mpi('+',npart)
  xmin = -0.5*box_code
  xmax =  0.5*box_code
- call set_unifdis('cubic',id,master,xmin,xmax,xmin,xmax,xmin,xmax,box_code/nx,hfact,npart,xyzh,.true.,verbose=.false.)
+ call set_unifdis('cubic',id,master,xmin,xmax,xmin,xmax,xmin,xmax,box_code/nx,hfact,npart,xyzh, &
+                  .true.,nptot=nptot,mask=i_belong,verbose=.false.)
  nlattice = npart - npart_old
 
  ! keep only particles outside sink accretion radii
@@ -426,9 +430,12 @@ subroutine set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact
  enddo
  npartoftype(igas) = npartoftype(igas) + npart - npart_old
 
+ ! totals across all MPI threads for reporting
+ nadded   = reduceall_mpi('+',npart-npart_old)
+ nskipped = reduceall_mpi('+',nlattice-(npart-npart_old))
  if (id==master) then
-    print "(/,a,i0,a,es10.3,a)",' Added ',npart-npart_old,' warm neutral particles at rho = ',rho_warm_cgs,' g cm^-3'
-    if (nlattice > npart-npart_old) print "(a,i0,a)",' Skipped ',nlattice-(npart-npart_old),' sites inside sink accretion radii'
+    print "(/,a,i0,a,es10.3,a)",' added ',nadded,' warm particles with rho = ',rho_warm_cgs,' g/cc'
+    if (nskipped > 0) print "(a,i0,a)",' skipped ',nskipped,' sites inside sink accretion radii'
  endif
 
 end subroutine set_warm_neutral_box
@@ -466,51 +473,40 @@ end function inside_any_sink
 !--------------------------------------------------------------------------
 subroutine set_periodic_boundary_from_particles(npart,xyzh)
  use boundary, only:set_boundary,print_boundaries
+ use io,       only:id,master
+ use mpiutils, only:reduceall_mpi
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:)
- real :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
- real :: dx,dy,dz,span,pad
+ real :: xmin(3),xmax(3),dx(3),span
+ integer :: i
 
- if (npart <= 0) return
+ ! extent of particles across all MPI threads (threads with no particles do not contribute)
+ xmin = huge(xmin)
+ xmax = -huge(xmax)
+ do i=1,npart
+    xmin = min(xmin,xyzh(1:3,i))
+    xmax = max(xmax,xyzh(1:3,i))
+ enddo
+ xmin = reduceall_mpi('min',xmin)
+ xmax = reduceall_mpi('max',xmax)
+ if (any(xmax < xmin)) return   ! no particles anywhere
 
- xminp = minval(xyzh(1,1:npart))
- xmaxp = maxval(xyzh(1,1:npart))
- yminp = minval(xyzh(2,1:npart))
- ymaxp = maxval(xyzh(2,1:npart))
- zminp = minval(xyzh(3,1:npart))
- zmaxp = maxval(xyzh(3,1:npart))
+ ! pad by 5 per cent of the largest extent, or by half of it along flat directions
+ dx   = xmax - xmin
+ span = max(maxval(dx),1.0)
+ where (dx <= 0.)
+    xmin = xmin - 0.5*span
+    xmax = xmax + 0.5*span
+ elsewhere
+    xmin = xmin - 0.05*span
+    xmax = xmax + 0.05*span
+ end where
 
- dx = xmaxp - xminp
- dy = ymaxp - yminp
- dz = zmaxp - zminp
- span = max(dx,dy,dz,1.0)
- pad = 0.05*span
-
- if (dx <= 0.) then
-    xminp = xminp - 0.5*span
-    xmaxp = xmaxp + 0.5*span
- else
-    xminp = xminp - pad
-    xmaxp = xmaxp + pad
+ call set_boundary(xmin(1),xmax(1),xmin(2),xmax(2),xmin(3),xmax(3))
+ if (id==master) then
+    print "(/,a)",' Periodic setup boundary set from disc particle extent.'
+    call print_boundaries(6,.true.)
  endif
- if (dy <= 0.) then
-    yminp = yminp - 0.5*span
-    ymaxp = ymaxp + 0.5*span
- else
-    yminp = yminp - pad
-    ymaxp = ymaxp + pad
- endif
- if (dz <= 0.) then
-    zminp = zminp - 0.5*span
-    zmaxp = zmaxp + 0.5*span
- else
-    zminp = zminp - pad
-    zmaxp = zmaxp + pad
- endif
-
- call set_boundary(xminp,xmaxp,yminp,ymaxp,zminp,zmaxp)
- write(*,"(/,a)") 'Periodic setup boundary set from disc particle extent.'
- call print_boundaries(6,.true.)
 
 end subroutine set_periodic_boundary_from_particles
 
@@ -800,6 +796,7 @@ end subroutine number_of_discs
 subroutine equation_of_state(gamma)
  use eos,             only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min,gmw,&
                            ieos,icooling,ipdv_heating,ishock_heating
+ use io,              only:id
  use io_control,      only:nfulldump
  use shock_capturing, only:alphau
  use eos_stamatellos, only:init_coolra,read_optab,eos_file
@@ -938,7 +935,7 @@ subroutine equation_of_state(gamma)
  endif
 
  if ( any( ieos==(/3,6,7,13,14/) ) ) then
-    print "(/,a,g0,a)",' Setting floor temperature to ', T_floor, ' K.'
+    if (id==master) print "(/,a,g0,a)",' Setting floor temperature to ', T_floor, ' K.'
     cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
  endif
 
@@ -3252,7 +3249,7 @@ subroutine write_setupfile(filename)
     call write_inopt(box_size,'box_size','user-specified periodic cube side length in au',iunit)
     call write_inopt(T_warm,'T_warm','temperature of atomic warm neutral background in K',iunit)
     call write_inopt(mu_warm,'mu_warm','mean molecular weight of atomic warm neutral background',iunit)
-    call write_inopt(rho_warm_cgs,'rho_warm_cgs','initial atomic warm neutral background density in g cm^-3',iunit)
+    call write_inopt(rho_warm_cgs,'rho_warm_cgs','initial warm medium density in g/cm^3',iunit)
     call write_inopt(rho_branch_cgs,'rho_branch_cgs','EOS density threshold for warm branch in g cm^-3',iunit)
  endif
  !--sphere of gas around disc
