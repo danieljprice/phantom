@@ -16,6 +16,7 @@ module moddump
 !
 ! :Dependencies: dim, io, part
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -33,7 +34,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  if (.not. do_radiation) call fatal("moddump_rad_to_LTE","Not compiled with radiation")
  do i=1,npart
-    if (isnan(rad(iradxi,i))) call fatal("moddump_rad_to_LTE","rad array contains NaNs")
+    if (ieee_is_nan(rad(iradxi,i))) call fatal("moddump_rad_to_LTE","rad array contains NaNs")
     vxyzu(4,i) = vxyzu(4,i) + rad(iradxi,i)
  enddo
 

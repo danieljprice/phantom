@@ -376,8 +376,10 @@ subroutine test_hormone(ntests, npass)
 
  ! Testing
  dum = 0.
- tol = 2.e-14
+ tol = 3.e-14
  tempi = -1.
+ mu2 = 0.
+ gamma_eff = 0.
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
  do i=1,npts

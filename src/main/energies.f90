@@ -82,7 +82,7 @@ subroutine compute_energies(t)
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
  use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac,implicit_radiation
- use mpiutils,       only:reduceall_mpi
+ use mpiutils,       only:reduceall_mpi,reduce_in_place_mpi
  use ptmass,         only:get_accel_sink_gas,use_regnbody
  use subgroup,       only:get_pot_subsys
  use viscosity,      only:irealvisc,shearfunc
@@ -204,7 +204,7 @@ subroutine compute_energies(t)
 !$omp reduction(+:ekinacc,ethermacc,emagacc,epotacc,eradacc) &
 !$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach,ierrlist)
  call initialise_ev_data(ev_data_thread)
- np_rho_thread  = 0
+ np_rho_thread = 0
 !$omp do
  do i=1,npart
     xi = xyzh(1,i)
@@ -751,8 +751,8 @@ subroutine compute_energies(t)
  endif
 
  if (use_dust) then
-    mgas  = reduceall_mpi('+',mgas)
-    mdust = reduceall_mpi('+',mdust)
+    mgas = reduceall_mpi('+',mgas)
+    call reduce_in_place_mpi('+',mdust,ndusttypes)
  endif
 
  if (.not. gas_only) then

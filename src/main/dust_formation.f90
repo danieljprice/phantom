@@ -309,10 +309,10 @@ subroutine calc_nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, tau
     endif
     JstarS  = beta * A_Nstar * Z * c_star
     taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
-    ! if (isnan(JstarS)) then
+    ! if (ieee_is_nan(JstarS)) then
     !   print*,i,'(N-1)^1/3=',Nstar_m1_13,'exp=',expon,'T=',T,'theta_N=',theta_Nstar,'d2lnc/dN2=',d2lnc_dN2star,ddd,&
     !        'beta=',beta,'Z=',Z,'c_star=',c_star,'JstarS=',JstarS,'tau*=',taustar
-    !   if (isnan(JstarS)) stop
+    !   if (ieee_is_nan(JstarS)) stop
     ! endif
  else
     JstarS  = 0.d0
@@ -355,7 +355,7 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
- !if (any(isnan(K_new))) then
+ !if (any(ieee_is_nan(K_new))) then
  !  print*,'NaNs in K_new for particle #',i
  !  print *,'dt=',dt,'tau*=',taustar,'taug=',taugr,'d=',d,'i0=',i0,'i1=',i1,'Jstar=',Jstar,'JstarS=',JstarS,&
  !      'k1=',k(1),'dk1=',dk1,'Kn1=',k_new(1),'k2=',k(2),'dk2=',dk2,'Kn2=',k_new(2),'k3=',k(3),'dk3=',dk3,'Kn3=',k_new(3)

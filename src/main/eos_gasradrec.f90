@@ -23,7 +23,7 @@ module eos_gasradrec
  public :: equationofstate_gasradrec,calc_uT_from_rhoP_gasradrec,calc_uP_from_rhoT_gasradrec,&
            read_options_eos_gasradrec,write_options_eos_gasradrec,eos_info_gasradrec,init_eos_gasradrec
  private
- real, parameter :: eoserr=1.e-15,W4err=1.e-2
+ real, parameter :: eoserr=2.e-15, W4err=1.e-2
 
 contains
 !-----------------------------------------------------------------------
