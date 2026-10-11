@@ -190,6 +190,17 @@ check_phantomsetup ()
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
       test_setupfile_options "$prefix.setup" "$flags" "$setup" $infile;
+      #
+      # check that --np=1000 etc. on the command line were applied to the .setup file
+      #
+      for npval in $(sed -n 's/^ *np[0-9]* *= *\([0-9]*\).*/\1/p' "$prefix.setup"); do
+         if [ "$npval" == "1000" ]; then
+            print_result "command line option --np applied to .setup file" $pass;
+         else
+            print_result "FAIL: command line option --np not applied (np = $npval)" $fail;
+            myfail=$(( myfail + 1 ));
+         fi
+      done
    else
       print_result "no .setup file" $warn;
    fi
@@ -216,6 +227,7 @@ check_phantomsetup ()
             dumpfile="${prefix}_00000"
             if [ -s $dumpfile ]; then
                print_result "${dumpfile} successfully created" $pass;
+               check_phantommoddump $dumpfile;
             else
                print_result "FAIL: did not create ${dumpfile}" $fail;
                myfail=$(( myfail + 1 ));
@@ -234,6 +246,25 @@ check_phantomsetup ()
    fi
    if [ $myfail -gt 0 ]; then
       echo $setup >> $faillogsetup;
+   fi
+}
+#
+# check that phantommoddump (built for this setup) runs on a dump file.
+# The first run may only write the .moddump file, so run it twice,
+# answering any questions with "Enter"
+#
+check_phantommoddump()
+{
+   dumpin=$1;
+   if [ -e $phantomdir/bin/phantommoddump ]; then
+      cp $phantomdir/bin/phantommoddump .;
+      ./phantommoddump $dumpin moddump_00000 0. < mycleanin.txt > /dev/null;
+      ./phantommoddump $dumpin moddump_00000 0. < mycleanin.txt > /dev/null;
+      if [ -s moddump_00000 ]; then
+         print_result "phantommoddump runs ok" $pass;
+      else
+         print_result "phantommoddump did not create moddump_00000" $warn;
+      fi
    fi
 }
 #

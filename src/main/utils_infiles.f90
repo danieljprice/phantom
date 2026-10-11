@@ -23,7 +23,8 @@ module infile_utils
  public :: int_to_string
  public :: get_options
  public :: infile_exists
- public :: get_option_arg
+ public :: get_option_arg,parse_option_string
+ public :: set_overrides,clear_overrides,count_unused_overrides
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -98,6 +99,7 @@ module infile_utils
  character(len=maxlenval), allocatable, private :: override_val(:)
  logical,                  allocatable, private :: override_used(:)
  logical, private :: use_overrides = .false.
+ logical, private :: overrides_fixed = .false.  ! set by set_overrides, e.g. in the test suite
 
  private
 
@@ -1594,19 +1596,81 @@ end subroutine read_with_overrides
 !--------------------------------------------------------------------
 !+
 !  number of options given on the command line as --option=value,
-!  (re)loading them from the command line arguments. Flags used by
-!  the programs themselves (--maxp, --nprocsfake) are skipped
+!  (re)loading them from the command line arguments unless they
+!  were set with set_overrides
 !+
 !--------------------------------------------------------------------
 integer function count_overrides() result(n)
+ character(len=240), allocatable :: args(:)
+ integer :: iarg
+
+ if (.not.overrides_fixed) then
+    allocate(args(command_argument_count()))
+    do iarg=1,size(args)
+       call get_command_argument(iarg,args(iarg))
+    enddo
+    call load_overrides(args)
+ endif
+ override_used = .false.
+ n = size(override_tag)
+
+end function count_overrides
+
+!--------------------------------------------------------------------
+!+
+!  set the options as if given on the command line (e.g. for testing),
+!  until clear_overrides is called
+!+
+!--------------------------------------------------------------------
+subroutine set_overrides(args)
+ character(len=*), intent(in) :: args(:)
+
+ call load_overrides(args)
+ overrides_fixed = .true.
+
+end subroutine set_overrides
+
+!--------------------------------------------------------------------
+!+
+!  remove options set with set_overrides
+!+
+!--------------------------------------------------------------------
+subroutine clear_overrides()
+
+ if (allocated(override_tag)) deallocate(override_tag,override_val,override_used)
+ overrides_fixed = .false.
+
+end subroutine clear_overrides
+
+!--------------------------------------------------------------------
+!+
+!  number of options from the last call to get_options that were
+!  not read from the parameter file
+!+
+!--------------------------------------------------------------------
+integer function count_unused_overrides() result(n)
+
+ n = 0
+ if (allocated(override_used)) n = count(.not.override_used)
+
+end function count_unused_overrides
+
+!--------------------------------------------------------------------
+!+
+!  store the --option=value strings from a list of arguments,
+!  skipping flags used by the programs themselves (--maxp, --nprocsfake)
+!+
+!--------------------------------------------------------------------
+subroutine load_overrides(args)
+ character(len=*), intent(in) :: args(:)
  character(len=maxlen)    :: tag
  character(len=maxlenval) :: val
- integer :: iarg,pass
+ integer :: i,n,pass
 
  do pass=1,2
     n = 0
-    do iarg=1,command_argument_count()
-       if (.not.get_option_arg(iarg,tag,val)) cycle
+    do i=1,size(args)
+       if (.not.parse_option_string(args(i),tag,val)) cycle
        if (tag=='maxp' .or. tag=='nprocsfake') cycle
        n = n + 1
        if (pass==2) then
@@ -1621,7 +1685,7 @@ integer function count_overrides() result(n)
     endif
  enddo
 
-end function count_overrides
+end subroutine load_overrides
 
 !--------------------------------------------------------------------
 !+
@@ -1656,13 +1720,28 @@ logical function get_option_arg(iarg,name,val)
  integer,          intent(in)  :: iarg
  character(len=*), intent(out) :: name,val
  character(len=240) :: arg
- integer :: ieq,istart
 
  call get_command_argument(iarg,arg)
+ get_option_arg = parse_option_string(arg,name,val)
+
+end function get_option_arg
+
+!-------------------------------------------------------------------
+!+
+!  check whether a string is of the form --name=value (or -name=value),
+!  returning the name and value
+!+
+!-------------------------------------------------------------------
+logical function parse_option_string(arg,name,val)
+ character(len=*), intent(in)  :: arg
+ character(len=*), intent(out) :: name,val
+ integer :: ieq,istart
+
  ieq = index(arg,'=')
  istart = verify(arg,'-')   ! first character after the leading dashes
- get_option_arg = (arg(1:1)=='-' .and. istart > 1 .and. ieq > istart)
- if (get_option_arg) then
+ parse_option_string = (len_trim(arg) > 0 .and. istart > 1 .and. ieq > istart)
+ if (parse_option_string) parse_option_string = (arg(1:1)=='-')
+ if (parse_option_string) then
     name = arg(istart:ieq-1)
     val  = arg(ieq+1:)
  else
@@ -1670,7 +1749,7 @@ logical function get_option_arg(iarg,name,val)
     val  = ''
  endif
 
-end function get_option_arg
+end function parse_option_string
 
 !--------------------------------------------------------------------
 !+

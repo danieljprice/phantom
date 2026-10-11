@@ -18,7 +18,7 @@ module test
 ! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
 !   testcoala, testcooling, testcorotate, testdamping, testderivs,
 !   testdust, testeos, testexternf, testgeometry, testgnewton, testgr,
-!   testgravity, testgrowth, testindtstep, testiorig, testkdtree,
+!   testgravity, testgrowth, testindtstep, testinfile, testiorig, testkdtree,
 !   testkernel, testlinalg, testlum, testmpi, testneigh, testnimhd,
 !   testorbits, testpart, testpoly, testptmass, testradiation, testrwdump,
 !   testsedov, testsetdisc, testsethier, testsetstar, teststep, testunits,
@@ -66,6 +66,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
  use testunits,    only:test_units
+ use testinfile,   only:test_infile
  use testorbits,   only:test_orbits
  use testlum,      only:test_lum
  use testmpi,      only:test_mpi
@@ -81,7 +82,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg
+ logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg,doinfile
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -137,6 +138,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  doapr       = .false.
  doiorig     = .false.
  dounits     = .false.
+ doinfile    = .false.
  dolum       = .false.
  dosinktree  = .false.
  doorbits    = .false.
@@ -166,12 +168,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'ptmass')    /= 0) doptmass    = .true.
  if (index(string,'apr')       /= 0) doapr       = .true.
  if (index(string,'units')     /= 0) dounits     = .true.
+ if (index(string,'infile')    /= 0) doinfile    = .true.
  if (index(string,'sinktree')  /= 0) dosinktree  = .true.
  if (index(string,'orbits')    /= 0) doorbits    = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,docoala,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits,doinfile/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -222,6 +225,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doapr = .true.
  case('units')
     dounits = .true.
+ case('infile','options')
+    doinfile = .true.
  case('orbits')
     doorbits = .true.
  case('lum')
@@ -356,6 +361,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (dounits.or.testall) then
     call test_units(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of parameter file handling
+!
+ if (doinfile.or.testall) then
+    call test_infile(ntests,npass)
  endif
 !
 !--test of orbits utilities
