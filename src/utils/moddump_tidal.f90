@@ -27,11 +27,10 @@ module moddump
 !   - semimajoraxis_binary : *sepration between black hole binary(code units)*
 !   - theta                : *stellar rotation with respect to y-axis (in degrees)*
 !
-! :Dependencies: centreofmass, dim, externalforces, infile_utils, io,
+! :Dependencies: centreofmass, dim, externalforces, io,
 !   metric, moddump_utils, options, orbits, part, physcon, setbinary,
 !   units, vectorutils
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -52,10 +51,6 @@ module moddump
  integer, public :: iorigin  ! which black hole to use for the origin
  logical, public :: use_binary,use_sink
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .false.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
@@ -72,6 +67,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use io,             only:fatal
+ use moddump_utils,  only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -85,10 +81,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                    :: accradius2
  real                    :: xyzstar(3),vxyzstar(3)
  real                    :: semia,period,hacc1,hacc2
-!
-!-- Default runtime parameters
-!
-!
+
+ call set_defaults()
+ call get_moddump_options(read_options_moddump,write_options_moddump)
+
  c_light        = get_c_code()
 
  print*,"--------------------------------------------"
@@ -268,18 +264,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-!
-!---Read/write moddump file------------------------------------------------
-!
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- use dim,          only:gr
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ use dim,           only:gr
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(a)") '# parameters file for a TDE phantommoddump'
  call write_inopt(beta,  'beta',  'penetration factor',                                  iunit)
  call write_inopt(Mh1,    'mh',    'mass of black hole (code units)',                    iunit)
@@ -302,23 +296,20 @@ subroutine write_moddump(filename)
        call write_inopt(semimajoraxis_binary,'semimajoraxis_binary', 'sepration between black hole binary(code units)',iunit)
     endif
  endif
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use dim,          only:gr
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ use dim,           only:gr
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",'reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(beta,   'beta',   db,min=0.,errcount=nerr)
  call read_inopt(Mh1,    'mh',     db,min=0.,errcount=nerr)
  call read_inopt(ms,     'ms',     db,min=0.,errcount=nerr)
@@ -341,10 +332,8 @@ subroutine read_moddump(filename,ierr)
        call read_inopt(semimajoraxis_binary, 'semimajoraxis_binary',    db,min=0.05,errcount=nerr)
     endif
  endif
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 subroutine get_angmom(ltot,npart,xyzh,vxyzu)
  real,    intent(out) :: ltot(3)
@@ -370,7 +359,12 @@ subroutine get_angmom(ltot,npart,xyzh,vxyzu)
 
 end subroutine get_angmom
 
-subroutine init_moddump()
+!----------------------------------------------------------------
+!+
+!  set default values of the moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine set_defaults()
  use physcon, only:solarm,solarr
  use units, only:umass,udist
  use dim, only:gr
@@ -402,6 +396,6 @@ subroutine init_moddump()
  use_binary = .false.
  use_sink = .false.
  iorigin = 0
-end subroutine init_moddump
+end subroutine set_defaults
 
 end module moddump

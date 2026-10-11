@@ -13,7 +13,7 @@ module inject
 ! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
-!   - Mdot         : *mass injection rate, in Msun/yr (peak rate if imdot_func > 0)*
+!   - Mdot         : *mass injection rate (code units or e.g. 1e-7 Msun/yr; peak rate if imdot_func > 0)*
 !   - dust_frac    : *Dust fraction in smallest dust bin*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - nstreams     : *number of direct Cartesian streamers*
@@ -22,9 +22,9 @@ module inject
 !   - r0           : *r0 parameter from the Mendoza+09 streamer, in au*
 !   - r_inj        : *distance from CoM where stream is injected, in au*
 !   - stream_width : *radius of injected stream in au*
-!   - tend         : *end time of injection in years; negative means infinite*
+!   - tend         : *end time of injection (code units or e.g. 1000 yr); negative means infinite*
 !   - theta0       : *theta0 parameter from the Mendoza+09 streamer, in degrees*
-!   - tstart       : *start time of injection in years*
+!   - tstart       : *start time of injection (code units or e.g. 100 yr)*
 !   - vr_0         : *radial velocity of cloud stream origin, in km/s*
 !
 ! :Dependencies: dim, infile_utils, options, part, partinject, physcon,
@@ -37,11 +37,11 @@ module inject
  public :: init_inject, set_default_options_inject, update_injected_par
 
  type, private :: streamer_t
-    real :: mdot = 1.e-7
+    character(len=20) :: mdot = '1e-7 Msun/yr'  ! mass injection rate (code units or with units)
     real :: mdot_code = 0.
     real :: width = 10.
-    real :: tstart = 0.
-    real :: tend = -1.
+    character(len=20) :: tstart = '0 yr'        ! injection start time (code units or with units)
+    character(len=20) :: tend = '-1'            ! injection end time; negative means infinite
     real :: tstart_code = 0.
     real :: tend_code = -1.
     real :: position(3) = (/-2414.,-2225.,880./)
@@ -49,7 +49,7 @@ module inject
     integer :: ninjected = 0
  end type streamer_t
 
- real, private :: Mdot = 1e-7
+ character(len=20), private :: Mdot = '1e-7 Msun/yr'
  real, private :: Mdotcode = 0.
  integer, private :: nstreams = 1
  type(streamer_t), allocatable, private :: streams(:)
@@ -63,8 +63,8 @@ module inject
  real, private :: r0 = 1500.
  real, private :: omega = 1e-11
  real, private :: vr_0 = 1.5
- real, private :: tstart = 0.
- real, private :: tend = -1.0
+ character(len=20), private :: tstart = '0 yr'
+ character(len=20), private :: tend = '-1'
  real, private :: tstart_code = 0.
  real, private :: tend_code = -1.0
  real, private :: x_stream = -2414.
@@ -78,62 +78,79 @@ module inject
 contains
 
 subroutine init_inject(ierr)
- use units,   only:umass,utime
- use physcon, only:years,solarm
+ use io,    only:error
+ use units, only:umass,utime
  integer, intent(out) :: ierr
- integer :: istream,istat
+ integer :: istream,istat,nerr
  real :: speed
 
  ierr = 0
+ nerr = 0
 !
-!--convert mass injection rate to code units
+!--convert mass injection rate and time window to code units
 !
- Mdotcode = Mdot*(solarm/umass)/(years/utime)
- tstart_code = tstart*(years/utime)
- if (tend < 0.) then
-    tend_code = tend
- else
-    tend_code = tend*(years/utime)
- endif
+ call check_and_convert(Mdot,'Mdot','mdot',Mdotcode,nerr)
+ call check_and_convert(tstart,'tstart','time',tstart_code,nerr)
+ call check_and_convert(tend,'tend','time',tend_code,nerr)
  if (stream_model == 0) then
-    print*,' Mdot is ',Mdot,' Msun/yr, which is ',Mdotcode,' in code units',umass,utime
-    print*,' injection time window: ',tstart,' to ',tend,' yr = ',tstart_code,' to ',tend_code,' code units'
+    print*,' Mdot is ',trim(Mdot),' = ',Mdotcode,' in code units',umass,utime
+    print*,' injection time window: ',trim(tstart),' to ',trim(tend),' = ',tstart_code,' to ',tend_code,' code units'
  else
     call ensure_stream_array(nstreams,istat)
     if (istat /= 0) then
-       print*,' ERROR: could not allocate direct streamers'
+       call error('init_inject','could not allocate direct streamers')
        ierr = 1
        return
     endif
     if (imdot_func /= 0 .and. nstreams > 1) then
-       print*,' ERROR: multiple direct streamers require mdot_func=0'
+       call error('init_inject','multiple direct streamers require mdot_func=0')
        ierr = 1
        return
     endif
     do istream=1,nstreams
-       streams(istream)%mdot_code = streams(istream)%mdot*(solarm/umass)/(years/utime)
-       streams(istream)%tstart_code = streams(istream)%tstart*(years/utime)
-       if (streams(istream)%tend < 0.) then
-          streams(istream)%tend_code = streams(istream)%tend
-       else
-          streams(istream)%tend_code = streams(istream)%tend*(years/utime)
-       endif
+       call check_and_convert(streams(istream)%mdot,'Mdot_stream','mdot',streams(istream)%mdot_code,nerr)
+       call check_and_convert(streams(istream)%tstart,'tstart_stream','time',streams(istream)%tstart_code,nerr)
+       call check_and_convert(streams(istream)%tend,'tend_stream','time',streams(istream)%tend_code,nerr)
        speed = sqrt(sum(streams(istream)%velocity**2))
-       if (streams(istream)%width <= 0. .or. speed <= tiny(speed) .or. &
-           (streams(istream)%tend >= 0. .and. streams(istream)%tend < streams(istream)%tstart)) then
-          print*,' ERROR: invalid width, velocity, or time window for streamer ',istream
+       if (streams(istream)%width <= 0. .or. speed <= tiny(speed) .or. streams(istream)%mdot_code < 0. .or. &
+           (streams(istream)%tend_code >= 0. .and. streams(istream)%tend_code < streams(istream)%tstart_code)) then
+          call error('init_inject','invalid Mdot, width, velocity, or time window for streamer',var='istream',ival=istream)
           ierr = 1
           return
        endif
-       print*,' direct streamer ',istream,' Mdot (Msun/yr): ',streams(istream)%mdot
-       print*,' direct streamer ',istream,' time window (yr): ', &
-               streams(istream)%tstart,streams(istream)%tend
+       print*,' direct streamer ',istream,' Mdot: ',trim(streams(istream)%mdot)
+       print*,' direct streamer ',istream,' time window: ', &
+               trim(streams(istream)%tstart),' to ',trim(streams(istream)%tend)
        print*,' direct streamer ',istream,' state (au, km/s): ', &
                streams(istream)%position,streams(istream)%velocity
     enddo
  endif
+ if (nerr > 0) ierr = 1
 
 end subroutine init_inject
+
+!-----------------------------------------------------------------------
+!+
+!  convert an option string such as '1e-7 Msun/yr' or '100 yr' to code
+!  units (values without units are assumed to be in code units),
+!  counting any parsing errors
+!+
+!-----------------------------------------------------------------------
+subroutine check_and_convert(var,desc,unit_type,val,nerr)
+ use units, only:in_code_units
+ use io,    only:error
+ character(len=*), intent(in)    :: var,desc,unit_type
+ real,             intent(out)   :: val
+ integer,          intent(inout) :: nerr
+ integer :: ierr
+
+ val = in_code_units(var,ierr,unit_type=unit_type)
+ if (ierr /= 0) then
+    call error('inject','error parsing units for '//trim(desc),var=var)
+    nerr = nerr + 1
+ endif
+
+end subroutine check_and_convert
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling injection at the L1 point.
@@ -145,8 +162,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
  use options,   only:use_dustfrac
  use part,      only:igas,hfact,massoftype,nptmass,gravity,dustfrac,dustevol
  use partinject,only:add_or_update_particle
- use physcon,   only:pi,solarm,years
- use units,     only:udist,umass,utime
+ use physcon,   only:pi
+ use units,     only:udist,utime
  use random,    only:ran2
  use vectorutils, only:make_perp_frame
  real,    intent(in)    :: time, dtlast
@@ -176,8 +193,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
              end_time = streams(istream)%tend_code
           endif
           if (time < streams(istream)%tstart_code .or. time > end_time) cycle
-          Mdot_now = Mdotfunc((time-streams(istream)%tstart_code)*utime/years)
-          mass_to_inject = Mdot_now*(solarm/umass)/(years/utime)*dtlast
+          Mdot_now = Mdotfunc(time-streams(istream)%tstart_code)
+          mass_to_inject = Mdot_now*dtlast
           ninject_target = ceiling(mass_to_inject/massoftype(igas))
        endif
        if (ninject_target <= 0) cycle
@@ -210,11 +227,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
  else
     mtot = sum(xyzmh_ptmass(4,1:nptmass))
  endif
- if (imdot_func > 0) then
-    Mdot_now = Mdotfunc((time-tstart_code)*utime/years)
-    Mdotcode = Mdot_now*(solarm/umass)/(years/utime)
- endif
- ninject_target = ceiling(Mdotcode*dtlast/massoftype(igas))
+ Mdot_now = Mdotfunc(time-tstart_code)
+ ninject_target = ceiling(Mdot_now*dtlast/massoftype(igas))
  if (ninject_target <= 0) return
  call mendoza_state(mtot,r0,omega_cu,theta0_rad,phi0_rad,vr_0_cu, &
                     r_inj,xc,yc,zc,vxc,vyc,vzc)
@@ -322,7 +336,7 @@ real function Mdotfunc(t)
 
  select case(imdot_func)
  case(1)
-    Mdotfunc = Mdotcode*(t/tend)**(-5./3.)*(1.-(t/tend)**(-4./3.))
+    Mdotfunc = Mdotcode*(t/tend_code)**(-5./3.)*(1.-(t/tend_code)**(-4./3.))
  case default
     Mdotfunc = Mdotcode
  end select
@@ -357,10 +371,10 @@ subroutine write_options_inject(iunit)
                   'balance angular momentum (0=no, 1=Lx,Ly, 2=Lx,Ly,Lz, 3=Lz)',iunit)
 
  if (stream_model == 0) then
-    call write_inopt(Mdot,'Mdot','mass injection rate, in Msun/yr (peak rate if imdot_func > 0)',iunit)
+    call write_inopt(Mdot,'Mdot','mass injection rate (code units or e.g. 1e-7 Msun/yr; peak rate if imdot_func > 0)',iunit)
     call write_inopt(stream_width,'stream_width','radius of injected stream in au',iunit)
-    call write_inopt(tstart,'tstart','start time of injection in years',iunit)
-    call write_inopt(tend,'tend','end time of injection in years; negative means infinite',iunit)
+    call write_inopt(tstart,'tstart','start time of injection (code units or e.g. 100 yr)',iunit)
+    call write_inopt(tend,'tend','end time of injection (code units or e.g. 1000 yr); negative means infinite',iunit)
     call write_inopt(omega,'omega','angular velocity of cloud stream originates from (s^-1)',iunit)
     call write_inopt(r0,'r0','r0 parameter from the Mendoza+09 streamer, in au',iunit)
     call write_inopt(phi0,'phi0','phi0 parameter from the Mendoza+09 streamer, in degrees',iunit)
@@ -374,13 +388,13 @@ subroutine write_options_inject(iunit)
     do istream=1,nstreams
        label = trim(int_to_string(istream))
        call write_inopt(streams(istream)%mdot,'Mdot_stream_'//trim(label), &
-                        'mass injection rate in Msun/yr',iunit)
+                        'mass injection rate (code units or e.g. 1e-7 Msun/yr)',iunit)
        call write_inopt(streams(istream)%width,'stream_width_'//trim(label), &
                         'stream radius in au',iunit)
        call write_inopt(streams(istream)%tstart,'tstart_stream_'//trim(label), &
-                        'injection start time in years',iunit)
+                        'injection start time (code units or e.g. 100 yr)',iunit)
        call write_inopt(streams(istream)%tend,'tend_stream_'//trim(label), &
-                        'injection end time in years; negative is infinite',iunit)
+                        'injection end time (code units or e.g. 1000 yr); negative is infinite',iunit)
        call write_inopt(streams(istream)%position(1),'x_stream_'//trim(label), &
                         'x/R.A. injection offset in au',iunit)
        call write_inopt(streams(istream)%position(2),'y_stream_'//trim(label), &
@@ -431,7 +445,7 @@ subroutine read_options_inject(db,nerr)
  call read_inopt(theta0, 'theta0', db,errcount=nerr,default=theta0)
  call read_inopt(r_inj,'r_inj',db,errcount=nerr,min=0.,default=r_inj)
  call read_inopt(vr_0,'vr_0',db,errcount=nerr,min=0.,default=vr_0)
- call read_inopt(Mdot,'Mdot',db,errcount=nerr,min=0.,default=Mdot)
+ call read_inopt(Mdot,'Mdot',db,errcount=nerr,default=Mdot)
  call read_inopt(stream_width,'stream_width',db,errcount=nerr,min=0.,default=stream_width)
  call read_inopt(tstart,'tstart',db,errcount=nerr,default=tstart)
  call read_inopt(tend,'tend',db,errcount=nerr,default=tend)
@@ -453,7 +467,7 @@ subroutine read_options_inject(db,nerr)
        label = trim(int_to_string(istream))
        if (nstreams == 1) then
           call read_inopt(streams(istream)%mdot,'Mdot_stream_'//trim(label),db, &
-                          errcount=nerr,min=0.,default=streams(istream)%mdot)
+                          errcount=nerr,default=streams(istream)%mdot)
           call read_inopt(streams(istream)%position(1),'x_stream_'//trim(label),db, &
                           errcount=nerr,default=streams(istream)%position(1))
           call read_inopt(streams(istream)%position(2),'y_stream_'//trim(label),db, &
@@ -467,8 +481,7 @@ subroutine read_options_inject(db,nerr)
           call read_inopt(streams(istream)%velocity(3),'vz_stream_'//trim(label),db, &
                           errcount=nerr,default=streams(istream)%velocity(3))
        else
-          call read_inopt(streams(istream)%mdot,'Mdot_stream_'//trim(label),db, &
-                          errcount=nerr,min=0.)
+          call read_inopt(streams(istream)%mdot,'Mdot_stream_'//trim(label),db,errcount=nerr)
           call read_inopt(streams(istream)%position(1),'x_stream_'//trim(label),db,errcount=nerr)
           call read_inopt(streams(istream)%position(2),'y_stream_'//trim(label),db,errcount=nerr)
           call read_inopt(streams(istream)%position(3),'z_stream_'//trim(label),db,errcount=nerr)

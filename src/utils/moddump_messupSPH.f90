@@ -10,18 +10,16 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - factor  : *gap randomization factor (ioption=2)*
 !   - inside  : *randomize inside (T) or outside (F) the Hill sphere (ioption=2)*
 !   - ioption : *operation (1=randomize azimuth, 2=randomize gap, 3=delete Hill sphere)*
 !
-! :Dependencies: infile_utils, mess_up_SPH, moddump_utils, part, prompting,
-!   units
+! :Dependencies: mess_up_SPH, moddump_utils, part,
+!   prompting, units
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -29,16 +27,13 @@ module moddump
  real    :: factor  = 1.0          ! gap randomization factor (ioption=2)
  logical :: inside  = .false.      ! randomize inside/outside the Hill sphere (ioption=2)
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use mess_up_SPH ! module from MCFOST
- use part,      only:xyzmh_ptmass,nptmass,kill_particle,shuffle_part
- use units,     only:udist
+ use part,          only:xyzmh_ptmass,nptmass,kill_particle,shuffle_part
+ use units,         only:udist
+ use moddump_utils, only:get_moddump_options
 
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -48,10 +43,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i
 
  print*,'udist=',udist
- !
- ! prompt only when the driver did not find a parameter file
- !
- if (prompt_for_params) call read_interactive_moddumpfile()
+ ! read parameters from the .moddump file, prompting if it does not exist
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  allocate(mask(npart))
  mask = 0
@@ -79,10 +72,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-!
-!---Interactively set the moddump parameters--------------------------------
-!
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  print "(3(/,a))",' 1) randomize azimuth ',&
@@ -94,48 +89,38 @@ subroutine read_interactive_moddumpfile()
     call prompt('do you want to randomize inside or outside the Hill sphere? ',inside)
  endif
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-!
-!---Write the moddump parameter file----------------------------------------
-!
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  call write_inopt(ioption,'ioption','operation (1=randomize azimuth, 2=randomize gap, 3=delete Hill sphere)',iunit)
  call write_inopt(factor,'factor','gap randomization factor (ioption=2)',iunit)
  call write_inopt(inside,'inside','randomize inside (T) or outside (F) the Hill sphere (ioption=2)',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-!
-!---Read the moddump parameter file-----------------------------------------
-!
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(ioption,'ioption',db,min=1,max=3,errcount=nerr)
  call read_inopt(factor,'factor',db,errcount=nerr)
  call read_inopt(inside,'inside',db,errcount=nerr)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 end module moddump
 

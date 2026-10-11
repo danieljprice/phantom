@@ -23,10 +23,8 @@ module moddump
 !   - utime_factor : *factor to scale the time unit by (if utime_fixed=T)*
 !   - utime_fixed  : *adjust the time unit by a fixed factor*
 !
-! :Dependencies: infile_utils, moddump_utils, prompting, units
+! :Dependencies: moddump_utils, prompting, units
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -35,15 +33,11 @@ module moddump
  logical :: change_umass = .false., umass_fixed = .false.
  real    :: utime_factor = 1.0, udist_factor = 1.0, umass_factor = 1.0
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use units, only:umass,udist,utime
-
+ use units,         only:umass,udist,utime
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -57,9 +51,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Current length unit is ',udist,'.'
  print*,'Current mass unit is ',umass,'.'
  !
- ! prompt only when the driver did not find a parameter file
+ ! read parameters from the .moddump file, prompting if it does not exist
  !
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  ! Cannot fix all three units simultaneously (mass is the one dropped)
  fixed_tot = 0
@@ -124,7 +118,7 @@ end subroutine modify_dump
 !
 !---Interactively set the moddump parameters--------------------------------
 !
-subroutine read_interactive_moddumpfile()
+subroutine moddump_interactive()
  use prompting, only:prompt
  integer :: fixed_tot
 
@@ -154,19 +148,17 @@ subroutine read_interactive_moddumpfile()
     if (umass_fixed) call prompt('Enter in value you want to scale mass unit by',umass_factor,0.)
  endif
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-!
-!---Write the moddump parameter file----------------------------------------
-!
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  call write_inopt(change_utime,'change_utime','adjust the time unit',iunit)
  call write_inopt(utime_fixed,'utime_fixed','adjust the time unit by a fixed factor',iunit)
  call write_inopt(utime_factor,'utime_factor','factor to scale the time unit by (if utime_fixed=T)',iunit)
@@ -176,25 +168,19 @@ subroutine write_moddump(filename)
  call write_inopt(change_umass,'change_umass','adjust the mass unit',iunit)
  call write_inopt(umass_fixed,'umass_fixed','adjust the mass unit by a fixed factor',iunit)
  call write_inopt(umass_factor,'umass_factor','factor to scale the mass unit by (if umass_fixed=T)',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-!
-!---Read the moddump parameter file-----------------------------------------
-!
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(change_utime,'change_utime',db,errcount=nerr)
  call read_inopt(utime_fixed,'utime_fixed',db,errcount=nerr)
  call read_inopt(utime_factor,'utime_factor',db,min=0.,errcount=nerr)
@@ -204,10 +190,8 @@ subroutine read_moddump(filename,ierr)
  call read_inopt(change_umass,'change_umass',db,errcount=nerr)
  call read_inopt(umass_fixed,'umass_fixed',db,errcount=nerr)
  call read_inopt(umass_factor,'umass_factor',db,min=0.,errcount=nerr)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 end module moddump
 

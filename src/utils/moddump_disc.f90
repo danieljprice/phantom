@@ -20,10 +20,8 @@ module moddump
 !   - incl    : *sine of inclination angle (0->1)*
 !   - posangl : *position angle [deg]*
 !
-! :Dependencies: infile_utils, moddump_utils, part, prompting, setdisc
+! :Dependencies: moddump_utils, part, prompting, setdisc
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -35,16 +33,12 @@ module moddump
  real :: posangl = 0.0    ! position angle [deg]
  real :: beta    = 10.0   ! plasma beta for the added toroidal field (MHD only)
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use setdisc,       only:set_incline_or_warp
  use part,          only:Bxyz,mhd,rho,igas
-
+ use moddump_utils, only:get_moddump_options
  integer, intent(in)    :: npartoftype(:)
  real,    intent(in)    :: massoftype(:)
  integer, intent(inout) :: npart
@@ -54,7 +48,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: r2,r,omega,cs,pressure,psimax
  real    :: vphiold2,vphiold,vadd,vphicorr2
 
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
 ! Similar to that in set_disc
  npart_start_count=1
@@ -122,7 +116,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
  use part,      only:mhd
 
@@ -133,39 +132,38 @@ subroutine read_interactive_moddumpfile()
  call prompt('Enter position angle (deg)',posangl)
  if (mhd) call prompt('Enter plasma beta for added toroidal field',beta,0.)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use part,         only:mhd
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ use part,          only:mhd
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(HonR,'HonR',db,errcount=nerr,min=0.)
  call read_inopt(R_warp,'R_warp',db,errcount=nerr,min=0.)
  call read_inopt(H_warp,'H_warp',db,errcount=nerr,min=0.)
  call read_inopt(incl,'incl',db,errcount=nerr,min=0.,max=1.)
  call read_inopt(posangl,'posangl',db,errcount=nerr)
  if (mhd) call read_inopt(beta,'beta',db,errcount=nerr,min=0.)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- use part,         only:mhd
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ use part,          only:mhd
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# disc warp parameters'
  call write_inopt(HonR,'HonR','disc aspect ratio H/R (must match the setup)',iunit)
  call write_inopt(R_warp,'R_warp','warp radius [code units]',iunit)
@@ -173,8 +171,7 @@ subroutine write_moddump(filename)
  call write_inopt(incl,'incl','sine of inclination angle (0->1)',iunit)
  call write_inopt(posangl,'posangl','position angle [deg]',iunit)
  if (mhd) call write_inopt(beta,'beta','plasma beta for the added toroidal field',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 end module moddump

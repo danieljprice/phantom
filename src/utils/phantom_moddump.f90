@@ -26,8 +26,8 @@ program phantommoddump
  use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master,fileprefix
  use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
- use moddump,         only:modify_dump,init_moddump,read_moddump,write_moddump,moddump_interactive,flags=>moddump_flags
- use moddump_utils,   only:get_moddump_options,moddump_dumpfile_in,moddump_time,prompt_for_params
+ use moddump,         only:modify_dump,flags=>moddump_flags
+ use moddump_utils,   only:moddump_dumpfile_in,moddump_time
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup_params,    only:ihavesetupB
@@ -43,7 +43,7 @@ program phantommoddump
  integer :: ierr,nerr,nwarn,iloc
  logical :: idumpsphNG,iexist,ians
  integer, parameter          :: lenprefix = 120
- character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,progname,modfile
+ character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,progname
 
  call set_io_unit_numbers
  iprint = 6
@@ -168,19 +168,10 @@ program phantommoddump
  if (nwarn > 0) call warning('moddump','warnings from original setup',var='warnings',ival=nwarn)
  if (nerr > 0) call warning('moddump','ERRORS in original setup',var='errors',ival=nerr)
 !
-!--prepare and read the output-prefix .moddump parameter file. An incomplete
-!  file is rewritten for editing; an absent file selects interactive input.
+!--modify the dump file, recording its origin in the .moddump file
 !
- modfile = trim(fileprefix)//'.moddump'
  moddump_dumpfile_in = dumpfilein
  moddump_time = timeout
- call init_moddump()
- call get_moddump_options(modfile,id==master,read_moddump,write_moddump,moddump_interactive)
- ! Save loaded parameters before modify_dump can convert them to code units.
- if (id==master .and. .not.prompt_for_params) call write_moddump(modfile)
-!
-!--modify the dump file
-!
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  get_conserv = 1.
 !
@@ -201,8 +192,6 @@ program phantommoddump
  endif
 
  call write_fulldump(timeout,dumpfileout,sphNG=idumpsphNG)
- ! Save first-run interactive choices for the next invocation.
- if (id==master .and. prompt_for_params) call write_moddump(modfile)
 !
 !--write a fresh input file, whether it exists or not
 !

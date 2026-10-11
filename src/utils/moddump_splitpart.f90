@@ -10,16 +10,14 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - lattice_type : *child arrangement (0=regular lattice, 1=random)*
 !   - nchild       : *number of children per particle (>= 2; forced to 13 for lattice)*
 !
-! :Dependencies: infile_utils, moddump_utils, part, prompting, splitpart
+! :Dependencies: moddump_utils, part, prompting, splitpart
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -27,21 +25,18 @@ module moddump
  integer :: nchild       = 13   ! number of children per particle
  integer :: lattice_type = 0    ! 0 for regular lattice, 1 for random
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use splitpart,    only:split_all_particles
- use part,         only:delete_dead_or_accreted_particles
+ use splitpart,     only:split_all_particles
+ use part,          only:delete_dead_or_accreted_particles
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
 
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  !-- the regular lattice requires a specific number of children
  if (lattice_type == 0) nchild = 13
@@ -65,44 +60,47 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('Enter child arrangement (0=regular lattice, 1=random)',lattice_type,0,1)
  if (lattice_type /= 0) call prompt('Enter number of children per particle',nchild,2)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(lattice_type,'lattice_type',db,errcount=nerr,min=0,max=1)
  call read_inopt(nchild,'nchild',db,errcount=nerr,min=2)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# split parameters'
  call write_inopt(lattice_type,'lattice_type','child arrangement (0=regular lattice, 1=random)',iunit)
  call write_inopt(nchild,'nchild','number of children per particle (>= 2; forced to 13 for lattice)',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 end module moddump

@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Daniel Mentiplay
 !
 ! :Runtime parameters:
 !   - icutinside  : *delete particles inside a given radius*
@@ -24,10 +24,8 @@ module moddump
 !   - outcenterz  : *z coordinate of the centre of the outer sphere*
 !   - outradius   : *outward radius [au]*
 !
-! :Dependencies: infile_utils, moddump_utils, part, prompting
+! :Dependencies: moddump_utils, part, prompting
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -38,14 +36,11 @@ module moddump
  real    :: incenter(3)  = 0.
  real    :: outcenter(3) = 0.
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only:delete_particles_outside_sphere
+ use part,          only:delete_particles_outside_sphere
+ use moddump_utils, only:get_moddump_options
 
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -53,9 +48,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: np
  !
- !--prompt only when the driver did not find a parameter file
+ !--read parameters from the .moddump file, prompting if it does not exist
  !
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  np = npart
 
@@ -73,10 +68,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-!
-!---Interactively set the moddump parameters--------------------------------
-!
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('Deleting particles inside a given radius ?',icutinside)
@@ -94,19 +91,17 @@ subroutine read_interactive_moddumpfile()
     call prompt('Enter z coordinate of the center of that sphere',outcenter(3))
  endif
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-!
-!---Write the moddump parameter file----------------------------------------
-!
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  call write_inopt(icutinside,'icutinside','delete particles inside a given radius',iunit)
  call write_inopt(icutoutside,'icutoutside','delete particles outside a given radius',iunit)
  call write_inopt(inradius,'inradius','inward radius [au]',iunit)
@@ -117,25 +112,19 @@ subroutine write_moddump(filename)
  call write_inopt(outcenter(1),'outcenterx','x coordinate of the centre of the outer sphere',iunit)
  call write_inopt(outcenter(2),'outcentery','y coordinate of the centre of the outer sphere',iunit)
  call write_inopt(outcenter(3),'outcenterz','z coordinate of the centre of the outer sphere',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-!
-!---Read the moddump parameter file-----------------------------------------
-!
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(icutinside,'icutinside',db,errcount=nerr)
  call read_inopt(icutoutside,'icutoutside',db,errcount=nerr)
  call read_inopt(inradius,'inradius',db,min=0.,errcount=nerr)
@@ -146,9 +135,7 @@ subroutine read_moddump(filename,ierr)
  call read_inopt(outcenter(1),'outcenterx',db,errcount=nerr)
  call read_inopt(outcenter(2),'outcentery',db,errcount=nerr)
  call read_inopt(outcenter(3),'outcenterz',db,errcount=nerr)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 end module moddump

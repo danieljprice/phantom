@@ -16,10 +16,9 @@ module moddump
 !   - outer_radius : *radius from centre of mass within which to measure L*
 !   - system_type  : *1=single 2=binary 3=triple(inner) 4=triple(outer)*
 !
-! :Dependencies: infile_utils, moddump_utils, part, prompting, vectorutils
+! :Dependencies: moddump_utils, part, prompting,
+!   vectorutils
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -27,15 +26,12 @@ module moddump
  integer :: system_type  = 2    ! 1=single/isink1, 2=binary, 3=triple (centred on binary), 4=triple (external)
  real    :: outer_radius = 400. ! radius from centre of mass within which to measure L
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,          only:igas,xyzmh_ptmass,vxyz_ptmass,nptmass
  use vectorutils,   only:rotatevec,cross_product3D
+ use moddump_utils, only:get_moddump_options
 
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -50,7 +46,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  pmass = massoftype(igas)
 
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  select case(system_type)
  case(1)
@@ -106,55 +102,43 @@ end subroutine modify_dump
 !  set parameters interactively (when no .moddump file is found)
 !+
 !-----------------------------------------------------------------------
-subroutine read_interactive_moddumpfile()
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('System type (1=single/isink1, 2=binary, 3=triple centred on binary, 4=triple external)',&
              system_type,1,4)
  call prompt('Outer radius within which to measure angular momentum',outer_radius,0.)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
 !-----------------------------------------------------------------------
 !+
-!  read parameters from the .moddump file (ierr counts missing options)
+!  read moddump options from the .moddump file
 !+
 !-----------------------------------------------------------------------
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(system_type,'system_type',db,errcount=nerr,min=1,max=4)
  call read_inopt(outer_radius,'outer_radius',db,errcount=nerr,min=0.)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 !-----------------------------------------------------------------------
 !+
-!  write parameters to the .moddump file
+!  write moddump options to the .moddump file
 !+
 !-----------------------------------------------------------------------
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# face-on realignment parameters'
  call write_inopt(system_type,'system_type','1=single 2=binary 3=triple(inner) 4=triple(outer)',iunit)
  call write_inopt(outer_radius,'outer_radius','radius from centre of mass within which to measure L',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 end module moddump

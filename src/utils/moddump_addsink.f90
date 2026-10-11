@@ -14,7 +14,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Not Committed Yet
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - incl_deg   : *inclination angle [deg]*
@@ -32,9 +32,8 @@ module moddump
 !   - z0         : *initial z position [code units]*
 !   - z0_dir     : *initial z position [code units]*
 !
-! :Dependencies: infile_utils, io, moddump_utils, part, physcon, units
+! :Dependencies: io, moddump_utils, part, physcon, units
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -45,16 +44,13 @@ module moddump
  real    :: x0, y0_dir, z0_dir                  ! direct-mode position
  real    :: vx0, vy0, vz0_dir                   ! direct-mode velocity
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .false.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,ihacc,iJ2,iReff
- use io,           only:fatal,id,master
- use physcon,      only:deg_to_rad
+ use part,          only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,ihacc,iJ2,iReff
+ use io,            only:fatal,id,master
+ use moddump_utils, only:get_moddump_options
+ use physcon,       only:deg_to_rad
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -62,6 +58,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  real    :: xp(3), vp(3)
  real    :: incl, s
+
+ call set_defaults()
+ call get_moddump_options(read_options_moddump,write_options_moddump)
 
  !--bounds check to avoid out-of-bounds access on ptmass arrays
  if (nptmass >= maxptmass) then
@@ -111,7 +110,7 @@ end subroutine modify_dump
 !  Set default parameters for addsink moddump
 !+
 !-----------------------------------------------------------------------
-subroutine set_defaults_addsink()
+subroutine set_defaults()
  use units,   only:umass
  use physcon, only:solarm
  ! defaults (code units)
@@ -133,21 +132,17 @@ subroutine set_defaults_addsink()
  vx0      = 0.0
  vy0      = 0.0
  vz0_dir  = -v0
-end subroutine set_defaults_addsink
+end subroutine set_defaults
 
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------
 !+
-!  Write moddump parameter file
+!  write moddump options to the .moddump file
 !+
-!-----------------------------------------------------------------------
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(a)") '# values are in code units unless otherwise stated'
  write(iunit,"(a)") '# if use_direct=F, (z0,y0,incl_deg,v0) define a straight-line approach'
  write(iunit,"(a)") '# if use_direct=T, (x0,y0_dir,z0_dir,vx0,vy0,vz0_dir) are used directly'
@@ -173,30 +168,17 @@ subroutine write_moddump(filename)
  call write_inopt(vy0,'vy0','initial vy [code units]',iunit)
  call write_inopt(vz0_dir,'vz0_dir','initial vz [code units]',iunit)
 
- close(iunit)
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------
 !+
-!  Read moddump parameter file
+!  read moddump options from the .moddump file
 !+
-!-----------------------------------------------------------------------
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- type(inopts), allocatable :: db(:)
- integer :: nerr
-
- nerr = 0
- print "(a)",' reading moddump options from '//trim(filename)
-
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) then
-    call close_db(db)
-    return
- endif
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
  call read_inopt(use_direct,'use_direct',db,errcount=nerr)
 
@@ -216,14 +198,6 @@ subroutine read_moddump(filename,ierr)
  call read_inopt(vy0,'vy0',db,errcount=nerr)
  call read_inopt(vz0_dir,'vz0_dir',db,errcount=nerr)
 
- call close_db(db)
- if (nerr > 0) ierr = nerr
-
-end subroutine read_moddump
-
-subroutine init_moddump()
-
- call set_defaults_addsink()
-end subroutine init_moddump
+end subroutine read_options_moddump
 
 end module moddump

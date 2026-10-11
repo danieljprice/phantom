@@ -12,7 +12,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Mike Lau
 !
 ! :Runtime parameters:
 !   - a1                   : *1st companion semi-major axis (triple) [code units]*
@@ -55,8 +55,6 @@ module moddump
 !   options, part, physcon, prompting, readwrite_dumps, readwrite_mesa,
 !   setbinary, table_utils, timestep, units, vectorutils
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -123,10 +121,6 @@ module moddump
  integer :: iproperty = 0
  real    :: propval   = 0.
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
@@ -142,11 +136,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use extern_corotate,   only:icompanion_grav,companion_xpos,companion_mass_ext=>companion_mass, &
                              primarycore_xpos,primarycore_mass,primarycore_hsoft,hsoft
  use extern_gwinspiral, only:Nstar_gw
- use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use table_utils,       only:yinterp
  use readwrite_mesa,    only:read_mesa
  use dim,               only:maxptmass,maxp,nsinkproperties
  use io,                only:fatal,idisk1,iprint
+ use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
+ use moddump_utils,     only:get_moddump_options
  use timestep,          only:tmax,dtmax
  use readwrite_dumps,   only:read_dump
  use eos,               only:X_in,Z_in
@@ -168,9 +163,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  type(inopts), allocatable :: db(:)
 
  !
- ! prompt only when the driver did not find a parameter file
+ ! read parameters from the .moddump file, prompting if it does not exist
  !
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  !
  ! validate that the requested operation is compatible with the sink count
@@ -620,10 +615,10 @@ end subroutine modify_dump
 
 !----------------------------------------------------------------
 !+
-!  interactively set the moddump parameters
+!  interactive prompting for moddump parameters
 !+
 !----------------------------------------------------------------
-subroutine read_interactive_moddumpfile()
+subroutine moddump_interactive()
  use prompting, only:prompt
  use part,      only:nptmass,xyzmh_ptmass,xyzmh_ptmass_label
  use dim,       only:nsinkproperties
@@ -718,21 +713,17 @@ subroutine read_interactive_moddumpfile()
     if (iproperty > 0) call prompt('What value (in solar units) ?',propval)
  end select
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
 !----------------------------------------------------------------
 !+
-!  write options to .moddump file
+!  write moddump options to the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(a)") '# operation: 1=add companion, 2=Bfield, 3/4=create core sink, 5=triple,'
  write(iunit,"(a)") '#            6=relax corotating, 7=binary after relax, 8=binary from dump,'
  write(iunit,"(a)") '#            9=remove sink, 10=corotating->inertial, 11=shift companion,'
@@ -798,28 +789,19 @@ subroutine write_moddump(filename)
     call write_inopt(propval,'propval','new value for the selected sink property [solar units]',iunit)
  end select
 
- close(iunit)
-
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 !----------------------------------------------------------------
 !+
-!  read options from .moddump file
+!  read moddump options from the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use dim,          only:nsinkproperties
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ use dim,           only:nsinkproperties
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(operation,'operation',db,min=1,max=13,errcount=nerr)
 
  select case(operation)
@@ -883,10 +865,7 @@ subroutine read_moddump(filename,ierr)
     call read_inopt(propval,'propval',db,errcount=nerr)
  end select
 
- call close_db(db)
- if (nerr > 0) ierr = nerr
-
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 !----------------------------------------------------------------
 !+

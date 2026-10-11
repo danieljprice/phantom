@@ -15,19 +15,13 @@ module moddump
 ! :Runtime parameters:
 !   - sink_radius : *sink radius [Rsun]*
 !
-! :Dependencies: infile_utils, io, moddump_utils, part, physcon, prompting,
+! :Dependencies: io, moddump_utils, part, physcon, prompting,
 !   sortutils, units
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
  real :: sink_radius = 1.0   ! sink radius in Rsun
-
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
 
 contains
 
@@ -35,6 +29,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part, only:rho,xyzmh_ptmass,vxyz_ptmass,nptmass,ihsoft
  use part, only:delete_particles_inside_radius
  use io,             only:fatal
+ use moddump_utils,  only:get_moddump_options
  use units,          only:umass,udist
  use sortutils,      only:set_r2func_origin,indexxfunc,r2func_origin
  use physcon,        only:solarr,solarm
@@ -64,9 +59,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  location = maxloc(den_all,dim=1)
  !
- ! read the sink radius (or write a template and stop)
+ ! read the sink radius from the .moddump file, prompting if it does not exist
  !
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  if (sink_radius <= 0.0) then
     call fatal('moddump','Invalid sink radius entered')
@@ -111,51 +106,43 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-!
-!---Interactively set the moddump parameters--------------------------------
-!
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('Enter sink radius in Rsun', sink_radius, 0.)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-!
-!---Write the moddump parameter file----------------------------------------
-!
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  call write_inopt(sink_radius,'sink_radius','sink radius [Rsun]',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-!
-!---Read the moddump parameter file-----------------------------------------
-!
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(sink_radius,'sink_radius',db,min=0.,errcount=nerr)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 end module moddump

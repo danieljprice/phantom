@@ -17,12 +17,10 @@ module moddump
 !   - Zfrac : *metal mass fraction*
 !   - mu    : *mean molecular weight*
 !
-! :Dependencies: dim, eos, eos_idealplusrad, eos_mesa, infile_utils, io,
+! :Dependencies: dim, eos, eos_idealplusrad, eos_mesa, io,
 !   mesa_microphysics, moddump_utils, part, prompting, radiation_utils,
 !   units
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -30,10 +28,6 @@ module moddump
  real :: Xfrac = 0.687    ! hydrogen mass fraction
  real :: Zfrac = 0.0142   ! metal mass fraction
  real :: mu    = 0.61821  ! mean molecular weight
-
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
 
 contains
 
@@ -47,6 +41,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,             only:rho,igas,rad,iradxi,ikappa,radprop,ithick
  use radiation_utils,  only:radiation_and_gas_temperature_equal,ugas_from_Tgas
  use mesa_microphysics,only:get_kappa_mesa
+ use moddump_utils,    only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -56,7 +51,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  if (.not. do_radiation) call fatal("moddump_LTE_to_rad","Not compiled with radiation")
 
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  X_in = Xfrac
  Z_in = Zfrac
@@ -85,47 +80,50 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('Enter hydrogen mass fraction X',Xfrac,0.,1.)
  call prompt('Enter metal mass fraction Z',Zfrac,0.,1.)
  call prompt('Enter mean molecular weight mu',mu,0.)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(Xfrac,'Xfrac',db,errcount=nerr,min=0.,max=1.)
  call read_inopt(Zfrac,'Zfrac',db,errcount=nerr,min=0.,max=1.)
  call read_inopt(mu,'mu',db,errcount=nerr,min=0.)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# composition for LTE -> radiation conversion'
  call write_inopt(Xfrac,'Xfrac','hydrogen mass fraction',iunit)
  call write_inopt(Zfrac,'Zfrac','metal mass fraction',iunit)
  call write_inopt(mu,'mu','mean molecular weight',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 end module moddump

@@ -217,7 +217,7 @@ end subroutine set_hierarchical_default_options
 !+
 !--------------------------------------------------------------------------
 subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass, prefix)
- character(len=10), intent(in)  :: level
+ character(len=*),  intent(in)  :: level
  real,              intent(out) :: xorigin(:), vorigin(:)
  real,              intent(in)  :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  character(len=20), intent(in)  :: prefix
@@ -252,7 +252,7 @@ end subroutine get_hierarchical_level_com
 !--------------------------------------------------------------------------
 real function get_hier_level_mass(level)
  use sethier_utils, only:get_hierarchical_level_mass
- character(len=10), intent(in) :: level
+ character(len=*),  intent(in) :: level
 
  get_hier_level_mass = get_hierarchical_level_mass(level, hs)
 

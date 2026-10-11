@@ -39,11 +39,10 @@ module moddump
 !   - tfact              : *tfact*
 !   - v_inf              : *velocity at infinity [km/s]*
 !
-! :Dependencies: datafiles, dim, eos, infile_utils, io, kernel,
+! :Dependencies: datafiles, dim, eos, io, kernel,
 !   moddump_utils, options, part, partinject, physcon, prompting,
 !   spherical, stretchmap, units, vectorutils, velfield
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -59,10 +58,6 @@ module moddump
  real    :: m_gas = 0.0
  integer :: ieos_infall = 6
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
@@ -73,6 +68,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                           dustfrac
  use units,          only:udist,utime,get_G_code
  use io,             only:id,master,fatal
+ use moddump_utils,  only:get_moddump_options
  use spherical,      only:set_sphere,set_ellipse
  use stretchmap,     only:rho_func
  use kernel,         only:hfact_default
@@ -127,8 +123,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  z0 = 0.
  vol_obj = 0.
 
- ! The driver has read the .moddump file; prompt only on the first run.
- if (prompt_for_params) call read_interactive_moddumpfile()
+ ! read parameters from the .moddump file, prompting if it does not exist
+ call set_defaults()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  ! udist default is cm
  unit_velocity = udist/utime ! cm/s
@@ -568,7 +565,7 @@ end function rhofunc
 !  set parameters interactively (when no .moddump file is found)
 !+
 !----------------------------------------------------------------
-subroutine read_interactive_moddumpfile()
+subroutine moddump_interactive()
  use prompting, only:prompt
  use eos,       only:isink
  use part,      only:npartoftype,igas
@@ -627,21 +624,18 @@ subroutine read_interactive_moddumpfile()
  enddo
  if (ieos_infall == 6) call prompt('Enter index of the sink the eos is centred on:', isink, 1)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
 !----------------------------------------------------------------
 !+
-!  write the moddump parameters to the .moddump file
+!  write moddump options to the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- use eos,          only:isink
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ use eos,           only:isink
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# Infall parameters'
  call write_inopt(in_shape,'in_shape','infall material shape (0=sphere, 1=ellipse)',iunit)
  call write_inopt(in_orbit,'in_orbit','orbit type (0=parabolic, 1=hyperbolic)',iunit)
@@ -682,29 +676,18 @@ subroutine write_moddump(filename)
  call write_inopt(ieos_infall,'ieos_infall','eos to set after infall (6=isothermal about sink, 14=binary)',iunit)
  if (ieos_infall==6) call write_inopt(isink,'isink','index of the sink the eos is centred on',iunit)
 
- close(iunit)
-
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 !----------------------------------------------------------------
 !+
-!  read the moddump parameters from the .moddump file; ierr counts
-!  missing or invalid options (so get_moddump_options can top up the file
-!  and ask the user to edit it)
+!  read moddump options from the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use eos,          only:isink
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
-
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ use eos,           only:isink
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
  ! control options: read these first as they determine which
  ! dependent options below are required
@@ -751,15 +734,18 @@ subroutine read_moddump(filename,ierr)
  endif
  if (ieos_infall==6) call read_inopt(isink,'isink',db,errcount=nerr,min=1)
 
- call close_db(db)
- if (nerr > 0) ierr = nerr
+end subroutine read_options_moddump
 
-end subroutine read_moddump
-
-subroutine init_moddump()
+!----------------------------------------------------------------
+!+
+!  set default values of moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine set_defaults()
  use eos, only:isink
 
  isink = 1
-end subroutine init_moddump
+
+end subroutine set_defaults
 
 end module moddump

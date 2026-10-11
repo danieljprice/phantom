@@ -17,10 +17,8 @@ module moddump
 !   - ampl   : *amplitude of the m-mode density perturbation*
 !   - mmode  : *azimuthal mode number m*
 !
-! :Dependencies: infile_utils, moddump_utils, prompting
+! :Dependencies: moddump_utils, prompting
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -29,14 +27,10 @@ module moddump
  real :: mmode  = 3.0    ! azimuthal mode number m
  real :: Rtorus = 1.0    ! torus radius [code units]
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
-
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -46,7 +40,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: rcyl2,rcyl,rsph,v2onr,omegai
 
  ! Implementing the m-mode density perturbation from Price & Bate 2007
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  ! Adding velocities
  do ii = 1,npart
@@ -76,47 +70,50 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('Enter amplitude of the density perturbation',ampl,0.)
  call prompt('Enter azimuthal mode number m',mmode,0.)
  call prompt('Enter torus radius (code units)',Rtorus,0.)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(ampl,'ampl',db,errcount=nerr,min=0.)
  call read_inopt(mmode,'mmode',db,errcount=nerr,min=0.)
  call read_inopt(Rtorus,'Rtorus',db,errcount=nerr,min=0.)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# torus perturbation parameters'
  call write_inopt(ampl,'ampl','amplitude of the m-mode density perturbation',iunit)
  call write_inopt(mmode,'mmode','azimuthal mode number m',iunit)
  call write_inopt(Rtorus,'Rtorus','torus radius [code units]',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 end module moddump

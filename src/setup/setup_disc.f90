@@ -374,90 +374,89 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 end subroutine setpart
 
+!--------------------------------------------------------------------------
+!+
+!  fill the periodic box with a uniform warm neutral background,
+!  skipping lattice sites inside sink accretion radii
+!+
+!--------------------------------------------------------------------------
 subroutine set_warm_neutral_box(id,npart,xyzh,vxyzu,npartoftype,massoftype,hfact)
- use dim,        only:maxp
- use io,         only:master,fatal
- use part,       only:igas,nptmass,xyzmh_ptmass,ihacc
- use partinject, only:add_or_update_particle
- use units,      only:umass,udist
+ use dim,     only:maxp
+ use io,      only:master,fatal
+ use part,    only:igas,set_particle_type
+ use unifdis, only:set_unifdis
+ use units,   only:umass,udist
  integer, intent(in)    :: id
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(inout) :: massoftype(:)
+ real,    intent(in)    :: massoftype(:)
  real,    intent(in)    :: hfact
- real :: rho_unit,rho_warm_code,box_code,mass_warm_code,pmass,h_warm,dx
- real :: xyzi(3),vxyz(3),dr_sink(3),racc2,x,y,z
- integer :: n_warm,nx,i,j,k,ipart,n_added,n_excluded,isink
- logical :: inside_sink
+ real    :: box_code,rho_warm_code,xmin,xmax
+ integer :: nx,i,npart_old,nlattice
 
- box_code = box_size*au/udist
- rho_unit = umass/udist**3
- rho_warm_code = rho_warm_cgs/rho_unit
- pmass = massoftype(igas)
-
+ box_code      = box_size*au/udist
+ rho_warm_code = rho_warm_cgs/(umass/udist**3)
  if (box_code <= 0.) call fatal('set_warm_neutral_box','box_size must be positive')
  if (rho_warm_code <= 0.) call fatal('set_warm_neutral_box','rho_warm_cgs must be positive')
- if (pmass <= 0.) call fatal('set_warm_neutral_box','gas particle mass must be positive')
+ if (massoftype(igas) <= 0.) call fatal('set_warm_neutral_box','gas particle mass must be positive')
 
- mass_warm_code = rho_warm_code*box_code**3
- n_warm = nint(mass_warm_code/pmass)
- if (n_warm <= 0) then
-    if (id==master) write(*,*) 'Warm neutral background requested, but n_warm <= 0; skipping.'
+ ! cubic lattice with the same particle mass as the disc gas
+ nx = nint((rho_warm_code*box_code**3/massoftype(igas))**(1./3.))
+ if (nx <= 0) then
+    if (id==master) print "(a)",' warm neutral background has < 1 particle: skipping'
     return
  endif
- if (npart + n_warm > maxp) then
-    call fatal('set_warm_neutral_box','atomic warm neutral particle count exceeds maxp',var='n_warm',ival=n_warm)
- endif
+ if (npart + nx**3 > maxp) call fatal('set_warm_neutral_box','warm background exceeds maxp',var='nx^3',ival=nx**3)
 
- h_warm = hfact*(pmass/rho_warm_code)**(1./3.)
- nx = max(1,ceiling(real(n_warm)**(1./3.)))
+ npart_old = npart
+ xmin = -0.5*box_code
+ xmax =  0.5*box_code
+ call set_unifdis('cubic',id,master,xmin,xmax,xmin,xmax,xmin,xmax,box_code/nx,hfact,npart,xyzh,.true.,verbose=.false.)
+ nlattice = npart - npart_old
 
- dx = box_code/real(nx)
- vxyz = 0.
- ipart = npart + 1
- n_added = 0
- n_excluded = 0
- fill_box: do k=0,nx-1
-    z = -0.5*box_code + (real(k) + 0.5)*dx
-    do j=0,nx-1
-       y = -0.5*box_code + (real(j) + 0.5)*dx
-       do i=0,nx-1
-          x = -0.5*box_code + (real(i) + 0.5)*dx
-          xyzi = (/x,y,z/)
-          inside_sink = .false.
-          do isink=1,nptmass
-             racc2 = xyzmh_ptmass(ihacc,isink)**2
-             if (racc2 <= 0.) cycle
-             dr_sink = xyzi - xyzmh_ptmass(1:3,isink)
-             if (periodic_domain) dr_sink = dr_sink - box_code*anint(dr_sink/box_code)
-             if (dot_product(dr_sink,dr_sink) <= racc2) then
-                inside_sink = .true.
-                exit
-             endif
-          enddo
-          if (inside_sink) then
-             n_excluded = n_excluded + 1
-             cycle
-          endif
-          call add_or_update_particle(igas,xyzi,vxyz,h_warm,0.,ipart,npart,npartoftype,xyzh,vxyzu)
-          ipart = ipart + 1
-          n_added = n_added + 1
-          if (n_added >= n_warm) exit fill_box
-       enddo
-    enddo
- enddo fill_box
-
- if (n_added < n_warm) then
-    call fatal('set_warm_neutral_box','not enough lattice sites outside sink accretion radii', &
-               var='n_added',ival=n_added)
- endif
+ ! keep only particles outside sink accretion radii
+ npart = npart_old
+ do i=npart_old+1,npart_old+nlattice
+    if (inside_any_sink(xyzh(1:3,i),box_code)) cycle
+    npart = npart + 1
+    xyzh(:,npart) = xyzh(:,i)
+    vxyzu(:,npart) = 0.
+    call set_particle_type(npart,igas)
+ enddo
+ npartoftype(igas) = npartoftype(igas) + npart - npart_old
 
  if (id==master) then
-    write(*,"(/,a,i0,a,es10.3,a)") ' Added ',n_added,' atomic warm neutral particles at rho = ',rho_warm_cgs,' g cm^-3'
-    if (n_excluded > 0) write(*,"(a,i0,a)") ' Skipped ',n_excluded,' warm-background lattice sites inside sink accretion radii'
+    print "(/,a,i0,a,es10.3,a)",' Added ',npart-npart_old,' warm neutral particles at rho = ',rho_warm_cgs,' g cm^-3'
+    if (nlattice > npart-npart_old) print "(a,i0,a)",' Skipped ',nlattice-(npart-npart_old),' sites inside sink accretion radii'
  endif
+
 end subroutine set_warm_neutral_box
+
+!--------------------------------------------------------------------------
+!+
+!  check whether a position lies inside the accretion radius of any sink,
+!  using the minimum image in the periodic box
+!+
+!--------------------------------------------------------------------------
+logical function inside_any_sink(xyz,box_code)
+ use part, only:nptmass,xyzmh_ptmass,ihacc
+ real, intent(in) :: xyz(3),box_code
+ real    :: dr(3)
+ integer :: isink
+
+ inside_any_sink = .false.
+ do isink=1,nptmass
+    if (xyzmh_ptmass(ihacc,isink) <= 0.) cycle
+    dr = xyz - xyzmh_ptmass(1:3,isink)
+    if (periodic_domain) dr = dr - box_code*anint(dr/box_code)
+    if (dot_product(dr,dr) <= xyzmh_ptmass(ihacc,isink)**2) then
+       inside_any_sink = .true.
+       return
+    endif
+ enddo
+
+end function inside_any_sink
 
 !--------------------------------------------------------------------------
 !
@@ -467,7 +466,6 @@ end subroutine set_warm_neutral_box
 !--------------------------------------------------------------------------
 subroutine set_periodic_boundary_from_particles(npart,xyzh)
  use boundary, only:set_boundary,print_boundaries
- implicit none
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:)
  real :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
@@ -4145,7 +4143,7 @@ end subroutine temp_to_HR
 
 subroutine get_hier_disc_label(i, disclabel)
  use sethierarchical, only:hs!sink_num, sink_labels, hl_labels
- character(len=10), intent(out) :: disclabel
+ character(len=*),  intent(out) :: disclabel
  integer,           intent(in)  :: i
 
  if (i <= hs%labels%sink_num) then

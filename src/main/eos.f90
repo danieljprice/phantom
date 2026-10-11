@@ -89,9 +89,9 @@ module eos
  integer, public :: ieos          = 1
  integer, public :: iopacity_type = 0      ! used for radiation
  real,    public :: gmw           = 2.381  ! default mean molecular weight
- real,    public :: T_warm    = 1.42e3
- real,    public :: mu_warm   = 1.17
- real,    public :: rho_branch_cgs = 1.0e-19
+ real,    public :: T_warm        = 1.42e3  ! temperature of warm neutral medium (ieos=26)
+ real,    public :: mu_warm       = 1.17    ! mean molecular weight of warm medium (ieos=26)
+ real,    public :: rho_branch_cgs = 5.0e-19 ! density below which gas is warm (ieos=26)
  real,    public :: X_in          = 0.74   ! default metallicities
  real,    public :: Z_in          = 0.02   ! default metallicities
  logical, public :: use_var_comp  = .false. ! use variable composition
@@ -246,7 +246,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
     tempi = temperature_coef*mui*ponrhoi
 
- case(3)
+ case(3,26)
 !
 !--Locally isothermal disc as in Lodato & Pringle (2007) where
 !
@@ -257,28 +257,17 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !  :math:`c_s = c_{s,0} r^{-q}` where :math:`r = \sqrt{x^2 + y^2 + z^2}`
 !
 
-    ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
-    ponrhoi = max(ponrhoi, cs_min*cs_min)
-    spsoundi = sqrt(ponrhoi)
-    tempi    = temperature_coef*mui*ponrhoi
-
- case(26)
-!
-!--Two-phase EOS. Low-density gas is an atomic warm neutral pressure reservoir;
-!  high-density gas follows the locally isothermal disc law with cs_min.
-!
-    cgsrhoi = rhoi*unit_density
-    if (cgsrhoi < rho_branch_cgs) then
+    if (eos_type==26 .and. rhoi*unit_density < rho_branch_cgs) then
+       !--two-phase eos: low density gas is a warm neutral medium at fixed T
        mui      = mu_warm
-       ponrhoi  = (kb_on_mh*T_warm/mui)/(unit_velocity*unit_velocity)
-       spsoundi = sqrt(ponrhoi)
+       ponrhoi  = kb_on_mh*T_warm/mui/unit_velocity**2
        tempi    = T_warm
     else
-       ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
+       ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
        ponrhoi  = max(ponrhoi, cs_min*cs_min)
-       spsoundi = sqrt(ponrhoi)
        tempi    = temperature_coef*mui*ponrhoi
     endif
+    spsoundi = sqrt(ponrhoi)
 
  case(4)
 !
@@ -1673,7 +1662,7 @@ subroutine eosinfo(eos_type,iprint)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Two-phase locally isothermal EOS: cs^2_0 = ',polyk,' qfac = ',qfacdisc
     write(iprint,"(a,es10.3,a,f10.3,a,f10.3)") '  warm branch: rho < ',rho_branch_cgs, &
          ' g cm^-3, T = ',T_warm,' K, mu = ',mu_warm
- case(5,17)
+ case(5)
     if (maxvxyzu >= 4) then
        write(iprint,"(' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2')")
     else
@@ -1957,7 +1946,7 @@ subroutine set_defaults_eos
  use_var_comp = .false.  ! variable composition
  T_warm         = 1.42e3
  mu_warm        = 1.17
- rho_branch_cgs     = 5.0e-19
+ rho_branch_cgs = 5.0e-19
 
 end subroutine set_defaults_eos
 

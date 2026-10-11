@@ -6,9 +6,12 @@
 !--------------------------------------------------------------------------!
 module moddump_utils
 !
-! Shared helpers for moddumps: handles the prefix.moddump parameter file in the
-! same way get_options handles .setup files, and carries the flag that tells
-! a moddump whether to prompt interactively
+! Shared helpers for moddumps. get_moddump_options is a thin wrapper
+! around get_options that handles the prefix.moddump parameter file:
+! opening/closing it and writing a header recording which dump file was
+! modified. Each moddump only supplies routines that call write_inopt
+! and read_inopt, in the same way as write_options_X/read_options_X in
+! the main code modules
 !
 ! :References: None
 !
@@ -16,34 +19,41 @@ module moddump_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: infile_utils, io
 !
+ use infile_utils, only:write_inopt,read_inopt,inopts
  implicit none
 
- ! set by the driver via get_moddump_options, read by modify_dump:
- ! .true.  -> no parameter file was found, prompt the user interactively
- ! .false. -> a complete parameter file was read, do not prompt
- logical, public :: prompt_for_params = .true.
-
- ! set by the driver, written into the .moddump file as a record (comments)
+ ! set by phantommoddump, written into the .moddump file as comments
  character(len=120), public :: moddump_dumpfile_in = ''  ! input dump being modified
  real,               public :: moddump_time = 0.         ! output time of the new dump
 
- public :: get_moddump_options,write_moddump_header
- public :: init_moddump_empty,read_moddump_empty,write_moddump_empty
+ public :: get_moddump_options
+ ! re-exported so moddumps only need to use this module for their options
+ public :: write_inopt,read_inopt,inopts
 
  abstract interface
-  subroutine read_func(filename,ierr)
-   character(len=*), intent(in)  :: filename
-   integer,          intent(out) :: ierr
-  end subroutine read_func
+  subroutine read_opts_func(db,nerr)
+   import :: inopts
+   type(inopts), intent(inout) :: db(:)
+   integer,      intent(inout) :: nerr
+  end subroutine read_opts_func
  end interface
 
  abstract interface
-  subroutine write_func(filename)
-   character(len=*), intent(in) :: filename
-  end subroutine write_func
+  subroutine write_opts_func(iunit)
+   integer, intent(in) :: iunit
+  end subroutine write_opts_func
  end interface
+
+ abstract interface
+  subroutine set_func()
+  end subroutine set_func
+ end interface
+
+ ! moddump-specific routines, set by get_moddump_options for use in read/write_modfile
+ procedure(read_opts_func),  pointer :: read_opts  => null()
+ procedure(write_opts_func), pointer :: write_opts => null()
 
  private
 
@@ -51,72 +61,86 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  high level read/write of the prefix.moddump parameter file, modelled
-!  on get_options for .setup files:
-!   - file complete   -> read it, do not prompt (prompt_for_params=.false.)
-!   - file incomplete -> add the missing options and stop so the user
-!                        can edit it (no modified dump is produced)
-!   - file absent     -> prompt interactively (prompt_for_params=.true.),
-!                        or write a template and stop if interactive=.false.
+!  read/write moddump options from/to prefix.moddump via get_options:
+!   - file complete   -> read it and return
+!   - file incomplete -> missing options are added, then stop
+!   - file absent     -> prompt with set_options and write the file,
+!                        then return (unlike phantomsetup, the dump is
+!                        modified straight away); if set_options is not
+!                        given a template is written, then stop
 !+
 !----------------------------------------------------------------
-subroutine get_moddump_options(modfile,master,read_pars,write_pars,interactive)
- character(len=*), intent(in) :: modfile
- logical,          intent(in) :: master,interactive
- procedure(read_func)  :: read_pars
- procedure(write_func) :: write_pars
+subroutine get_moddump_options(read_options,write_options,set_options)
+ use infile_utils, only:get_options
+ use io,           only:fileprefix,id,master
+ procedure(read_opts_func)     :: read_options
+ procedure(write_opts_func)    :: write_options
+ procedure(set_func), optional :: set_options
+ character(len=len(fileprefix)+8) :: filename
  integer :: ierr
  logical :: iexist
 
- inquire(file=modfile,exist=iexist)
- if (iexist) then
-    call read_pars(modfile,ierr)
-    if (ierr /= 0) then
-       ! missing or invalid options: top up the file and stop
-       if (master) then
-          call write_pars(modfile)
-          print "(/,2a)", ' >> added missing parameters to ', trim(modfile)
-          print "(2a,/)", ' >> edit it and rerun phantommoddump'
-       endif
-       stop
-    endif
-    prompt_for_params = .false.
-    if (master) print "(/,2a,/)", ' Reading moddump parameters from ', trim(modfile)
+ read_opts  => read_options
+ write_opts => write_options
+
+ filename = trim(fileprefix)//'.moddump'
+ inquire(file=filename,exist=iexist)
+ if (present(set_options)) then
+    call get_options(filename,id==master,ierr,read_modfile,write_modfile,set_options)
+    if (.not.iexist .and. ierr==1) ierr = 0
  else
-    ! no parameter file: modify_dump will prompt the user interactively
-    prompt_for_params = .true.
-    if (.not.interactive) then
-       if (master) then
-          call write_pars(modfile)
-          print "(2a)", ' Edit the parameter file and rerun phantommoddump: ',trim(modfile)
-       endif
-       stop
-    endif
+    call get_options(filename,id==master,ierr,read_modfile,write_modfile)
+ endif
+ if (ierr /= 0) then
+    if (id==master) print "(/,a,/)",' >> edit '//trim(filename)//' and rerun phantommoddump'
+    stop
  endif
 
 end subroutine get_moddump_options
 
-subroutine write_moddump_header(iunit)
- integer, intent(in) :: iunit
+!----------------------------------------------------------------
+!+
+!  write the .moddump file: header, then the moddump-specific options
+!+
+!----------------------------------------------------------------
+subroutine write_modfile(filename)
+ character(len=*), intent(in) :: filename
+ integer :: iunit
 
- write(iunit,"(a)")    '# moddump parameters file'
+ print "(a)",' writing moddump options file '//trim(filename)
+ open(newunit=iunit,file=filename,status='replace',form='formatted')
+ write(iunit,"(a)")    '# input file for phantommoddump'
  write(iunit,"(2a)")   '# input dump file modified: ',trim(moddump_dumpfile_in)
  write(iunit,"(a,g0)") '# output time of modified dump: ',moddump_time
+ call write_opts(iunit)
+ close(iunit)
 
-end subroutine write_moddump_header
+end subroutine write_modfile
 
-! Default interfaces for modifiers without parameter files.
-subroutine init_moddump_empty()
-end subroutine init_moddump_empty
+!----------------------------------------------------------------
+!+
+!  read the .moddump file, returning ierr/=0 if any option is
+!  missing or invalid
+!+
+!----------------------------------------------------------------
+subroutine read_modfile(filename,ierr)
+ use infile_utils, only:open_db_from_file,close_db
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr
+ integer, parameter :: iunit = 23
+ type(inopts), allocatable :: db(:)
+ integer :: nerr
 
-subroutine read_moddump_empty(filename,ierr)
- character(len=*), intent(in) :: filename
- integer, intent(out) :: ierr
- ierr = 0
-end subroutine read_moddump_empty
+ nerr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ if (ierr /= 0) return
+ call read_opts(db,nerr)
+ call close_db(db)
+ if (nerr > 0) then
+    print "(1x,i0,a)",nerr,' error(s) during read of moddump options file: re-writing...'
+    ierr = nerr
+ endif
 
-subroutine write_moddump_empty(filename)
- character(len=*), intent(in) :: filename
-end subroutine write_moddump_empty
+end subroutine read_modfile
 
 end module moddump_utils

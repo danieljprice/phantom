@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Stephane Michoulier
 !
 ! :Runtime parameters:
 !   - H_R_ref         : *H/R at R_ref (size distribution)*
@@ -40,11 +40,9 @@ module moddump
 !   - smaxcgs         : *maximum grain size [cm]*
 !   - smincgs         : *minimum grain size [cm]*
 !
-! :Dependencies: dim, dust, growth, infile_utils, io, moddump_utils,
+! :Dependencies: dim, dust, growth, io, moddump_utils,
 !   options, part, prompting, set_dust, units
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
@@ -72,23 +70,20 @@ module moddump
  real    :: outcenter(3) = 0.
  integer :: iremoveparttype = 0    ! 0=all, 1=gas only, 2=dust only
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,          only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth, &
-                        update_max_sizes
- use part,         only:igas,idust,set_particle_type,ndusttypes,ndustsmall,ndustlarge, &
-                        grainsize,graindens,dustfrac,delete_particles_outside_sphere
- use set_dust,     only:set_dustfrac,set_dustbinfrac
- use options,      only:use_dustfrac,use_porosity
- use growth,       only:set_dustprop,convert_to_twofluid,iporosity_growth=>iporosity
- use dust,         only:grainsizecgs,graindenscgs
- use units,        only:umass,udist
- use io,           only:fatal
+ use dim,           only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth, &
+                         update_max_sizes
+ use part,          only:igas,idust,set_particle_type,ndusttypes,ndustsmall,ndustlarge, &
+                         grainsize,graindens,dustfrac,delete_particles_outside_sphere
+ use set_dust,      only:set_dustfrac,set_dustbinfrac
+ use options,       only:use_dustfrac,use_porosity
+ use growth,        only:set_dustprop,convert_to_twofluid,iporosity_growth=>iporosity
+ use dust,          only:grainsizecgs,graindenscgs
+ use units,         only:umass,udist
+ use io,            only:fatal
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -112,9 +107,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  graindenscgs = 3.
 
  !
- !--prompt only when the driver did not find a parameter file
+ !--read parameters from the .moddump file, prompting if it does not exist
  !
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  ndusttypes = ngrainsizes
  iporosity_growth = iporosity
@@ -243,7 +238,7 @@ end subroutine modify_dump
 !  interactively set the moddump parameters
 !+
 !----------------------------------------------------------------
-subroutine read_interactive_moddumpfile()
+subroutine moddump_interactive()
  use prompting, only:prompt
  use dim,       only:use_dustgrowth,maxdustsmall,maxdustlarge
  use options,   only:use_dustfrac
@@ -307,23 +302,18 @@ subroutine read_interactive_moddumpfile()
     call prompt('Deleting which particles (0=all, 1=gas only, 2=dust only)?', iremoveparttype)
  endif
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
 !----------------------------------------------------------------
 !+
-!  write options to .moddump file
+!  write moddump options to the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- use dim,          only:use_dustgrowth
- use options,      only:use_dustfrac
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
-
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ use dim,           only:use_dustgrowth
+ use options,       only:use_dustfrac
+ integer, intent(in) :: iunit
 
  if (use_dustgrowth .and. use_dustfrac) then
     write(iunit,"(/,a)") '# converting from one fluid to two fluid (dustgrowth + dustfrac)'
@@ -371,29 +361,19 @@ subroutine write_moddump(filename)
  call write_inopt(outcenter(3),'outcenterz','z coordinate of the centre of the outer sphere',iunit)
  call write_inopt(iremoveparttype,'iremoveparttype','which particles to delete (0=all, 1=gas only, 2=dust only)',iunit)
 
- close(iunit)
-
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 !----------------------------------------------------------------
 !+
-!  read options from .moddump file
+!  read moddump options from the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use dim,          only:use_dustgrowth
- use options,      only:use_dustfrac
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
-
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ use dim,           only:use_dustgrowth
+ use options,       only:use_dustfrac
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
  if (use_dustgrowth .and. use_dustfrac) then
     call read_inopt(np_ratio,'np_ratio',db,min=1,errcount=nerr)
@@ -438,9 +418,6 @@ subroutine read_moddump(filename,ierr)
  call read_inopt(outcenter(3),'outcenterz',db,errcount=nerr)
  call read_inopt(iremoveparttype,'iremoveparttype',db,min=0,max=2,errcount=nerr)
 
- call close_db(db)
- if (nerr > 0) ierr = nerr
-
-end subroutine read_moddump
+end subroutine read_options_moddump
 
 end module moddump

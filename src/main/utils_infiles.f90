@@ -647,15 +647,19 @@ end subroutine read_inopt_real4
 !+
 !-----------------------------------------------------------------
 subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
- character(len=*), intent(out)   :: valstring
+ character(len=*), intent(inout) :: valstring
  character(len=*), intent(in)    :: tag
  type(inopts),     intent(inout) :: db(:)
  integer,          intent(out),   optional :: err
  integer,          intent(inout), optional :: errcount
  character(len=*), intent(in),    optional :: default
+ character(len=len(valstring)) :: val_default
  integer :: ierr
 
  ierr = 0
+ val_default = ''
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
  if (.not.match_inopt_in_db(db,tag,valstring)) ierr = -1
  if (present(err)) then
     err = ierr
@@ -667,7 +671,7 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  endif
  ! default string to use if the string read is blank
  if (present(default)) then
-    if (len_trim(valstring) <= 0) valstring = default
+    if (len_trim(valstring) <= 0) valstring = val_default
  endif
 
 end subroutine read_inopt_string

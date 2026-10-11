@@ -15,20 +15,14 @@ module moddump
 ! :Runtime parameters:
 !   - accrad : *accrete/remove particles outside this radius [code units]*
 !
-! :Dependencies: HIIRegion, deriv, infile_utils, io, moddump_utils, part,
+! :Dependencies: HIIRegion, deriv, io, moddump_utils, part,
 !   prompting, ptmass
 !
- use moddump_utils, only:prompt_for_params,write_moddump_header, &
-                         init_moddump=>init_moddump_empty
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
  ! runtime parameter
  real :: accrad = 10.   ! accrete/remove particles outside this radius [code units]
-
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .true.
- public :: moddump_interactive
 
 contains
 
@@ -39,6 +33,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use ptmass,        only:h_acc
  use deriv,         only:get_density_global
  use io,            only:fatal
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -46,7 +41,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i,isinkdeadhead,n,nsinkdead
  integer :: ll(nptmass)
 
- if (prompt_for_params) call read_interactive_moddumpfile()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  ll(:) = 0
  call accrete_particles_outside_sphere(accrad)
@@ -94,41 +89,44 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-subroutine read_interactive_moddumpfile()
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
  use prompting, only:prompt
 
  call prompt('Enter radius outside which to accrete particles (code units)',accrad,0.)
 
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 23
- type(inopts), allocatable :: db(:)
- integer :: nerr
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(accrad,'accrad',db,errcount=nerr,min=0.)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
-subroutine write_moddump(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 23
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(/,a)") '# moddump_temp parameters'
  call write_inopt(accrad,'accrad','accrete/remove particles outside this radius [code units]',iunit)
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
 end module moddump

@@ -110,7 +110,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  logical,           intent(in),    optional :: lumdisc
  real,              intent(in),    optional :: L_star,T_bg
  integer,           intent(out),   optional :: ierr
- character(len=20), intent(in),    optional :: prefix
+ character(len=*),  intent(in),    optional :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
  integer :: sigmaprofile,sigmaprofiledust
  real    :: Q,G,cs0,cs0dust,clight

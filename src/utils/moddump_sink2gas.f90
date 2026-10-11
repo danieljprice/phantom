@@ -14,27 +14,23 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, moddump_utils, mpidomain, part,
+! :Dependencies: eos, io, moddump_utils, mpidomain, part,
 !   setstar
 !
  use eos,     only:ieos,gamma,X_in,Z_in,use_var_comp,polyk
  use setstar, only:set_stars,shift_stars,set_defaults_stars,star_t,write_options_stars,read_options_stars
- use moddump_utils, only:prompt_for_params,write_moddump_header
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
  type(star_t), allocatable :: stars(:)
  logical :: relax = .true., write_rho_to_file = .false.
 
- public :: init_moddump,read_moddump,write_moddump
- logical, parameter :: moddump_interactive = .false.
- public :: moddump_interactive
-
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,hfact
- use io,           only:id,master
- use mpidomain,    only:i_belong
+ use part,          only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,hfact
+ use io,            only:id,master
+ use mpidomain,     only:i_belong
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -43,6 +39,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer(kind=8) :: npart_total
  integer :: ierr,nstars
  real    :: rhozero
+
+ call set_defaults()
+ call get_moddump_options(read_options_moddump,write_options_moddump)
+
  nstars = nptmass
  nptmass = 0
  !
@@ -66,42 +66,39 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-!
-!---Read/write moddump file------------------------------------------------
-!
-subroutine write_moddump(filename)
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ integer, intent(in) :: iunit
 
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
-
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_moddump_header(iunit)
  write(iunit,"(a)") '# parameter file for sink2gas moddump'
  call write_options_stars(stars,relax,write_rho_to_file,ieos,iunit,nstar=size(stars))
- close(iunit)
 
-end subroutine write_moddump
+end subroutine write_options_moddump
 
-subroutine read_moddump(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- print "(a)",' reading moddump options from '//trim(filename)
- nerr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_options_stars(stars,ieos,relax,write_rho_to_file,db,nerr)
- call close_db(db)
- if (nerr > 0) ierr = nerr
 
-end subroutine read_moddump
+end subroutine read_options_moddump
 
-subroutine init_moddump()
+!----------------------------------------------------------------
+!+
+!  set default options for each star from sink particles in the dump
+!+
+!----------------------------------------------------------------
+subroutine set_defaults()
  use part, only:nptmass,xyzmh_ptmass
  use io, only:fatal
  integer :: i
@@ -125,6 +122,6 @@ subroutine init_moddump()
     write(stars(i)%m,"(es20.10)") xyzmh_ptmass(4,i)
     write(stars(i)%hacc,"(es20.10)") xyzmh_ptmass(5,i)
  enddo
-end subroutine init_moddump
+end subroutine set_defaults
 
 end module moddump
