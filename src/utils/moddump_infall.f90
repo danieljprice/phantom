@@ -486,14 +486,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-!----------------------------------------------------------------
+!---------------------------------------------------------------------
 !+
 !  Return the pi rotation that gives a companion cloud with the
 !  requested angular-momentum symmetry.  A proper rotation R applied
 !  to both r and v gives L' = R L exactly, including any turbulent
 !  contribution to the cloud angular momentum.
 !+
-!----------------------------------------------------------------
+!---------------------------------------------------------------------
 subroutine get_symmetry_rotation(mode,L,cloud_centre,axis,angle,L_target)
  use physcon,     only:pi
  use vectorutils, only:cross_product3D,make_perp_frame

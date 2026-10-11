@@ -93,11 +93,11 @@ subroutine read_options_moddump(db,nerr)
 
 end subroutine read_options_moddump
 
-!----------------------------------------------------------------
+!---------------------------------------------------------------------
 !+
 !  set default options for each star from sink particles in the dump
 !+
-!----------------------------------------------------------------
+!---------------------------------------------------------------------
 subroutine set_defaults()
  use part, only:nptmass,xyzmh_ptmass
  use io, only:fatal

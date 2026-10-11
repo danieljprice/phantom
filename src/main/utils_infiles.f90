@@ -789,12 +789,12 @@ subroutine read_next_inopt(tag,valstring,iunit,ierr,nlinesread)
 
 end subroutine read_next_inopt
 
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 !+
 !  extract the tag and the string section containing the data value
 !  from the line read from the file
 !+
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
  character(len=*), intent(in)  :: line
  character(len=*), intent(out) :: name
@@ -880,11 +880,11 @@ subroutine get_inopt_string(valstring,varname,infile,iunit,ierr)
 
 end subroutine get_inopt_string
 
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 !+
 !  read a real variable matching the varname tag from an input file
 !+
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 subroutine get_inopt_real(rval,varname,infile,iunit,ierr)
  real,             intent(out) :: rval
  character(len=*), intent(in)  :: varname,infile
@@ -897,11 +897,11 @@ subroutine get_inopt_real(rval,varname,infile,iunit,ierr)
 
 end subroutine get_inopt_real
 
-!-----------------------------------------------------------------
+!------------------------------------------------------------------------
 !+
 !  read an integer variable matching the varname tag from an input file
 !+
-!-----------------------------------------------------------------
+!------------------------------------------------------------------------
 subroutine get_inopt_int(ival,varname,infile,iunit,ierr)
  integer,          intent(out) :: ival
  character(len=*), intent(in)  :: varname,infile
@@ -914,11 +914,11 @@ subroutine get_inopt_int(ival,varname,infile,iunit,ierr)
 
 end subroutine get_inopt_int
 
-!-----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  read a logical variable matching the varname tag from an input file
 !+
-!-----------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine get_inopt_logical(lval,varname,infile,iunit,ierr)
  logical,          intent(out) :: lval
  character(len=*), intent(in)  :: varname,infile
@@ -1616,12 +1616,12 @@ integer function count_overrides() result(n)
 
 end function count_overrides
 
-!--------------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  set the options as if given on the command line (e.g. for testing),
 !  until clear_overrides is called
 !+
-!--------------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine set_overrides(args)
  character(len=*), intent(in) :: args(:)
 
@@ -1655,12 +1655,12 @@ integer function count_unused_overrides() result(n)
 
 end function count_unused_overrides
 
-!--------------------------------------------------------------------
+!-------------------------------------------------------------------------
 !+
 !  store the --option=value strings from a list of arguments,
 !  skipping flags used by the programs themselves (--maxp, --nprocsfake)
 !+
-!--------------------------------------------------------------------
+!-------------------------------------------------------------------------
 subroutine load_overrides(args)
  character(len=*), intent(in) :: args(:)
  character(len=maxlen)    :: tag
@@ -1726,12 +1726,12 @@ logical function get_option_arg(iarg,name,val)
 
 end function get_option_arg
 
-!-------------------------------------------------------------------
+!------------------------------------------------------------------------
 !+
 !  check whether a string is of the form --name=value (or -name=value),
 !  returning the name and value
 !+
-!-------------------------------------------------------------------
+!------------------------------------------------------------------------
 logical function parse_option_string(arg,name,val)
  character(len=*), intent(in)  :: arg
  character(len=*), intent(out) :: name,val

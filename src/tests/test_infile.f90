@@ -88,12 +88,12 @@ subroutine test_parse_option_string(ntests,npass)
 
 end subroutine test_parse_option_string
 
-!--------------------------------------------
+!-------------------------------------------------------------------
 !+
 !  options on the command line override those in an existing file,
 !  and the file is rewritten with the values used
 !+
-!--------------------------------------------
+!-------------------------------------------------------------------
 subroutine test_override_existing_file(ntests,npass)
  use infile_utils, only:get_options,set_overrides,clear_overrides
  integer, intent(inout) :: ntests,npass
@@ -119,12 +119,12 @@ subroutine test_override_existing_file(ntests,npass)
 
 end subroutine test_override_existing_file
 
-!--------------------------------------------
+!---------------------------------------------------------------
 !+
 !  with no file, options on the command line are used with the
 !  defaults instead of prompting, and the file is written
 !+
-!--------------------------------------------
+!---------------------------------------------------------------
 subroutine test_override_no_file(ntests,npass)
  use infile_utils, only:get_options,set_overrides,clear_overrides
  integer, intent(inout) :: ntests,npass
@@ -148,12 +148,12 @@ subroutine test_override_no_file(ntests,npass)
 
 end subroutine test_override_no_file
 
-!--------------------------------------------
+!-------------------------------------------------------------
 !+
 !  with no file and no command line options, the options are
 !  prompted for and the file is written
 !+
-!--------------------------------------------
+!-------------------------------------------------------------
 subroutine test_prompt_no_file(ntests,npass)
  use infile_utils, only:get_options
  integer, intent(inout) :: ntests,npass
@@ -175,11 +175,11 @@ subroutine test_prompt_no_file(ntests,npass)
 
 end subroutine test_prompt_no_file
 
-!--------------------------------------------
+!---------------------------------------------------
 !+
 !  missing options are added to an incomplete file
 !+
-!--------------------------------------------
+!---------------------------------------------------
 subroutine test_incomplete_file(ntests,npass)
  use infile_utils, only:get_options
  integer, intent(inout) :: ntests,npass
@@ -202,12 +202,12 @@ subroutine test_incomplete_file(ntests,npass)
 
 end subroutine test_incomplete_file
 
-!--------------------------------------------
+!------------------------------------------------------------
 !+
 !  options on the command line that are not in the file are
 !  reported and do not change the values read
 !+
-!--------------------------------------------
+!------------------------------------------------------------
 subroutine test_unknown_override(ntests,npass)
  use infile_utils, only:get_options,set_overrides,clear_overrides,count_unused_overrides
  integer, intent(inout) :: ntests,npass
@@ -227,11 +227,11 @@ subroutine test_unknown_override(ntests,npass)
 
 end subroutine test_unknown_override
 
-!--------------------------------------------
+!---------------------------------------------------------------
 !+
 !  read_inopt for strings, with the variable itself as default
 !+
-!--------------------------------------------
+!---------------------------------------------------------------
 subroutine test_string_default(ntests,npass)
  use infile_utils, only:open_db_from_file,close_db,inopts,read_inopt
  integer, intent(inout) :: ntests,npass

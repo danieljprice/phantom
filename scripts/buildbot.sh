@@ -192,9 +192,10 @@ check_phantomsetup ()
       test_setupfile_options "$prefix.setup" "$flags" "$setup" $infile;
       #
       # check that --np=1000 etc. on the command line were applied to the .setup file
+      # (skipped if the .setup file has no np, np1, np2... option)
       #
-      for npval in $(sed -n 's/^ *np[0-9]* *= *\([0-9]*\).*/\1/p' "$prefix.setup"); do
-         if [ "$npval" == "1000" ]; then
+      for npval in $(sed -n 's/^ *np[0-9]* *= *\([^ !]*\).*/\1/p' "$prefix.setup"); do
+         if awk -v x="$npval" 'BEGIN{exit !(x+0 == 1000)}'; then
             print_result "command line option --np applied to .setup file" $pass;
          else
             print_result "FAIL: command line option --np not applied (np = $npval)" $fail;

@@ -60,7 +60,7 @@ module moddump_utils
 
 contains
 
-!----------------------------------------------------------------
+!----------------------------------------------------------------------
 !+
 !  read/write moddump options from/to prefix.moddump via get_options:
 !   - file complete   -> read it and return
@@ -69,7 +69,7 @@ contains
 !                        given on the command line), write the file,
 !                        then stop, as for phantomsetup
 !+
-!----------------------------------------------------------------
+!----------------------------------------------------------------------
 subroutine get_moddump_options(read_options,write_options,set_options)
  use infile_utils, only:get_options
  use io,           only:fileprefix,id,master
@@ -95,11 +95,11 @@ subroutine get_moddump_options(read_options,write_options,set_options)
 
 end subroutine get_moddump_options
 
-!----------------------------------------------------------------
+!----------------------------------------------------------------------
 !+
 !  write the .moddump file: header, then the moddump-specific options
 !+
-!----------------------------------------------------------------
+!----------------------------------------------------------------------
 subroutine write_modfile(filename)
  character(len=*), intent(in) :: filename
  integer :: iunit
