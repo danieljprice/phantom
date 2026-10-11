@@ -40,9 +40,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
 
- logical                :: file_exists
- character(len=20)      :: infile  = "bin_param.txt"
-
  if ((.not. use_dust) .or. (.not. use_dustgrowth)) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes AND DUSTGROWTH=yes'
     stop
@@ -50,18 +47,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  nmax = 0 !- deriv called once after moddump
 
- !- check if param file exists, created by python script growthtomcfost.py
- inquire(file=infile, exist=file_exists)
-
- if (file_exists) then
-    !- file created by phantom/scripts/growthtomcfost.py module
-    open(unit=420,file=infile)
-    read(420,*) force_smax, smax_user, bins_per_dex
-    close(unit=420)
- else
-    !- otherwise read the .moddump file (prompting if it does not exist)
-    call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
- endif
+ !- read options from the .moddump file (e.g. written by scripts/growthtomcfost.py), or prompt
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  !- delete dead or accreted particles before doing anything
  call delete_dead_or_accreted_particles(npart,npartoftype)
