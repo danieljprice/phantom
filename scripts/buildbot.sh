@@ -139,7 +139,11 @@ print_result()
      colour=$amber;;
   $fail )
      nfail=$(( nfail + 1 ));
-     colour=$red;;
+     colour=$red;
+     # list the failure in the GitHub Actions run summary
+     if [ "$GITHUB_ACTIONS" == "true" ]; then
+        echo "::error title=SETUP=${setup} (SYSTEM=${SYSTEM})::${text}";
+     fi;;
   * )
      colour=$white;;
   esac
@@ -265,6 +269,9 @@ check_phantommoddump()
          print_result "phantommoddump runs ok" $pass;
       else
          print_result "phantommoddump did not create moddump_00000" $warn;
+         if [ "$GITHUB_ACTIONS" == "true" ]; then
+            echo "::warning title=SETUP=${setup} (SYSTEM=${SYSTEM})::phantommoddump did not create moddump_00000";
+         fi
       fi
    fi
 }
@@ -453,6 +460,9 @@ for setup in $listofsetups; do
          text='**FAILED**';
          nfail=$((nfail + 1));
          echo $setup >> $faillog;
+         if [ "$GITHUB_ACTIONS" == "true" ]; then
+            echo "::error title=make SETUP=${setup} ${target} (SYSTEM=${SYSTEM})::compilation failed";
+         fi
       fi
       if [ -e $errorlogold ]; then
          diff $errorlogold $errorlog | tail -20 > warnings.tmp
