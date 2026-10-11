@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters:
 !   - lattice_type : *child arrangement (0=regular lattice, 1=random)*
-!   - nchild       : *number of children per particle (>= 2; forced to 13 for lattice)*
+!   - nchild       : *number of children per particle (13 allows a regular lattice)*
 !
 ! :Dependencies: moddump_utils, part, prompting, splitpart
 !
@@ -23,7 +23,7 @@ module moddump
 
  ! runtime parameters
  integer :: nchild       = 13   ! number of children per particle
- integer :: lattice_type = 0    ! 0 for regular lattice, 1 for random
+ integer :: lattice_type = 0    ! 0 for regular lattice (nchild=13 only), 1 for random
 
 contains
 
@@ -38,9 +38,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
- !-- the regular lattice requires a specific number of children
- if (lattice_type == 0) nchild = 13
- if (nchild < 2) stop 'error nchild cannot be < 2'
+ !-- the regular lattice is only possible for 13 children
+ if (nchild /= 13) lattice_type = 1
 
  !-- don't split accreted particles
  call delete_dead_or_accreted_particles(npart,npartoftype)
@@ -68,8 +67,8 @@ end subroutine modify_dump
 subroutine moddump_interactive()
  use prompting, only:prompt
 
- call prompt('Enter child arrangement (0=regular lattice, 1=random)',lattice_type,0,1)
- if (lattice_type /= 0) call prompt('Enter number of children per particle',nchild,2)
+ call prompt('Enter number of children per particle',nchild,2)
+ if (nchild == 13) call prompt('Enter child arrangement (0=regular lattice, 1=random)',lattice_type,0,1)
 
 end subroutine moddump_interactive
 
@@ -83,8 +82,8 @@ subroutine read_options_moddump(db,nerr)
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
- call read_inopt(lattice_type,'lattice_type',db,errcount=nerr,min=0,max=1)
  call read_inopt(nchild,'nchild',db,errcount=nerr,min=2)
+ if (nchild == 13) call read_inopt(lattice_type,'lattice_type',db,errcount=nerr,min=0,max=1)
 
 end subroutine read_options_moddump
 
@@ -98,8 +97,8 @@ subroutine write_options_moddump(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# split parameters'
- call write_inopt(lattice_type,'lattice_type','child arrangement (0=regular lattice, 1=random)',iunit)
- call write_inopt(nchild,'nchild','number of children per particle (>= 2; forced to 13 for lattice)',iunit)
+ call write_inopt(nchild,'nchild','number of children per particle (13 allows a regular lattice)',iunit)
+ if (nchild == 13) call write_inopt(lattice_type,'lattice_type','0=regular lattice, 1=random',iunit)
 
 end subroutine write_options_moddump
 

@@ -55,6 +55,7 @@ program phantommoddump
     print "(a,/)",trim(tagline)
     call get_command_argument(0,progname)
     print "(a)",' Usage: '//trim(progname)//' dumpfilein dumpfileout [time] [outformat] --maxp=50000000 '//trim(flags)
+    print "(a)",'        options in the .moddump file can be set as --option=value'
     stop
  endif
 
@@ -93,6 +94,7 @@ program phantommoddump
     print "(a,/)",trim(tagline)
     call get_command_argument(0,progname)
     print "(a)",' Usage: '//trim(progname)//' dumpfilein dumpfileout [time] [outformat] --maxp=50000000 '//trim(flags)
+    print "(a)",'        options in the .moddump file can be set as --option=value'
     stop
  endif
 

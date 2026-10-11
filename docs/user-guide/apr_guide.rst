@@ -3,7 +3,7 @@ Splitting/merging particles
 
 Splitting or merging particles can be used to increase (or decrease) the resolution of your simulation. The
 simplest form of this is to split (merge) a whole simulation into a higher (lower) resolution simulation. A good use
-case for this is to evolve an accretion disc for a long time at low resolution to settle initial transients, 
+case for this is to evolve an accretion disc for a long time at low resolution to settle initial transients,
 then split to high resolution for a smaller number of orbits.
 
 More complex splitting/merging can be achieved by using Adaptive Particle Refinement (APR) (see :ref:`apr`).
@@ -17,9 +17,11 @@ resolution simulation as follows::
   make splitpart
   ./splitpart dump_01000 split_01000 --nchild=13
 
-This will split each particle in the simulation into 13, placed in a regular lattice. The ``--nchild`` option
-specifies the number of children to split into. If you choose a number other than 13 the children will be
-be placed randomly rather than on a regular lattice.
+This will split each particle in the simulation into 13, placed on a regular lattice. The ``--nchild`` option
+specifies the number of children to split into. A regular lattice places 13 children; any other
+value of nchild places children randomly. You can also force random placement with 13 children using ``--lattice_type=1``.
+Without flags you will be prompted for these options. Choices are saved to ``split.moddump`` and reused
+for later runs (see :doc:`moddump`).
 
 Merging a whole simulation
 --------------------------

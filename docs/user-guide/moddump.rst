@@ -47,6 +47,15 @@ uses ``flyby.moddump``:
 The header of the ``.moddump`` file records which dump file was modified and
 the time given to the output dump.
 
+Any option in the ``.moddump`` file can also be set on the command line as
+``--option=value``, for example::
+
+   ./splitpart dump_01000 split_01000 --nchild=2
+
+Options given this way override the values in the file (or the defaults, without
+prompting, if there is no file yet), and the file is rewritten with the values
+that were used.
+
 Writing your own moddump module
 -------------------------------
 

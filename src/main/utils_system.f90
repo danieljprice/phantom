@@ -18,6 +18,7 @@ module systemutils
 !
  implicit none
  public :: get_command_option, get_command_option_real, get_command_option_logical
+ public :: get_option_arg
 
  private
 
@@ -32,19 +33,22 @@ function get_command_option(variable,default) result(val)
  character(len=*), intent(in) :: variable
  integer,          intent(in), optional :: default
  character(len=80) :: string
- integer(kind=8)   :: val
- integer :: ierr,nargs,ieq,iarg
+ integer(kind=8)   :: val,ival
+ real(kind=8)      :: rval
+ integer :: ierr
 
- val = 0.
+ val = 0
  if (present(default)) val = default
- nargs = command_argument_count()
- do iarg=1,nargs
-    call get_command_argument(iarg,string)
-    ieq = index(string,'=')
-    if (string(1:1)=='-' .and. index(string,variable) > 0 .and. ieq > 0) then
-       read(string(ieq+1:),*,iostat=ierr) val
+ if (find_option(variable,string)) then
+    read(string,*,iostat=ierr) ival
+    if (ierr == 0) then
+       val = ival
+    else
+       ! also allow values such as 1e6
+       read(string,*,iostat=ierr) rval
+       if (ierr == 0) val = nint(rval,kind=8)
     endif
- enddo
+ endif
 
 end function get_command_option
 
@@ -58,25 +62,21 @@ function get_command_option_real(variable,default) result(val)
  character(len=*), intent(in) :: variable
  real,             intent(in), optional :: default
  character(len=80) :: string
- real(kind=8) :: val
- integer :: ierr,nargs,ieq,iarg
+ real(kind=8) :: val,rval
+ integer :: ierr
 
  val = 0.d0
  if (present(default)) val = default
- nargs = command_argument_count()
- do iarg=1,nargs
-    call get_command_argument(iarg,string)
-    ieq = index(string,'=')
-    if (string(1:1)=='-' .and. index(string,variable) > 0 .and. ieq > 0) then
-       read(string(ieq+1:),*,iostat=ierr) val
-    endif
- enddo
+ if (find_option(variable,string)) then
+    read(string,*,iostat=ierr) rval
+    if (ierr == 0) val = rval
+ endif
 
 end function get_command_option_real
 
 !-------------------------------------------------------------------
 !+
-!  find real-valued option from command line arguments
+!  find logical-valued option from command line arguments
 !  as in --arg=blah
 !+
 !-------------------------------------------------------------------
@@ -84,20 +84,67 @@ function get_command_option_logical(variable,default) result(val)
  character(len=*), intent(in) :: variable
  logical,          intent(in), optional :: default
  character(len=80) :: string
- logical :: val
- integer :: ierr,nargs,ieq,iarg
+ logical :: val,lval
+ integer :: ierr
 
  val = .false.
  if (present(default)) val = default
- nargs = command_argument_count()
- do iarg=1,nargs
-    call get_command_argument(iarg,string)
-    ieq = index(string,'=')
-    if (string(1:1)=='-' .and. index(string,variable) > 0 .and. ieq > 0) then
-       read(string(ieq+1:),*,iostat=ierr) val
+ if (find_option(variable,string)) then
+    read(string,*,iostat=ierr) lval
+    if (ierr == 0) val = lval
+ endif
+
+end function get_command_option_logical
+
+!-------------------------------------------------------------------
+!+
+!  find the value string of the option with exactly this name
+!  on the command line (the last one, if given more than once)
+!+
+!-------------------------------------------------------------------
+logical function find_option(variable,valstring)
+ character(len=*), intent(in)  :: variable
+ character(len=*), intent(out) :: valstring
+ character(len=80) :: name,val
+ integer :: iarg
+
+ find_option = .false.
+ valstring = ''
+ do iarg=1,command_argument_count()
+    if (get_option_arg(iarg,name,val)) then
+       if (trim(name) == trim(variable)) then
+          find_option = .true.
+          valstring = val
+       endif
     endif
  enddo
 
-end function get_command_option_logical
+end function find_option
+
+!-------------------------------------------------------------------
+!+
+!  check whether command line argument iarg is of the form
+!  --name=value (or -name=value), returning the name and value
+!+
+!-------------------------------------------------------------------
+logical function get_option_arg(iarg,name,val)
+ integer,          intent(in)  :: iarg
+ character(len=*), intent(out) :: name,val
+ character(len=240) :: arg
+ integer :: ieq,istart
+
+ call get_command_argument(iarg,arg)
+ ieq = index(arg,'=')
+ istart = verify(arg,'-')   ! first character after the leading dashes
+ get_option_arg = (arg(1:1)=='-' .and. istart > 1 .and. ieq > istart)
+ if (get_option_arg) then
+    name = arg(istart:ieq-1)
+    val  = arg(ieq+1:)
+ else
+    name = ''
+    val  = ''
+ endif
+
+end function get_option_arg
 
 end module systemutils
