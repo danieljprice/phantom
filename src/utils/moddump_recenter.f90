@@ -18,6 +18,7 @@ module moddump
 ! :Dependencies: centreofmass, part
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 

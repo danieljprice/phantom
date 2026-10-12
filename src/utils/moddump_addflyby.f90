@@ -18,8 +18,8 @@ module moddump
 !   - m2      : *mass of secondary (in code units)*
 !   - norbits : *maximum number of binary orbits*
 !
-! :Dependencies: centreofmass, dim, infile_utils, io, part, physcon,
-!   prompting, setorbit, timestep, units
+! :Dependencies: centreofmass, dim, io, moddump_utils, part,
+!   prompting, setorbit, timestep
 !
 
  use setorbit,      only:orbit_t
@@ -35,15 +35,12 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,            only:nsinkproperties
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,igas,ihacc
- use prompting,         only:prompt
- use physcon,           only:au,solarm,pi,years
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
  use centreofmass,      only:reset_centreofmass
- use setorbit,          only:set_defaults_orbit,set_orbit,get_orbital_time
- use io,             only:id,master,fatal,fileprefix
- use infile_utils,   only:get_options,infile_exists
+ use setorbit,          only:set_orbit,get_orbital_time
+ use io,             only:id,master,fatal
+ use moddump_utils,  only:get_moddump_options
  use timestep,       only:tmax,dtmax
- use units,          only:in_code_units
 
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -61,21 +58,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call fatal('moddump','no sink particles in dump file')
  endif
 
-!--defaults (will be overridden by addflyby.moddump if present)
- call set_defaults_orbit(orbit)
- orbit%input_type = 1
- m2 = 0.1
- accr2 = 1.0
- norbits = 100
- deltat = 0.1
-
- !--read parameter file (or write template and stop)
- ! read/write from .moddump file
- !
- call get_options(trim(fileprefix)//'.moddump',id==master,ierr,&
-                  read_moddumpfile,write_moddumpfile,read_interactive_moddumpfile)
-
- if (ierr /= 0) stop 'run phantommoddump again with new .moddump file'
+ !--read parameters from the .moddump file, prompting if it does not exist
+ call set_defaults()
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  xyzmh_ptmass_in = 0.
  vxyz_ptmass_in = 0.
@@ -113,8 +98,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-subroutine read_interactive_moddumpfile()
- use prompting,         only:prompt
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
+ use prompting, only:prompt
 
  call prompt('Do you want to specify the flyby orbit as bound (elliptic) or'// &
                   ' unbound (parabolic/hyperbolic) or as observed dx,dv?'//new_line('A')// &
@@ -140,24 +130,17 @@ subroutine read_interactive_moddumpfile()
     endif
     orbit%e = 2.0
  end select
-end subroutine read_interactive_moddumpfile
+end subroutine moddump_interactive
 
 !----------------------------------------------------------------
 !+
-!  write options to .moddump file
+!  write moddump options to the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine write_moddumpfile(filename)
- use infile_utils,    only:write_inopt
- use setorbit,        only:write_options_orbit
- character(len=*), intent(in) :: filename
- integer :: iunit
-
- print *," writing moddump file now "//trim(filename)
-
- print "(a)",' writing setup options file '//trim(filename)
- open(newunit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for modifying a dump file by adding a flyby'
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ use setorbit,      only:write_options_orbit
+ integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# perturber parameters'
  call write_inopt(m2,'m2','mass of secondary (in code units)',iunit)
@@ -168,43 +151,43 @@ subroutine write_moddumpfile(filename)
  call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
  call write_inopt(deltat,'deltat','output interval as fraction of binary period',iunit)
 
- close(iunit)
-
-end subroutine write_moddumpfile
+end subroutine write_options_moddump
 
 !----------------------------------------------------------------
 !+
-!  read options from .moddump file
+!  read moddump options from the .moddump file
 !+
 !----------------------------------------------------------------
-subroutine read_moddumpfile(filename,ierr)
- use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
- use io,              only:error,fatal
- use setorbit,        only:read_options_orbit
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
- type(inopts), allocatable :: db(:)
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ use setorbit,      only:read_options_orbit
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- nerr = 0
- ierr = 0
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) return
  call read_inopt(m2,'m2',db,errcount=nerr,min=0.)
  call read_inopt(accr2,'accr2',db,errcount=nerr,min=0.)
  call read_options_orbit(orbit,m1,m2,db,nerr)
  call read_inopt(norbits,'norbits',db,errcount=nerr)
  call read_inopt(deltat,'deltat',db,errcount=nerr,default=0.1)
 
- call close_db(db)
+end subroutine read_options_moddump
 
- if (nerr > 0) then
-    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
-    ierr = nerr
- endif
+!----------------------------------------------------------------
+!+
+!  set default values of moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine set_defaults()
+ use setorbit, only:set_defaults_orbit
 
-end subroutine read_moddumpfile
+ call set_defaults_orbit(orbit)
+ orbit%input_type = 1
+ m2 = 0.1
+ accr2 = 1.0
+ norbits = 100
+ deltat = 0.1
+
+end subroutine set_defaults
 
 end module moddump
 

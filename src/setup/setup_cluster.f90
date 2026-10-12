@@ -24,12 +24,12 @@ module setup
 !   - ieos_in     : *eq. of state (1: isothermal, 8: barotropic, 21: HII region)*
 !   - mass_fac    : *mass unit in Msun*
 !   - mu          : *mean molecular weight*
-!   - n_particles : *number of particles in sphere*
+!   - np          : *number of particles in sphere*
 !   - relax       : *relax the cloud?*
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, setvfield, spherical, subgroup, systemutils,
+!   ptmass, setup_params, setvfield, spherical, subgroup,
 !   timestep, units, utils_shuffleparticles, velfield
 !
  use dim, only:maxvxyzu,mhd
@@ -76,7 +76,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use cooling,      only:Tfloor
  use options,      only:icooling
  use infile_utils, only:get_options,infile_exists
- use systemutils,  only:get_command_option
  use utils_shuffleparticles, only:shuffleparticles
  integer,          intent(in)    :: id
  integer,          intent(out)   :: npart
@@ -99,7 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
 
  !--Set default values
- np          = int(get_command_option('np',default=size(xyzh(1,:)))) ! can set default value with --np=1e5 flag (mainly for testsuite)
+ np          = size(xyzh(1,:))
  gamma       = 1.0           ! irrelevant for ieos = 1,8
  Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  Rsink_au    = 5.            ! Sink radius [au]
@@ -317,7 +316,7 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for cluster setup routines'
  write(iunit,"(/,a)") '# resolution'
- call write_inopt(np,'n_particles','number of particles in sphere',iunit)
+ call write_inopt(np,'np','number of particles in sphere',iunit)
  write(iunit,"(/,a)") '# units'
  call write_inopt(dist_fac,'dist_fac','distance unit in pc',iunit)
  call write_inopt(mass_fac,'mass_fac','mass unit in Msun',iunit)
@@ -350,13 +349,15 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: nerr
+ integer                       :: nerr,ierr_np
  type(inopts), allocatable     :: db(:)
 
  nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(np,'n_particles',db,errcount=nerr)
+ ! number of particles (older .setup files use the tag n_particles)
+ call read_inopt(np,'np',db,err=ierr_np)
+ if (ierr_np /= 0) call read_inopt(np,'n_particles',db,errcount=nerr)
  call read_inopt(dist_fac,'dist_fac',db,errcount=nerr)
  call read_inopt(mass_fac,'mass_fac',db,errcount=nerr)
  call read_inopt(Mcloud_msun,'M_cloud',db,errcount=nerr)

@@ -27,7 +27,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                          gmw,X_in,Z_in,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
- use part,          only:rho,eos_vars,itemp,igasP,igas
+ use part,          only:rho,eos_vars,itemp,igasP
  use units,         only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)

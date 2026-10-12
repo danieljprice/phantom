@@ -177,7 +177,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 
  ierr     = 0
  idot     = index(infile,'.in') - 1
- if (idot <= 1) idot = len_trim(infile)
+ if (idot < 1) idot = len_trim(infile)
  logfile    = infile(1:idot)//'01.log'
  dumpfile   = infile(1:idot)//'_00000.tmp'
  fileprefix = infile(1:idot)
@@ -192,7 +192,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        dumpfilenew = trim(fileprefix)
        ! prefix is the string before the last underscore
        idot = index(dumpfilenew,'_',back=.true.) - 1
-       if (idot <= 1) idot = len_trim(dumpfilenew)
+       if (idot < 1) idot = len_trim(dumpfilenew)
        fileprefix = dumpfilenew(1:idot)
        ! set the infile name to prefix.in
        infile = trim(fileprefix)//'.in'
@@ -375,7 +375,7 @@ function logfile2evfile(logfile) result(evfile)
  integer :: idot
 
  idot = index(logfile,'.log') - 1
- if (idot <= 1) idot = len_trim(logfile)
+ if (idot < 1) idot = len_trim(logfile)
  evfile  = logfile(1:idot)//'.ev'
 
 end function logfile2evfile

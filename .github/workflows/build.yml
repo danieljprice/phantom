@@ -99,12 +99,30 @@ jobs:
 
     - name: Summary of build failures with SYSTEM=${{ matrix.system }}
       if: success() || failure()
-      run: cat logs/build-failures-${{ matrix.system }}.txt || true
+      run: |
+        f=logs/build-failures-${{ matrix.system }}.txt
+        cat $f || true
+        # also list failures on the run summary page
+        if [ -s $f ]; then
+           { echo "### Build failures (SYSTEM=${{ matrix.system }})"; sed 's/^/- /' $f; } >> $GITHUB_STEP_SUMMARY
+        fi
 
     - name: Summary of setup failures with SYSTEM=${{ matrix.system }}
       if: success() || failure()
-      run: cat logs/setup-failures-${{ matrix.system }}.txt || true
+      run: |
+        f=logs/setup-failures-${{ matrix.system }}.txt
+        cat $f || true
+        # also list failures on the run summary page
+        if [ -s $f ]; then
+           { echo "### Setup failures (SYSTEM=${{ matrix.system }})"; sed 's/^/- /' $f; } >> $GITHUB_STEP_SUMMARY
+        fi
 
     - name: Summary of analysis failures with SYSTEM=${{ matrix.system }}
       if: success() || failure()
-      run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
+      run: |
+        f=logs/analysis-failures-${{ matrix.system }}.txt
+        cat $f || true
+        # also list failures on the run summary page
+        if [ -s $f ]; then
+           { echo "### Analysis failures (SYSTEM=${{ matrix.system }})"; sed 's/^/- /' $f; } >> $GITHUB_STEP_SUMMARY
+        fi

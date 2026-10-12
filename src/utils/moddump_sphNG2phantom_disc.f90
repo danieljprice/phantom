@@ -12,40 +12,52 @@ module moddump
 !
 ! :Owner: Alison Young
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - addsink : *add a sink from sink_properties.dat (in original cluster units)*
+!   - do_trim : *trim off stray particles outside a radius*
+!   - rmax    : *outer radius to trim to [au] (used if do_trim=T)*
 !
-! :Dependencies: boundary, centreofmass, dim, dynamic_dtmax, eos, part,
-!   physcon, prompting, readwrite_dumps, timestep, units
+! :Dependencies: centreofmass, dim, dynamic_dtmax, eos, io,
+!   moddump_utils, part, physcon, prompting, readwrite_dumps, timestep,
+!   units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
+ logical :: addsink = .false.   ! add a sink from sink_properties.dat
+ logical :: do_trim  = .false.  ! trim off stray particles
+ real    :: rmax     = 0.       ! outer radius to trim to in au
+
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use boundary,  only:set_boundary
+
  use eos,       only:gamma
  use dim,       only:maxtypes
- use units,     only:udist,unit_velocity,print_units,set_units,utime,umass,&
+ use units,     only:udist,unit_velocity,print_units,set_units,utime,umass, &
                      unit_energ,set_units_extra,unit_ergg
- use part,      only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,&
+ use part,      only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase, &
                      igas,istar,iamtype,delete_particles_outside_sphere
- use prompting,       only:prompt
+
  use physcon,         only:au,gg
  use readwrite_dumps, only:dt_read_in
  use timestep,        only:time,dt
  use dynamic_dtmax,   only:dtmax_max,dtmax_min
  use centreofmass,    only:reset_centreofmass
+ use moddump_utils,   only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real :: massoftype(:),rmax
+ real :: massoftype(:)
  real :: xyzh(:,:), vxyzu(:,:)
  integer :: iunit=26,j,npt
  integer :: i,gascount=0,sinkcount=0,othercount=0
  real    :: newutime,newuvel,temperature1,temperature2
- logical :: do_trim,addsink
 
  print*,' *** Importing sphNG dump file ***'
+ !
+ ! read parameters from the .moddump file, prompting if it does not exist
+ !
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  call print_units
  print *, 'setting gamma=5/3...'
@@ -75,7 +87,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
 ! read sink particle from file
- call prompt('Do you want to add a sink - in original cluster units? (y/n)',addsink)
  if (addsink) then
     print *, 'reading sink_properties.dat'
     open(unit=iunit,file='sink_properties.dat',status='old')
@@ -141,9 +152,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  ! Trim off stray particles
- call prompt('Do you want to trim? (y/n)',do_trim)
  if (do_trim) then
-    call prompt('Enter outer radius in au',rmax)
     call delete_particles_outside_sphere((/ 0d0,0d0,0d0/),rmax,npart)
     print *, 'Particles r> ',rmax,' deleted'
  endif
@@ -182,6 +191,49 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print *, 'utime=', utime
 
 end subroutine modify_dump
+
+!
+!---Interactively set the moddump parameters--------------------------------
+!
+subroutine moddump_interactive()
+ use prompting, only:prompt
+
+ call prompt('Do you want to add a sink - in original cluster units? (y/n)',addsink)
+ call prompt('Do you want to trim? (y/n)',do_trim)
+ if (do_trim) call prompt('Enter outer radius in au',rmax)
+
+end subroutine moddump_interactive
+
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(addsink,'addsink','add a sink from sink_properties.dat (in original cluster units)',iunit)
+ call write_inopt(do_trim,'do_trim','trim off stray particles outside a radius',iunit)
+ call write_inopt(rmax,'rmax','outer radius to trim to [au] (used if do_trim=T)',iunit)
+
+end subroutine write_options_moddump
+
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(addsink,'addsink',db,errcount=nerr)
+ call read_inopt(do_trim,'do_trim',db,errcount=nerr)
+ call read_inopt(rmax,'rmax',db,min=0.,errcount=nerr)
+
+end subroutine read_options_moddump
 
 real function calc_temp(u)
  use eos, only:gmw,gamma
