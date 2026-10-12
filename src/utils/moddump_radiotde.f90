@@ -441,11 +441,10 @@ subroutine read_options_moddump(db,nerr)
  use moddump_utils, only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
- integer, parameter :: in_num=50
- integer            :: i
+ integer            :: i,n
  character(len=20)  :: rstr,nstr
 
- call read_inopt(ignore_radius,'ignore_radius',db,min=0.,errcount=nerr)
+ call read_inopt(ignore_radius,'ignore_radius',db,errcount=nerr)
  call read_inopt(remove_overlap,'remove_overlap',db,errcount=nerr)
  call read_inopt(use_func,'use_func',db,errcount=nerr)
  if (use_func) then
@@ -454,10 +453,16 @@ subroutine read_options_moddump(db,nerr)
     call read_inopt(rhof_rho0,'rhof_rho0',db,errcount=nerr)
     call read_inopt(m_target,'m_target',db,errcount=nerr)
     call read_inopt(m_threshold,'m_threshold',db,errcount=nerr)
-    call read_inopt(nbreak,'nbreak',db,min=1,errcount=nerr)
+    call read_inopt(nbreak,'nbreak',db,min=1,max=9,errcount=nerr)
+    ! start from the current profile, so options missing from the file keep their values
     if (allocated(rhof_rbreak_in)) deallocate(rhof_rbreak_in)
     if (allocated(rhof_n_in)) deallocate(rhof_n_in)
-    allocate(rhof_rbreak_in(in_num),rhof_n_in(in_num))
+    allocate(rhof_rbreak_in(nbreak),rhof_n_in(nbreak))
+    rhof_n_in      = rhof_n(size(rhof_n))
+    rhof_rbreak_in = rhof_rbreak(size(rhof_rbreak))
+    n = min(nbreak,size(rhof_n))
+    rhof_n_in(1:n)      = rhof_n(1:n)
+    rhof_rbreak_in(1:n) = rhof_rbreak(1:n)
     call read_inopt(rhof_n_in(1),'rhof_n_1',db,errcount=nerr)
     rhof_rbreak_in(1) = rad_min
     do i=2,nbreak
@@ -476,9 +481,10 @@ subroutine read_options_moddump(db,nerr)
  call read_inopt(temperature,'temperature',db,errcount=nerr)
  call read_inopt(mu,'mu',db,errcount=nerr)
 
- ! Keep the serialised profile in input units before modify_dump converts it.
- if (use_func .and. nerr == 0) then
-    rhof_n = rhof_n_in(1:nbreak)
+ ! Keep the serialised profile in input units before modify_dump converts it
+ ! (also if options were missing, so they are written back with these values)
+ if (use_func) then
+    rhof_n      = rhof_n_in(1:nbreak)
     rhof_rbreak = rhof_rbreak_in(1:nbreak)
  endif
 

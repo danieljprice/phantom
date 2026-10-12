@@ -104,7 +104,7 @@ program phantommoddump
 !  read this if it exists
 !
  call set_default_options
- iloc = index(dumpfilein,'_0')
+ iloc = index(dumpfilein,'_0',back=.true.)
  if (iloc > 1) then
     fileprefix = trim(dumpfilein(1:iloc-1))
  else
@@ -123,7 +123,7 @@ program phantommoddump
 !--look for an existing input file with name corresponding to the OUTPUT dump file
 !  read this if it exists; this will overwrite the values from the input .in file
 !
- iloc = index(dumpfileout,'_0')
+ iloc = index(dumpfileout,'_0',back=.true.)
  if (iloc > 1) then
     fileprefix = trim(dumpfileout(1:iloc-1))
  else

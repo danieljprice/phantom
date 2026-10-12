@@ -272,6 +272,10 @@ subroutine read_options_moddump(db,nerr)
 
  call read_inopt(ioperation,'ioperation',db,min=1,max=7,errcount=nerr)
  call read_inopt(icreate,'icreate',db,min=0,max=2,errcount=nerr)
+ if (ioperation == 5 .and. icreate == 0) then
+    print "(a)",' ERROR: ioperation=5 (add GW) requires icreate = 1 or 2'
+    nerr = nerr + 1
+ endif
  call read_inopt(sep,'sep',db,min=0.,errcount=nerr)
  call read_inopt(synchro,'synchro',db,errcount=nerr)
  call read_inopt(fac,'fac',db,min=0.,errcount=nerr)

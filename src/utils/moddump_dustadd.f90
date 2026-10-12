@@ -76,7 +76,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim,           only:use_dust,maxdusttypes,maxdustlarge,maxdustsmall,use_dustgrowth, &
                          update_max_sizes
  use part,          only:igas,idust,set_particle_type,ndusttypes,ndustsmall,ndustlarge, &
-                         grainsize,graindens,dustfrac,delete_particles_outside_sphere
+                         grainsize,graindens,dustfrac
  use set_dust,      only:set_dustfrac,set_dustbinfrac
  use options,       only:use_dustfrac,use_porosity
  use growth,        only:set_dustprop,convert_to_twofluid,iporosity_growth=>iporosity
@@ -88,7 +88,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i,j,itype,ipart,iloc,np_gas,np_dust,maxdust,iremovetype
+ integer :: i,j,itype,ipart,iloc,np_gas,np_dust,maxdust,ifirst,ilast
  real    :: dustbinfrac(maxdusttypes),udens
 
  if (.not. use_dust) then
@@ -197,41 +197,58 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  !--delete particles if necessary
  !
- iremovetype = 0
- if (icutinside .or. icutoutside) then
-    select case (iremoveparttype)
-    case (1)
-       iremovetype = igas
-    case (2)
-       iremovetype = idust
-    case default
-       iremovetype = 0
-    end select
- endif
+ ! range of particle types to delete (0 = all types)
+ select case (iremoveparttype)
+ case (1)
+    ifirst = igas
+    ilast  = igas
+ case (2)
+    ifirst = idust                  ! all large dust types
+    ilast  = idust + ndustlarge - 1
+ case default
+    ifirst = 0
+    ilast  = 0
+ end select
 
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
-    if (iremovetype > 0) then
-       print*,'Removing particles type ',iremovetype
-       call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.,mytype=iremovetype)
-    else
-       call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.)
-    endif
+    do itype=ifirst,ilast
+       call cut_sphere(incenter,inradius,npart,.true.,itype)
+    enddo
  endif
 
  if (icutoutside) then
     print*,'Phantommoddump: Remove particles outside a particular radius'
     print*,'Removing particles outside radius ',outradius
-    if (iremovetype > 0) then
-       print*,'Removing particles type ',iremovetype
-       call delete_particles_outside_sphere(outcenter,outradius,npart,mytype=iremovetype)
-    else
-       call delete_particles_outside_sphere(outcenter,outradius,npart)
-    endif
+    do itype=ifirst,ilast
+       call cut_sphere(outcenter,outradius,npart,.false.,itype)
+    enddo
  endif
 
 end subroutine modify_dump
+
+!----------------------------------------------------------------
+!+
+!  delete particles of type itype (or all types if itype=0)
+!  inside or outside a sphere
+!+
+!----------------------------------------------------------------
+subroutine cut_sphere(center,radius,npart,inside,itype)
+ use part, only:delete_particles_outside_sphere
+ real,    intent(in)    :: center(3),radius
+ integer, intent(inout) :: npart
+ logical, intent(in)    :: inside
+ integer, intent(in)    :: itype
+
+ if (itype > 0) then
+    print*,'Removing particles type ',itype
+    call delete_particles_outside_sphere(center,radius,npart,revert=inside,mytype=itype)
+ else
+    call delete_particles_outside_sphere(center,radius,npart,revert=inside)
+ endif
+
+end subroutine cut_sphere
 
 !----------------------------------------------------------------
 !+

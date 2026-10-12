@@ -210,7 +210,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     ! set the binary
     if (use_corotating_frame) then
        iexternalforce = iext_corotate  !turns on corotation
-       call set_binary(m1,m2,a1,ecc,xyzmh1_stash(ihacc),hacc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
+       call set_binary(m1,m2,a1,ecc,xyzmh1_stash(ihacc),hacc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr, &
+                       omega_corotate)
        print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
        ! set all gas velocities in the corotating frame to 0 (corotating binary)
        do i=1,npart
@@ -880,12 +881,12 @@ subroutine reset_sink_property(xyzmh_ptmass)
  integer :: j
  real    :: fac
 
+ if (iselect < 1 .or. iselect > nptmass) stop 'wrong sink particle number'
  do j = 1,nsinkproperties
     write(iprint,"(3x,i2,1x,a,es10.3)")  j,xyzmh_ptmass_label(j),xyzmh_ptmass(j,iselect)
  enddo
 
  if (iproperty < 1 .or. iproperty > nsinkproperties) return
- if (iselect < 1 .or. iselect > nptmass) stop 'wrong sink particle number'
 
  select case (iproperty)
  case (ihacc,ihsoft,iReff)

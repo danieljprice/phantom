@@ -270,7 +270,7 @@ check_phantommoddump()
       else
          print_result "phantommoddump did not create moddump_00000" $warn;
          if [ "$GITHUB_ACTIONS" == "true" ]; then
-            echo "::warning title=SETUP=${setup} (SYSTEM=${SYSTEM})::phantommoddump did not create moddump_00000";
+            echo "::warning title=SETUP=${setup} (SYSTEM=${SYSTEM})::phantommoddump failed";
          fi
       fi
    fi

@@ -57,7 +57,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
-    call delete_particles_outside_sphere(incenter,inradius,np)
+    call delete_particles_outside_sphere(incenter,inradius,np,revert=.true.)
  endif
 
  if (icutoutside) then

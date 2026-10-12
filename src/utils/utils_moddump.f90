@@ -92,6 +92,9 @@ subroutine get_moddump_options(read_options,write_options,set_options)
     if (id==master) print "(/,a,/)",' >> edit '//trim(filename)//' and rerun phantommoddump'
     stop
  endif
+ ! rewrite the file so the header records the dump being modified
+ ! (done before modify_dump converts any options to code units)
+ if (id==master) call write_modfile(filename)
 
 end subroutine get_moddump_options
 

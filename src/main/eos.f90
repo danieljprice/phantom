@@ -262,6 +262,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
        mui      = mu_warm
        ponrhoi  = kb_on_mh*T_warm/mui/unit_velocity**2
        tempi    = T_warm
+       if (present(mu_local)) mu_local = mui
     else
        ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
        ponrhoi  = max(ponrhoi, cs_min*cs_min)
@@ -1915,7 +1916,7 @@ subroutine read_options_eos(db,nerr)
  if (ieos==25) call read_options_eos_zerotemp(db,nerr)
  if (ieos==26) then
     call read_inopt(T_warm,'T_warm',db,errcount=nerr,min=0.,default=T_warm)
-    call read_inopt(mu_warm,'mu_warm',db,errcount=nerr,min=0.,default=mu_warm)
+    call read_inopt(mu_warm,'mu_warm',db,errcount=nerr,min=0.1,default=mu_warm)
     call read_inopt(rho_branch_cgs,'rho_branch_cgs',db,errcount=nerr,min=0.,default=rho_branch_cgs)
  endif
 

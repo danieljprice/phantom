@@ -112,7 +112,7 @@ module setup
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins,get_cs_from_lum
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
-                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,idust_to_gas_norm,&
+                            ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,renorm_dust,&
                             dustbinfrac,check_dust_method,set_dust_grain_distribution
  use units,            only:umass,udist,utime
  use dim,              only:do_radiation
@@ -2773,7 +2773,7 @@ subroutine setup_interactive()
     call prompt('Use a finite periodic computational domain for the warm background?',periodic_domain)
     if (periodic_domain) call prompt('Enter periodic cube side length in au',box_size,0.)
     call prompt('Enter warm background temperature in K',T_warm,0.)
-    call prompt('Enter warm background mean molecular weight',mu_warm,0.)
+    call prompt('Enter warm background mean molecular weight',mu_warm,0.1)
     call prompt('Enter warm background density in g/cm^3',rho_warm_cgs,0.)
     call prompt('Enter EOS warm branch density threshold in g/cm^3',rho_branch_cgs,0.)
  endif
@@ -3473,7 +3473,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(box_size,'box_size',db,min=0.,errcount=nerr,default=box_size)
  call read_inopt(add_warm,'add_warm',db,errcount=nerr,default=add_warm)
  call read_inopt(T_warm,'T_warm',db,min=0.,errcount=nerr,default=T_warm)
- call read_inopt(mu_warm,'mu_warm',db,min=0.,errcount=nerr,default=mu_warm)
+ call read_inopt(mu_warm,'mu_warm',db,min=0.1,errcount=nerr,default=mu_warm)
  call read_inopt(rho_warm_cgs,'rho_warm_cgs',db,min=0.,errcount=nerr,default=rho_warm_cgs)
  call read_inopt(rho_branch_cgs,'rho_branch_cgs',db,min=0.,errcount=nerr,default=rho_branch_cgs)
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
@@ -3894,7 +3894,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
  !--Determine a global scaling to enforce the requested dust_to_gas
  dust_to_gas_scale = 1.
- if (idust_to_gas_norm == 1) then
+ if (renorm_dust) then
     if (maxval(dust_to_gas_sum_part) > 0.) then
        dust_to_gas_scale_lo = 0.
        dust_to_gas_scale_hi = 1.
@@ -4005,7 +4005,7 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
  if (abs(dust_to_gas_disc-dust_to_gas)/dust_to_gas > tol) then
     write(*,"(a,es15.8)") ' Requested dust-to-gas ratio is ',dust_to_gas
     write(*,"(a,es15.8)") '    Actual dust-to-gas ratio is ',dust_to_gas_disc
-    if (idust_to_gas_norm == 0) then
+    if (.not.renorm_dust) then
        call warning('setup_disc','dust-to-gas ratio differs from requested')
     else
        call fatal('setup_disc','dust-to-gas ratio is not correct')

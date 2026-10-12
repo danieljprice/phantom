@@ -122,14 +122,14 @@ subroutine moddump_interactive()
 
     racc = xyzmh_ptmass(ihacc,isinkpart)
     ! rescaling accretion radius for updated mass
-    racc = racc * (mass/mass_old)**(1./3)
+    if (mass_old > 0.) racc = racc * (mass/mass_old)**(1./3)
     call prompt('Enter new accretion radius for the sink:',racc,0.)
 
     hsoft = xyzmh_ptmass(ihsoft,isinkpart)
     call prompt('Enter new softening length for the sink:',hsoft,0.)
 
     newx = xyzmh_ptmass(1,isinkpart)
-    call prompt('Enter new x-coordinate for the sink in code units:',newx,0.)
+    call prompt('Enter new x-coordinate for the sink in code units:',newx)
 
     Lnuc = xyzmh_ptmass(ilum,isinkpart)
     Lnuc_cgs = Lnuc * unit_energ / utime

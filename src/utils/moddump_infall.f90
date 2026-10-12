@@ -152,9 +152,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  elseif (cloud_control_mode == 0 .and. empty_sim) then
     if (n_add <= 0) call fatal('moddump_infall','n_add must be > 0 for empty simulations')
     pmass = in_mass/real(n_add)
+    massoftype(igas) = pmass
  endif
 
- if (cloud_control_mode == 0) then
+ ! number of particles from the cloud mass (n_add is already set for empty simulations)
+ if (cloud_control_mode == 0 .and. .not.empty_sim) then
     n_add = int(in_mass/pmass)
  endif
 
@@ -466,18 +468,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  enddo
 
- ! The input disc typically uses ieos=3 (locally isothermal about the
- ! origin), which no longer makes sense once infall has been added. Swap
- ! it for the user-requested eos: 6 (locally isothermal about sink isink)
- ! or 14 (binary).
- if (ieos==3) then
+ ! The input disc typically uses a locally isothermal eos about the origin
+ ! (ieos=3) or about the central sink (ieos=6). Swap it for the
+ ! user-requested eos: 6 (locally isothermal about sink isink) or 14 (binary).
+ if (ieos==3 .or. ieos==6) then
     select case (ieos_infall)
     case (6)
        if (isink > nptmass) call fatal('moddump_infall','ieos_infall=6 requires isink <= nptmass')
-       write(*,*) "WARNING: Changing ieos from 3 to 6, centred on sink ", isink
+       print "(a,i0,a,i0)",' WARNING: Changing ieos from ',ieos,' to 6, centred on sink ',isink
        ieos = 6
     case (14)
-       write(*,*) "WARNING: Changing ieos from 3 to 14."
+       print "(a,i0,a)",' WARNING: Changing ieos from ',ieos,' to 14'
        ieos = 14
     end select
  endif
