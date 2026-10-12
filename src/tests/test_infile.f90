@@ -32,7 +32,7 @@ module testinfile
  character(len=20) :: label  = 'abc'
  logical           :: prompted = .false.  ! records whether set_pars was called
 
- character(len=*), parameter :: filename = 'test_infile_tmp.setup'
+ character(len=40) :: filename  ! temporary file, one per MPI task
 
 contains
 
@@ -44,9 +44,9 @@ contains
 subroutine test_infile(ntests,npass)
  integer, intent(inout) :: ntests,npass
 
- ! these tests read and write files, so only run them once
- if (id /= master) return
- write(*,"(/,a)") '--> TESTING PARAMETER FILE HANDLING'
+ ! run on all tasks (update_test_scores is collective) with one file per task
+ write(filename,"(a,i0,a)") 'test_infile_tmp',id,'.setup'
+ if (id==master) write(*,"(/,a)") '--> TESTING PARAMETER FILE HANDLING'
 
  call test_parse_option_string(ntests,npass)
  call test_override_existing_file(ntests,npass)
@@ -57,7 +57,7 @@ subroutine test_infile(ntests,npass)
  call test_string_default(ntests,npass)
  call delete_file(filename)
 
- write(*,"(/,a)") '<-- PARAMETER FILE TEST COMPLETE'
+ if (id==master) write(*,"(/,a)") '<-- PARAMETER FILE TEST COMPLETE'
 
 end subroutine test_infile
 
@@ -72,7 +72,7 @@ subroutine test_parse_option_string(ntests,npass)
  character(len=20) :: name,val
  integer :: nfailed(10)
 
- write(*,"(/,a)") '--> testing parsing of --option=value'
+ if (id==master) write(*,"(/,a)") '--> testing parsing of --option=value'
  nfailed = 0
  call checkval(parse_option_string('--np=1000',name,val),.true.,nfailed(1),'--np=1000 is an option')
  call checkval(name,'np',nfailed(2),'option name')
@@ -99,7 +99,7 @@ subroutine test_override_existing_file(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: ierr,nfailed(5)
 
- write(*,"(/,a)") '--> testing command line options with an existing file'
+ if (id==master) write(*,"(/,a)") '--> testing command line options with an existing file'
  nfailed = 0
  call set_defaults()
  call write_pars(filename)
@@ -130,7 +130,7 @@ subroutine test_override_no_file(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: ierr,nfailed(4)
 
- write(*,"(/,a)") '--> testing command line options with no file'
+ if (id==master) write(*,"(/,a)") '--> testing command line options with no file'
  nfailed = 0
  call set_defaults()
  call delete_file(filename)
@@ -159,7 +159,7 @@ subroutine test_prompt_no_file(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: ierr,nfailed(4)
 
- write(*,"(/,a)") '--> testing prompting with no file'
+ if (id==master) write(*,"(/,a)") '--> testing prompting with no file'
  nfailed = 0
  call set_defaults()
  call delete_file(filename)
@@ -185,7 +185,7 @@ subroutine test_incomplete_file(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: ierr,iunit,nfailed(3)
 
- write(*,"(/,a)") '--> testing incomplete file'
+ if (id==master) write(*,"(/,a)") '--> testing incomplete file'
  nfailed = 0
  call set_defaults()
  open(newunit=iunit,file=filename,status='replace',form='formatted')
@@ -213,7 +213,7 @@ subroutine test_unknown_override(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: ierr,nfailed(3)
 
- write(*,"(/,a)") '--> testing unknown command line option'
+ if (id==master) write(*,"(/,a)") '--> testing unknown command line option'
  nfailed = 0
  call set_defaults()
  call write_pars(filename)
@@ -238,7 +238,7 @@ subroutine test_string_default(ntests,npass)
  type(inopts), allocatable :: db(:)
  integer :: ierr,nfailed(1)
 
- write(*,"(/,a)") '--> testing string option with default'
+ if (id==master) write(*,"(/,a)") '--> testing string option with default'
  nfailed = 0
  call set_defaults()
  call write_pars(filename)
