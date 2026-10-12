@@ -17,7 +17,17 @@ module checkconserved
 !
 ! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
- use dim, only:maxdusttypes,use_apr
+ !
+ ! imports are consolidated here rather than in each routine, to avoid
+ ! an internal compiler error with aocc from re-reading large modules
+ !
+ use dim,            only:maxdusttypes,use_apr,mhd,maxvxyzu,periodic,inject_parts
+ use eos,            only:icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+ use options,        only:use_dustfrac,iexternalforce
+ use part,           only:iboundary,npartoftype,ndustsmall,massoftype,igas
+ use boundary_dyn,   only:dynamic_bdy
+ use externalforces, only:iext_corot_binary
+ use io,             only:id,master,iverbose,warning,error,fatal
  implicit none
  real, public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
  real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes),mtot_in
@@ -38,11 +48,6 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_conservation_checks()
- use eos,         only:icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
- use options,     only:use_dustfrac,iexternalforce
- use dim,         only:mhd,maxvxyzu,periodic,inject_parts,use_apr
- use part,        only:iboundary,npartoftype
- use boundary_dyn,only:dynamic_bdy
  !
  ! should conserve energy if using adiabatic equation of state with no cooling
  ! as long as all heating terms are included
@@ -90,9 +95,6 @@ end subroutine init_conservation_checks
 !+
 !----------------------------------------------------------------
 subroutine check_conservation_error(val,ref,tol,label,decrease)
- use io,             only:error,fatal,iverbose
- use options,        only:iexternalforce
- use externalforces, only:iext_corot_binary
  real,             intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
  logical,          intent(in), optional :: decrease
@@ -129,8 +131,6 @@ end subroutine check_conservation_error
 !+
 !----------------------------------------------------------------
 subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
- use io,   only:id,master,iverbose,warning
- use part, only:ndustsmall,massoftype,igas,mhd
  real,            intent(in) :: totmom,angtot,etot,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
  integer(kind=8), intent(in) :: np_e_eq_0,np_cs_eq_0
  integer :: j
@@ -162,7 +162,6 @@ end subroutine check_conservation_errors
 !+
 !----------------------------------------------------------------
 subroutine check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
- use io,      only:fatal
  real, intent(in) :: hdivBonB_ave,hdivBonB_max
 
  if (hdivBonB_max > 100 .or. hdivBonB_ave > 0.1) then
@@ -180,7 +179,6 @@ end subroutine check_magnetic_stability
 !+
 !----------------------------------------------------------------
 subroutine do_not_publish_crap(subr,msg)
- use io, only:fatal
  character(len=*), intent(in) :: subr,msg
  character(len=20) :: string
 
