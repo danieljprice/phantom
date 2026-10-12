@@ -205,6 +205,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  case (2)
     ifirst = idust                  ! all large dust types
     ilast  = idust + ndustlarge - 1
+    if (ndustlarge <= 0 .and. (icutinside .or. icutoutside)) print "(a)",' no large dust particles to remove'
  case default
     ifirst = 0
     ilast  = 0

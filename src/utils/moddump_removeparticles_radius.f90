@@ -46,24 +46,22 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: np
  !
  !--read parameters from the .moddump file, prompting if it does not exist
  !
  call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
- np = npart
 
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
-    call delete_particles_outside_sphere(incenter,inradius,np,revert=.true.)
+    call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.)
  endif
 
  if (icutoutside) then
     print*,'Phantommoddump: Remove particles outside a particular radius'
     print*,'Removing particles outside radius ',outradius
-    call delete_particles_outside_sphere(outcenter,outradius,np)
+    call delete_particles_outside_sphere(outcenter,outradius,npart)
  endif
 
 end subroutine modify_dump

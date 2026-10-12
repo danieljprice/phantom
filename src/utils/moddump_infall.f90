@@ -19,7 +19,7 @@ module moddump
 !   - cloud_control_mode : *cloud control mode (0=manual, 1=N sets size, 2=size sets mass)*
 !   - eccentricity       : *eccentricity*
 !   - ieos_infall        : *eos to set after infall (6=isothermal about sink, 14=binary)*
-!   - in_mass            : *infall mass per cloud (sym_infall > 0 doubles total)*
+!   - in_mass            : *infall mass per cloud in Msun (sym_infall > 0 doubles total)*
 !   - in_orbit           : *orbit type (0=parabolic, 1=hyperbolic)*
 !   - in_shape           : *infall material shape (0=sphere, 1=ellipse)*
 !   - incx               : *rotation on x axis (deg)*
@@ -66,13 +66,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use options,        only:use_dustfrac
  use part,           only:igas,xyzmh_ptmass,nptmass,gravity, &
                           dustfrac
- use units,          only:udist,utime,get_G_code
+ use units,          only:udist,utime,umass,get_G_code
  use io,             only:id,master,fatal
  use moddump_utils,  only:get_moddump_options
  use spherical,      only:set_sphere,set_ellipse
  use stretchmap,     only:rho_func
  use kernel,         only:hfact_default
- use physcon,        only:pi,au
+ use physcon,        only:pi,au,solarm
  use vectorutils,    only:cross_product3D,rotatevec
  use eos,            only:ieos,isink,get_spsound
  use velfield,       only:set_velfield_from_cubes
@@ -85,7 +85,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, allocatable :: xyzh_add(:,:),vxyzu_add(:,:)
  integer :: ipart,i,np,ierr
  integer(kind=8) :: nptot
- real    :: pmass,delta,big_omega,b_crit
+ real    :: pmass,delta,big_omega,b_crit,msun_code
  real    :: vp(3), xp(3), rellipsoid(3)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,n1
  real    :: y1,x1,dx,x_prime,y_prime
@@ -127,6 +127,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call set_defaults()
  call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
+ ! masses (in_mass, m_gas) are input in Msun; msun_code converts them to code units
+ msun_code = solarm/umass
+
  ! udist default is cm
  unit_velocity = udist/utime ! cm/s
  G = get_G_code()
@@ -147,26 +150,26 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if ((cloud_control_mode == 1 .or. cloud_control_mode == 2) .and. empty_sim) then
     write(*,*) "WARNING: Simulation has no mass, massoftype(igas) is not set."
     if (m_gas <= 0.) call fatal('moddump_infall','empty simulation: set m_gas (Msun) in .moddump file')
-    pmass = m_gas
+    pmass = m_gas*msun_code
     massoftype(igas) = pmass
  elseif (cloud_control_mode == 0 .and. empty_sim) then
     if (n_add <= 0) call fatal('moddump_infall','n_add must be > 0 for empty simulations')
-    pmass = in_mass/real(n_add)
+    pmass = in_mass*msun_code/real(n_add)
     massoftype(igas) = pmass
  endif
 
  ! number of particles from the cloud mass (n_add is already set for empty simulations)
  if (cloud_control_mode == 0 .and. .not.empty_sim) then
-    n_add = int(in_mass/pmass)
+    n_add = int(in_mass*msun_code/pmass)
  endif
 
  if (cloud_control_mode == 1 .and. .not. empty_sim) then
-    if (n_add <= 0 .and. pmass > 0.) n_add = int(in_mass/pmass)
+    if (n_add <= 0 .and. pmass > 0.) n_add = int(in_mass*msun_code/pmass)
  endif
 
  if (cloud_control_mode == 1) then
     ! n_add sets size (basically in_mass), this sets r_equiv
-    in_mass = real(n_add)*pmass
+    in_mass = real(n_add)*pmass/msun_code
     r_equiv = (in_mass/0.01)**(1./2.3) * 5000.
  elseif (in_shape == 0) then
     r_equiv = r_in
@@ -177,7 +180,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (cloud_control_mode == 2) then
     ! size sets mass, we already set r_in, r_a, so get the mass
     in_mass = 0.01*(r_equiv/5000.)**2.3
-    if (pmass > 0.) n_add = int(in_mass/pmass)
+    if (pmass > 0.) n_add = int(in_mass*msun_code/pmass)
  endif
 
  if (n_add <= 0) call fatal('moddump_infall','number of particles to add must be > 0')
@@ -310,7 +313,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        vol_obj = (4.0/3.0)*pi*r_in*r_in*r_a
     endif
 
-    rhoi = in_mass/vol_obj
+    rhoi = in_mass*msun_code/vol_obj
     spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1)) ! eos_type,xyzi,rhoi,vxyzui
     rms_in = spsound*rms_mach
 
@@ -640,7 +643,7 @@ subroutine write_options_moddump(iunit)
  call write_inopt(rho_mode,'rho_mode','density mode (0=current, 1=Dullemond Eq4/Eq5)',iunit)
  call write_inopt(cloud_control_mode,'cloud_control_mode','0=manual,1=N sets size,2=size sets mass',iunit)
  call write_inopt(n_add,'n_add','number of particles per cloud (sym_infall > 0 doubles total)',iunit)
- call write_inopt(in_mass,'in_mass','infall mass per cloud (sym_infall > 0 doubles total)',iunit)
+ call write_inopt(in_mass,'in_mass','infall mass per cloud in Msun (sym_infall > 0 doubles total)',iunit)
  call write_inopt(m_gas,'m_gas','gas particle mass in Msun for empty simulations (0 = use existing)',iunit)
  call write_inopt(r_in,'r_in','radius of shape (or semi-minor axis)',iunit)
  if (in_shape==1) call write_inopt(r_a,'r_a','semi-major axis of ellipse',iunit)

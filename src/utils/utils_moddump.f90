@@ -20,7 +20,7 @@ module moddump_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: infile_utils, io, mpiutils
 !
  use infile_utils, only:write_inopt,read_inopt,inopts
  implicit none
@@ -73,6 +73,7 @@ contains
 subroutine get_moddump_options(read_options,write_options,set_options)
  use infile_utils, only:get_options
  use io,           only:fileprefix,id,master
+ use mpiutils,     only:barrier_mpi
  procedure(read_opts_func)     :: read_options
  procedure(write_opts_func)    :: write_options
  procedure(set_func), optional :: set_options
@@ -93,7 +94,9 @@ subroutine get_moddump_options(read_options,write_options,set_options)
     stop
  endif
  ! rewrite the file so the header records the dump being modified
- ! (done before modify_dump converts any options to code units)
+ ! (done before modify_dump converts any options to code units, and
+ ! once all threads have finished reading it)
+ call barrier_mpi()
  if (id==master) call write_modfile(filename)
 
 end subroutine get_moddump_options

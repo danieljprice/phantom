@@ -193,6 +193,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     nstar1 = npart
     pmass1 = massoftype(igas)
     m1 = nstar1 * pmass1
+    ! primary sink properties (zero if the dump has no sink, i.e. no accretion radius)
+    xyzmh1_stash = 0.
+    vxyz1_stash  = 0.
     if (nptmass1 > 1) then
        call fatal('moddump_binary', 'unexpected number of sink particles in dump file (nptmass > 1)')
     elseif (nptmass1 == 1) then  ! there is a sink stellar core
