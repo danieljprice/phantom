@@ -763,7 +763,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! We don't have accurate data below 5K, but we don't necessarily want to impose a sharp floor there either.
 ! As a compromise, we reduce the cooling rate exponentially below 5 K.
 !
-       low_T_adjust = dexp(-1d1 / temp) / dexp(-1d1 / 5d0)
+       low_T_adjust = exp(-1d1 / temp) / exp(-1d1 / 5d0)
        rates(12) = rates(12) * low_T_adjust
     endif
  endif
