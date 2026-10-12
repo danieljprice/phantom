@@ -79,7 +79,7 @@ module eos
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
- public  :: eos_requires_isothermal,eos_works_with_radiation,eos_requires_polyk
+ public  :: eos_requires_isothermal,eos_works_with_radiation,eos_requires_polyk,eos_conserves_energy
  public  :: eos_allows_shock_and_work,eos_is_not_implemented,eos_has_pressure_without_u
 
  public :: irecomb  ! propagated from eos_gasradrec
@@ -1540,6 +1540,21 @@ logical function eos_works_with_radiation(ieos)
  end select
 
 end function eos_works_with_radiation
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether total energy should be conserved:
+!  adiabatic eos with no cooling and all heating terms included
+!+
+!-----------------------------------------------------------------------
+logical function eos_conserves_energy()
+ use dim, only:mhd,maxvxyzu
+
+ eos_conserves_energy = (maxvxyzu==4 .and. ieos==2 .and. icooling==0 .and. &
+                         ipdv_heating==1 .and. ishock_heating==1 .and. &
+                         (.not.mhd .or. iresistive_heating==1))
+
+end function eos_conserves_energy
 
 !-----------------------------------------------------------------------
 !+

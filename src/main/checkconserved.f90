@@ -21,8 +21,8 @@ module checkconserved
  ! imports are consolidated here rather than in each routine, to avoid
  ! an internal compiler error with aocc from re-reading large modules
  !
- use dim,            only:maxdusttypes,use_apr,mhd,maxvxyzu,periodic,inject_parts
- use eos,            only:icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
+ use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts
+ use eos,            only:eos_conserves_energy
  use options,        only:use_dustfrac,iexternalforce
  use part,           only:iboundary,npartoftype,ndustsmall,massoftype,igas
  use boundary_dyn,   only:dynamic_bdy
@@ -52,9 +52,7 @@ subroutine init_conservation_checks()
  ! should conserve energy if using adiabatic equation of state with no cooling
  ! as long as all heating terms are included
  !
- should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. &
-                          icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
-                          .and. (.not.mhd .or. iresistive_heating==1))
+ should_conserve_energy = eos_conserves_energy()
  !
  ! code should conserve momentum unless boundary particles are employed
  !
