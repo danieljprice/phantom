@@ -217,6 +217,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 
  ! if the input file is not found, create a default one
  if (ierr /= 0) then
+    call barrier_mpi()  ! wait for all ranks to finish opening before writing
     if (id == master) then
        call error('Phantom','input file '//trim(infile)//' not found')
        if (adjustl(infile(1:1)) /= ' ') then
@@ -225,7 +226,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
        endif
     endif
-    call barrier_mpi()  ! wait for master to finish writing before aborting
     call die
  endif
 
