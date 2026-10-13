@@ -39,7 +39,7 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen,
+! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
 !   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
 !   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, omputils,
 !   options, part, physcon, ptmass, ptmass_heating, radiation_utils,
@@ -928,7 +928,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself,rad,radprop,dens,metrics,apr_level,dt)
- use kernel,      only:grkern,cnormk,cnormk_tilde,radkern2,get_kernel_tilde
+ use kernel,      only:radkern2
+ use derivutils,  only:get_grkern_corrected
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
                        ihsoft
@@ -957,7 +958,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use timestep_ind,only:get_dt
 #endif
  use timestep,    only:bignumber,overcleanfac
- use options,     only:use_dustfrac,ireconav,limit_radiation_flux,two_kernel
+ use options,     only:use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
  use metric_tools,only:imet_minkowski,imetric
  use utils_gr,    only:get_bigv
@@ -1003,9 +1004,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: dt
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj,sinkinpair,iamsinki,iamsinkj,is_neigh
- real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
+ real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
- real    :: grkern_tildei,grkern_tildej,omegai,zetai,zetaomegaj,wtilde
+ real    :: grkern_tildei,grkern_tildej,omegai,zetai,zetaomegaj
 #ifdef GRAVITY
  real    :: softomegaj
 #endif
@@ -1144,7 +1145,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fsum(:) = 0.
  vsigmax = 0.
  pmassonrhoi = pmassi*rho1i
- hfacgrkern  = hi41*cnormk
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -1348,22 +1348,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
 
        if (q2i < radkern2) then
-          grkerni = grkern(q2i,qi)*hfacgrkern
-          if (two_kernel) then
-             call get_kernel_tilde(q2i,qi,wtilde,grkern_tildei)
-             grkern_tildei = grkern_tildei*hi41*cnormk_tilde
-          else
-             grkern_tildei = grkerni
-          endif
+          call get_grkern_corrected(q2i,qi,real(hi41),real(zetai*omegai),pmassj,grkerni,grkern_tildei)
 #ifdef GRAVITY
           call kernel_softening(q2i,qi,phii,fmi)
           phii   = phii*hi1
           fmi    = fmi*hi21
           dsofti = gradsofti*grkern_tildei*omegai
 #endif
-          if (pmassj > tiny(pmassj)) then
-             grkerni = grkerni + (zetai*omegai/pmassj)*grkern_tildei
-          endif
        else
           grkerni = 0.
 #ifdef GRAVITY
@@ -1380,21 +1371,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        !
        if (q2j < radkern2) then
           qj = (rij2*rij1)*hj1
-          grkernj = grkern(q2j,qj)*hj21*hj21*cnormk
-          if (two_kernel) then
-             call get_kernel_tilde(q2j,qj,wtilde,grkern_tildej)
-             grkern_tildej = grkern_tildej*hj21*hj21*cnormk_tilde
-          else
-             grkern_tildej = grkernj
-          endif
+          call get_grkern_corrected(q2j,qj,hj21*hj21,zetaomegaj,pmassi,grkernj,grkern_tildej)
 #ifdef GRAVITY
           call kernel_softening(q2j,qj,phij,fmj)
           fmj    = fmj*hj21
           dsoftj = softomegaj*grkern_tildej
 #endif
-          if (pmassi > tiny(pmassi)) then
-             grkernj = grkernj + (zetaomegaj/pmassi)*grkern_tildej
-          endif
           usej = .true.
        else
           grkernj = 0.

@@ -17,12 +17,12 @@ module test
 !
 ! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
 !   testcoala, testcooling, testcorotate, testdamping, testderivs,
-!   testdust, testeos, testexternf, testgeometry, testgnewton, testgr,
-!   testgravity, testgrowth, testindtstep, testiorig, testkdtree,
-!   testkernel, testlinalg, testlum, testmpi, testneigh, testnimhd,
-!   testorbits, testpart, testpoly, testptmass, testradiation, testrwdump,
-!   testsedov, testsetdisc, testsethier, testsetstar, teststep, testunits,
-!   testwind, timing
+!   testdivbproj, testdust, testeos, testexternf, testgeometry,
+!   testgnewton, testgr, testgravity, testgrowth, testindtstep, testiorig,
+!   testkdtree, testkernel, testlinalg, testlum, testmpi, testneigh,
+!   testnimhd, testorbits, testpart, testpoly, testptmass, testradiation,
+!   testrwdump, testsedov, testsetdisc, testsethier, testsetstar, teststep,
+!   testunits, testwind, timing
 !
  implicit none
  public :: testsuite
@@ -35,6 +35,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use io,           only:iprint,id,master,iverbose,error
  use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
+ use testdivbproj, only:test_divb_projection
  use teststep,     only:test_step
  use testneigh,    only:test_neigh
  use testkdtree,   only:test_kdtree
@@ -81,7 +82,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg
+ logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg,dodivb
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -141,6 +142,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dosinktree  = .false.
  doorbits    = .false.
  dolinalg    = .false.
+ dodivb      = .false.
 
  if (index(string,'deriv')     /= 0) doderivs    = .true.
  if (index(string,'grav')      /= 0) dogravity   = .true.
@@ -168,10 +170,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'units')     /= 0) dounits     = .true.
  if (index(string,'sinktree')  /= 0) dosinktree  = .true.
  if (index(string,'orbits')    /= 0) doorbits    = .true.
+ if (index(string,'divb')      /= 0) dodivb      = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,docoala,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits,dodivb/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -230,6 +233,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dosinktree = .true.
  case('linalg')
     dolinalg = .true.
+ case('divb')
+    dodivb = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -446,6 +451,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dolinalg.or.testall) then
     call test_linalg(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--adjoint div B projection
+!
+ if (dodivb.or.testall) then
+    call test_divb_projection(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

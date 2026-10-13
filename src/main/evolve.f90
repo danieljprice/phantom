@@ -17,10 +17,10 @@ module evolve
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, apr, boundary_dyn, centreofmass,
-!   checkconserved, dim, dynamic_dtmax, easter_egg, energies, evolve_utils,
-!   forcing, growth_coala, inject, io, io_control, io_summary, mpiutils,
-!   part, partinject, ptmass, radiation_utils, step_lf_global, timestep,
-!   timestep_ind, timing
+!   checkconserved, dim, divb_projection, dynamic_dtmax, easter_egg,
+!   energies, evolve_utils, forcing, growth_coala, inject, io, io_control,
+!   io_summary, mpiutils, part, partinject, ptmass, radiation_utils,
+!   step_lf_global, timestep, timestep_ind, timing
 !
  use dim, only:ind_timesteps
  implicit none
@@ -262,20 +262,21 @@ end subroutine evol_prestep
 !+
 !----------------------------------------------------------------
 subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,nactive,abortrun)
- use dim,           only:driving
- use io,            only:id,master,iprint
- use boundary_dyn,  only:dynamic_bdy,update_boundaries
- use centreofmass,  only:correct_bulk_motions
- use dynamic_dtmax, only:check_dtmax_for_decrease
- use easter_egg,    only:egged,bring_the_egg
- use evolve_utils,  only:update_time_and_dt,write_ev_files,check_and_write_dump,print_log
- use forcing,       only:correct_bulk_motion
- use io_control,    only:nout,nmaxdumps,twallmax,nfulldump
- use io_summary,    only:iosum_nreal,summary_counter,summary_printout,summary_printnow
- use part,          only:npart,nptmass,ntot
- use timing,        only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
- use timestep,      only:nsteps,rhomaxnow
- use timestep_ind,  only:istepfrac
+ use dim,             only:driving,mhd
+ use io,              only:id,master,iprint
+ use boundary_dyn,    only:dynamic_bdy,update_boundaries
+ use centreofmass,    only:correct_bulk_motions
+ use dynamic_dtmax,   only:check_dtmax_for_decrease
+ use easter_egg,      only:egged,bring_the_egg
+ use evolve_utils,    only:update_time_and_dt,write_ev_files,check_and_write_dump,print_log
+ use forcing,         only:correct_bulk_motion
+ use io_control,      only:nout,nmaxdumps,twallmax,nfulldump
+ use io_summary,      only:iosum_nreal,summary_counter,summary_printout,summary_printnow
+ use part,            only:npart,nptmass,ntot,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB
+ use timing,          only:get_timings,increment_timer,itimer_step,itimer_lastdump,timers,print_time
+ use timestep,        only:nsteps,rhomaxnow,use_divb_proj,divb_tol,divb_maxit
+ use timestep_ind,    only:istepfrac
+ use divb_projection, only:project_divb
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  real,             intent(inout) :: time
@@ -285,6 +286,7 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,n
  logical,          intent(out)   :: abortrun
  real(kind=4) :: t2,tcpu2,twallperdump
  logical      :: at_dump_time,iexist
+ integer      :: ierr_divb
 
  abortrun =.false.
 
@@ -302,6 +304,15 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,n
  !
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_lastdump,t2-t1,tcpu2-tcpu1)
+ !
+ !--div B projection to zero, once per dtmax
+ !
+ if (at_dump_time .and. mhd .and. use_divb_proj) then
+    call project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,&
+                      divb_tol,divb_maxit,nsteps,ierr_divb)
+    if (ierr_divb /= 0 .and. id == master) write(iprint,'(a,i2)') &
+       ' div B projection did not update the field, ierr =',ierr_divb
+ endif
  !
  !--Calculate total energy etc and write to ev file. Do this before writing dumps
  !   so that values calculated in energies are correctly included in the dumpfiles

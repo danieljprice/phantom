@@ -84,7 +84,7 @@ subroutine test_derivs(ntests,npass,string)
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testtwokernel,testall
  real              :: rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
- real              :: tolh_old
+ real              :: tolh_old,tol_h,tol_fmhd
  logical, allocatable :: mask(:)
 
  if (id==master) write(*,"(a,/)") '--> TESTING DERIVS MODULE'
@@ -166,6 +166,15 @@ subroutine test_derivs(ntests,npass,string)
 !
  call reset_dissipation_to_zero
  tolh = 1.e-5 ! BEWARE: if you change this, some of the test results will be different
+ !
+ !--Wendland kernels (used with APR) have larger errors on a cubic lattice
+ !
+ tol_h    = 3.e-4
+ tol_fmhd = 2.5e-2
+ if (is_wendland()) then
+    tol_h    = 4.e-3
+    tol_fmhd = 3.e-2
+ endif
 
 !
 !--use isothermal or adiabatic equation of state for all tests
@@ -320,7 +329,7 @@ subroutine test_derivs(ntests,npass,string)
 
     nfailed(:) = 0; m = 0; tol_fac = 1.
     call check_hydro(np,nfailed,m,hzero,mask)
-    if (use_apr) tol_fac = 5.
+    if (is_wendland()) tol_fac = 5.
     if (maxdvdx==maxp) then
        call checkvalf(np,xyzh,dvdx(1,:),dvxdx,1.7e-3,nfailed(m+1), 'dvxdx',mask)
        call checkvalf(np,xyzh,dvdx(2,:),dvxdy,2.5e-15*tol_fac,nfailed(m+2),'dvxdy',mask)
@@ -495,16 +504,16 @@ subroutine test_derivs(ntests,npass,string)
        !--check that various quantities come out as they should do
        !
        nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
+       call checkval(np,xyzh(4,:),hzero,tol_h,nfailed(1),'h (density)',mask)
 
        call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-3,nfailed(2),'divB (symm)',mask)
        call checkvalf(np,xyzh,dBevol(1,:),dBxdt,2.e-3,nfailed(3),'dBx/dt',mask)
        call checkvalf(np,xyzh,dBevol(2,:),dBydt,2.e-3,nfailed(4),'dBy/dt',mask)
        call checkvalf(np,xyzh,dBevol(3,:),dBzdt,2.e-2,nfailed(5),'dBz/dt',mask)
 
-       call checkvalf(np,xyzh,fxyzu(1,:),forcemhdx,2.5e-2,nfailed(9),'mhd force(x)',mask)
-       call checkvalf(np,xyzh,fxyzu(2,:),forcemhdy,2.5e-2,nfailed(10),'mhd force(y)',mask)
-       call checkvalf(np,xyzh,fxyzu(3,:),forcemhdz,2.5e-2,nfailed(11),'mhd force(z)',mask)
+       call checkvalf(np,xyzh,fxyzu(1,:),forcemhdx,tol_fmhd,nfailed(9),'mhd force(x)',mask)
+       call checkvalf(np,xyzh,fxyzu(2,:),forcemhdy,tol_fmhd,nfailed(10),'mhd force(y)',mask)
+       call checkvalf(np,xyzh,fxyzu(3,:),forcemhdz,tol_fmhd,nfailed(11),'mhd force(z)',mask)
        if (ndivcurlB >= 1) then
           call checkvalf(np,xyzh,divcurlB(idivB,:),divBfunc,1.e-3,nfailed(12),'div B (diff)',mask)
        endif
@@ -594,7 +603,7 @@ subroutine test_derivs(ntests,npass,string)
        !--check that various quantities come out as they should do
        !
        nfailed(:) = 0
-       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
+       call checkval(np,xyzh(4,:),hzero,tol_h,nfailed(1),'h (density)',mask)
        call checkvalf(np,xyzh,divBsymm(:),divBfunc,1.e-3,nfailed(2),'divB',mask)
        call checkvalf(np,xyzh,dBevol(1,:),dpsidx,8.5e-4,nfailed(3),'gradpsi_x',mask)
        call checkvalf(np,xyzh,dBevol(2,:),dpsidy,9.3e-4,nfailed(4),'gradpsi_y',mask)
@@ -633,7 +642,7 @@ subroutine test_derivs(ntests,npass,string)
           !--check that various quantities come out as they should do
           !
           nfailed(:) = 0
-          call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
+          call checkval(np,xyzh(4,:),hzero,tol_h,nfailed(1),'h (density)',mask)
           call checkvalf(np,xyzh,dBevol(1,:),dBambix,8.5e-4,nfailed(2),'dBambi_x',mask)
           call checkvalf(np,xyzh,dBevol(2,:),dBambiy,8.5e-4,nfailed(3),'dBambi_y',mask)
           call checkvalf(np,xyzh,dBevol(3,:),dBambiz,2.e-3,nfailed(4),'dBambi_z',mask)
@@ -1253,7 +1262,7 @@ end subroutine reset_mhd_to_zero
 !+
 !--------------------------------------
 subroutine check_hydro(n,nfailed,j,hzero,mask)
- use dim,       only:curlv,maxp,maxgradh,use_apr
+ use dim,       only:curlv,maxp,maxgradh
  use part,      only:xyzh,divcurlv,gradh,icurlvx,icurlvy,icurlvz
  use kernel,    only:kernelname
  use testutils, only:checkval,checkvalf
@@ -1265,7 +1274,7 @@ subroutine check_hydro(n,nfailed,j,hzero,mask)
  logical :: testgradh
 
  tol_dens = 3.6e-4
- if (use_apr) tol_dens = 4.e-3
+ if (is_wendland()) tol_dens = 4.e-3
  testgradh = (maxgradh==maxp .and. index(kernelname,'cubic') > 0)
 
  call checkval(n,xyzh(4,1:n),hzero,tol_dens,nfailed(j+1),'h (density)',mask)
@@ -2855,5 +2864,18 @@ subroutine rcut_mask(rcut,xyzh,npart,mask)
  enddo
 
 end subroutine rcut_mask
+
+!--------------------------------------
+!+
+!  true for Wendland kernels, which have larger lattice errors
+!  than the cubic spline (APR builds use Wendland C2)
+!+
+!--------------------------------------
+logical function is_wendland()
+ use kernel, only:kernelname
+
+ is_wendland = index(kernelname,'Wendland') > 0
+
+end function is_wendland
 
 end module testderivs

@@ -14,23 +14,29 @@ module timestep
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - C_cour       : *Courant factor*
-!   - C_force      : *dt_force factor*
-!   - overcleanfac : *factor to increase div B cleaning speed (decreases timestep)*
-!   - psidecayfac  : *div B diffusion parameter*
-!   - ptol         : *tolerance on pmom iterations*
-!   - tolv         : *tolerance on v iterations in timestepping*
-!   - xtol         : *tolerance on xyz iterations*
+!   - C_cour          : *Courant factor*
+!   - C_force         : *dt_force factor*
+!   - divb_maxit : *max conjugate-gradient iterations for div B projection*
+!   - divb_tol   : *relative tolerance for div B projection*
+!   - overcleanfac    : *factor to increase div B cleaning speed (decreases timestep)*
+!   - psidecayfac     : *div B diffusion parameter*
+!   - ptol            : *tolerance on pmom iterations*
+!   - tolv            : *tolerance on v iterations in timestepping*
+!   - use_divb_proj   : *project div B to zero every dtmax and reset psi*
+!   - xtol            : *tolerance on xyz iterations*
 !
-! :Dependencies: dim, infile_utils
+! :Dependencies: dim, infile_utils, io
 !
  implicit none
  real    :: tmax,dtmax
  real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
  real    :: rhomaxnow
  integer :: nsteps
- ! div B cleaning
- real    :: psidecayfac, overcleanfac
+ ! div B cleaning, and the optional projection at each synchronisation
+ real    :: psidecayfac,overcleanfac
+ logical :: use_divb_proj
+ real    :: divb_tol
+ integer :: divb_maxit
 
  ! internal global variables
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,dtinject,time
@@ -48,6 +54,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine set_defaults_timestep
+ use dim, only:mpi
 
  C_cour  = 0.3
  C_force = 0.25
@@ -60,6 +67,9 @@ subroutine set_defaults_timestep
  ! div B cleaning (MHD only)
  psidecayfac       = 1.0     ! ratio of parabolic to hyperbolic cleaning
  overcleanfac      = 1.0     ! factor by which to increase cleaning speed for div B cleaning
+ use_divb_proj     = .not.mpi ! project div B every dtmax (not available with MPI)
+ divb_tol          = 1.e-8   ! relative volume-weighted residual
+ divb_maxit        = 1000    ! safety cap on conjugate-gradient iterations
 
 end subroutine set_defaults_timestep
 
@@ -113,7 +123,7 @@ end subroutine print_dtlog
 !-----------------------------------------------------------------
 subroutine write_options_timestep(iunit)
  use infile_utils, only:write_inopt
- use dim,          only:gr,mhd
+ use dim,          only:gr,mhd,mpi
  integer, intent(in) :: iunit
 
  call write_inopt(C_cour,'C_cour','Courant factor',iunit)
@@ -126,6 +136,11 @@ subroutine write_options_timestep(iunit)
  if (mhd) then
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iunit)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase div B cleaning speed (decreases timestep)',iunit)
+    if (.not.mpi) then
+       call write_inopt(use_divb_proj,'use_divb_proj','project div B to zero every dtmax',iunit)
+       call write_inopt(divb_tol,'divb_tol','tolerance for div B projection',iunit,exp=.true.)
+       call write_inopt(divb_maxit,'divb_maxit','max iterations for div B projection',iunit)
+    endif
  endif
 
 end subroutine write_options_timestep
@@ -137,7 +152,8 @@ end subroutine write_options_timestep
 !-----------------------------------------------------------------
 subroutine read_options_timestep(db,nerr)
  use infile_utils, only:inopts,read_inopt
- use dim,          only:gr,mhd
+ use dim,          only:gr,mhd,mpi
+ use io,           only:fatal
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
@@ -151,6 +167,10 @@ subroutine read_options_timestep(db,nerr)
  if (mhd) then
     call read_inopt(psidecayfac,'psidecayfac',db,min=0.,max=2.,errcount=nerr,default=psidecayfac)
     call read_inopt(overcleanfac,'overcleanfac',db,min=1.,errcount=nerr,default=overcleanfac)
+    call read_inopt(use_divb_proj,'use_divb_proj',db,errcount=nerr,default=use_divb_proj)
+    call read_inopt(divb_tol,'divb_tol',db,min=0.,max=1.,errcount=nerr,default=divb_tol)
+    call read_inopt(divb_maxit,'divb_maxit',db,min=1,max=1000000,errcount=nerr,default=divb_maxit)
+    if (use_divb_proj .and. mpi) call fatal('read_options','use_divb_proj is not supported with MPI')
  endif
 
 end subroutine read_options_timestep

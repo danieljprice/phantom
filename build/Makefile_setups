@@ -1151,6 +1151,7 @@ endif
 ifeq ($(SETUP), testapr)
 #   unit tests for apr
     APR=yes
+    MHD=yes
     KNOWN_SETUP=yes
     PERIODIC=yes
 endif

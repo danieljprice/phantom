@@ -18,7 +18,7 @@ module sortutils
 !
  implicit none
  public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank
- public :: sort_by_radius
+ public :: sort_by_radius,sort_inplace
  public :: r2func,r2func_origin,set_r2func_origin
  interface indexx
   module procedure indexx_r4, indexx_i8
@@ -668,5 +668,53 @@ subroutine sort_by_radius(n,xyzh,iorder,x0)
  endif
 
 end subroutine sort_by_radius
+
+!----------------------------------------------------------------
+!+
+!  in-place heapsort of a(1:n) into ascending order
+!+
+!----------------------------------------------------------------
+subroutine sort_inplace(n,a)
+ integer, intent(in)    :: n
+ real,    intent(inout) :: a(:)
+ integer :: i,j,k,l
+ real    :: tmp
+
+ if (n <= 1) return
+ l = n/2 + 1
+ k = n
+ do
+    ! build the heap, then repeatedly move its largest element to the end
+    if (l > 1) then
+       l = l - 1
+       tmp = a(l)
+    else
+       tmp = a(k)
+       a(k) = a(1)
+       k = k - 1
+       if (k == 1) then
+          a(1) = tmp
+          return
+       endif
+    endif
+    ! sift tmp down to its place in the heap
+    i = l
+    j = l + l
+    do while (j <= k)
+       if (j < k) then
+          if (a(j) < a(j+1)) j = j + 1
+       endif
+       if (tmp < a(j)) then
+          a(i) = a(j)
+          i = j
+          j = j + j
+       else
+          j = k + 1
+       endif
+    enddo
+    a(i) = tmp
+ enddo
+
+end subroutine sort_inplace
 
 end module sortutils
