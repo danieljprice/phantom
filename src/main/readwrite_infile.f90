@@ -226,6 +226,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
        endif
     endif
+    call barrier_mpi()  ! wait for master to finish writing before aborting
     call die
  endif
 
