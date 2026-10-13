@@ -18,7 +18,7 @@ module sortutils
 !
  implicit none
  public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank
- public :: sort_by_radius,sort_inplace
+ public :: sort_by_radius,select_inplace
  public :: r2func,r2func_origin,set_r2func_origin
  interface indexx
   module procedure indexx_r4, indexx_i8
@@ -671,50 +671,71 @@ end subroutine sort_by_radius
 
 !----------------------------------------------------------------
 !+
-!  in-place heapsort of a(1:n) into ascending order
+!  in-place selection (quickselect): rearrange a(1:n) so that a(m)
+!  is the m-th smallest value, with a(1:m-1) <= a(m) <= a(m+1:n).
+!  Average cost O(n), unlike a full sort.
 !+
 !----------------------------------------------------------------
-subroutine sort_inplace(n,a)
- integer, intent(in)    :: n
+subroutine select_inplace(n,m,a)
+ integer, intent(in)    :: n,m
  real,    intent(inout) :: a(:)
- integer :: i,j,k,l
- real    :: tmp
+ integer :: i,j,l,ir,mid
+ real    :: pivot
 
- if (n <= 1) return
- l = n/2 + 1
- k = n
+ l  = 1
+ ir = n
  do
-    ! build the heap, then repeatedly move its largest element to the end
-    if (l > 1) then
-       l = l - 1
-       tmp = a(l)
-    else
-       tmp = a(k)
-       a(k) = a(1)
-       k = k - 1
-       if (k == 1) then
-          a(1) = tmp
-          return
+    if (ir <= l+1) then
+       ! one or two elements left
+       if (ir == l+1) then
+          if (a(ir) < a(l)) call swap(a(l),a(ir))
        endif
+       return
     endif
-    ! sift tmp down to its place in the heap
-    i = l
-    j = l + l
-    do while (j <= k)
-       if (j < k) then
-          if (a(j) < a(j+1)) j = j + 1
-       endif
-       if (tmp < a(j)) then
-          a(i) = a(j)
-          i = j
-          j = j + j
-       else
-          j = k + 1
-       endif
+    ! median of three as the pivot, placed in a(l+1)
+    mid = (l+ir)/2
+    call swap(a(mid),a(l+1))
+    if (a(l) > a(ir))   call swap(a(l),a(ir))
+    if (a(l+1) > a(ir)) call swap(a(l+1),a(ir))
+    if (a(l) > a(l+1))  call swap(a(l),a(l+1))
+    pivot = a(l+1)
+    ! partition around the pivot
+    i = l + 1
+    j = ir
+    do
+       i = i + 1
+       do while (a(i) < pivot)
+          i = i + 1
+       enddo
+       j = j - 1
+       do while (a(j) > pivot)
+          j = j - 1
+       enddo
+       if (j < i) exit
+       call swap(a(i),a(j))
     enddo
-    a(i) = tmp
+    a(l+1) = a(j)
+    a(j)   = pivot
+    ! keep the part that contains position m
+    if (j >= m) ir = j - 1
+    if (j <= m) l  = i
  enddo
 
-end subroutine sort_inplace
+end subroutine select_inplace
+
+!----------------------------------------------------------------
+!+
+!  swap two reals
+!+
+!----------------------------------------------------------------
+pure subroutine swap(x,y)
+ real, intent(inout) :: x,y
+ real :: tmp
+
+ tmp = x
+ x   = y
+ y   = tmp
+
+end subroutine swap
 
 end module sortutils

@@ -76,6 +76,7 @@ subroutine test_divb_projection(ntests,npass)
  Bevol(:,1:npart) = 0.
 
  call run_checks('equal masses',ntests,npass)
+ call check_zero_field(ntests,npass)
 
  if (use_apr) then
     ! two refinement levels, so neighbouring masses differ by a factor of 2
@@ -164,6 +165,43 @@ subroutine run_checks(label,ntests,npass)
  call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine run_checks
+
+!-----------------------------------------------------------------------
+!+
+!  Field that vanishes in part of the box: the practical stop on
+!  h|div B|/|B| must still fire, rather than running to the cap
+!+
+!-----------------------------------------------------------------------
+subroutine check_zero_field(ntests,npass)
+ use io,              only:id,master
+ use boundary,        only:xmin,dxbound
+ use part,            only:npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB
+ use deriv,           only:get_derivs_global
+ use divb_projection, only:project_divb
+ use testutils,       only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: maxit = 1000
+ integer :: i,ierr,nits,nfailed(2)
+ real    :: divb_before,divb_after,emag_ratio
+
+ if (id == master) write(*,"(/,a)") '--> checking projection with a zero-field region'
+ do i=1,npart
+    Bxyz(1:3,i) = bfunc(xyzh(1:3,i))
+    if (xyzh(1,i) < xmin + 0.25*dxbound) Bxyz(1:3,i) = 0.
+    Bevol(1:3,i) = Bxyz(1:3,i)/rho(i)
+    Bevol(4,i) = 0.
+ enddo
+ call get_derivs_global()
+
+ nfailed = 0
+ ! zero relative tolerance, so only the practical stop can end the solve
+ call project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,0.,maxit,1,ierr,&
+                   divb_before,divb_after,emag_ratio,nits)
+ call checkval(ierr,0,0,nfailed(1),'project_divb ierr')
+ call checkval(nits < maxit,.true.,nfailed(2),'practical stop before the cap')
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine check_zero_field
 
 !-----------------------------------------------------------------------
 !+

@@ -38,9 +38,11 @@ module divb_projection
  private
 
  ! compacted neighbour list and edge weights, rebuilt on every call:
- ! d_ij = cedge(1,ic)*rhat(:,ic) and d_ji = -cedge(2,ic)*rhat(:,ic)
+ ! d_ij = cedge(1,ic)*rhat(:,ic) and d_ji = -cedge(2,ic)*rhat(:,ic),
+ ! stored in single precision to save memory; D and G read the same
+ ! values, so they remain exact adjoints
  integer, allocatable :: ivar(:,:),ijvar(:)
- real,    allocatable :: rhat(:,:),cedge(:,:)
+ real(kind=4), allocatable :: rhat(:,:),cedge(:,:)
  real,    allocatable :: pmass(:),aval(:),qsum(:,:),honb(:)
  logical, allocatable :: active(:)
  integer              :: ncompact = 0
@@ -63,6 +65,10 @@ module divb_projection
  real, parameter :: chi_ftop  = 0.01
  real, parameter :: chi_fred0 = 0.1
 
+ ! floor on |B| in chi, as a fraction of the rms |B|, so that particles
+ ! with little or no field do not dominate the practical stop
+ real, parameter :: bfloor_frac = 1.e-6
+
 contains
 
 !-----------------------------------------------------------------------
@@ -73,7 +79,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,tol,maxit,nsteps,ierr,&
-                        divb_before,divb_after,emag_ratio)
+                        divb_before,divb_after,emag_ratio,nits)
  use io,   only:id,master,iprint,warning
  use pcg,  only:pcg_solve
  integer,      intent(in)    :: npart,maxit,nsteps
@@ -83,6 +89,7 @@ subroutine project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,tol,maxi
  real(kind=4), intent(inout) :: divcurlB(:,:)
  integer,      intent(out)   :: ierr
  real,         intent(out), optional :: divb_before,divb_after,emag_ratio
+ integer,      intent(out), optional :: nits
  integer :: i,niter,ninterval,ierr_pcg
  real    :: eb0,eb1,ratio
 
@@ -94,6 +101,7 @@ subroutine project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,tol,maxi
  if (npart > 0) call prepare_stencil(npart,xyzh,rho,gradh,ierr)
  if (npart <= 0 .or. ierr /= 0) then
     call set_optional_outputs(divb_before,divb_after,emag_ratio,rnorm0,rnorm,ratio)
+    if (present(nits)) nits = 0
     call release_storage
     return
  endif
@@ -164,6 +172,7 @@ subroutine project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,tol,maxi
     call warning('divb_proj','iteration cap reached before div B tolerance')
  endif
  call set_optional_outputs(divb_before,divb_after,emag_ratio,rnorm0,rnorm,ratio)
+ if (present(nits)) nits = niter
  call release_storage
 
 contains
@@ -283,7 +292,7 @@ subroutine prepare_stencil(npart,xyzh,rho,gradh,ierr)
  allocate(active(npart),pmass(npart),aval(npart),qsum(3,npart),honb(npart), &
           pimult(npart),svec(npart),zvec(npart),pvec(npart),wvec(npart),gvec(3,npart), &
           chi(npart),dchi(npart),ivar(3,npart),stat=ierr)
- if (ierr /= 0) call fatal('divb_proj','cannot allocate projection workspace')
+ if (ierr /= 0) call fatal('divb_proj','out of memory: set use_divb_proj = F')
 
  call build_neighbour_list(npart,xyzh)
  if (ncompact <= 0) then
@@ -310,20 +319,23 @@ subroutine build_neighbour_list(npart,xyzh)
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:)
  integer :: nneigh_average,icompactmax,ncompactlocal,nedges,ierr
+ integer(kind=8) :: nedges8
 
  ! first guess of 1.5 times the mean neighbour number; retry if short
  call compact_neigh_counts(npart,radkern,hfact,nneigh_average,icompactmax)
- nedges = max(int(1.5*nneigh_average)*npart,1)
+ nedges8 = int(1.5*nneigh_average,kind=8)*int(npart,kind=8)
+ if (nedges8 > huge(nedges)) call fatal('divb_proj','too many neighbour pairs: set use_divb_proj = F')
+ nedges = max(int(nedges8),1)
  do
     allocate(ijvar(nedges),stat=ierr)
-    if (ierr /= 0) call fatal('divb_proj','cannot allocate neighbour list')
+    if (ierr /= 0) call fatal('divb_proj','out of memory: set use_divb_proj = F')
     call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges)
     if (nedges <= size(ijvar)) exit
     deallocate(ijvar)
  enddo
  ncompact = ncompactlocal
  allocate(rhat(3,max(nedges,1)),cedge(2,max(nedges,1)),stat=ierr)
- if (ierr /= 0) call fatal('divb_proj','cannot allocate neighbour weights')
+ if (ierr /= 0) call fatal('divb_proj','out of memory: set use_divb_proj = F')
 
 end subroutine build_neighbour_list
 
@@ -391,20 +403,20 @@ subroutine build_weights(npart,xyzh,rho,gradh)
        if (periodic) call mod_boundary(dx,dy,dz)
        rij = sqrt(dx*dx + dy*dy + dz*dz)
        if (rij <= 0.) cycle
-       rhat(:,ic) = (/dx,dy,dz/)/rij
+       rhat(:,ic) = real((/dx,dy,dz/)/rij,kind=4)
        pmassj = pmass(j)
 
        ! d_ij = m_j/rho_i * grad_i W_ij(h_i), corrected for h(n)
        qi = rij*hi1
        call get_grkern_corrected(qi*qi,qi,hi1**4,zetaomegai,pmassj,grki,grkt)
-       cedge(1,ic) = pmassj*grki/rho(i)
+       cedge(1,ic) = real(pmassj*grki/rho(i),kind=4)
 
        ! same coefficient on the reversed pair; grad_j W points along -rhat
        hj1 = 1./xyzh(4,j)
        qj = rij*hj1
        zetaomegaj = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
        call get_grkern_corrected(qj*qj,qj,hj1**4,zetaomegaj,pmassi,grkj,grkt)
-       cedge(2,ic) = pmassi*grkj/rho(j)
+       cedge(2,ic) = real(pmassi*grkj/rho(j),kind=4)
     enddo
  enddo
  !$omp end parallel do
@@ -433,8 +445,8 @@ subroutine build_preconditioner(rho)
     do k=1,ivar(1,n)
        ic = ivar(2,n) + k
        j  = ijvar(ic)
-       qsum(:,i) = qsum(:,i) + cedge(1,ic)*rhat(:,ic)
-       if (active(j)) sumd2 = sumd2 + cedge(1,ic)**2*rho(j)/pmass(j)
+       qsum(:,i) = qsum(:,i) + real(cedge(1,ic))*rhat(:,ic)
+       if (active(j)) sumd2 = sumd2 + real(cedge(1,ic))**2*rho(j)/pmass(j)
     enddo
     aval(i) = dot_product(qsum(:,i),qsum(:,i))*rho(i)/pmass(i) + sumd2
  enddo
@@ -576,12 +588,26 @@ end function magnetic_energy
 subroutine set_h_on_B(npart,xyzh,Bxyz)
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:),Bxyz(:,:)
- integer :: i
+ integer :: i,nact
+ real    :: b2sum,bfloor
 
- !$omp parallel do default(none) private(i) shared(npart,active,honb,xyzh,Bxyz)
+ ! floor |B| at a fraction of its rms over the active set
+ b2sum = 0.
+ nact  = 0
+ !$omp parallel do default(none) private(i) shared(npart,active,Bxyz) reduction(+:b2sum,nact)
+ do i=1,npart
+    if (active(i)) then
+       b2sum = b2sum + dot_product(Bxyz(1:3,i),Bxyz(1:3,i))
+       nact  = nact + 1
+    endif
+ enddo
+ !$omp end parallel do
+ bfloor = bfloor_frac*sqrt(b2sum/max(nact,1)) + tiny(0.)
+
+ !$omp parallel do default(none) private(i) shared(npart,active,honb,xyzh,Bxyz,bfloor)
  do i=1,npart
     honb(i) = 0.
-    if (active(i)) honb(i) = xyzh(4,i)/max(norm2(Bxyz(1:3,i)),tiny(0.))
+    if (active(i)) honb(i) = xyzh(4,i)/max(norm2(Bxyz(1:3,i)),bfloor)
  enddo
  !$omp end parallel do
 
@@ -657,15 +683,16 @@ end subroutine measure_chi
 
 !-----------------------------------------------------------------------
 !+
-!  Root-mean-square of the ntop largest entries of a(1:n); a is sorted
+!  Root-mean-square of the ntop largest entries of a(1:n); a is reordered
 !+
 !-----------------------------------------------------------------------
 real function rms_of_largest(n,ntop,a)
- use sortutils, only:sort_inplace
+ use sortutils, only:select_inplace
  integer, intent(in)    :: n,ntop
  real,    intent(inout) :: a(:)
 
- call sort_inplace(n,a)
+ ! partition so that the ntop largest values are in a(n-ntop+1:n)
+ call select_inplace(n,n-ntop+1,a)
  rms_of_largest = sqrt(sum(a(n-ntop+1:n)**2)/real(ntop))
 
 end function rms_of_largest

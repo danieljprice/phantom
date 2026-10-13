@@ -172,6 +172,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call get_timings(tlast,tcpulast)
 
  failed = .false.
+ moresweep = .false.
  maxerrE2 = 0.
  maxerrU2 = 0.
  omega = 1.  ! default relaxation parameter (1 is equivalent to the Gauss-Seidel method)
