@@ -165,7 +165,7 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use io,           only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils, only:open_db_from_file,close_db,inopts,check_and_unroll_infile
- use mpiutils,     only:bcast_mpi
+ use mpiutils,     only:bcast_mpi,barrier_mpi
  character(len=*), intent(inout) :: infile
  character(len=*), intent(out)   :: logfile,evfile,dumpfile
  character(len=*), parameter   :: label = 'read_infile'
@@ -225,6 +225,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           call write_infile(infilenew,logfile,evfile,dumpfile,iwritein,iprint)
        endif
     endif
+    call barrier_mpi()  ! wait for master to finish writing before aborting
     call die
  endif
 
@@ -258,6 +259,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           write(*,"(/,a)") ' (try again using revised input file)'
        endif
     endif
+    call barrier_mpi()
     call die
  endif
 
