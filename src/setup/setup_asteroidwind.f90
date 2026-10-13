@@ -12,7 +12,7 @@ module setup
 ! :References:
 !   Trevascus et al. (2021), MNRAS 505, L21-L25
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - dumpsperorbit : *number of dumps per orbit*

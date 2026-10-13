@@ -113,14 +113,14 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
     polyk = 1.  ! overwrite initial value of polyk
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
     rmin = r(1)
-    pres = polyk*den**gamma
+    pres(1:npts) = polyk*den(1:npts)**gamma
  case(ifromfile)
     call read_rhotab_wrapper(trim(input_profile),ng_max,r,den,npts,&
                              polyk,gamma,rhocentre,Mstar,iexist,ierr)
     if (.not.iexist) call fatal('setup','density file does not exist')
     if (ierr > 0)    call fatal('setup','error in reading density file')
     rmin = r(1)
-    pres = polyk*den**gamma
+    pres(1:npts) = polyk*den(1:npts)**gamma
  case(ibpwpoly)
     get_dPdrho => get_dPdrho_piecewise
     call rho_piecewise_polytrope(r,den,rhocentre,Mstar,get_dPdrho,npts,ierr)
@@ -128,7 +128,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
     if (ierr == 2) call fatal('setup','failed to converge to a self-consistent density profile')
     rmin  = r(1)
     Rstar = r(npts)
-    pres = polyk*den**gamma
+    pres(1:npts) = polyk*den(1:npts)**gamma
  case(imesa,ikepler,iaton)
     deallocate(r,den,pres,temp,en,mtab)
     if (isoftcore > 0) then

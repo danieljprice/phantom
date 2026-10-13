@@ -139,7 +139,11 @@ print_result()
      colour=$amber;;
   $fail )
      nfail=$(( nfail + 1 ));
-     colour=$red;;
+     colour=$red;
+     # list the failure in the GitHub Actions run summary
+     if [ "$GITHUB_ACTIONS" == "true" ]; then
+        echo "::error title=SETUP=${setup} (SYSTEM=${SYSTEM})::${text}";
+     fi;;
   * )
      colour=$white;;
   esac
@@ -167,13 +171,14 @@ check_phantomsetup ()
    cp $phantomdir/bin/phantomsetup .;
    #
    # run ./phantomsetup prefix, answering any questions with "Enter"
+   # (without flags, which would skip the prompts)
    #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
-   flags="--np=1000"
+   flags="--np=1000 --np1=1000 --np2=1000"
    echo -e "$myinput" > myinput.txt;
    sed '/-e/d' myinput.txt > mycleanin.txt
-   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null; err=$?;
+   ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
    if [ $err -eq 0 ]; then
       print_result "runs" $pass;
    else
@@ -189,6 +194,18 @@ check_phantomsetup ()
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
       test_setupfile_options "$prefix.setup" "$flags" "$setup" $infile;
+      #
+      # check that --np=1000 etc. on the command line were applied to the .setup file
+      # (skipped if the .setup file has no np, np1, np2... option)
+      #
+      for npval in $(sed -n 's/^ *np[0-9]* *= *\([^ !]*\).*/\1/p' "$prefix.setup"); do
+         if awk -v x="$npval" 'BEGIN{exit !(x+0 == 1000)}'; then
+            print_result "command line option --np applied to .setup file" $pass;
+         else
+            print_result "FAIL: command line option --np not applied (np = $npval)" $fail;
+            myfail=$(( myfail + 1 ));
+         fi
+      done
    else
       print_result "no .setup file" $warn;
    fi
@@ -215,6 +232,7 @@ check_phantomsetup ()
             dumpfile="${prefix}_00000"
             if [ -s $dumpfile ]; then
                print_result "${dumpfile} successfully created" $pass;
+               check_phantommoddump $dumpfile;
             else
                print_result "FAIL: did not create ${dumpfile}" $fail;
                myfail=$(( myfail + 1 ));
@@ -233,6 +251,28 @@ check_phantomsetup ()
    fi
    if [ $myfail -gt 0 ]; then
       echo $setup >> $faillogsetup;
+   fi
+}
+#
+# check that phantommoddump (built for this setup) runs on a dump file.
+# The first run may only write the .moddump file, so run it twice,
+# answering any questions with "Enter"
+#
+check_phantommoddump()
+{
+   dumpin=$1;
+   if [ -e $phantomdir/bin/phantommoddump ]; then
+      cp $phantomdir/bin/phantommoddump .;
+      ./phantommoddump $dumpin moddump_00000 0. < mycleanin.txt > /dev/null;
+      ./phantommoddump $dumpin moddump_00000 0. < mycleanin.txt > /dev/null;
+      if [ -s moddump_00000 ]; then
+         print_result "phantommoddump runs ok" $pass;
+      else
+         print_result "phantommoddump did not create moddump_00000" $warn;
+         if [ "$GITHUB_ACTIONS" == "true" ]; then
+            echo "::warning title=SETUP=${setup} (SYSTEM=${SYSTEM})::phantommoddump failed";
+         fi
+      fi
    fi
 }
 #
@@ -264,7 +304,7 @@ test_setupfile_options()
        valstring="$param = $x"
        echo "checking $valstring for SETUP=$setup"
        rm $setupfile;
-       ./phantomsetup $setupfile $flags < mycleanin.txt > /dev/null;
+       ./phantomsetup $setupfile < mycleanin.txt > /dev/null;
        sed "s/$param.*=.*$/$valstring/" $setupfile > ${setupfile}.tmp
        mv ${setupfile}.tmp $setupfile
        if [ "X$x" == "X6" ]; then
@@ -401,9 +441,9 @@ for setup in $listofsetups; do
          mydebug='DEBUG=yes' # compile phantomsetup with DEBUG=yes for setup test
          #make clean >& /dev/null;
       fi
-      if [[ "$setup" == "blob" || "$setup" == "coaladisc" || "$setup" == "coala_collapse" ]]; then
+      if [[ "$setup" == "blob" || "$setup" == "coaladisc" || "$setup" == "coala_collapse" || "$SYSTEM" == "nvfortran" ]]; then
          mynowarn='';
-         echo "allowing warnings for SETUP=$setup"
+         echo "allowing warnings for SETUP=$setup SYSTEM=$SYSTEM"
       else
          mynowarn=$nowarn;
       fi
@@ -420,6 +460,9 @@ for setup in $listofsetups; do
          text='**FAILED**';
          nfail=$((nfail + 1));
          echo $setup >> $faillog;
+         if [ "$GITHUB_ACTIONS" == "true" ]; then
+            echo "::error title=make SETUP=${setup} ${target} (SYSTEM=${SYSTEM})::compilation failed";
+         fi
       fi
       if [ -e $errorlogold ]; then
          diff $errorlogold $errorlog | tail -20 > warnings.tmp

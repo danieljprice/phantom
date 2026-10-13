@@ -78,7 +78,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  logical                    :: iactivei,iamdusti,iamgasi,growable
 
  if (.not. allocated(neighlist)) then
-    !$omp parallel
+    !$omp parallel default(none) shared(xyzh)
     allocate(neighlist(size(xyzh,2)),xyzcache(4,maxcellcache))
     !$omp end parallel
  endif

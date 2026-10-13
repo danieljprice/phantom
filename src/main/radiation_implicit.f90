@@ -21,6 +21,7 @@ module radiation_implicit
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kernel,
 !   neighcompact, part, physcon, quartic, radiation_utils, timing, units
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
  use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
@@ -741,7 +742,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                   - dti*h2form + dti*dust_term) + dti*diffusion_numerator*betaval &
                   + stellarradiation*betaval - (chival-1.)*pcoleni
 
-       if ((u1term > 0. .and. u0term > 0. .or. u1term < 0. .and. u0term < 0.) .or. isnan(u0term)) then
+       if ((u1term > 0. .and. u0term > 0. .or. u1term < 0. .and. u0term < 0.) .or. ieee_is_nan(u0term)) then
           !$omp critical(quart)
           print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
           print *,"    ",EU0(4,i),rhoi,dti

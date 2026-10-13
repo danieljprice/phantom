@@ -109,6 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  filename = find_phantom_datafile(datafile,"starcluster")
  call read_ptmass_data(filename,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ if (ierr /= 0) call fatal('setup','data file not found: '//trim(filename))
 
  mtot = sum(xyzmh_ptmass(4,:))
 

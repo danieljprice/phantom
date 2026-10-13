@@ -56,7 +56,8 @@ subroutine init_step(npart,time,dtmax)
  !
  if (ind_timesteps) then
     if (time < tiny(time)) then
-       !$omp parallel do schedule(static) private(i)
+       !$omp parallel do schedule(static) default(none) &
+       !$omp shared(npart,ibin,nbinmax,iphase) private(i)
        do i=1,npart
           ibin(i) = nbinmax
           if (iamboundary(iamtype(iphase(i)))) ibin(i) = 0
@@ -66,7 +67,8 @@ subroutine init_step(npart,time,dtmax)
     ! twas is set so that at start of step we predict
     ! forwards to half of current timestep
     !
-    !$omp parallel do schedule(static) private(i)
+    !$omp parallel do schedule(static) default(none) &
+    !$omp shared(npart,twas,time,dtmax,ibin) private(i)
     do i=1,npart
        twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
     enddo

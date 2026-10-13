@@ -194,13 +194,15 @@ end subroutine write_binary_table
 !+
 !------------------------------------------------------------------------
 subroutine read_binary_table()
- integer :: i,j,k,m
+ use io, only:fatal
+ integer :: i,j,k,m,ierr
  character(len=120) :: filename
 
  ! find the table datafile
  filename = find_phantom_datafile('eos_binary_table.dat', 'eos/shen')
-! open the table datafile
- open(unit=1,file=trim(filename),status='old',form='unformatted')
+ ! open the table datafile
+ open(unit=1,file=trim(filename),status='old',form='unformatted',iostat=ierr)
+ if (ierr /= 0) call fatal('eos_shen','data file not found: '//trim(filename))
 
  if (.not.allocated(t1)) then
     allocate(t1(nr,nt,ny),y1(nr,nt,ny),d1(nr,nt,ny))

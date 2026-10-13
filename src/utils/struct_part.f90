@@ -75,7 +75,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 !  points until the structure function calculation is converged
 !
  converged = .false.
- !$omp parallel
+ !$omp parallel default(none)
  !$omp masked
 !$ print*,' Using ',omp_get_num_threads(),' cpus'
  !$omp end masked
@@ -113,7 +113,8 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
        !  the volume element m/rho, i.e., inversely proportional to rho
        !
        rhomax = 0.
-       !$omp parallel do schedule(static) private(i) reduction(max:rhomax)
+       !$omp parallel do schedule(static) default(none) &
+       !$omp shared(npart,rho) private(i) reduction(max:rhomax)
        do i=1,npart
           rhomax = max(rho(i),rhomax)
        enddo
@@ -212,9 +213,9 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 
     err(:) = 0.
     sfmax(:) = 0.
-    !$omp parallel do schedule(runtime) private(ibin) &
-    !$omp reduction(+:err) &
-    !$omp reduction(max:sfmax)
+    !$omp parallel do schedule(runtime) default(none) &
+    !$omp shared(nbins,ncount,sf,sfprev,norder) private(ibin,iorder,isf,temp) &
+    !$omp reduction(+:err) reduction(max:sfmax)
     do ibin=1,nbins
        if (ncount(ibin) > 0) then
           do iorder=1,norder
@@ -255,7 +256,7 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 
  print*,' Converged!'
 
- !$omp parallel do schedule(static) private(ibin)
+ !$omp parallel do schedule(static) default(none) shared(nbins,sf,sfprev) private(ibin)
  do ibin=1,nbins
     sf(:,:,ibin) = sfprev(:,:,ibin)
  enddo

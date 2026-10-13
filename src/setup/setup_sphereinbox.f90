@@ -46,7 +46,7 @@ module setup
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dynamic_dtmax,
 !   eos, eos_barotropic, infile_utils, io, io_control, kernel, mpidomain,
 !   options, part, physcon, prompting, ptmass, rho_profile,
-!   set_dust_options, setunits, setup_params, spherical, systemutils,
+!   set_dust_options, setunits, setup_params, spherical,
 !   timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,     only:mhd,graindens,grainsize,ndusttypes,ndustsmall,ndustlarge,rho
@@ -517,6 +517,7 @@ end subroutine set_binary_perturbation
 !+
 !----------------------------------------------------------------
 subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
+ use centreofmass, only:get_centreofmass
  use velfield,  only:set_velfield_from_cubes
  use datafiles, only:find_phantom_datafile
  use io,        only:fatal
@@ -527,7 +528,7 @@ subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
  real,    intent(in)    :: cs_sphere
  integer, intent(inout) :: npartsphere
  integer :: i,ierr
- real :: v2i,rmsmach,turbfac
+ real :: v2i,rmsmach,turbfac,xcom(3),vcom(3)
  character(len=120) :: filex,filey,filez
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
@@ -548,6 +549,12 @@ subroutine set_turbulent_velocity_field(npart,xyzh,vxyzu,cs_sphere,npartsphere)
  call set_velfield_from_cubes(xyzh(:,1:npartsphere),vxyzu(:,:npartsphere),npartsphere, &
                               filex,filey,filez,1.,r_sphere,.false.,ierr)
  if (ierr /= 0) call fatal('setup','error setting up velocity field on clouds')
+
+ ! remove the net velocity of the field sampled onto the sphere
+ call get_centreofmass(xcom,vcom,npartsphere,xyzh,vxyzu)
+ do i = 1,npartsphere
+    vxyzu(1:3,i) = vxyzu(1:3,i) - vcom
+ enddo
 
  rmsmach = 0.0
  print*, 'Turbulence being set by user'
@@ -879,7 +886,6 @@ subroutine setup_interactive()
  use units,            only:udist,umass
  use physcon,          only:au,solarm
  use set_dust_options, only:set_dust_interactive
- use systemutils,      only:get_command_option
  integer :: ilattice,npmax
  character(len=100) :: string
  logical :: make_sinks
@@ -895,7 +901,6 @@ subroutine setup_interactive()
  elseif (npmax < np) then
     np = 300000
  endif
- np = int(get_command_option('np',default=np)) ! can override default value with flag e.g. --np=1000 (mainly for test suite)
  call prompt('Enter the approximate number of particles in the sphere',np,0,npmax)
 
  ilattice = i_closepacked

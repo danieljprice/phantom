@@ -30,6 +30,8 @@ module neighkdtree
  type(kdnode),          allocatable :: nodeglobal(:)
  type(kdnode), public,  allocatable :: node(:)
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
+ integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
+ integer,      public               :: nactive_leaves = 0
  integer,      public , allocatable :: listneigh(:)
  integer,      public , allocatable :: listneigh_global(:)
 !$omp threadprivate(listneigh)
@@ -62,14 +64,17 @@ subroutine allocate_neigh
 
  call allocate_array('cellatid',       cellatid,       ncellsmaxglobal+1 )
  call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
+ call allocate_array('active_leaves',  active_leaves,  ncellsmax+1       )
  call allocate_array('nodeglobal',     nodeglobal,     ncellsmaxglobal+1 )
  call allocate_array('node',           node,           ncellsmax+1       )
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
-!$omp parallel
+!$omp parallel default(none) shared(maxp)
  call allocate_array('listneigh',listneigh,maxp)
 !$omp end parallel
  call allocate_array('listneigh_global',listneigh_global,maxp)
+ ! contents of active_leaves are undefined until list_active_leaves runs
+ nactive_leaves = 0
 
 end subroutine allocate_neigh
 
@@ -83,10 +88,12 @@ subroutine deallocate_neigh
 
  if (allocated(cellatid)) deallocate(cellatid)
  if (allocated(leaf_is_active)) deallocate(leaf_is_active)
+ if (allocated(active_leaves)) deallocate(active_leaves)
+ nactive_leaves = 0
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
-!$omp parallel
+!$omp parallel default(none)
  if (allocated(listneigh)) deallocate(listneigh)
 !$omp end parallel
  if (allocated(listneigh_global)) deallocate(listneigh_global)
@@ -116,16 +123,21 @@ subroutine set_hmaxcell(inode,hmaxcell)
  integer, intent(in) :: inode
  real,    intent(in) :: hmaxcell
  integer :: n
+ real    :: hmaxn
 
  n = inode
  node(n)%hmax = hmaxcell
 
- ! walk tree up
+ ! walk tree up, stopping at the first ancestor whose hmax already covers hmaxcell:
+ ! a node's hmax is never below its children's, so neither is any of its ancestors'.
+ ! Other threads update the same ancestors, so both the test and the update are atomic
  do while (node(n)%parent /= 0)
     n = node(n)%parent
-!$omp critical (crit_node_hmax)
+!$omp atomic read
+    hmaxn = node(n)%hmax
+    if (hmaxn >= hmaxcell) exit
+!$omp atomic
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
-!$omp end critical (crit_node_hmax)
  enddo
 
 end subroutine set_hmaxcell
@@ -179,7 +191,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  ! then the memory might be lost. So the following lines are a failsafe
  ! to ensure that the listneigh array is always allocated for each thread
  !
- !$omp parallel
+ !$omp parallel default(none) shared(maxp)
  if (.not. allocated(listneigh)) call allocate_array('listneigh',listneigh,maxp)
  !$omp end parallel
 
@@ -204,8 +216,64 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
        !endif
     endif
  endif
+ call list_active_leaves()
 
 end subroutine build_tree
+
+!-----------------------------------------------------------------------
+!+
+!  list the cells with leaf_is_active > 0, so that loops over cells
+!  (density, force) need not visit every node of the tree: with
+!  individual timesteps only a few leaves may be active
+!
+!  In parallel, in cell order: the active leaves are counted per chunk of
+!  cells, and a running total gives each chunk its place in the list.
+!+
+!-----------------------------------------------------------------------
+subroutine list_active_leaves()
+!$ use omp_lib, only:omp_get_max_threads
+ integer, allocatable :: nlist(:)
+ integer :: icell,ic,nchunk,n,k
+
+ n = int(ncells)
+ nchunk = 1
+!$ nchunk = omp_get_max_threads()
+ allocate(nlist(0:nchunk))
+ nlist = 0
+
+ !$omp parallel default(none) &
+ !$omp shared(n,leaf_is_active,nchunk,nlist,active_leaves,nactive_leaves) &
+ !$omp private(icell,ic,k)
+ !$omp do schedule(static)
+ do ic=1,nchunk
+    k = 0
+    do icell=int((int(ic-1,8)*n)/nchunk)+1,int((int(ic,8)*n)/nchunk)
+       if (leaf_is_active(icell) > 0) k = k + 1
+    enddo
+    nlist(ic) = k
+ enddo
+ !$omp enddo
+ !$omp single
+ do ic=1,nchunk
+    nlist(ic) = nlist(ic) + nlist(ic-1)
+ enddo
+ nactive_leaves = nlist(nchunk)
+ !$omp end single
+ !$omp do schedule(static)
+ do ic=1,nchunk
+    k = nlist(ic-1)
+    do icell=int((int(ic-1,8)*n)/nchunk)+1,int((int(ic,8)*n)/nchunk)
+       if (leaf_is_active(icell) > 0) then
+          k = k + 1
+          active_leaves(k) = icell
+       endif
+    enddo
+ enddo
+ !$omp enddo
+ !$omp end parallel
+ deallocate(nlist)
+
+end subroutine list_active_leaves
 
 !-----------------------------------------------------------------------
 !+

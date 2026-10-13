@@ -45,6 +45,7 @@ jobs:
           - gfortran
           - ifort
           - ifx
+          - nvfortran
         batch: ${{ fromJson(needs.matrix_prep.outputs.batch) }}
 
     name: build (batch ${{ matrix.batch }}/${{ needs.matrix_prep.outputs.nbatch }}, SYSTEM=${{ matrix.system }})
@@ -60,10 +61,10 @@ jobs:
       run: sudo apt-get update
 
     - name: Setup Fortran compiler
-      if: matrix.system == 'aocc' || matrix.system == 'ifort' || matrix.system == 'ifx'
+      if: matrix.system == 'aocc' || matrix.system == 'ifort' || matrix.system == 'ifx' || matrix.system == 'nvfortran'
       uses: fortran-lang/setup-fortran@main
       with:
-        compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || (matrix.system == 'ifx' && 'intel' || 'aocc') }}
+        compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || matrix.system == 'ifx' && 'intel' || matrix.system == 'nvfortran' && 'nvidia-hpc' || 'aocc' }}
 
     - name: Install numpy and matplotlib for analysis unit tests
       run: |
@@ -98,12 +99,30 @@ jobs:
 
     - name: Summary of build failures with SYSTEM=${{ matrix.system }}
       if: success() || failure()
-      run: cat logs/build-failures-${{ matrix.system }}.txt || true
+      run: |
+        f=logs/build-failures-${{ matrix.system }}.txt
+        cat $f || true
+        # also list failures on the run summary page
+        if [ -s $f ]; then
+           { echo "### Build failures (SYSTEM=${{ matrix.system }})"; sed 's/^/- /' $f; } >> $GITHUB_STEP_SUMMARY
+        fi
 
     - name: Summary of setup failures with SYSTEM=${{ matrix.system }}
       if: success() || failure()
-      run: cat logs/setup-failures-${{ matrix.system }}.txt || true
+      run: |
+        f=logs/setup-failures-${{ matrix.system }}.txt
+        cat $f || true
+        # also list failures on the run summary page
+        if [ -s $f ]; then
+           { echo "### Setup failures (SYSTEM=${{ matrix.system }})"; sed 's/^/- /' $f; } >> $GITHUB_STEP_SUMMARY
+        fi
 
     - name: Summary of analysis failures with SYSTEM=${{ matrix.system }}
       if: success() || failure()
-      run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
+      run: |
+        f=logs/analysis-failures-${{ matrix.system }}.txt
+        cat $f || true
+        # also list failures on the run summary page
+        if [ -s $f ]; then
+           { echo "### Analysis failures (SYSTEM=${{ matrix.system }})"; sed 's/^/- /' $f; } >> $GITHUB_STEP_SUMMARY
+        fi

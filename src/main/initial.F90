@@ -730,7 +730,7 @@ subroutine get_derivs_initial(time,dumpfile,ntot,dtnew_first,ierr)
 
  if (nalpha >= 2) then
     ialphaloc = 2
-    !$omp parallel do private(i)
+    !$omp parallel do default(none) shared(npart,alphaind,ialphaloc) private(i)
     do i=1,npart
        alphaind(1,i) = max(alphaind(1,i),alphaind(ialphaloc,i)) ! set alpha = max(alphaloc,alpha)
     enddo

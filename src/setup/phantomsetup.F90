@@ -67,6 +67,7 @@ program phantomsetup
  if (nargs < 1) then
     print "(a,/)",trim(tagline)
     print "(a)",' Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1'
+    print "(a)",'        options in the .setup file can be set as --option=value'
     print "(/,a)",' e.g. "phantomsetup mysim"'
     stop
  endif

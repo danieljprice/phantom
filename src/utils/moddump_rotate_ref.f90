@@ -12,11 +12,23 @@ module moddump
 !
 ! :Owner: Antoine Alaguero
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Omega     : *current disc position angle [deg]*
+!   - incl      : *current disc inclination [deg]*
+!   - ref_Omega : *reference position angle [deg]*
+!   - ref_incl  : *reference inclination [deg]*
 !
-! :Dependencies: part, physcon, vectorutils
+! :Dependencies: moddump_utils, part, physcon,
+!   prompting, vectorutils
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
+
+ ! runtime parameters (angles in degrees)
+ real :: incl      = 50.864   ! current disc inclination
+ real :: Omega     = 34.36    ! current disc position angle
+ real :: ref_incl  = 54.6     ! reference inclination (disc rotated into this plane)
+ real :: ref_Omega = 53.0     ! reference position angle
 
 contains
 
@@ -24,26 +36,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,              only:pi
  use part,                 only:xyzmh_ptmass,vxyz_ptmass,nptmass
  use vectorutils,          only:rotatevec
+ use moddump_utils,        only:get_moddump_options
+
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real                   :: alpha,gamma
- real                   :: ref_incl,ref_Omega
- real                   :: incl,Omega
  real                   :: a,b,c,d,e,f,g,h,i
  real                   :: temp_x,temp_y,temp_z
  real                   :: temp_vx,temp_vy,temp_vz
  real                   :: temp(3),temp_v(3)
  integer                :: j
 
- ! Angles of the current disc in deg
- incl = 50.864
- Omega = 34.36 !38.5
-
- ! Reference angles in deg : the disc will be put into that plane
- ref_incl = 54.6
- ref_Omega = 53    ! Omega in code units
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  ! Rotation angles & coeffs
  alpha = (ref_incl - incl) *pi/180    !about x
@@ -146,5 +152,53 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-end module moddump
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
+ use prompting, only:prompt
 
+ call prompt('Enter current disc inclination (deg)',incl)
+ call prompt('Enter current disc position angle Omega (deg)',Omega)
+ call prompt('Enter reference inclination (deg)',ref_incl)
+ call prompt('Enter reference position angle Omega (deg)',ref_Omega)
+
+end subroutine moddump_interactive
+
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(incl,'incl',db,errcount=nerr)
+ call read_inopt(Omega,'Omega',db,errcount=nerr)
+ call read_inopt(ref_incl,'ref_incl',db,errcount=nerr)
+ call read_inopt(ref_Omega,'ref_Omega',db,errcount=nerr)
+
+end subroutine read_options_moddump
+
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# reference-frame rotation angles (degrees)'
+ call write_inopt(incl,'incl','current disc inclination [deg]',iunit)
+ call write_inopt(Omega,'Omega','current disc position angle [deg]',iunit)
+ call write_inopt(ref_incl,'ref_incl','reference inclination [deg]',iunit)
+ call write_inopt(ref_Omega,'ref_Omega','reference position angle [deg]',iunit)
+
+end subroutine write_options_moddump
+
+end module moddump

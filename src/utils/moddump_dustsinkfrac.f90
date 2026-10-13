@@ -12,24 +12,29 @@ module moddump
 !
 ! :Owner: Josh Calcino
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - outer_radius : *radius within which to taper the dust fraction [code units]*
 !
-! :Dependencies: dim, part, prompting
+! :Dependencies: dim, moddump_utils, part, prompting
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
+
+ ! runtime parameter (written to / read from the prefix.moddump file)
+ real :: outer_radius = 10.   ! radius within which to taper the dust fraction [code units]
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use dim,          only:use_dust
- use part,         only:igas,idust,set_particle_type,ndusttypes,dustfrac
- use prompting,    only:prompt
+ use dim,           only:use_dust
+ use part,          only:igas,ndusttypes,dustfrac
+ use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,np_gas
- real    :: dust_to_gas,outer_radius,r_g
+ real    :: dust_to_gas,r_g
 
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'
@@ -38,7 +43,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  dust_to_gas = 0.01
 
- outer_radius = 10.
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
+
  !- grainsize and graindens already set if convert from one fluid to two fluid with growth
  np_gas = npartoftype(igas)
 
@@ -62,5 +68,45 @@ real function dust_frac_func(x)
  dust_frac_func = sin(x*pi/2)
 
 end function dust_frac_func
+
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
+ use prompting, only:prompt
+
+ call prompt('Enter outer radius within which to taper dustfrac (code units)',outer_radius,0.)
+
+end subroutine moddump_interactive
+
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(outer_radius,'outer_radius',db,errcount=nerr,min=0.)
+
+end subroutine read_options_moddump
+
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# dustsinkfrac parameters'
+ call write_inopt(outer_radius,'outer_radius','taper dust fraction within this radius [code units]',iunit)
+
+end subroutine write_options_moddump
 
 end module moddump

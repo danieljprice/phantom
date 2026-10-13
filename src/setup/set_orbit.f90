@@ -524,7 +524,7 @@ subroutine read_options_orbit(orbit,m1,m2,db,nerr,label,prefix,input_type)
  use infile_utils, only:inopts,read_inopt
  type(orbit_t),             intent(out)   :: orbit
  real,                      intent(in)    :: m1,m2
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
  character(len=*),          intent(in), optional :: label,prefix
  integer,                   intent(in), optional :: input_type

@@ -14,7 +14,7 @@ module cooling_molecular
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, eos, infile_utils, physcon, units
+! :Dependencies: datafiles, eos, infile_utils, io, physcon, units
 !
 
  implicit none
@@ -168,7 +168,8 @@ end subroutine calc_cool_molecular
 !+
 !-----------------------------------------------------------------------
 subroutine loadCoolingTable(data_array)
- use datafiles,  only:find_phantom_datafile
+ use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
 
  real, intent(out) :: data_array(40, 40, 40, 6)
 
@@ -196,35 +197,31 @@ subroutine loadCoolingTable(data_array)
  filename = find_phantom_datafile('radcool_all.dat','cooling')
  open(unit=iunit,file=trim(filename),status="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
+ if (istat /= 0) call fatal('cooling_molecular','data file not found: '//trim(filename))
 
  ! Begin loading in data
- openif: if (istat == 0) then
-    !!! Skip header
-    rewind(unit=iunit)
-    do o = 1, headerLines
-       read(iunit, *,iostat=istat, IOMSG = imsg)
-    enddo
+ !!! Skip header
+ rewind(unit=iunit)
+ do o = 1, headerLines
+    read(iunit, *,iostat=istat, IOMSG = imsg)
+ enddo
 
-    ! Read data
-    skipheaderif: if ((istat == 0)) then
-       readdo: do
-          read(iunit, *,iostat=istat) i, j, k, T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
-          if (istat /= 0) exit
-          data_array(i, j, k, :) = [T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN]
+ ! Read data
+ skipheaderif: if ((istat == 0)) then
+    readdo: do
+       read(iunit, *,iostat=istat) i, j, k, T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
+       if (istat /= 0) exit
+       data_array(i, j, k, :) = [T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN]
 
-       enddo readdo
+    enddo readdo
 
-       if (istat > 0) write(*, *) "Error at line ", i, j, k, " during loading data into array."
-
-    else
-       write(*, 100) headerLines
-100    format("Error: Header consists of more than ", I2, " lines.")
-       write(*, *) trim(imsg)
-    endif skipheaderif
+    if (istat > 0) write(*, *) "Error at line ", i, j, k, " during loading data into array."
 
  else
-    write(*, *) "Error: Radiative cooling table ", trim(filename) ," does not exist."
- endif openif
+    write(*, 100) headerLines
+100 format("Error: Header consists of more than ", I2, " lines.")
+    write(*, *) trim(imsg)
+ endif skipheaderif
 end subroutine loadCoolingTable
 
 !-----------------------------------------------------------------------
@@ -233,7 +230,8 @@ end subroutine loadCoolingTable
 !+
 !-----------------------------------------------------------------------
 subroutine loadCDTable(data_array)
- use datafiles,  only:find_phantom_datafile
+ use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
  real, intent(out) :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Read radiative cooling file
@@ -259,35 +257,31 @@ subroutine loadCDTable(data_array)
  iunit = 1
  filename = find_phantom_datafile('table_cd.dat','cooling')
  open(unit=iunit,file=filename,status="OLD",iostat=istat, IOMSG=imsg)
+ if (istat /= 0) call fatal('cooling_molecular','data file not found: '//trim(filename))
 
  ! Begin loading in data
- openif: if (istat == 0) then
-    !!! Skip header
-    rewind(unit=iunit)
-    do o = 1, headerLines
-       read(iunit, *,iostat=istat, IOMSG = imsg)
-    enddo
+ !!! Skip header
+ rewind(unit=iunit)
+ do o = 1, headerLines
+    read(iunit, *,iostat=istat, IOMSG = imsg)
+ enddo
 
-    !!! Read data
-    skipheaderif: if ((istat == 0)) then
-       readdo: do
-          read(iunit, *,iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
-          if (istat /= 0) exit
-          data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_sep, N_H]
+ !!! Read data
+ skipheaderif: if ((istat == 0)) then
+    readdo: do
+       read(iunit, *,iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
+       if (istat /= 0) exit
+       data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_sep, N_H]
 
-       enddo readdo
+    enddo readdo
 
-       if (istat > 0) write(*, *) "Error at line ", i, j, k, l, " during loading data into array."
-
-    else
-       write(*, 100) headerLines
-100    format("Error: Header consists of more than ", I2, " lines.")
-       write(*, *) trim(imsg)
-    endif skipheaderif
+    if (istat > 0) write(*, *) "Error at line ", i, j, k, l, " during loading data into array."
 
  else
-    write(*, *) "Error: Column density table ", trim(filename)," does not exist."
- endif openif
+    write(*, 100) headerLines
+100 format("Error: Header consists of more than ", I2, " lines.")
+    write(*, *) trim(imsg)
+ endif skipheaderif
 end subroutine loadCDTable
 
 !-----------------------------------------------------------------------
