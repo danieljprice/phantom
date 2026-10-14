@@ -96,6 +96,12 @@ program phantomsetup
  call allocate_memory(n_alloc, part_only=.true.)
 
  call set_default_options
+
+!
+!--initialise MPI before anything that uses it (read_infile here)
+!
+ if (mpi) call init_mpi(id,nprocs)
+
 !
 !--if input file exists, read it
 !
@@ -113,7 +119,6 @@ program phantomsetup
  if (gr) call update_metric(time)
 
  if (mpi) then
-    call init_mpi(id,nprocs)
     call init_domains(nprocs)
     nprocsfake = 1
  else ! non-mpi
