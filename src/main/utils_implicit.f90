@@ -14,7 +14,7 @@ module implicit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, physcon
+! :Dependencies: io, neighcompact
 !
  implicit none
  integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average
@@ -31,8 +31,8 @@ contains
 !+
 !---------------------------------------------------------
 subroutine allocate_memory_implicit(npart,radkern,hfact,ierr)
- use io,      only:fatal
- use physcon, only:pi
+ use io,           only:fatal
+ use neighcompact, only:compact_neigh_counts
  integer, intent(in)  :: npart
  real,    intent(in)  :: radkern,hfact
  integer, intent(out) :: ierr
@@ -40,8 +40,7 @@ subroutine allocate_memory_implicit(npart,radkern,hfact,ierr)
  if (done_allocation) then
     return
  else
-    nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
-    icompactmax = int(1.2*10.*nneigh_average*npart)
+    call compact_neigh_counts(npart,radkern,hfact,nneigh_average,icompactmax)
     allocate(ivar(3,npart),stat=ierr)
     if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
     allocate(ijvar(icompactmax),stat=ierr)

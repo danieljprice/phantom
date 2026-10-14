@@ -751,23 +751,24 @@ end subroutine init_part
 
 !----------------------------------------------------------------
 !+
-!  this function determines the mass of the particle
+!  this function determines the mass of the particle,
+!  including the refinement level under adaptive particle refinement
 !  where use_gas == .not. (maxphase==maxp)
-!  currently used only in readwrite_dump
 !+
 !----------------------------------------------------------------
 real function get_pmass(i,use_gas)
  integer, intent(in) :: i
  logical, intent(in) :: use_gas
+ integer :: itype
 
- if (use_gas) then
-    get_pmass = massoftype(igas)
+ itype = igas
+ if (.not.use_gas) then
+    if (iphase(i) /= 0) itype = iamtype(iphase(i))
+ endif
+ if (use_apr) then
+    get_pmass = aprmassoftype(itype,apr_level(i))
  else
-    if (iphase(i) /= 0) then
-       get_pmass = massoftype(iamtype(iphase(i)))
-    else
-       get_pmass = massoftype(igas)
-    endif
+    get_pmass = massoftype(itype)
  endif
 
 end function get_pmass
