@@ -174,7 +174,9 @@ ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
     FFLAGS := $(FFLAGS:-ipo= )
+    CCFLAGS := $(CCFLAGS:-ipo= )
     FFLAGS := $(filter-out -flto%,$(FFLAGS))
+    CCFLAGS := $(filter-out -flto%,$(CCFLAGS))
 endif
 
 ifeq ($(ENDIAN), BIG)
