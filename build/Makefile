@@ -173,8 +173,8 @@ endif
 ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
-		FFLAGS := $(FFLAGS:-ipo= )
-		FFLAGS := $(FFLAGS:-flto=auto= )
+    FFLAGS := $(FFLAGS:-ipo= )
+    FFLAGS := $(filter-out -flto%,$(FFLAGS))
 endif
 
 ifeq ($(ENDIAN), BIG)
