@@ -38,7 +38,6 @@ module eos
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - C_ent              : *restrict timestep when ds/dt is too large*
 !   - T_warm             : *temperature of atomic warm neutral background in K*
 !   - X                  : *H mass fraction (ignored if variable composition)*
 !   - Z                  : *metallicity (ignored if variable composition)*
@@ -100,7 +99,6 @@ module eos
  ! options for heating and cooling
  !
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
- real,    public :: C_ent
 
  logical, public :: done_init_eos = .false.
  logical :: ien_type_auto = .true.  ! ien_type=0: choose GR energy variable from the eos
@@ -1233,8 +1231,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  end select
 
  ! check temp
- if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinite temperature:'// &
-                                 ' suggest to reduce C_ent for one dump')
+ if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinite temperature')
 
  ! change back to code unit
  P = cgspres / unit_pressure
@@ -1886,7 +1883,6 @@ subroutine write_options_eos(iunit)
        else
           call write_inopt(ien_type,'ien_type','energy variable (0=auto,1=entropy,2=entropy_s)',iunit)
        endif
-       if (ien_type == ien_entropy_s) call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large',iunit)
     endif
  endif
 
@@ -1935,7 +1931,6 @@ subroutine read_options_eos(db,nerr)
        ien_type_auto = (ien_type == 0)
        if (ien_type_auto) ien_type = get_auto_ien_type(ieos)
     endif
-    if (ien_type == ien_entropy_s) call read_inopt(C_ent,'C_ent',db,errcount=nerr,min=0.,max=3.,default=C_ent)
  endif
 
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
@@ -1992,7 +1987,6 @@ subroutine set_defaults_eos
  ien_type           = 0
  ien_type_auto      = .true.
  if (gr) ien_type   = get_auto_ien_type(ieos)
- C_ent              = 3.
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition
  T_warm         = 1.42e3
