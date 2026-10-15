@@ -74,11 +74,12 @@ module eos
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
  public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
- public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
+ public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,entropy_step_factor
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
  public  :: eos_requires_isothermal,eos_works_with_radiation,eos_requires_polyk,eos_conserves_energy
+ public  :: eos_works_with_gr
  public  :: eos_allows_shock_and_work,eos_is_not_implemented,eos_has_pressure_without_u
 
  public :: irecomb  ! propagated from eos_gasradrec
@@ -172,7 +173,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
- if (gr .and. .not.any((/2,4,10,11,12/)==eos_type)) then
+ if (gr .and. .not.eos_works_with_gr(eos_type)) then
     ponrhoi = 0.; spsoundi = 0. ! avoid compiler warning
     call fatal('eos','GR currently only works for ieos=2,4,10,12 or 11',&
          var='eos_type',val=real(eos_type))
@@ -1069,7 +1070,7 @@ end subroutine calc_rho_from_PT
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
- use physcon,           only:radconst,kb_on_mh,Rg, kboltz, avogadro
+ use physcon,           only:radconst,Rg,kboltz,avogadro
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
@@ -1092,7 +1093,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  case(1) ! Only include gas contribution
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
-    entropy = kb_on_mh / mu * log(temp**1.5/rho)
+    entropy = Rg / mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation contributions (up to additive constants)
     if (present(T_in)) then
@@ -1108,7 +1109,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
     endif
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
-    entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
+    entropy = Rg / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10 .and. ieos /= 20) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
@@ -1161,6 +1162,45 @@ end function get_entropy
 
 !-----------------------------------------------------------------------
 !+
+!  Factor by which to multiply the time derivative of the GR entropy
+!  variable so that an explicit step gives a physical change in u.
+!  Input is x = dt*(du/dt)/u, the fractional change in u over the step.
+!
+!  For s entropy we integrate du = kT ds exactly for an ideal gas,
+!  giving ds = ln(1 + x)*u/(kT) instead of the Euler step x*u/(kT),
+!  which overflows T(s) when cold gas is strongly heated.
+!  For K entropy u is proportional to K, so as for u in the non-GR
+!  code we only limit cooling that would make the energy negative.
+!+
+!-----------------------------------------------------------------------
+pure real function entropy_step_factor(ien,x) result(fac)
+ integer, intent(in) :: ien
+ real,    intent(in) :: x
+ real :: xlim
+
+ ! limit cooling so that u stays positive
+ if (x < -1.) then
+    xlim = x/(1. - x)
+ else
+    xlim = x
+ endif
+
+ fac = 1.
+ select case(ien)
+ case(ien_entropy)
+    if (x < -1.) fac = xlim/x
+ case(ien_entropy_s)
+    if (abs(xlim) > 1.e-4) then
+       fac = log(1. + xlim)/x
+    else
+       fac = 1. - 0.5*xlim + xlim**2/3. ! series expansion of ln(1+x)/x
+    endif
+ end select
+
+end function entropy_step_factor
+
+!-----------------------------------------------------------------------
+!+
 !  Calculate density given pressure and entropy using Newton-Raphson
 !  method
 !+
@@ -1196,7 +1236,7 @@ end subroutine get_rho_from_p_s
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
- use physcon, only:Rg,mass_proton_cgs
+ use physcon, only:Rg,kboltz
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres,&
                             get_idealplusrad_tempfromrhoS
@@ -1218,7 +1258,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
 
  select case (ieos)
  case (2,5)
-    temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
+    temp = (cgsrho * exp(mu*cgss*kboltz/Rg))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
     !!! For GR
@@ -1543,6 +1583,24 @@ logical function eos_works_with_radiation(ieos)
  end select
 
 end function eos_works_with_radiation
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state is compatible
+!  with the GR cons2prim routines
+!+
+!-----------------------------------------------------------------------
+logical function eos_works_with_gr(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(2,4,10,11,12)
+    eos_works_with_gr = .true.
+ case default
+    eos_works_with_gr = .false.
+ end select
+
+end function eos_works_with_gr
 
 !-----------------------------------------------------------------------
 !+

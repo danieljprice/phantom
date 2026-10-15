@@ -2717,7 +2717,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,&
                           ind_timesteps,ndivcurlB
- use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating
+ use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,entropy_step_factor
  use options,        only:alpha,use_dustfrac,implicit_radiation,use_porosity
  use part,           only:iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
@@ -2802,7 +2802,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: vsigmax,vwavei,fxyz4
  real    :: dudt_radi
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
- real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min,dufac
+ real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min,dudti
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
  integer :: iamtypei
  logical :: iactivei,iamgasi,iamdusti,iamsinki,realviscosity
@@ -3199,11 +3199,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           endif
        endif
 
-       ! as above but for s entropy, using du = kT ds: limit ds/dt so that the implied
-       ! change in u over a Courant step is less than u (avoids infinite temperature)
-       if (gr .and. ien_type == ien_entropy_s .and. eni > epsilon(0.)) then
-          dufac = dtc*kboltz*tempi*abs(fxyzu(4,i))/eni
-          if (dufac > 1.) fxyzu(4,i) = fxyzu(4,i)/(1. + dufac)
+       ! as above for GR entropy variables, using the implied du/dt over a Courant step
+       if (gr .and. eni > epsilon(0.) .and. (ien_type == ien_entropy_s .or. ien_type == ien_entropy)) then
+          if (ien_type == ien_entropy_s) then
+             dudti = kboltz*tempi*fxyzu(4,i)  ! du = kT ds
+          else
+             dudti = fxyzu(4,i)/((gammai - 1.)*densi**(1. - gammai))  ! u = K rho**(gamma-1)/(gamma-1)
+          endif
+          fxyzu(4,i) = fxyzu(4,i)*entropy_step_factor(ien_type,dtc*dudti/eni)
        endif
 
        ! timestep based on non-ideal MHD

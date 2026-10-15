@@ -44,6 +44,7 @@ subroutine test_gr(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
  call test_rn_charged(ntests,npass)
+ call test_entropy_step(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
@@ -733,5 +734,55 @@ subroutine test_rn_charged(ntests,npass)
  enddo
 
 end subroutine test_rn_charged
+
+!-----------------------------------------------------------------------
+!+
+!   Test that one explicit step in the GR entropy variable gives the
+!   correct change in u when cold gas is strongly heated or cooled.
+!   With a plain Euler step ds = du/(kT) the heating of cold gas is
+!   overestimated, overflowing T(s) for large du/u
+!+
+!-----------------------------------------------------------------------
+subroutine test_entropy_step(ntests,npass)
+ use eos,     only:get_entropy,get_p_from_rho_s,entropy_step_factor
+ use part,    only:ien_entropy,ien_entropy_s
+ use physcon, only:kboltz,Rg
+ use units,   only:unit_density,unit_ergg
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nx = 6, ieos_ideal = 2
+ real,    parameter :: xfrac(nx) = (/1.e-6,0.5,10.,1.e6,-0.5,-2./)
+ integer :: nerr(2*nx),j
+ real    :: rho,u,pres,temp,s,dsdt,dudt,dt,mu,x,xlim,uexact,u1,pres1,temp1
+
+ write(*,'(/,a)') '--> testing entropy step for strongly heated cold gas'
+ mu   = 0.6
+ rho  = 1./unit_density             ! 1 g/cm^3
+ temp = 10.                         ! cold gas, 10 K
+ u    = 1.5*Rg*temp/mu/unit_ergg     ! ideal monatomic gas
+ pres = 2./3.*rho*u
+ s    = get_entropy(rho,pres,mu,ieos_ideal)
+ dt   = 1.
+ do j=1,nx
+    x    = xfrac(j)
+    dudt = x*u/dt
+    ! cooling that would make u negative is limited as in the non-GR code
+    xlim = x
+    if (x < -1.) xlim = x/(1. - x)
+    uexact = u*(1. + xlim)
+
+    ! s entropy: Euler step in s computed as in force, then T(s) from the eos
+    dsdt = dudt/(kboltz*temp)*entropy_step_factor(ien_entropy_s,dt*dudt/u)
+    call get_p_from_rho_s(ieos_ideal,s + dt*dsdt,rho,mu,pres1,temp1)
+    u1 = 1.5*pres1/rho
+    call checkval(u1/uexact,1.,1.e-14,nerr(j),'u/u_exact after s entropy step')
+
+    ! K entropy: u is proportional to K at fixed density
+    u1 = u + dt*dudt*entropy_step_factor(ien_entropy,dt*dudt/u)
+    call checkval(u1/uexact,1.,1.e-15,nerr(nx+j),'u/u_exact after K entropy step')
+ enddo
+
+ call update_test_scores(ntests,nerr,npass)
+
+end subroutine test_entropy_step
 
 end module testgr
