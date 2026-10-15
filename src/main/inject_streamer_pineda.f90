@@ -13,7 +13,7 @@ module inject
 ! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
-!   - Mdot         : *mass injection rate (code units or e.g. 1e-7 Msun/yr; peak rate if imdot_func > 0)*
+!   - Mdot         : *injection rate, e.g. 1e-7 Msun/yr (peak rate if mdot_func > 0)*
 !   - dust_frac    : *Dust fraction in smallest dust bin*
 !   - mdot_func    : *functional form of dM/dt(t) (0=const)*
 !   - nstreams     : *number of direct Cartesian streamers*
@@ -21,8 +21,10 @@ module inject
 !   - phi0         : *phi0 parameter from the Mendoza+09 streamer, in degrees*
 !   - r0           : *r0 parameter from the Mendoza+09 streamer, in au*
 !   - r_inj        : *distance from CoM where stream is injected, in au*
+!   - stream_model : *streamer kinematics (0=PIMS, 1=Cartesian)*
 !   - stream_width : *radius of injected stream in au*
-!   - tend         : *end time of injection (code units or e.g. 1000 yr); negative means infinite*
+!   - sym_stream   : *balance ang. mom. (0=no,1=Lx,Ly,2=Lx,Ly,Lz,3=Lz)*
+!   - tend         : *end time of injection, e.g. 1000 yr (negative = never)*
 !   - theta0       : *theta0 parameter from the Mendoza+09 streamer, in degrees*
 !   - tstart       : *start time of injection (code units or e.g. 100 yr)*
 !   - vr_0         : *radial velocity of cloud stream origin, in km/s*

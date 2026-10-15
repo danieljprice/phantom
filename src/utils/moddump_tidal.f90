@@ -27,9 +27,9 @@ module moddump
 !   - semimajoraxis_binary : *sepration between black hole binary(code units)*
 !   - theta                : *stellar rotation with respect to y-axis (in degrees)*
 !
-! :Dependencies: centreofmass, dim, externalforces, io,
-!   metric, moddump_utils, options, orbits, part, physcon, setbinary,
-!   units, vectorutils
+! :Dependencies: centreofmass, dim, externalforces, io, metric,
+!   moddump_utils, options, orbits, part, physcon, setbinary, units,
+!   vectorutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

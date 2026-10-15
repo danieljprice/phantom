@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Daniel Mentiplay
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - icutinside  : *delete particles inside a given radius*

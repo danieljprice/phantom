@@ -12,7 +12,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - a1                   : *1st companion semi-major axis (triple) [code units]*
@@ -36,19 +36,19 @@ module moddump
 !   - hsoft_secondary      : *softening length for secondary [code units]*
 !   - hsoft_tertiary       : *softening length for tertiary [code units]*
 !   - infile_name          : *name of the .in file to read omega_corotate from*
-!   - iprimary_grav        : *replace primary core with a fixed potential (if 1 sink)*
+!   - iprimary_grav        : *fixed potential for primary core (if 1 sink)*
 !   - iproperty            : *sink property index to (re)set (0 = none)*
 !   - iremove              : *which sink to remove (2 or 3)*
 !   - iselect              : *which sink particle to (re)set properties for*
 !   - mcomp                : *companion mass [code units]*
 !   - mcut                 : *mass of the created point-mass core [code units]*
-!   - nstar2               : *number of particles in the second dumpfile (0 = same as star 1)*
+!   - nstar2               : *particles in second dumpfile (0 = same as star 1)*
 !   - operation            : *operation to perform (1-13)*
 !   - propval              : *new value for the selected sink property [solar units]*
 !   - second_dumpfile      : *name of the second dumpfile*
 !   - separation           : *orbital separation [Rsun]*
 !   - use_corotating_frame : *transform to a corotating frame*
-!   - vel_shift            : *velocity to add in the direction of the primary [code units]*
+!   - vel_shift            : *velocity to add towards the primary [code units]*
 !
 ! :Dependencies: centreofmass, dim, eos, extern_corotate,
 !   extern_gwinspiral, externalforces, infile_utils, io, moddump_utils,

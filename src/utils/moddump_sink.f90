@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - delete_sink : *delete the sink instead of modifying it*
@@ -22,8 +22,8 @@ module moddump
 !   - racc        : *new accretion radius for the sink [code units]*
 !   - reset_cm    : *reset centre of mass*
 !
-! :Dependencies: centreofmass, moddump_utils, part,
-!   prompting, ptmass_heating, units
+! :Dependencies: centreofmass, moddump_utils, part, prompting,
+!   ptmass_heating, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

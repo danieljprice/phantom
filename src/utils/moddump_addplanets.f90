@@ -15,8 +15,8 @@ module moddump
 ! :Runtime parameters:
 !   - nplanets : *number of planets to add*
 !
-! :Dependencies: centreofmass, moddump_utils, part,
-!   physcon, prompting, units
+! :Dependencies: centreofmass, moddump_utils, part, physcon, prompting,
+!   units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

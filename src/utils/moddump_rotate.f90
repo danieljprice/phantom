@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Mike Lau
 !
 ! :Runtime parameters:
 !   - omega : *angular frequency of solid body rotation about the z-axis*

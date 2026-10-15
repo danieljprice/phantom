@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Stephane Michoulier
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - H_R_ref         : *H/R at R_ref (size distribution)*
@@ -26,22 +26,22 @@ module moddump
 !   - incenterz       : *z coordinate of the centre of the inner sphere*
 !   - inradius        : *inward radius [au]*
 !   - iporosity       : *use porosity (0=no, 1=yes)*
-!   - iremoveparttype : *which particles to delete (0=all, 1=gas only, 2=dust only)*
+!   - iremoveparttype : *particles to delete (0=all, 1=gas, 2=dust)*
 !   - ngrainsizes     : *number of grain sizes*
-!   - np_ratio        : *ratio between number of gas and dust particles (two fluid)*
+!   - np_ratio        : *gas to dust particle number ratio*
 !   - outcenterx      : *x coordinate of the centre of the outer sphere*
 !   - outcentery      : *y coordinate of the centre of the outer sphere*
 !   - outcenterz      : *z coordinate of the centre of the outer sphere*
 !   - outradius       : *outward radius [au]*
-!   - pwl_sizedistrib : *power-law index of the size distribution*
+!   - pwl_sizedistrib : *power-law index of size distribution*
 !   - q_index         : *q index (size distribution)*
-!   - sindex          : *power-law index of the grain-size mass distribution (e.g. MRN)*
+!   - sindex          : *power-law index of grain-size mass distribution*
 !   - sizedistrib     : *set dust size via a size distribution*
 !   - smaxcgs         : *maximum grain size [cm]*
 !   - smincgs         : *minimum grain size [cm]*
 !
-! :Dependencies: dim, dust, growth, io, moddump_utils,
-!   options, part, prompting, set_dust, units
+! :Dependencies: dim, dust, growth, io, moddump_utils, options, part,
+!   prompting, set_dust, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

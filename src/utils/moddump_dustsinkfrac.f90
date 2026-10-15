@@ -13,7 +13,7 @@ module moddump
 ! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
-!   - outer_radius : *radius within which to taper the dust fraction [code units]*
+!   - outer_radius : *taper dust fraction within this radius [code units]*
 !
 ! :Dependencies: dim, moddump_utils, part, prompting
 !

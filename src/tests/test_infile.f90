@@ -14,7 +14,11 @@ module testinfile
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - label : *a string option*
+!   - lflag : *a logical option*
+!   - np    : *number of particles*
+!   - omega : *a real option*
 !
 ! :Dependencies: infile_utils, io, testutils
 !

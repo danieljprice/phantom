@@ -16,8 +16,7 @@ module moddump
 !   - outer_radius : *radius from centre of mass within which to measure L*
 !   - system_type  : *1=single 2=binary 3=triple(inner) 4=triple(outer)*
 !
-! :Dependencies: moddump_utils, part, prompting,
-!   vectorutils
+! :Dependencies: moddump_utils, part, prompting, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
