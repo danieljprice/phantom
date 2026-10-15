@@ -18,8 +18,8 @@ module moddump
 !   - m2      : *mass of secondary (in code units)*
 !   - norbits : *maximum number of binary orbits*
 !
-! :Dependencies: centreofmass, dim, io, moddump_utils, part,
-!   prompting, setorbit, timestep
+! :Dependencies: centreofmass, dim, io, moddump_utils, part, prompting,
+!   setorbit, timestep
 !
 
  use setorbit,      only:orbit_t

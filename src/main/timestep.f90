@@ -14,16 +14,16 @@ module timestep
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - C_cour          : *Courant factor*
-!   - C_force         : *dt_force factor*
-!   - divb_maxit : *max conjugate-gradient iterations for div B projection*
-!   - divb_tol   : *relative tolerance for div B projection*
-!   - overcleanfac    : *factor to increase div B cleaning speed (decreases timestep)*
-!   - psidecayfac     : *div B diffusion parameter*
-!   - ptol            : *tolerance on pmom iterations*
-!   - tolv            : *tolerance on v iterations in timestepping*
-!   - use_divb_proj   : *project div B to zero every dtmax and reset psi*
-!   - xtol            : *tolerance on xyz iterations*
+!   - C_cour        : *Courant factor*
+!   - C_force       : *dt_force factor*
+!   - divb_maxit    : *max iterations for div B projection*
+!   - divb_tol      : *tolerance for div B projection*
+!   - overcleanfac  : *factor to increase div B cleaning speed (decreases timestep)*
+!   - psidecayfac   : *div B diffusion parameter*
+!   - ptol          : *tolerance on pmom iterations*
+!   - tolv          : *tolerance on v iterations in timestepping*
+!   - use_divb_proj : *project div B to zero every dtmax*
+!   - xtol          : *tolerance on xyz iterations*
 !
 ! :Dependencies: dim, infile_utils, io
 !

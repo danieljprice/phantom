@@ -14,8 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, moddump_utils, mpidomain, part,
-!   setstar
+! :Dependencies: eos, io, moddump_utils, mpidomain, part, setstar
 !
  use eos,     only:ieos,gamma,X_in,Z_in,use_var_comp,polyk
  use setstar, only:set_stars,shift_stars,set_defaults_stars,star_t,write_options_stars,read_options_stars

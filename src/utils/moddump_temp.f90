@@ -15,8 +15,8 @@ module moddump
 ! :Runtime parameters:
 !   - accrad : *accrete/remove particles outside this radius [code units]*
 !
-! :Dependencies: HIIRegion, deriv, io, moddump_utils, part,
-!   prompting, ptmass
+! :Dependencies: HIIRegion, deriv, io, moddump_utils, part, prompting,
+!   ptmass
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

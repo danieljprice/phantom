@@ -14,16 +14,17 @@ module moddump
 !
 ! :Runtime parameters:
 !   - fac             : *radial pulsation factor, where v_r = fac*r (ioperation=6)*
-!   - icreate         : *how to create 2nd star for GW/pulsation (0=none,1=duplicate,2=add from dump)*
+!   - icreate         : *2nd star for GW/pulsation (0=none,1=duplicate,2=from dump)*
+!   - ioperation      : *1=duplicate,2=add dump,3=adjust sep,4=Bfield,5=GW,*
 !   - omega_inner     : *angular velocity at centre (ioperation=7)*
 !   - omega_outer     : *angular velocity at surface (ioperation=7)*
-!   - second_dumpfile : *name of second dumpfile to add (ioperation/icreate=2)*
+!   - second_dumpfile : *dumpfile to add (if ioperation/icreate=2)*
 !   - sep             : *radial separation between stars [code units]*
 !   - synchro         : *synchronise the binary rotation to the orbit*
 !
 ! :Dependencies: centreofmass, checkconserved, dim, extern_gwinspiral,
-!   externalforces, io, moddump_utils, options, part,
-!   physcon, prompting, readwrite_dumps, timestep, units
+!   externalforces, io, moddump_utils, options, part, physcon, prompting,
+!   readwrite_dumps, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

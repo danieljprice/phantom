@@ -15,10 +15,9 @@ module moddump
 ! :Runtime parameters:
 !   - factor  : *gap randomization factor (ioption=2)*
 !   - inside  : *randomize inside (T) or outside (F) the Hill sphere (ioption=2)*
-!   - ioption : *operation (1=randomize azimuth, 2=randomize gap, 3=delete Hill sphere)*
+!   - ioption : *1=randomize azimuth, 2=randomize gap, 3=delete Hill sphere*
 !
-! :Dependencies: mess_up_SPH, moddump_utils, part,
-!   prompting, units
+! :Dependencies: mess_up_SPH, moddump_utils, part, prompting, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

@@ -25,6 +25,7 @@ module set_dust_options
 !   - ndustlargeinp     : *number of large grain sizes*
 !   - ndustsmallinp     : *number of small grain sizes*
 !   - ndusttypesinp     : *number of grain sizes*
+!   - renorm_dust       : *renormalise dust to keep global dust_to_gas*
 !
 ! :Dependencies: dim, dust, eos, fileutils, growth, infile_utils, io,
 !   options, part, porosity, prompting, set_dust

@@ -10,7 +10,7 @@ module derivutils
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

@@ -17,9 +17,8 @@ module moddump
 !   - do_trim : *trim off stray particles outside a radius*
 !   - rmax    : *outer radius to trim to [au] (used if do_trim=T)*
 !
-! :Dependencies: centreofmass, dim, dynamic_dtmax, eos, io,
-!   moddump_utils, part, physcon, prompting, readwrite_dumps, timestep,
-!   units
+! :Dependencies: centreofmass, dim, dynamic_dtmax, eos, moddump_utils,
+!   part, physcon, prompting, readwrite_dumps, timestep, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
