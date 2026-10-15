@@ -168,8 +168,8 @@ module part
 !
  integer, public :: ien_type
  integer, public, parameter :: ien_entropy = 1, &
-                               ien_etotal  = 2, &
-                               ien_entropy_s = 3
+                               ien_entropy_s = 2, &
+                               ien_etotal  = 3   ! internal to cons2primsolver, not a runtime option
 !
 !--one-fluid dust (small grains)
 !

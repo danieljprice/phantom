@@ -42,7 +42,7 @@ module eos
 !   - T_warm             : *temperature of atomic warm neutral background in K*
 !   - X                  : *H mass fraction (ignored if variable composition)*
 !   - Z                  : *metallicity (ignored if variable composition)*
-!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
+!   - ien_type           : *energy variable (0=auto,1=entropy,2=entropy_s)*
 !   - ieos               : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
@@ -59,7 +59,7 @@ module eos
 !   infile_utils, io, ionization_mod, mesa_microphysics, part, physcon,
 !   units
 !
- use part,          only:ien_etotal,ien_entropy,ien_type
+ use part,          only:ien_entropy,ien_entropy_s,ien_type
  use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
@@ -103,6 +103,7 @@ module eos
  real,    public :: C_ent
 
  logical, public :: done_init_eos = .false.
+ logical :: ien_type_auto = .true.  ! ien_type=0: choose GR energy variable from the eos
 
  !
  ! error codes for calls to init_eos
@@ -674,6 +675,7 @@ subroutine init_eos(eos_type,ierr)
 
  end select
  done_init_eos = .true.
+ if (gr .and. ien_type_auto) ien_type = get_auto_ien_type(eos_type)
 
  if (do_radiation) then
     if (.not. eos_works_with_radiation(eos_type)) then
@@ -1879,8 +1881,12 @@ subroutine write_options_eos(iunit)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iunit)
     if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iunit)
     if (gr) then
-       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
-       if (ien_type == 3) call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large',iunit)
+       if (ien_type_auto) then
+          call write_inopt(0,'ien_type','energy variable (0=auto,1=entropy,2=entropy_s)',iunit)
+       else
+          call write_inopt(ien_type,'ien_type','energy variable (0=auto,1=entropy,2=entropy_s)',iunit)
+       endif
+       if (ien_type == ien_entropy_s) call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large',iunit)
     endif
  endif
 
@@ -1923,8 +1929,13 @@ subroutine read_options_eos(db,nerr)
     call read_inopt(ipdv_heating,'ipdv_heating',db,errcount=nerr,min=0,max=1,default=ipdv_heating)
     call read_inopt(ishock_heating,'ishock_heating',db,errcount=nerr,min=0,max=1,default=ishock_heating)
     if (mhd) call read_inopt(iresistive_heating,'iresistive_heating',db,errcount=nerr,min=0,max=1,default=iresistive_heating)
-    call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=3,default=ien_type)
-    if (ien_type == 3) call read_inopt(C_ent,'C_ent',db,errcount=nerr,min=0.,max=3.,default=C_ent)
+    if (gr) then
+       if (ien_type_auto) ien_type = 0
+       call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=2,default=ien_type)
+       ien_type_auto = (ien_type == 0)
+       if (ien_type_auto) ien_type = get_auto_ien_type(ieos)
+    endif
+    if (ien_type == ien_entropy_s) call read_inopt(C_ent,'C_ent',db,errcount=nerr,min=0.,max=3.,default=C_ent)
  endif
 
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
@@ -1940,6 +1951,26 @@ subroutine read_options_eos(db,nerr)
  endif
 
 end subroutine read_options_eos
+
+!-----------------------------------------------------------------------
+!+
+!  automatic choice of the energy variable in GR:
+!  entropy K = P/rho^gamma for an ideal gas, entropy s for
+!  equations of state that are not a simple ideal gas
+!  (gas + radiation, MESA)
+!+
+!-----------------------------------------------------------------------
+pure integer function get_auto_ien_type(eos_type) result(ien)
+ integer, intent(in) :: eos_type
+
+ select case(eos_type)
+ case(10,12)
+    ien = ien_entropy_s
+ case default
+    ien = ien_entropy
+ end select
+
+end function get_auto_ien_type
 
 !------------------------------------------
 !+
@@ -1959,7 +1990,8 @@ subroutine set_defaults_eos
  iresistive_heating = 1
  icooling           = 0
  ien_type           = 0
- if (gr) ien_type   = ien_entropy
+ ien_type_auto      = .true.
+ if (gr) ien_type   = get_auto_ien_type(ieos)
  C_ent              = 3.
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition

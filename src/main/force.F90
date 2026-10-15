@@ -3063,18 +3063,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (ien_type == ien_entropy_s .and. ishock_heating > 0) then
+          if (ien_type == ien_entropy_s) then
              ! energy variable is the entropy s as in Tds/dt = du - P/rho**2 d(rho)/dt
-             fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
+             ! with ishock_heating=0 the entropy of each particle is conserved
+             if (ishock_heating > 0) fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
           elseif (ien_type == ien_entropy) then
              ! energy variable is the entropy K = P/rho**gamma
+             ! add shock heating and conductivity (with ishock_heating=0 each K is conserved)
              fac = (gammai - 1.)*densi**(1.-gammai)
-             if (ishock_heating > 0) fxyz4 = fxyz4 + fac*u0i*fsum(idudtdissi)
-             ! add conductivity term
-             fxyz4 = fxyz4 + fac*u0i*fsum(idendtdissi)
-#ifdef ISENTROPIC
-             fxyz4 = 0.
-#endif
+             if (ishock_heating > 0) fxyz4 = fxyz4 + fac*u0i*(fsum(idudtdissi) + fsum(idendtdissi))
              ! store the dissipated energy in the luminosity array (does not include pdV work in this case)
              if (track_lum) luminosity(i) = real(pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi)),kind=kind(luminosity))
           else ! eni is the internal energy (cannot be used with gr)
