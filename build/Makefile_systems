@@ -160,9 +160,9 @@ ifeq ($(SYSTEM), skylake)
 #   HPCs Skylake cluster at Cambridge
     include Makefile_defaults_ifort
     FFLAGS= -O3 -shared-intel -warn uninitialized -warn unused -warn \
-            truncated_source -xCORE-AVX512
+            truncated_source -xCORE-AVX512 -ipo
     OMPFLAGS = -qopenmp
-    CCFLAGS = -O3 -xCORE-AVX512
+    CCFLAGS = -O3 -xCORE-AVX512 -ipo
     LTO_DEFAULT= yes
     QSYS = slurm
     QPROJECT='DIRAC-DP005-CPU'

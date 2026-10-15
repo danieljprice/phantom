@@ -14,7 +14,7 @@
 FC= gfortran
 FFLAGS+= -O3 -Wall -Wno-unused-dummy-argument -frecord-marker=4 -g \
         -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize \
-        -std=f2008 -fall-intrinsics
+        -std=f2008 -fall-intrinsics -flto=auto --param inline-unit-growth=60
 DBLFLAG= -fdefault-real-8 -fdefault-double-8
 DEBUGFLAG= -g -fcheck=all -ffpe-trap=invalid,zero,overflow -finit-real=nan -finit-integer=nan -fbacktrace
 KNOWN_SYSTEM=yes
@@ -23,8 +23,7 @@ ENDIANFLAGLITTLE= -fconvert=little-endian
 OMPFLAGS = -fopenmp
 # with LTO the whole program is one unit: the default 40% growth budget is
 # used up before kernel_softening gets inlined into the force pair loop
-LTOFLAGS = -flto=auto --param inline-unit-growth=60
-CC = gcc
+CC = gcc -flto=auto
 CCFLAGS = -O3
 LIBCXX = -lstdc++
 
