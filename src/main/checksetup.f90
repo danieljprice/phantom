@@ -19,6 +19,7 @@ module checksetup
 !   metric_tools, nicil, options, part, physcon, ptmass, ptmass_radiation,
 !   sortutils, timestep, units, utils_gr
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  implicit none
  public :: check_setup
 
@@ -99,11 +100,11 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
- if (hfact < 1. .or. isnan(hfact)) then
+ if (hfact < 1. .or. ieee_is_nan(hfact)) then
     print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0. .or. isnan(polyk)) then
+ if (polyk < 0. .or. ieee_is_nan(polyk)) then
     print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
@@ -274,7 +275,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check that mass of each type has been set
 !
  do itype=1,maxtypes
-    if (isnan(massoftype(itype))) then
+    if (ieee_is_nan(massoftype(itype))) then
        print*,'WARNING: massoftype = NaN for '//trim(labeltype(itype))//' particles'
        nwarn = nwarn + 1
        massoftype(itype) = 0.
@@ -525,7 +526,7 @@ subroutine check_NaN(npart,array,label,nerror)
  !$omp reduction(+:nbad)
  do i=1,npart
     !--check for NaNs in xyzh
-    if (any(isnan(array(:,i)))) then
+    if (any(ieee_is_nan(array(:,i)))) then
        if (nbad < 10) print*,'NaN in '//trim(label)//' : ', i
        nbad = nbad + 1
     endif
@@ -1089,7 +1090,7 @@ subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
  do i=1,npart
     if (radprop(ithick, i) < 0.5) nthin = nthin + 1
     if (rad(iradxi, i) < 0.) nradEn = nradEn + 1
-    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa = nkappa + 1
+    if (radprop(ikappa, i) <= 0.0 .or. ieee_is_nan(radprop(ikappa,i))) nkappa = nkappa + 1
     if (rad(iradxi, i) <= 0.) nwarn_en = nwarn_en + 1
  enddo
 

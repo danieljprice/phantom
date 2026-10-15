@@ -8,7 +8,7 @@ module moddump
 !
 ! Moddump to add a sink particle with user-configurable properties.
 !
-! A parameter file 'addsink.moddump' is read if present. If missing (or if
+! A parameter file prefix.moddump is read if present. If missing (or if
 ! parsing fails), a template is written and the program stops, prompting the
 ! user to edit the file and rerun phantommoddump.
 !
@@ -32,11 +32,10 @@ module moddump
 !   - z0         : *initial z position [code units]*
 !   - z0_dir     : *initial z position [code units]*
 !
-! :Dependencies: infile_utils, io, part, physcon, units
+! :Dependencies: io, moddump_utils, part, physcon, units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
- character(len=*), parameter :: paramfile = 'addsink.moddump'
 
  !--module-level parameters so they can be read/written easily
  logical :: use_direct = .false.
@@ -48,32 +47,20 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use part,        only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,ihacc,iJ2,iReff
- use io,          only:fatal,id,master
- use physcon,     only:deg_to_rad
+ use part,          only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,ihacc,iJ2,iReff
+ use io,            only:fatal,id,master
+ use moddump_utils, only:get_moddump_options
+ use physcon,       only:deg_to_rad
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
 
- logical :: iexist
- integer :: ierr
  real    :: xp(3), vp(3)
  real    :: incl, s
 
- !--defaults (will be overridden by addsink.moddump if present)
- call set_defaults_addsink()
-
- !--read parameter file (or write template and stop)
- inquire(file=paramfile,exist=iexist)
- if (iexist) call read_setupfile(paramfile,ierr)
- if (.not. iexist .or. ierr /= 0) then
-    if (id==master) then
-       call write_setupfile(paramfile)
-       print*,' Edit '//trim(paramfile)//' and rerun phantommoddump'
-    endif
-    stop
- endif
+ call set_defaults()
+ call get_moddump_options(read_options_moddump,write_options_moddump)
 
  !--bounds check to avoid out-of-bounds access on ptmass arrays
  if (nptmass >= maxptmass) then
@@ -123,7 +110,7 @@ end subroutine modify_dump
 !  Set default parameters for addsink moddump
 !+
 !-----------------------------------------------------------------------
-subroutine set_defaults_addsink()
+subroutine set_defaults()
  use units,   only:umass
  use physcon, only:solarm
  ! defaults (code units)
@@ -145,21 +132,17 @@ subroutine set_defaults_addsink()
  vx0      = 0.0
  vy0      = 0.0
  vz0_dir  = -v0
-end subroutine set_defaults_addsink
+end subroutine set_defaults
 
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------
 !+
-!  Write moddump parameter file
+!  write moddump options to the .moddump file
 !+
-!-----------------------------------------------------------------------
-subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
 
- print "(a)",' writing moddump params file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# parameter file for addsink moddump'
  write(iunit,"(a)") '# values are in code units unless otherwise stated'
  write(iunit,"(a)") '# if use_direct=F, (z0,y0,incl_deg,v0) define a straight-line approach'
  write(iunit,"(a)") '# if use_direct=T, (x0,y0_dir,z0_dir,vx0,vy0,vz0_dir) are used directly'
@@ -185,31 +168,17 @@ subroutine write_setupfile(filename)
  call write_inopt(vy0,'vy0','initial vy [code units]',iunit)
  call write_inopt(vz0_dir,'vz0_dir','initial vz [code units]',iunit)
 
- close(iunit)
-end subroutine write_setupfile
+end subroutine write_options_moddump
 
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------
 !+
-!  Read moddump parameter file
+!  read moddump options from the .moddump file
 !+
-!-----------------------------------------------------------------------
-subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- type(inopts), allocatable :: db(:)
- integer :: nerr
-
- nerr = 0
- ierr = 0
- print "(a)",' reading moddump options from '//trim(filename)
-
- call open_db_from_file(db,filename,iunit,ierr)
- if (ierr /= 0) then
-    call close_db(db)
-    return
- endif
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
  call read_inopt(use_direct,'use_direct',db,errcount=nerr)
 
@@ -229,12 +198,6 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(vy0,'vy0',db,errcount=nerr)
  call read_inopt(vz0_dir,'vz0_dir',db,errcount=nerr)
 
- if (nerr > 0) then
-    print "(1x,i2,a)",nerr,' error(s) during read of moddump parameter file: re-writing...'
-    ierr = nerr
- endif
- call close_db(db)
-
-end subroutine read_setupfile
+end subroutine read_options_moddump
 
 end module moddump

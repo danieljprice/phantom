@@ -18,13 +18,14 @@ module radiation_implicit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kdtree,
-!   kernel, neighkdtree, part, physcon, quartic, radiation_utils, timing,
-!   units
+! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kernel,
+!   neighcompact, part, physcon, quartic, radiation_utils, timing, units
 !
- use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,massoftype,imu
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
+ use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
  use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
+ use neighcompact,    only:get_compacted_neighbour_list
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
                        ierr_negative_opacity = 2, &
@@ -171,6 +172,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call get_timings(tlast,tcpulast)
 
  failed = .false.
+ moresweep = .false.
  maxerrE2 = 0.
  maxerrU2 = 0.
  omega = 1.  ! default relaxation parameter (1 is equivalent to the Gauss-Seidel method)
@@ -283,157 +285,15 @@ end subroutine do_radiation_onestep
 
 !---------------------------------------------------------
 !+
-!  get compacted neighbour list
-!+
-!---------------------------------------------------------
-subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- use dim,         only:periodic,maxphase,maxp,maxpsph
- use neighkdtree, only:ncells,get_neighbour_list,listneigh,leaf_is_active
- use kdtree,      only:inodeparts,inoderange
- use boundary,    only:dxbound,dybound,dzbound
- use part,        only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
- use kernel,      only:radkern2
- use io,          only:fatal
- real,    intent(in)  :: xyzh(:,:)
- integer, intent(out) :: ivar(:,:),ijvar(:)
- integer, intent(out) :: ncompact,ncompactlocal
- integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private
- integer                           :: icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
- integer, parameter                :: maxcellcache = 10000
- integer, save, allocatable        :: neighlist(:)
- real                              :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
- real, save, allocatable           :: xyzcache(:,:)
- !$omp threadprivate(xyzcache,neighlist)
- logical                           :: iactivei,iamdusti,iamgasi
-
- if (.not. allocated(neighlist)) then
-    !$omp parallel default(none) shared(xyzh)
-    allocate(neighlist(size(xyzh,2)),xyzcache(4,maxcellcache))
-    !$omp end parallel
- endif
-
- ncompact = 0
- ncompactlocal = 0
- icompact = 0
- icompactmax = size(ijvar)
- !$omp parallel do default(none) schedule(runtime)&
- !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,leaf_is_active)&
- !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp,maxpsph)&
- !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
-
- over_cells: do icell=1,int(ncells)
-
-    !--skip empty cells AND inactive cells
-    if (leaf_is_active(icell) <= 0) cycle over_cells
-
-    !
-    !--get the neighbour list and fill the cell cache
-    !
-    call get_neighbour_list(icell,listneigh,nneigh_trial,xyzh,xyzcache,maxcellcache,getj=.true.)
-
-    over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
-       i = inodeparts(ip)
-
-       if (i > maxpsph) cycle over_parts
-
-       if (maxphase==maxp) then
-          call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
-       else
-          iactivei = .true.
-          iamtypei = igas
-          iamdusti = .false.
-          iamgasi  = .true.
-       endif
-
-       if ((.not.iactivei .or. .not.iamgasi) .and. .not. iamtypei==iboundary) then ! skip if particle is inactive or not gas, do not skip boundaries
-          cycle over_parts
-       endif
-
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-       hi = xyzh(4,i)
-       if (isdead_or_accreted(hi)) then
-          cycle over_parts
-       endif
-       nneigh = 0
-       hi21 = 1./hi**2
-
-       loop_over_neigh: do n = 1,nneigh_trial
-
-          j = listneigh(n)
-          !--do self contribution separately to avoid problems with 1/sqrt(0.)
-          if (j==i .or. j>maxpsph) cycle loop_over_neigh
-
-          if (n <= maxcellcache) then
-             ! positions from cache are already mod boundary
-             dx = xi - xyzcache(1,n)
-             dy = yi - xyzcache(2,n)
-             dz = zi - xyzcache(3,n)
-             hj1 = xyzcache(4,n)
-          else
-             dx = xi - xyzh(1,j)
-             dy = yi - xyzh(2,j)
-             dz = zi - xyzh(3,j)
-             hj1 = 1./xyzh(4,j)
-          endif
-          if (periodic) then
-             if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-             if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-             if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-          endif
-          rij2 = dx*dx + dy*dy + dz*dz
-          q2i = rij2*hi21
-          q2j = rij2*hj1*hj1
-          !
-          !--do interaction if r/h < compact support size
-          !
-          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
-             nneigh = nneigh + 1
-             neighlist(nneigh) = j
-          endif is_sph_neighbour
-
-       enddo loop_over_neigh
-
-       !$omp critical(listcompact)
-       ncompact = ncompact + 1
-       ncompact_private = ncompact
-       icompact_private = icompact
-       icompact = icompact + nneigh
-       !$omp end critical (listcompact)
-       if (icompact_private+nneigh > icompactmax) then
-          print*,'i=',i,'nneigh=',nneigh,'desired size=',icompact_private+nneigh,' actual size=',icompactmax
-          call fatal('radiation-implicit','not enough memory allocated for neighbour list', &
-                     var='icompactmax',ival=icompactmax)
-       endif
-       ivar(1,ncompact_private) = nneigh
-       ivar(2,ncompact_private) = icompact_private
-       ivar(3,ncompact_private) = i
-
-       do k = 1, nneigh
-          j = neighlist(k)
-          ijvar(icompact_private + k) = j
-       enddo
-    enddo over_parts
- enddo over_cells
- !$omp end parallel do
-
- ncompactlocal = ncompact
-
-end subroutine get_compacted_neighbour_list
-
-!---------------------------------------------------------
-!+
 !  fill arrays
 !+
 !---------------------------------------------------------
 subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
- use dim,             only:periodic,ind_timesteps
- use boundary,        only:dxbound,dybound,dzbound
+ use dim,             only:periodic,ind_timesteps,igradomega,igradzeta
+ use boundary,        only:mod_boundary
  use part,            only:dust_temp,nucleation,gradh,rho
  use units,           only:get_c_code
- use kernel,          only:grkern,cnormk
+ use derivutils,      only:get_grkern_corrected
  integer, intent(in)  :: ncompact,ncompactlocal,icompactmax,npart
  integer, intent(in)  :: ivar(:,:),ijvar(:)
  real,    intent(in)  :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
@@ -442,15 +302,15 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  real :: pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
          pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,&
          c_code,dWidrlightrhorhom,dWjdrlightrhorhom,&
-         xi,yi,zi,gradhi,pmjdWrijrhoi,pmjdWrunix,pmjdWruniy,pmjdWruniz,&
+         xi,yi,zi,zetaomegai,zetaomegaj,grkern_tilde,pmjdWrijrhoi,pmjdWrunix,pmjdWruniy,pmjdWruniz,&
          dust_kappai,dust_cooling,heatingISRi,dust_gas
 
  c_code = get_c_code()
  !$omp do &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dti) &
  !$omp private(dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
- !$omp private(v2i,vi,v2j,vj,dWi,dWj) &
- !$omp private(xi,yi,zi,gradhi,dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom) &
+ !$omp private(v2i,vi,v2j,vj,dWi,dWj,zetaomegai,zetaomegaj,grkern_tilde) &
+ !$omp private(xi,yi,zi,dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom) &
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dust_kappai,dust_cooling,heatingISRi,dust_gas)
 
  do n = 1,ncompact
@@ -458,7 +318,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
     i = ivar(3,n)
 
     if (.true.) then
-       pmi = massoftype(igas)
+       pmi = get_pmass(i,.true.)
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
@@ -466,7 +326,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        hi21 = 1./(hi*hi)
        hi41 = hi21*hi21
        rhoi = rho(i)
-       gradhi = gradh(1,i)
+       zetaomegai = real(gradh(igradzeta,i))*real(gradh(igradomega,i))
 
        EU0(1,i) = rad(iradxi,i)
        EU0(2,i) = vxyzu(4,i)
@@ -492,17 +352,13 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           dz = zi - xyzh(3,j)
           hj = xyzh(4,j)
 
-          if (periodic) then
-             if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-             if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-             if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-          endif
+          if (periodic) call mod_boundary(dx,dy,dz)
           rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
           rij = sqrt(rij2)
           rij1 = 1./rij
           dr = rij
 
-          pmj = massoftype(igas)
+          pmj = get_pmass(j,.true.)
           rhoj = rho(j)
           !
           !--Need to make sure that E and U values are loaded for non-active neighbours
@@ -523,8 +379,10 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           v2j = rij2*hj21
           vj = rij/hj
 
-          dWi = grkern(v2i,vi)*hi41*cnormk*gradhi
-          dWj = grkern(v2j,vj)*hj41*cnormk*gradh(1,j)
+          ! kernel gradients with the correction for h set from number density
+          zetaomegaj = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
+          call get_grkern_corrected(v2i,vi,hi41,zetaomegai,pmj,dWi,grkern_tilde)
+          call get_grkern_corrected(v2j,vj,hj41,zetaomegaj,pmi,dWj,grkern_tilde)
 
           ! Coefficients for p(div(v))/rho term in gas energy equation (e.g. eq 26, Whitehouse & Bate 2004)
           dWidrlightrhorhom = c_code*dWi/dr*pmj/(rhoi*rhoj)
@@ -773,7 +631,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
        rhoi = vari(2,n)
        diffusion_numerator = varinew(1,i)
        diffusion_denominator = varinew(2,i)
-       pres_numerator = pdvvisc(i)/massoftype(igas) ! in phantom pdvvisc->luminosity which is m*du/dt not du/dt
+       pres_numerator = pdvvisc(i)/get_pmass(i,.true.) ! in phantom pdvvisc->luminosity which is m*du/dt not du/dt
        pres_denominator = 0.
        Ei = EU0(1,i)
        Ui = EU0(2,i)
@@ -885,7 +743,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                   - dti*h2form + dti*dust_term) + dti*diffusion_numerator*betaval &
                   + stellarradiation*betaval - (chival-1.)*pcoleni
 
-       if ((u1term > 0. .and. u0term > 0. .or. u1term < 0. .and. u0term < 0.) .or. isnan(u0term)) then
+       if ((u1term > 0. .and. u0term > 0. .or. u1term < 0. .and. u0term < 0.) .or. ieee_is_nan(u0term)) then
           !$omp critical(quart)
           print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
           print *,"    ",EU0(4,i),rhoi,dti

@@ -25,6 +25,7 @@ module boundary
  public :: set_boundary
  public :: cross_boundary
  public :: print_boundaries
+ public :: mod_boundary
  private
 
 contains
@@ -158,6 +159,20 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
  endif
 
 end subroutine cross_boundary
+
+!----------------------------------------------------------------
+!+
+!  Fold a separation vector to its nearest periodic image
+!+
+!----------------------------------------------------------------
+pure subroutine mod_boundary(dx,dy,dz)
+ real, intent(inout) :: dx,dy,dz
+
+ if (abs(dx) > hdlx) dx = dx - dxbound*sign(1.0,dx)
+ if (abs(dy) > hdly) dy = dy - dybound*sign(1.0,dy)
+ if (abs(dz) > hdlz) dz = dz - dzbound*sign(1.0,dz)
+
+end subroutine mod_boundary
 
 !----------------------------------------------------------------
 !+

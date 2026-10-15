@@ -25,6 +25,14 @@ module mpiutils
 !
 !   As above but gets result on all processors.
 !
+! * reduce_in_place_mpi:
+!
+!   call reduce_in_place_mpi('+',var,n)
+!
+!   where var is a 1D array and n is the number of elements to reduce
+!   (n may be smaller than the declared size). Also accepts a whole
+!   2D array, with no length argument.
+!
 ! * bcast_mpi:
 !
 !   call bcast_mpi(var)
@@ -81,7 +89,8 @@ module mpiutils
 !  generic interface reduce_in_place
 !
  interface reduce_in_place_mpi
-  module procedure reduce_in_place_mpi_real8arr2,reduce_in_place_mpi_real4arr2
+  module procedure reduce_in_place_mpi_real8arr,reduce_in_place_mpi_real4arr, &
+                   reduce_in_place_mpi_real8arr2,reduce_in_place_mpi_real4arr2
  end interface reduce_in_place_mpi
 !
 !--generic interface bcast_mpi
@@ -1003,6 +1012,74 @@ integer(kind=1) function reduceall_mpi_int1(string,iproc)
 #endif
 
 end function reduceall_mpi_int1
+
+!--------------------------------------------------------------------------
+!+
+!  In-place MPI reduction (+, max or min) of the first n elements of a
+!  real*8 array. n may be smaller than the actual argument. The result
+!  is returned in those elements on every MPI rank. No-op without MPI.
+!+
+!--------------------------------------------------------------------------
+subroutine reduce_in_place_mpi_real8arr(string,xproc,n)
+#ifdef MPI
+ use io, only:fatal
+#endif
+ character(len=*), intent(in)    :: string
+ integer,          intent(in)    :: n
+ real(kind=8),     intent(inout) :: xproc(n)
+#ifdef MPI
+ real(kind=8) :: xsend(n)
+
+ xsend = xproc
+ select case(trim(string))
+ case('+')
+    call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+ case('max')
+    call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+ case default
+    call fatal('reduce_in_place (mpi)','unknown reduction operation')
+ end select
+ if (mpierr /= 0) call fatal('reduce_in_place','error in mpi_reduce call')
+
+#endif
+
+end subroutine reduce_in_place_mpi_real8arr
+
+!--------------------------------------------------------------------------
+!+
+!  In-place MPI reduction (+, max or min) of the first n elements of a
+!  real*4 array. n may be smaller than the actual argument. The result
+!  is returned in those elements on every MPI rank. No-op without MPI.
+!+
+!--------------------------------------------------------------------------
+subroutine reduce_in_place_mpi_real4arr(string,xproc,n)
+#ifdef MPI
+ use io, only:fatal
+#endif
+ character(len=*), intent(in)    :: string
+ integer,          intent(in)    :: n
+ real(kind=4),     intent(inout) :: xproc(n)
+#ifdef MPI
+ real(kind=4) :: xsend(n)
+
+ xsend = xproc
+ select case(trim(string))
+ case('+')
+    call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL4,MPI_SUM,MPI_COMM_WORLD,mpierr)
+ case('max')
+    call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL4,MPI_MAX,MPI_COMM_WORLD,mpierr)
+ case('min')
+    call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL4,MPI_MIN,MPI_COMM_WORLD,mpierr)
+ case default
+    call fatal('reduce_in_place (mpi)','unknown reduction operation')
+ end select
+ if (mpierr /= 0) call fatal('reduce_in_place','error in mpi_reduce call')
+
+#endif
+
+end subroutine reduce_in_place_mpi_real4arr
 
 !--------------------------------------------------------------------------
 !+

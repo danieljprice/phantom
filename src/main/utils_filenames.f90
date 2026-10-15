@@ -17,6 +17,7 @@ module fileutils
 !
 ! :Dependencies: None
 !
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
 
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,number_of_rows
@@ -345,7 +346,7 @@ integer function ncolumnsline(line)
 
  i = 1
  ncolumnsline = 0
- do while(abs(dummyreal(i)+666666.) > tiny(0.) .and. .not.isnan(dummyreal(i)))
+ do while(abs(dummyreal(i)+666666.) > tiny(0.) .and. .not.ieee_is_nan(dummyreal(i)))
     ncolumnsline = ncolumnsline + 1
     i = i + 1
     if (i > size(dummyreal)) then

@@ -14,6 +14,10 @@ Run in the **same directory as the input ``.in`` file** (see :doc:`moddump`)::
 
    ./phantommoddump dump_in dump_out [time]
 
+The first run saves the options to ``dump_out.moddump`` (using the prefix of the
+output dump) and stops; run the same command again to modify the dump. See
+:doc:`moddump`.
+
 Add a flyby to an evolved disc
 ------------------------------
 
@@ -32,13 +36,16 @@ This differs from a :doc:`flyby set up at t=0 </examples/disc>` via
    make moddump MODFILE=moddump_addflyby.f90
    ./phantommoddump relax_00150 flyby_00000 0.
 
-You will be prompted for:
+On the first run you will be prompted for:
 
 - mass and accretion radius of the perturber
 - distance of minimum approach ``dma``
 - initial distance in units of ``dma`` (``n0``; typically :math:`\gg 1`)
 - orbit orientation (ascending node angle, inclination)
 - suggested time between dumps as a fraction of the flyby time
+
+Your answers are saved to ``flyby.moddump``; run the same command again to add
+the flyby (see :doc:`moddump`).
 
 The module reads the primary sink mass from the dump, recentres the system, and
 prints a suggested ``dtmax`` (in code units) for the output ``flyby.in``. Edit
@@ -83,11 +90,9 @@ Add sinks or planets
    * - Module
      - Purpose
    * - ``moddump_addsink``
-     - Add a sink particle (interactive)
+     - Add a sink particle
    * - ``moddump_addplanets``
      - Add embedded planets in a disc
-   * - ``moddump_sinkbinary``
-     - Add a binary sink pair
    * - ``moddump_binary``
      - Convert single star to binary
    * - ``moddump_binarystar``
@@ -162,7 +167,7 @@ Other useful moddumps
    * - Module
      - Purpose
    * - ``moddump_sink``
-     - Edit sink properties interactively
+     - Edit sink properties
    * - ``moddump_sink2gas``
      - Replace sinks with resolved gas
    * - ``moddump_growthtomultigrain``

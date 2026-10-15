@@ -40,7 +40,7 @@ module setup
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
 !   kernel, metric_tools, mpidomain, options, orbits, part, physcon,
 !   relaxstar, setbinary, setorbit, setstar, setunits, setup_params,
-!   systemutils, timestep, units, vectorutils
+!   timestep, units, vectorutils
 !
 
  use setstar,        only:star_t
@@ -87,7 +87,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use vectorutils,    only:rotatevec
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
  use setup_params,   only:rhozero,npart_total
- use systemutils,    only:get_command_option
  use options,        only:iexternalforce
  use units,          only:in_code_units
  use orbits,         only:refine_velocity
@@ -148,7 +147,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  star(:)%m       = '1.*msun'
  star(:)%r       = '1.*solarr'
  np_default      = 1e6
- star%np         = int(get_command_option('np',default=np_default)) ! can set default value with --np=1e5 flag (mainly for testsuite)
+ star%np         = np_default
 !  star%iprofile   = 2
  beta            = 5.
  ecc_bh          = 0.8

@@ -208,7 +208,10 @@ subroutine get_dump_time_npart(filename,time,ierr,npart_out)
  integer :: nblocks,npartoftype(maxtypes),npart
  real :: hfactfile,alphafile
 
+ time = -1.
+ if (present(npart_out)) npart_out = 0
  call open_dumpfile_r(idisk,filename,fileid,ierr)
+ if (ierr /= 0) return  ! file missing or unreadable
  call get_options_from_fileid(fileid,tagged,phantomdump,smalldump,use_dustfrac,ierr)
  call read_header(idisk,hdr,ierr,tagged=tagged)
  call unfill_header(hdr,phantomdump,tagged,nparttot, &

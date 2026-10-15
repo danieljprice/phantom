@@ -448,14 +448,14 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     do k=1,50
        r=0.25d0*r*x2/(k*k)
        bi0=bi0+r
-       if (dabs(r/bi0) < 1.0d-15) exit
+       if (abs(r/bi0) < 1.0d-15) exit
     enddo
     bi1=1.0d0
     r=1.0d0
     do k=1,50
        r=0.25d0*r*x2/(k*(k+1))
        bi1=bi1+r
-       if (dabs(r/bi1) < 1.0d-15) exit
+       if (abs(r/bi1) < 1.0d-15) exit
     enddo
     bi1=0.5d0*x*bi1
  else
@@ -474,7 +474,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     k0=12
     if (x >= 35.0) k0=9
     if (x >= 50.0) k0=7
-    ca=dexp(x)/sqrt(2.0d0*pi*x)
+    ca=exp(x)/sqrt(2.0d0*pi*x)
     bi0=1.0d0
     xr=1.0d0/x
     do k=1,k0
@@ -488,7 +488,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     bi1=ca*bi1
  endif
  if (x <= 9.0d0) then
-    ct=-(dlog(x/2.0d0)+el)
+    ct=-(log(x/2.0d0)+el)
     bk0=0.0d0
     w0=0.0d0
     ww=bk0   ! added by DJP, fixes compiler warning
@@ -497,7 +497,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
        w0=w0+1.0d0/k
        r=0.25d0*r/(k*k)*x2
        bk0=bk0+r*(w0+ct)
-       if (dabs((bk0-ww)/bk0) < 1.0d-15) exit
+       if (abs((bk0-ww)/bk0) < 1.0d-15) exit
        ww=bk0
     enddo
     bk0=bk0+ct

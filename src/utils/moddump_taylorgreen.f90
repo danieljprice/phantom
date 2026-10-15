@@ -12,26 +12,31 @@ module moddump
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - vzero : *amplitude of the Taylor-Green velocity field*
 !
-! :Dependencies: physcon
+! :Dependencies: moddump_utils, physcon, prompting
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''
 
+ ! runtime parameter
+ real :: vzero = 0.1   ! amplitude of the Taylor-Green velocity field
+
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use physcon, only:pi
+ use moddump_utils, only:get_moddump_options
+ use physcon,       only:pi
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i
- real :: vzero
 
  print*,' Adding velocity field for Taylor-Green problem '
- vzero = 0.1
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
+
  print*,' vzero = ',vzero
  do i=1,npart
     vxyzu(1:3,i) = 0.
@@ -42,5 +47,44 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 end subroutine modify_dump
 
-end module moddump
+!----------------------------------------------------------------
+!+
+!  interactive prompting for moddump parameters
+!+
+!----------------------------------------------------------------
+subroutine moddump_interactive()
+ use prompting, only:prompt
 
+ call prompt('Enter amplitude of the Taylor-Green velocity field',vzero)
+
+end subroutine moddump_interactive
+
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(vzero,'vzero',db,errcount=nerr)
+
+end subroutine read_options_moddump
+
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# Taylor-Green velocity field'
+ call write_inopt(vzero,'vzero','amplitude of the Taylor-Green velocity field',iunit)
+
+end subroutine write_options_moddump
+
+end module moddump

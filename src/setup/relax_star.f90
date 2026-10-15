@@ -664,7 +664,7 @@ end subroutine write_options_relax
 !----------------------------------------------------------------
 subroutine read_options_relax(db,nerr)
  use infile_utils, only:inopts,read_inopt
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
 
  call read_inopt(tol_ekin,'tol_ekin',db,errcount=nerr)

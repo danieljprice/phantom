@@ -932,7 +932,7 @@ subroutine read_options_star(star,db,nerr,label)
  use infile_utils,  only:inopts,read_inopt
  use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
  type(star_t),              intent(inout) :: star
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
  character(len=*),          intent(in), optional :: label
  character(len=10) :: c
@@ -1076,7 +1076,7 @@ subroutine read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
  use relaxstar,    only:read_options_relax
  use infile_utils, only:inopts,read_inopt,int_to_string
  type(star_t),              intent(inout) :: star(:) ! inout because can set default options manually in calling routine
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(inout) :: ieos
  logical,                   intent(out)   :: relax,write_rho_to_file
  integer,                   intent(inout) :: nerr
@@ -1170,7 +1170,7 @@ subroutine read_options_stars_eos(nstars,star,label,ieos,db,nerr)
  integer,                   intent(in)    :: nstars
  type(star_t),              intent(inout) :: star(nstars)
  character(len=*),          intent(in)    :: label(nstars)
- type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts),              intent(inout) :: db(:)
  integer,                   intent(inout) :: ieos
  integer,                   intent(inout) :: nerr
  integer :: i

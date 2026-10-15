@@ -17,7 +17,7 @@ module testradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+! :Dependencies: apr, boundary, deriv, dim, eos, io, kernel, mpidomain,
 !   mpiutils, neighkdtree, options, part, physcon, radiation_implicit,
 !   radiation_utils, readwrite_dumps, step_lf_global, testutils, timestep,
 !   unifdis, units
@@ -85,6 +85,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp,periodic
  use io,         only:iverbose
+ use apr,        only:sync_aprmassoftype
  use part,       only:init_part,npart,rho,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,drad,&
                       npartoftype,rad,radprop,maxvxyzu,luminosity,init_rho_from_h
@@ -132,6 +133,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  totmass = rhozero*(dxbound*dybound*dzbound)
  nptot = reduceall_mpi('+',npart)
  massoftype(igas) = totmass/nptot
+ call sync_aprmassoftype
  gamma = 5./3.
  gmw = 2.0
  polyk = 0.
@@ -436,6 +438,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  use dim,             only:maxp
  use io,              only:id,master
  use eos,             only:gamma,gmw,iopacity_type
+ use apr,             only:sync_aprmassoftype
  use part,            only:npart,hfact,xyzh,vxyzu,massoftype,igas,periodic,&
                            iphase,maxphase,isetphase,npartoftype,&
                            rad,radprop,ifluxx,maxvxyzu
@@ -462,6 +465,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
 
  rho0 = 2.5e-24
  massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot
+ call sync_aprmassoftype
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0

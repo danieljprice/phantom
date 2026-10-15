@@ -517,7 +517,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.f90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 ptmass_tree.f90 \
-         utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
+         utils_deriv.f90 utils_neighcompact.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
          krome.F90 memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
@@ -525,7 +525,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          quitdump.f90 dens.F90\
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} \
-         mf_write.f90 egg.f90 evolve_utils.F90 evolve.f90 utils_linalg.f90 \
+         mf_write.f90 egg.f90 evolve_utils.F90 utils_pcg.f90 divb_projection.f90 evolve.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
@@ -682,7 +682,8 @@ SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_neigh.f90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
-         test_mpi.f90 test_sedov.f90 test_poly.f90 test_linalg.f90 test_radiation.f90 test_units.f90 \
+         test_mpi.f90 test_sedov.f90 test_poly.f90 test_linalg.f90 test_divb_projection.f90 \
+         test_radiation.f90 test_units.f90 test_infile.f90 \
          testsuite.f90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -782,7 +783,7 @@ ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
 OBJMOD1 = ${OBJSETSTAR} eos_stamatellos.o velfield_fromcubes.o set_vfield.o\
-          set_disc.o set_Bfield.o utils_omp.o\
+          set_disc.o set_Bfield.o utils_omp.o utils_moddump.o\
 	  ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
@@ -1154,7 +1155,7 @@ cleanmultirun:
 # utility to plot orbits based on orbital elements (a,e,i,o,w,f)
 #
 SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
-         utils_filenames.f90 mpi_utils.F90 utils_allocate.f90 utils_orbits.f90 \
+         utils_filenames.f90 mpi_utils.F90 utils_allocate.f90 dtype_kdtree.F90 utils_orbits.f90 \
          utils_infiles.f90 units.f90 set_binary.f90 set_orbit.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}
@@ -1391,6 +1392,7 @@ compilers:
 	@if type -p ifort > /dev/null; then echo "make SYSTEM=ifort"; fi;
 	@if type -p pathf90 > /dev/null; then echo "make SYSTEM=pathf90"; fi;
 	@if type -p pgf90 > /dev/null; then echo "make SYSTEM=pgf90"; fi;
+	@if type -p nvfortran > /dev/null; then echo "make SYSTEM=nvfortran"; fi;
 	@if type -p xlf90_r > /dev/null; then echo "make SYSTEM=ukaff1a [uses xlf90_r]"; fi;
 	@if type -p gfortran > /dev/null; then echo "make SYSTEM=gfortran"; fi;
 	@if type -p g95 > /dev/null; then echo "make SYSTEM=g95"; fi;
