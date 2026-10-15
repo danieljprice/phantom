@@ -51,7 +51,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !
  call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
-
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
