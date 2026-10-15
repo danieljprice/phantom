@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: Vacondio et al. 2013
 !
-! :Owner: Rebecca Nealon
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - nchild : *number of children per merged particle (>= 2)*

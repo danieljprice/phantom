@@ -15,8 +15,8 @@ module moddump
 ! :Runtime parameters:
 !   - sink_radius : *sink radius [Rsun]*
 !
-! :Dependencies: io, moddump_utils, part, physcon, prompting,
-!   sortutils, units
+! :Dependencies: io, moddump_utils, part, physcon, prompting, sortutils,
+!   units
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

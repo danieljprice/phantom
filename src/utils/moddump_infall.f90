@@ -16,9 +16,9 @@ module moddump
 !   - add_turbulence     : *add turbulence (0=no, 1=yes)*
 !   - b                  : *impact parameter [code units]*
 !   - b_frac             : *impact parameter b as fraction of b_crit*
-!   - cloud_control_mode : *cloud control mode (0=manual, 1=N sets size, 2=size sets mass)*
+!   - cloud_control_mode : *0=manual,1=N sets size,2=size sets mass*
 !   - eccentricity       : *eccentricity*
-!   - ieos_infall        : *eos to set after infall (6=isothermal about sink, 14=binary)*
+!   - ieos_infall        : *eos after infall (6=isothermal on sink,14=binary)*
 !   - in_mass            : *infall mass per cloud in Msun (sym_infall > 0 doubles total)*
 !   - in_orbit           : *orbit type (0=parabolic, 1=hyperbolic)*
 !   - in_shape           : *infall material shape (0=sphere, 1=ellipse)*
@@ -36,12 +36,13 @@ module moddump
 !   - r_soft             : *softening radius*
 !   - rho_mode           : *density mode (0=current, 1=Dullemond Eq4/Eq5)*
 !   - rms_mach           : *rms Mach number*
+!   - sym_infall         : *companion ang. mom. (0=no,1=Lx/Ly,2=all,3=Lz)*
 !   - tfact              : *tfact*
 !   - v_inf              : *velocity at infinity [km/s]*
 !
-! :Dependencies: datafiles, dim, eos, io, kernel,
-!   moddump_utils, options, part, partinject, physcon, prompting,
-!   spherical, stretchmap, units, vectorutils, velfield
+! :Dependencies: datafiles, dim, eos, io, kernel, moddump_utils, options,
+!   part, partinject, physcon, prompting, spherical, stretchmap, units,
+!   vectorutils, velfield
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

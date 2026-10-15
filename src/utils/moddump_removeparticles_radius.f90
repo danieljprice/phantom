@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Daniel Mentiplay
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - icutinside  : *delete particles inside a given radius*
@@ -50,7 +50,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--read parameters from the .moddump file, prompting if it does not exist
  !
  call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
-
 
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'

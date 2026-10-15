@@ -315,11 +315,11 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     call get_cell_location(inode,xpos,xsizei,rcuti)
  endif
 
+ ! the global tree only exists with more than one MPI task
+ global_search = .false.
  if (present(remote_export)) then
     if (nprocs > 1) global_search = .true.
     remote_export = .false.
- else
-    global_search = .false.
  endif
 
  if (periodic) then

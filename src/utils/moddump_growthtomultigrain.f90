@@ -10,15 +10,14 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Arnaud Vericel
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - bins_per_dex : *number of bins per dex*
 !   - force_smax   : *set the maximum grain size manually*
 !   - smax_user    : *maximum grain size [cm] (used if force_smax=T)*
 !
-! :Dependencies: dim, growth, io_control,
-!   moddump_utils, part, prompting
+! :Dependencies: dim, growth, io_control, moddump_utils, part, prompting
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

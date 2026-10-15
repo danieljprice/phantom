@@ -17,10 +17,6 @@ module checkconserved
 !
 ! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
- !
- ! imports are consolidated here rather than in each routine, to avoid
- ! an internal compiler error with aocc from re-reading large modules
- !
  use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts
  use eos,            only:eos_conserves_energy
  use options,        only:use_dustfrac,iexternalforce

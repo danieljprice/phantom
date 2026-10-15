@@ -10,12 +10,12 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Mike Lau
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - perturb_factor      : *fractional velocity perturbation for gas*
 !   - perturb_sink        : *also perturb sink particle velocities*
-!   - sink_perturb_factor : *fractional velocity perturbation for sinks*
+!   - sink_perturb_factor : *perturbation for sinks*
 !
 ! :Dependencies: moddump_utils, part, prompting
 !

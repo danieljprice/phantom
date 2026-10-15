@@ -16,7 +16,7 @@ module moddump_utils
 !
 ! :References: None
 !
-! :Owner: Josh Calcino
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

@@ -13,7 +13,7 @@ module moddump
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - lattice_type : *child arrangement (0=regular lattice, 1=random)*
+!   - lattice_type : *0=regular lattice, 1=random*
 !   - nchild       : *number of children per particle (13 allows a regular lattice)*
 !
 ! :Dependencies: moddump_utils, part, prompting, splitpart

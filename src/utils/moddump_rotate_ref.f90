@@ -18,8 +18,7 @@ module moddump
 !   - ref_Omega : *reference position angle [deg]*
 !   - ref_incl  : *reference inclination [deg]*
 !
-! :Dependencies: moddump_utils, part, physcon,
-!   prompting, vectorutils
+! :Dependencies: moddump_utils, part, physcon, prompting, vectorutils
 !
  implicit none
  character(len=*), parameter, public :: moddump_flags = ''

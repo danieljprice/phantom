@@ -24,8 +24,7 @@ module setup
 !   - use_gr_ic     : *whether initial velocity condition computed in GR is used*
 !
 ! :Dependencies: eos, infile_utils, io, kernel, metric, mpidomain, orbits,
-!   part, physcon, relaxstar, setorbit, setstar, setup_params,
-!   units
+!   part, physcon, relaxstar, setorbit, setstar, setup_params, units
 !
  use setstar, only:star_t
  use metric,  only:mass1,a

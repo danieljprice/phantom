@@ -70,7 +70,7 @@ module setup
 !   - ramp            : *Do you want to ramp up the planet mass slowly?*
 !   - rho_branch_cgs  : *EOS density threshold for warm branch in g cm^-3*
 !   - rho_core        : *planet core density (cgs units)*
-!   - rho_warm_cgs    : *initial atomic warm neutral background density in g cm^-3*
+!   - rho_warm_cgs    : *initial warm medium density in g/cm^3*
 !   - rms_mach        : *RMS Mach number of turbulence*
 !   - set_freefall    : *Set the sphere in freefall (0=no freefall, 1=freefall)*
 !   - subst           : *star to substitute*
@@ -89,8 +89,8 @@ module setup
 !   io_control, kernel, memory, mpidomain, mpiutils, options, orbits, part,
 !   partinject, physcon, prompting, radiation_utils, set_dust,
 !   set_dust_options, setbinary, setdisc, sethier_utils, sethierarchical,
-!   setorbit, setunits, shock_capturing, spherical, timestep,
-!   unifdis, units, vectorutils, velfield
+!   setorbit, setunits, shock_capturing, spherical, timestep, unifdis,
+!   units, vectorutils, velfield
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost,gr

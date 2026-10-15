@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Antoine Alaguero
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - rho_threshold : *delete particles with density below this [code units]*

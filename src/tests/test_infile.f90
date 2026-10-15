@@ -14,7 +14,11 @@ module testinfile
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - label : *a string option*
+!   - lflag : *a logical option*
+!   - np    : *number of particles*
+!   - omega : *a real option*
 !
 ! :Dependencies: infile_utils, io, testutils
 !
@@ -46,7 +50,7 @@ subroutine test_infile(ntests,npass)
 
  ! run on all tasks (update_test_scores is collective) with one file per task
  write(filename,"(a,i0,a)") 'test_infile_tmp',id,'.setup'
- if (id==master) write(*,"(/,a)") '--> TESTING PARAMETER FILE HANDLING'
+ if (id==master) write(*,"(/,a)") '--> TESTING parameter FILE HANDLING'
 
  call test_parse_option_string(ntests,npass)
  call test_override_existing_file(ntests,npass)
@@ -57,7 +61,7 @@ subroutine test_infile(ntests,npass)
  call test_string_default(ntests,npass)
  call delete_file(filename)
 
- if (id==master) write(*,"(/,a)") '<-- PARAMETER FILE TEST COMPLETE'
+ if (id==master) write(*,"(/,a)") '<-- parameter FILE TEST COMPLETE'
 
 end subroutine test_infile
 

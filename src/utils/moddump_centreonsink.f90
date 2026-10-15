@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Antoine Alaguero
+! :Owner: Josh Calcino
 !
 ! :Runtime parameters:
 !   - sink_ind : *index of the sink to centre on*
