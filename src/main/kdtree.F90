@@ -39,7 +39,7 @@ module kdtree
 !
  integer,          parameter, public :: irootnode    = 1
  character(len=1), parameter, public :: labelax(3)   = (/'x','y','z'/)
- integer,          parameter, public :: maxdepth     = 64
+ integer,          parameter, public :: maxdepth     = 128
 !
 !--runtime options for this module
 !
