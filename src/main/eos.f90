@@ -942,14 +942,14 @@ real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
  select case (eos_type)
  case(10) ! MESA EoS, tables are in cgs units
     if (present(uguess)) then
-       call get_eos_u_from_rhoT_mesa(rho*unit_density,temp,u,uguess*unit_ergg)
+       call get_eos_u_from_rhoT_mesa(real(rho*unit_density),temp,u,real(uguess*unit_ergg))
     else
-       call get_eos_u_from_rhoT_mesa(rho*unit_density,temp,u)
+       call get_eos_u_from_rhoT_mesa(real(rho*unit_density),temp,u)
     endif
     u = u/unit_ergg
 
  case(12) ! ideal gas plus radiation
-    call get_idealplusrad_enfromtemp(rho*unit_density,temp,gmw,u)
+    call get_idealplusrad_enfromtemp(real(rho*unit_density),temp,gmw,u)
     u = u/unit_ergg
 
  case default
@@ -1272,7 +1272,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
     ! cgss is s/kB (see get_entropy) but the GR table lookup takes s as returned by entropy()
-    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss*kboltz,cgspres,temp)
+    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,real(cgss*kboltz),cgspres,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
@@ -1310,7 +1310,7 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
  select case (ieos)
  case(10)
     ! cgss is s/kB (see get_entropy) but the GR table lookup takes s as returned by entropy()
-    call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss*kboltz,cgsu)
+    call get_eos_u_from_rhos_mesa_gr(cgsrho,real(cgss*kboltz),cgsu)
 
  case default
     cgsu = 0.
