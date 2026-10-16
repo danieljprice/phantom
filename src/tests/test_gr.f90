@@ -809,48 +809,76 @@ end subroutine test_u_los
 !-----------------------------------------------------------------------
 !+
 !   Test that one explicit step in the GR entropy variable gives the
-!   correct change in u when cold gas is strongly heated or cooled.
-!   With a plain Euler step ds = du/(kT) the heating of cold gas is
-!   overestimated, overflowing T(s) for large du/u
+!   correct change in u when gas is strongly heated or cooled, for cold
+!   ideal gas and for radiation-dominated gas+radiation. With a plain
+!   Euler step ds = du/(kT) the heating of cold gas is overestimated,
+!   overflowing T(s) for large du/u
 !+
 !-----------------------------------------------------------------------
 subroutine test_entropy_step(ntests,npass)
- use eos,     only:get_entropy,get_p_from_rho_s,entropy_step_factor
+ use eos,     only:get_entropy,get_p_from_rho_s,correct_entropy_derivative,&
+                   get_u_from_rhoT,get_pressure,get_temperature,gmw,gamma,init_eos
  use part,    only:ien_entropy,ien_entropy_s
- use physcon, only:kboltz,Rg
- use units,   only:unit_density,unit_ergg
+ use physcon, only:kboltz
+ use units,   only:unit_density
  integer, intent(inout) :: ntests,npass
- integer, parameter :: nx = 6, ieos_ideal = 2
- real,    parameter :: xfrac(nx) = (/1.e-6,0.5,10.,1.e6,-0.5,-2./)
- integer :: nerr(2*nx),j
- real    :: rho,u,pres,temp,s,dsdt,dudt,dt,mu,x,xlim,uexact,u1,pres1,temp1
+ integer, parameter :: nx = 6, neos = 3
+ real,    parameter :: xfrac(nx) = (/0.5,10.,1.e6,-0.5,-1.,-2./)
+ integer, parameter :: ieos_test(neos) = (/2,12,10/)
+ real,    parameter :: rho_cgs(neos) = (/1.,1.e-10,1./)  ! cold gas, radiation dominated, MESA
+ real,    parameter :: temp0(neos) = (/10.,1.e5,1.e6/)
+ real,    parameter :: tol(neos) = (/1.e-14,1.e-14,1.e-2/)
+ integer :: nerr(nx*(neos+1)),j,k,ieos,ierr
+ real    :: rho,u,pres,temp,s,dsdt,dudt,dt,x,xlim,uexact,u1,pres1,temp1,gmw_prev
+ real    :: xyz0(3),vxyzu0(4)
 
- write(*,'(/,a)') '--> testing entropy step for strongly heated cold gas'
- mu   = 0.6
- rho  = 1./unit_density             ! 1 g/cm^3
- temp = 10.                         ! cold gas, 10 K
- u    = 1.5*Rg*temp/mu/unit_ergg     ! ideal monatomic gas
- pres = 2./3.*rho*u
- s    = get_entropy(rho,pres,mu,ieos_ideal)
- dt   = 1.
+ write(*,'(/,a)') '--> testing entropy step for strongly heated or cooled gas'
+ gmw_prev = gmw
+ gmw    = 0.6
+ gamma  = 5./3.
+ dt     = 1.
+ nerr   = 0
+ xyz0   = 0.  ! position and velocity are not used by these equations of state
+ vxyzu0 = 0.
+ do k=1,neos
+    ieos = ieos_test(k)
+    call init_eos(ieos,ierr)
+    if (ierr /= 0) then
+       write(*,'(a,i2,a)') '   skipping ieos=',ieos,' (eos initialisation failed, e.g. tables not found)'
+       cycle
+    endif
+    rho = rho_cgs(k)/unit_density
+    u   = get_u_from_rhoT(rho,temp0(k),ieos)
+    vxyzu0(4) = u
+    pres = get_pressure(ieos,xyz0,rho,vxyzu0)
+    temp = get_temperature(ieos,xyz0,rho,vxyzu0)
+    s    = get_entropy(rho,pres,gmw,ieos)
+    do j=1,nx
+       x    = xfrac(j)
+       dudt = x*u/dt
+       ! cooling that would make u negative is limited as in the non-GR code
+       xlim = x
+       if (x <= -1.) xlim = x/(1. - x)
+       uexact = u*(1. + xlim)
+
+       ! s entropy: Euler step computed as in force, corrected, then T(s) and u(T) from the eos
+       dsdt = dudt/(kboltz*temp)
+       dsdt = correct_entropy_derivative(ien_entropy_s,x,dsdt,dt,ieos,xyz0,rho,u,pres)
+       call get_p_from_rho_s(ieos,s + dt*dsdt,rho,gmw,pres1,temp1)
+       u1   = get_u_from_rhoT(rho,temp1,ieos)
+       call checkval(u1/uexact,1.,tol(k),nerr((k-1)*nx+j),'u/u_exact after s entropy step')
+    enddo
+ enddo
+
+ ! K entropy: u is proportional to K at fixed density
  do j=1,nx
     x    = xfrac(j)
-    dudt = x*u/dt
-    ! cooling that would make u negative is limited as in the non-GR code
     xlim = x
-    if (x < -1.) xlim = x/(1. - x)
-    uexact = u*(1. + xlim)
-
-    ! s entropy: Euler step in s computed as in force, then T(s) from the eos
-    dsdt = dudt/(kboltz*temp)*entropy_step_factor(ien_entropy_s,dt*dudt/u)
-    call get_p_from_rho_s(ieos_ideal,s + dt*dsdt,rho,mu,pres1,temp1)
-    u1 = 1.5*pres1/rho
-    call checkval(u1/uexact,1.,1.e-14,nerr(j),'u/u_exact after s entropy step')
-
-    ! K entropy: u is proportional to K at fixed density
-    u1 = u + dt*dudt*entropy_step_factor(ien_entropy,dt*dudt/u)
-    call checkval(u1/uexact,1.,1.e-15,nerr(nx+j),'u/u_exact after K entropy step')
+    if (x <= -1.) xlim = x/(1. - x)
+    u1 = u + dt*correct_entropy_derivative(ien_entropy,x,x*u/dt,dt,2,xyz0,rho,u,pres)
+    call checkval(u1/(u*(1. + xlim)),1.,1.e-15,nerr(neos*nx+j),'u/u_exact after K entropy step')
  enddo
+ gmw = gmw_prev
 
  call update_test_scores(ntests,nerr,npass)
 

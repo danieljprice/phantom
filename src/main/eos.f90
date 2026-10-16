@@ -74,7 +74,7 @@ module eos
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
  public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
- public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,entropy_step_factor
+ public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,correct_entropy_derivative
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
@@ -931,18 +931,26 @@ end function get_local_u_internal
 !+
 !-----------------------------------------------------------------------
 real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
- use eos_mesa, only:get_eos_u_from_rhoT_mesa
+ use eos_mesa,         only:get_eos_u_from_rhoT_mesa
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp
+ use units,            only:unit_density,unit_ergg
  integer, intent(in) :: eos_type
  real,    intent(in) :: rho,temp
  real,    intent(in), optional :: uguess
 
+ ! rho and u are in code units, temperature in K
  select case (eos_type)
- case(10) ! MESA EoS
+ case(10) ! MESA EoS, tables are in cgs units
     if (present(uguess)) then
-       call get_eos_u_from_rhoT_mesa(rho,temp,u,uguess)
+       call get_eos_u_from_rhoT_mesa(rho*unit_density,temp,u,uguess*unit_ergg)
     else
-       call get_eos_u_from_rhoT_mesa(rho,temp,u)
+       call get_eos_u_from_rhoT_mesa(rho*unit_density,temp,u)
     endif
+    u = u/unit_ergg
+
+ case(12) ! ideal gas plus radiation
+    call get_idealplusrad_enfromtemp(rho*unit_density,temp,gmw,u)
+    u = u/unit_ergg
 
  case default
     u = temp/(gmw*temperature_coef*(gamma-1.))
@@ -1162,42 +1170,45 @@ end function get_entropy
 
 !-----------------------------------------------------------------------
 !+
-!  Factor by which to multiply the time derivative of the GR entropy
-!  variable so that an explicit step gives a physical change in u.
-!  Input is x = dt*(du/dt)/u, the fractional change in u over the step.
+!  Correct the time derivative of the GR entropy variable so that an
+!  explicit step of length dt gives a physical change in u. Input x is
+!  dt*(du/dt)/u, the fractional change in u implied by dsdt.
 !
-!  For s entropy we integrate du = kT ds exactly for an ideal gas,
-!  giving ds = ln(1 + x)*u/(kT) instead of the Euler step x*u/(kT),
-!  which overflows T(s) when cold gas is strongly heated.
-!  For K entropy u is proportional to K, so as for u in the non-GR
-!  code we only limit cooling that would make the energy negative.
+!  As for u in the non-GR code, cooling that would make u negative is
+!  limited. For K entropy u is proportional to K at fixed density, so
+!  nothing else is needed. For s entropy an Euler step ds = du/(kT)
+!  overshoots when cold gas is strongly heated, overflowing T(s), so for
+!  large |x| we instead return the derivative that gives the entropy of
+!  the state with internal energy u(1+x) at fixed density from the eos
 !+
 !-----------------------------------------------------------------------
-pure real function entropy_step_factor(ien,x) result(fac)
- integer, intent(in) :: ien
- real,    intent(in) :: x
- real :: xlim
+real function correct_entropy_derivative(ien,x,dsdt,dt,eos_type,xyzi,dens,u,pres) result(dsdt_new)
+ integer, intent(in) :: ien,eos_type
+ real,    intent(in) :: x,dsdt,dt,xyzi(3),dens,u,pres
+ real, parameter :: xmin = 1.e-2  ! below this an Euler step in s is accurate
+ real :: xlim,pnew,vxyzui(4)
 
  ! limit cooling so that u stays positive
- if (x < -1.) then
+ if (x <= -1.) then
     xlim = x/(1. - x)
  else
     xlim = x
  endif
 
- fac = 1.
+ dsdt_new = dsdt
  select case(ien)
  case(ien_entropy)
-    if (x < -1.) fac = xlim/x
+    if (x <= -1.) dsdt_new = dsdt*xlim/x
  case(ien_entropy_s)
-    if (abs(xlim) > 1.e-4) then
-       fac = log(1. + xlim)/x
-    else
-       fac = 1. - 0.5*xlim + xlim**2/3. ! series expansion of ln(1+x)/x
+    if (abs(x) > xmin) then
+       vxyzui(1:3) = 0.
+       vxyzui(4)   = u*(1. + xlim)
+       pnew = get_pressure(eos_type,xyzi,dens,vxyzui)
+       dsdt_new = (get_entropy(dens,pnew,gmw,eos_type) - get_entropy(dens,pres,gmw,eos_type))/dt
     endif
  end select
 
-end function entropy_step_factor
+end function correct_entropy_derivative
 
 !-----------------------------------------------------------------------
 !+

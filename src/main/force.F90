@@ -2720,7 +2720,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,track_lum,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,driving,isothermal,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry,use_apr,use_sinktree,gravity,&
                           ind_timesteps,ndivcurlB
- use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,entropy_step_factor
+ use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,correct_entropy_derivative
  use options,        only:alpha,use_dustfrac,implicit_radiation,use_porosity
  use part,           only:iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
@@ -3209,7 +3209,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           else
              dudti = fxyzu(4,i)/((gammai - 1.)*densi**(1. - gammai))  ! u = K rho**(gamma-1)/(gamma-1)
           endif
-          fxyzu(4,i) = fxyzu(4,i)*entropy_step_factor(ien_type,dtc*dudti/eni)
+          fxyzu(4,i) = correct_entropy_derivative(ien_type,dtc*dudti/eni,fxyzu(4,i),dtc,&
+                                                  ieos,posi,densi,eni,pri)
        endif
 
        ! timestep based on non-ideal MHD
