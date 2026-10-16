@@ -963,7 +963,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
  use metric_tools,only:imet_minkowski,imetric
- use utils_gr,    only:get_bigv
+ use utils_gr,    only:get_bigv,get_u_los
  use radiation_utils, only:get_rad_R
  use io,          only:fatal
  integer,         intent(in)    :: i
@@ -1058,9 +1058,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: ii,ia,ib,ic
  real    :: densj
  real    :: bigvi(1:3),bigv2i,alphagri,lorentzi
- real    :: veli(3),vij,vijstar
+ real    :: veli(3),vij,vijstar,rhat(3)
  real    :: bigv2j,alphagrj,enthi,enthj
- real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
+ real    :: du_losi,du_losj,lorentzj,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
@@ -1593,9 +1593,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              densj = dens(j)
              enthi  = 1.+eni+pri/densi
              enthj  = 1.+enj+prj/densj
-             lorentzi_star = 1./sqrt(1.-projbigvstari**2)
-             lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
-             dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
+             ! jump in the covariant 4-velocity along the line of sight, evaluated
+             ! with the metric of each particle so that it has the same sign as
+             ! projv, giving positive shock heating
+             rhat = [runix,runiy,runiz]
+             du_losi = get_u_los(metrici(:,:,1),projvi,rhat) - get_u_los(metrici(:,:,1),projvj,rhat)
+             du_losj = get_u_los(metricj(:,:,1),projvi,rhat) - get_u_los(metricj(:,:,1),projvj,rhat)
           endif
 
           if (disc_viscosity) then
@@ -1606,13 +1609,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !
              if (gr) then
                 if (projv < 0.) then
-                   qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
-                   if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
+                   qrho2i = -0.5*rho1i*vsigavi*enthi*du_losi*hi*rij1
+                   if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*du_losj*hj*rij1
                 else
-                   qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
-                   if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
+                   qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*du_losi*hi*rij1
+                   if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*du_losj*hj*rij1
                 endif
-                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*du_losi*hi*rij1*projv*grkerni
              else
                 if (projv < 0.) then
                    qrho2i = -0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
@@ -1626,8 +1629,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           else
              if (projv < 0.) then
                 if (gr) then
-                   qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
-                   if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
+                   qrho2i = -0.5*rho1i*vsigavi*enthi*du_losi
+                   if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*du_losj
                 else
                    qrho2i = -0.5*rho1i*vsigavi*projv
                    if (usej) qrho2j = -0.5*rho1j*vsigavj*projv

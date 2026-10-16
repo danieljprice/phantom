@@ -44,7 +44,9 @@ subroutine test_gr(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
  call test_rn_charged(ntests,npass)
+ call test_u_los(ntests,npass)
  call test_entropy_step(ntests,npass)
+ call test_tde_entropy(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
@@ -737,6 +739,75 @@ end subroutine test_rn_charged
 
 !-----------------------------------------------------------------------
 !+
+!   Test of the line of sight covariant 4-velocity used in the shock
+!   viscosity: it should reduce to Gamma*v in flat space and, for a
+!   fixed metric, be a monotonic function of the coordinate velocity
+!   so that the shock heating is positive
+!+
+!-----------------------------------------------------------------------
+subroutine test_u_los(ntests,npass)
+ use physcon,      only:pi
+ use utils_gr,     only:get_u_los,get_u0
+ use metric_tools, only:get_metric
+ use metric,       only:a
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nv = 9
+ integer :: nfail(2),i,j,k,l,ia,ib,ierr,nwrong
+ real    :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,rhat(3),pos(3),vel(nv),a_prev
+ real    :: ua,ub,u0,errmax
+ real, parameter :: radii(3) = (/3.,5.,10./), theta(3) = (/0.3,pi/2.,2.5/)
+ real, parameter :: spin(2) = (/0.,0.9/)
+
+ write(*,'(/,a)') '--> testing line of sight 4-velocity for shock viscosity'
+ vel = (/(-0.8 + 0.2*(i-1),i=1,nv)/)
+
+ ! flat space: U_i rhat^i = Gamma v
+ gcov = 0.
+ gcov(0,0) = -1.
+ do i=1,3
+    gcov(i,i) = 1.
+ enddo
+ rhat = (/1.,2.,2./)/3.
+ errmax = 0.
+ do i=1,nv
+    errmax = max(errmax,abs(get_u_los(gcov,vel(i),rhat) - vel(i)/sqrt(1. - vel(i)**2)))
+ enddo
+ call checkval(errmax,0.,1.e-15,nfail(1),'U_los = Gamma*v in flat space')
+
+ ! curved space: (U_los(v_a) - U_los(v_b))*(v_a - v_b) >= 0 for all pairs of velocities
+ a_prev = a
+ nwrong = 0
+ do l=1,size(spin)
+    a = spin(l)
+    do i=1,size(radii)
+       do j=1,size(theta)
+          do k=0,3
+             pos = radii(i)*(/sin(theta(j))*cos(0.5*pi*k),sin(theta(j))*sin(0.5*pi*k),cos(theta(j))/)
+             rhat = (/cos(0.7*k),sin(0.7*k)*cos(theta(j)),sin(0.7*k)*sin(theta(j))/)
+             call get_metric(pos,gcov,gcon,sqrtg)
+             do ia=1,nv
+                call get_u0(gcov,vel(ia)*rhat,u0,ierr)
+                if (ierr /= 0) cycle  ! skip velocities faster than light
+                ua = get_u_los(gcov,vel(ia),rhat)
+                do ib=1,nv
+                   call get_u0(gcov,vel(ib)*rhat,u0,ierr)
+                   if (ierr /= 0) cycle
+                   ub = get_u_los(gcov,vel(ib),rhat)
+                   if ((ua - ub)*(vel(ia) - vel(ib)) < 0.) nwrong = nwrong + 1
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+ enddo
+ a = a_prev
+ call checkval(nwrong,0,0,nfail(2),'U_los monotonic in v for fixed metric')
+ call update_test_scores(ntests,nfail,npass)
+
+end subroutine test_u_los
+
+!-----------------------------------------------------------------------
+!+
 !   Test that one explicit step in the GR entropy variable gives the
 !   correct change in u when cold gas is strongly heated or cooled.
 !   With a plain Euler step ds = du/(kT) the heating of cold gas is
@@ -784,5 +855,145 @@ subroutine test_entropy_step(ntests,npass)
  call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_entropy_step
+
+!-----------------------------------------------------------------------
+!+
+!   Test that shock heating never decreases the entropy of a particle,
+!   using a low resolution polytrope passing close to the black hole.
+!   Tidal distortion of the star triggers the shock viscosity. With
+!   conductivity switched off, K can only increase
+!+
+!-----------------------------------------------------------------------
+subroutine test_tde_entropy(ntests,npass)
+ use io,             only:id,master,iverbose,real4
+ use dim,            only:maxp,maxalpha
+ use part,           only:init_part,npart,npartoftype,xyzh,vxyzu,pxyzu,fext,dens,metrics,&
+                          metricderivs,eos_vars,rad,massoftype,hfact,alphaind,xyzmh_ptmass,&
+                          vxyz_ptmass,nptmass,nsinkproperties,ien_type,ien_entropy,&
+                          isdead_or_accreted,igas
+ use mpidomain,      only:i_belong
+ use eos,            only:ieos,gamma,X_in,Z_in,ishock_heating
+ use options,        only:alpha,alphau,beta,ireconav,iexternalforce
+ use setstar,        only:star_t,set_star,set_defaults_star,ipoly
+ use setorbit,       only:orbit_t,set_defaults_orbit,set_orbit
+ use externalforces, only:initialise_externalforces
+ use extern_gr,      only:get_grforce_all
+ use cons2prim,      only:prim2consall
+ use metric_tools,   only:init_metric
+ use deriv,          only:get_derivs_global,get_density_global
+ use step_lf_global, only:init_step,step
+ use timestep,       only:dtmax,dtcourant,dtforce
+ integer, intent(inout) :: ntests,npass
+ type(star_t)  :: star
+ type(orbit_t) :: orbit
+ integer :: nfail(3),ierr,i,nsteps,ndecrease
+ integer :: ieos_prev,ien_type_prev,iexternalforce_prev,ishock_heating_prev,ireconav_prev
+ integer(kind=8) :: ntot
+ real    :: xyzmh_in(nsinkproperties,2),vxyz_in(3,2),xstar(3),vstar(3)
+ real    :: t,tmax,dt,dtnew,dtextforce,rhozero,kprev(maxp)
+ real    :: gamma_prev,alpha_prev,alphau_prev,beta_prev,dtmax_prev
+
+ if (id==master) write(*,'(/,a)') '--> testing entropy does not decrease in a tidal disruption'
+ ! save options changed by this test
+ ieos_prev           = ieos
+ gamma_prev          = gamma
+ ien_type_prev       = ien_type
+ ishock_heating_prev = ishock_heating
+ alpha_prev          = alpha
+ alphau_prev         = alphau
+ beta_prev           = beta
+ ireconav_prev       = ireconav
+ iexternalforce_prev = iexternalforce
+ dtmax_prev          = dtmax
+ iverbose = 0
+
+ ! polytropic star, with no relaxation since the test only needs tidal distortion
+ call init_part()
+ ieos  = 2
+ gamma = 5./3.
+ call set_defaults_star(star)
+ star%m = '1*msun'
+ star%r = '1*rsun'
+ star%iprofile = ipoly
+ star%np = 1000
+ nptmass = 0
+ call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,relax=.false.,&
+               use_var_comp=.false.,write_rho_to_file=.false.,rhozero=rhozero,&
+               npart_total=ntot,mask=i_belong,ierr=ierr,write_files=.false.)
+ call checkval(ierr,0,0,nfail(1),'set_star runs with ierr = 0')
+
+ ! eccentric orbit with pericentre at 10 M, starting just before pericentre
+ call set_defaults_orbit(orbit)
+ orbit%elems%a = '50.'
+ orbit%e = 0.8
+ orbit%f = -60.
+ xyzmh_in = 0.
+ vxyz_in  = 0.
+ i = 0
+ call set_orbit(orbit,1.,npart*massoftype(igas),1.e-8,1.e-8,xyzmh_in,vxyz_in,i,.false.,ierr)
+ call checkval(ierr,0,0,nfail(2),'set_orbit runs with ierr = 0')
+ call update_test_scores(ntests,nfail(1:2),npass)
+ xstar = xyzmh_in(1:3,2) - xyzmh_in(1:3,1)
+ vstar = vxyz_in(1:3,2) - vxyz_in(1:3,1)
+ do i=1,npart
+    xyzh(1:3,i)  = xyzh(1:3,i) + xstar
+    vxyzu(1:3,i) = vstar
+ enddo
+
+ ! evolve K with shock viscosity but no conductivity
+ ien_type       = ien_entropy
+ ishock_heating = 1
+ alpha          = 1.
+ alphau         = 0.
+ beta           = 2.
+ ireconav       = -1
+ if (maxalpha==maxp) alphaind(1,:) = real4(alpha)
+ iexternalforce = 1
+
+ t = 0.
+ tmax  = 200.
+ dtmax = tmax
+ call get_density_global(2,zero_fxyzu=.true.)
+ call init_metric(npart,xyzh,metrics,metricderivs)
+ call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
+ call initialise_externalforces(iexternalforce,ierr)
+ call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
+ call get_derivs_global()
+ call init_step(npart,t,dtmax)
+
+ ! count particles whose entropy decreases during any step
+ ndecrease = 0
+ nsteps = 0
+ dt = min(dtcourant,dtforce,dtextforce)
+ do while (t < tmax)
+    kprev(1:npart) = pxyzu(4,1:npart)
+    t = t + dt
+    call step(npart,npart,t,dt,dtextforce,dtnew)
+    nsteps = nsteps + 1
+    do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i)) .and. pxyzu(4,i) < kprev(i)) ndecrease = ndecrease + 1
+    enddo
+    dt = min(dtnew,tmax-t)
+ enddo
+ if (id==master) print*,' nsteps = ',nsteps
+ call checkval(ndecrease,0,0,nfail(3),'number of times K decreased')
+ call update_test_scores(ntests,nfail(3:3),npass)
+
+ ! restore options and remove particles so later tests are unaffected
+ ieos           = ieos_prev
+ gamma          = gamma_prev
+ ien_type       = ien_type_prev
+ ishock_heating = ishock_heating_prev
+ alpha          = alpha_prev
+ alphau         = alphau_prev
+ beta           = beta_prev
+ ireconav       = ireconav_prev
+ iexternalforce = iexternalforce_prev
+ dtmax          = dtmax_prev
+ if (maxalpha==maxp) alphaind(1,:) = real4(alpha)
+ call init_part()
+
+end subroutine test_tde_entropy
 
 end module testgr
