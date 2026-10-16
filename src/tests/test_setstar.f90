@@ -209,17 +209,63 @@ end subroutine test_polytrope
 !+
 !-----------------------------------------------------------------------
 subroutine test_redsupergiant(ntests,npass)
+ use eos,     only:gmw,X_in,Z_in,irecomb
+ use setstar, only:star_t,set_defaults_star
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: ieos_list(4) = (/2,12,10,20/)  ! ideal gas, gas+rad, MESA, gas+rad+recombination
+ type(star_t) :: star
+
+ gmw     = 0.61821
+ X_in    = 0.698
+ Z_in    = 1.-X_in-0.287
+ irecomb = 0
+ call set_defaults_star(star)
+ star%isinkcore = .true.
+ star%hsoft     = '9.25'
+ star%hacc      = '0.0'
+ star%mcore     = '3.8405'
+ call test_relax_mesa_star(ntests,npass,'lau22.data','red supergiant',star,ieos_list,100,0.04)
+
+end subroutine test_redsupergiant
+
+!-----------------------------------------------------------------------
+!+
+!   test that we can successfully relax a white dwarf with the
+!   Helmholtz and zero temperature equations of state (Ali Pourmand)
+!+
+!-----------------------------------------------------------------------
+subroutine test_whitedwarf(ntests,npass)
+ use eos,     only:X_in,Z_in
+ use setstar, only:star_t,set_defaults_star
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: ieos_list(2) = (/15,25/)  ! Helmholtz, zero temperature
+ type(star_t) :: star
+
+ X_in = 0.
+ Z_in = 1.
+ call set_defaults_star(star)
+ call test_relax_mesa_star(ntests,npass,'pourmandwd.data','white dwarf',star,ieos_list,1500,0.05)
+
+end subroutine test_whitedwarf
+
+!-----------------------------------------------------------------------
+!+
+!   set up and relax a star from a MESA profile with each of the
+!   requested equations of state, and check the relaxed star matches
+!   the profile. Skipped if the profile is not found.
+!+
+!-----------------------------------------------------------------------
+subroutine test_relax_mesa_star(ntests,npass,profile,label,star,ieos_list,maxits_in,tol_relax)
  use io,        only:id,master,iverbose,warning
  use dim,       only:do_radiation
  use datafiles, only:find_phantom_datafile
  use part,      only:init_part,npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass,rho,igas,igasP,imu,iX,iZ,iradxi,&
-                     eos_vars,itemp
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,rho,iradxi,itemp
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm
- use eos,       only:init_eos,gamma,gmw,X_in,Z_in,irecomb,eos_works_with_radiation
- use setstar,   only:star_t,set_star,set_defaults_star,imesa,ierr_radiation_conflict
+ use eos,       only:init_eos,gamma,X_in,Z_in,eos_works_with_radiation
+ use setstar,   only:star_t,set_star,imesa,ierr_radiation_conflict
  use units,     only:set_units
  use relaxstar, only:maxits
  use checksetup,  only:check_setup
@@ -227,20 +273,22 @@ subroutine test_redsupergiant(ntests,npass)
  use table_utils, only:yinterp
  use readwrite_mesa,  only:read_mesa
  use radiation_utils, only:Trad_from_radxi
- integer, intent(inout) :: ntests,npass
- type(star_t) :: star
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: profile,label
+ type(star_t),     intent(inout) :: star
+ integer,          intent(in)    :: ieos_list(:),maxits_in
+ real,             intent(in)    :: tol_relax
+ real, parameter :: tolprof = 0.05
  character(len=500) :: filepath
- real :: rhozero,rmserr,rmserr_mu,rmserr_X,rmserr_Z,ekin,x0(3),errmax(2)
- real :: Mstar,tolprof,tolcomposition,rhoj,rhoj_mesa,rj,Tgas,Trad
+ real :: rhozero,rmserr,ekin,errmax(2),Mstar,rhoj,rhoj_mesa,rhomax,rj,Tgas,Trad
  integer(kind=8) :: ntot
  integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
- logical :: relax_star,var_comp
- real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:)
+ real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
 
- filepath = find_phantom_datafile('lau22.data','star_data_files')
+ filepath = find_phantom_datafile(profile,'star_data_files')
  open(newunit=iunit,file=filepath,status="old",iostat=ierr)
  if (ierr /= 0) then
-    call warning('test_setstar','lau22.data not found, skipping red supergiant test')
+    call warning('test_setstar',trim(profile)//' not found, skipping '//trim(label)//' test')
     return
  else
     close(unit=iunit)
@@ -249,53 +297,29 @@ subroutine test_redsupergiant(ntests,npass)
  iverbose = 0
  call set_units(dist=solarr,mass=solarm,G=1.d0)
  gamma = 5./3.
- gmw = 0.61821
- X_in = 0.698
- Z_in = 1.-X_in-0.287
- irecomb = 0
- relax_star = .true.
- maxits = 100
- var_comp = .false.
- call set_defaults_star(star)
- star%isinkcore   = .true.
- star%hsoft          = '9.25'
- star%hacc           = '0.0'
- star%mcore          = '3.8405'
- star%np             = 10000
- star%input_profile  = trim(filepath)
- star%iprofile = imesa
- x0 = 0.
+ maxits = maxits_in
+ star%np            = 10000
+ star%input_profile = trim(filepath)
+ star%iprofile      = imesa
 
  nfail = 0; ncheck = 0; errmax = 0.
- tolprof = 0.08
- tolcomposition = 0.08
-
  call read_mesa(filepath,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
- Zfrac = 1.-Xfrac-Yfrac
 
- do i=1,4
+ do i=1,size(ieos_list)
     call init_part()
-    if (i==1) then  ! ideal gas EoS
-       ieos = 2
-    elseif (i==2) then  ! ideal gas + radiation EoS
-       ieos = 12
-    elseif (i==3) then  ! MESA EoS
-       ieos = 10
-    elseif (i==4) then  ! Gas + radiation + recombination energy EoS
-       ieos = 20
-    elseif (i==5) then  ! ideal gas + radiation EoS, with variable composition
-       ieos = 12
-       var_comp = .true.
-    endif
-
-    if (id==master) write(*,"(/,a,i2/)") '--> Testing ieos = ',ieos
+    ieos = ieos_list(i)
+    if (id==master) write(*,"(/,a,i2/)") '--> Testing '//trim(label)//' with ieos = ',ieos
     call init_eos(ieos,ierr)
+    if (ierr /= 0) then  ! e.g. eos tables not available
+       call warning('test_setstar','could not initialise eos, skipping '//trim(label)//' test',var='ieos',ival=ieos)
+       cycle
+    endif
 
     rmserr = 0.
     call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                npart,npartoftype,massoftype,hfact,&
                xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
-               relax=relax_star,use_var_comp=var_comp,write_rho_to_file=.false.,&
+               relax=.true.,use_var_comp=.false.,write_rho_to_file=.false.,&
                rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
                write_files=.false.,density_error=rmserr,energy_error=ekin)
 
@@ -312,166 +336,39 @@ subroutine test_redsupergiant(ntests,npass)
     call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkval(rmserr,0.0,0.04,nfail(1),'error in density profile')
+    call checkval(rmserr,0.0,tol_relax,nfail(1),'error in density profile')
     call update_test_scores(ntests,nfail,npass)
 
     call checkval(ekin,0.,5e-6,nfail(1),'ekin/epot < 1.e-7')
     call update_test_scores(ntests,nfail,npass)
 
     rmserr = 0.
-    rmserr_mu = 0.
-    rmserr_X = 0.
-    rmserr_Z = 0.
+    rhomax = 0.
     do j=1,npart
        rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
        rhoj = rho(j)
        rhoj_mesa = yinterp(den,r,rj)
-       rmserr = rmserr + (1-rhoj/rhoj_mesa)**2
+       rmserr = rmserr + (rhoj - rhoj_mesa)**2
+       rhomax = max(rhomax,rhoj_mesa)
 
        if (do_radiation) then
           Trad = Trad_from_radxi(rhoj, rad(iradxi,j))
           Tgas = eos_vars(itemp,j)
           call checkvalbuf(Trad/Tgas,1.,1e-15,'Trad/Tgas = 1 for radiative star',nfail(2),ncheck(2),errmax(2),use_rel_tol=.true.)
        endif
-
-       if (i==5) then  ! calculate rms error in mu, X, Z, not implemented yet
-          rmserr_mu = rmserr_mu + (1-abs(eos_vars(imu,j)/yinterp(mu,r,rj)))**2
-          rmserr_X = rmserr_X + (1-abs(eos_vars(iX,j)/yinterp(Xfrac,r,rj)))**2
-          rmserr_Z = rmserr_Z + (1-abs(eos_vars(iZ,j)/yinterp(Zfrac,r,rj)))**2
-       endif
     enddo
-    rmserr = sqrt(rmserr/npart)  ! root mean square relative error
+    ! L2 error norm normalised by the maximum density, as in splash (a relative error
+    ! per particle is dominated by the unresolved low density surface layers)
+    rmserr = sqrt(rmserr/npart)/rhomax
     call checkval(rmserr,0.,tolprof,nfail(1),'density matches MESA profile')
     call update_test_scores(ntests,nfail,npass)
 
-    call checkvalbuf_end('Trad/Tgas ~ 1 for radiative star',ncheck(2),nfail(2),errmax(2),1.e-15)
-    call update_test_scores(ntests,nfail,npass)
-
-    if (i==5) then  ! not implemented yet
-       rmserr_mu = sqrt(rmserr_mu/npart)
-       rmserr_X = sqrt(rmserr_X/npart)
-       rmserr_Z = sqrt(rmserr_Z/npart)
-       call checkval(rmserr_mu,0.,tolcomposition,nfail(1),'mu matches MESA profile')
-       call update_test_scores(ntests,nfail,npass)
-       call checkval(rmserr_X,0.,tolcomposition,nfail(1),'X matches MESA profile')
-       call update_test_scores(ntests,nfail,npass)
-       call checkval(rmserr_Z,0.,tolcomposition,nfail(1),'Z matches MESA profile')
+    if (do_radiation) then
+       call checkvalbuf_end('Trad/Tgas ~ 1 for radiative star',ncheck(2),nfail(2),errmax(2),1.e-15)
        call update_test_scores(ntests,nfail,npass)
     endif
-
  enddo
 
-end subroutine test_redsupergiant
-
-!-----------------------------------------------------------------------
-!+
-!   test that we can successfully relax a white dwarf with the
-!   zero temperature EoS and Helmholtz eos(Ali Pourmand, similar to test_redsupergiant)
-!+
-!-----------------------------------------------------------------------
-subroutine test_whitedwarf(ntests,npass)
- use io,        only:id,master,iverbose,warning
- use dim,       only:do_radiation
- use datafiles, only:find_phantom_datafile
- use part,      only:init_part,npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass,rho,igas,&
-                     eos_vars
- use mpidomain, only:i_belong
- use options,   only:ieos
- use physcon,   only:solarr,solarm
- use eos,       only:init_eos,gamma,X_in,Z_in
- use setstar,   only:star_t,set_star,set_defaults_star,imesa
- use units,     only:set_units
- use relaxstar, only:maxits
- use checksetup,  only:check_setup
- use testutils,   only:checkvalbuf,checkvalbuf_end
- use table_utils, only:yinterp
- use readwrite_mesa,  only:read_mesa
- integer, intent(inout) :: ntests,npass
- type(star_t) :: star
- character(len=500) :: filepath
- real :: rhozero,rmserr,ekin,x0(3),errmax(2)
- real :: Mstar,tolprof,rhoj,rhoj_mesa,rj
- integer(kind=8) :: ntot
- integer :: ierr,nfail(2),ncheck(2),i,j,nerror,nwarn,iunit,expected_error
- logical :: relax_star,var_comp
- real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),Zfrac(:),mu(:)
-
- filepath = find_phantom_datafile('pourmandwd.data','star_data_files')
- open(newunit=iunit,file=filepath,status="old",iostat=ierr)
- if (ierr /= 0) then
-    call warning('test_setstar','pourmandwd.data not found, skipping white dwarf test')
-    return
- else
-    close(unit=iunit)
- endif
-
- iverbose = 0
- call set_units(dist=solarr,mass=solarm,G=1.d0)
- gamma = 5./3.
- X_in = 0.
- Z_in = 1.
- relax_star = .true.
- maxits = 1500
- var_comp = .false.
- call set_defaults_star(star)
- star%np             = 10000
- star%input_profile  = trim(filepath)
- star%iprofile = imesa
- x0 = 0.
-
- nfail = 0; ncheck = 0; errmax = 0.
- tolprof = 0.1
-
- call read_mesa(filepath,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr)
- Zfrac = 1.-Xfrac-Yfrac
-
- do i=1,2
-    call init_part()
-    if (i==1) then  ! EOS Helmholtz
-       ieos = 15
-    elseif (i==2) then  ! zero Temperature EOS
-       ieos = 25
-    endif
-
-    if (id==master) write(*,"(/,a,i2/)") '--> Testing ieos = ',ieos
-    call init_eos(ieos,ierr)
-
-    rmserr = 0.
-    call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
-               npart,npartoftype,massoftype,hfact,&
-               xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
-               relax=relax_star,use_var_comp=var_comp,write_rho_to_file=.false.,&
-               rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
-               write_files=.false.,density_error=rmserr,energy_error=ekin)
-
-    call checkval(ierr,expected_error,0,nfail(1),'set_star runs with expected ierr')
-    call update_test_scores(ntests,nfail,npass)
-
-    call check_setup(nerror,nwarn,restart=.false.)
-    call checkval(nerror+nwarn,0,0,nfail(1),'no errors or warnings')
-    call update_test_scores(ntests,nfail,npass)
-
-    call checkval(rmserr,0.0,0.05,nfail(1),'error in density profile')
-    call update_test_scores(ntests,nfail,npass)
-
-    call checkval(ekin,0.,5e-6,nfail(1),'ekin/epot < 1.e-7')
-    call update_test_scores(ntests,nfail,npass)
-
-    rmserr = 0.
-    do j=1,npart
-       rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
-       rhoj = rho(j)
-       rhoj_mesa = yinterp(den,r,rj)
-       rmserr = rmserr + (1-rhoj/rhoj_mesa)**2
-
-    enddo
-    rmserr = sqrt(rmserr/npart)  ! root mean square relative error
-    call checkval(rmserr,0.,tolprof,nfail(1),'density matches MESA profile')
-    call update_test_scores(ntests,nfail,npass)
-
- enddo
-
-end subroutine test_whitedwarf
+end subroutine test_relax_mesa_star
 
 end module testsetstar
