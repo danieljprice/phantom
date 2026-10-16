@@ -209,9 +209,6 @@ endif
 
 ifeq ($(GR), yes)
     FPPFLAGS += -DGR
-ifeq ($(ISENTROPIC), yes)
-    FPPFLAGS += -DISENTROPIC
-endif
     CONST_AV=yes
 endif
 

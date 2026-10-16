@@ -878,8 +878,7 @@ subroutine test_sphere(ntests,npass,iprofile)
     mase = 0.
  endif
 
- mase_tol = 8.5e-4
- if (use_sinktree) mase_tol = 9.e-4
+ mase_tol = 9.e-4
  nfailed = 0
  call checkval(mase,0.,mase_tol,nfailed(1),'MASE '//trim(label))
  call update_test_scores(ntests,nfailed,npass)

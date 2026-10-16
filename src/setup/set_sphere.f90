@@ -170,7 +170,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
  integer(kind=8) :: iparttot
 
  npin = np
- iparttot = npin
+ iparttot = nptot  ! continue from the existing total across all MPI threads, as in set_unifdis
  vol_sphere = 4./3.*pi*(rmax**3 - rmin**3)
  ! use mean particle spacing to set initial smoothing lengths
  psep = (vol_sphere/real(np_requested))**(1./3.)

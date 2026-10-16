@@ -4,6 +4,8 @@ on:
   workflow_call:
 
 env:
+  PHANTOM_DIR: ${{ github.workspace }}
+  PHANTOM_DATA_SOURCE: github  # download data files from the GitHub mirror before Zenodo
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4
 
@@ -20,17 +22,17 @@ jobs:
         debug:
           - no
           - yes
-        input: # [SETUP, phantom_tests]
-          - ['test', '']
-          - ['testkd', '']
-          - ['testdust', 'dust']
-          - ['testgr', 'gr ptmass']
-          - ['testgrav', 'gravity ptmass setstar sinktree']
-          - ['testgrowth', 'dustgrowth']
-          - ['testnimhd', 'nimhd']
-          - ['test2', '']
-          - ['testcyl', '']
-          - ['testapr', 'apr derivs ptmass divb']
+        input: # [SETUP, phantom_tests, 'nodata' to unset PHANTOM_DIR so tests needing data files are skipped]
+          - ['test', '', '']
+          - ['testkd', '', '']
+          - ['testdust', 'dust', '']
+          - ['testgr', 'gr ptmass eos', '']
+          - ['testgrav', 'gravity ptmass setstar sinktree', '']
+          - ['testgrowth', 'dustgrowth', '']
+          - ['testnimhd', 'nimhd', '']
+          - ['test2', '', 'nodata']
+          - ['testcyl', '', '']
+          - ['testapr', 'apr derivs ptmass divb', '']
 
     name: |
       test (SYSTEM=${{ matrix.system }},
@@ -59,5 +61,18 @@ jobs:
       env:
         SYSTEM: ${{ matrix.system }}
 
+    - name: "Cache downloaded data files"
+      if: matrix.input[2] != 'nodata'
+      uses: actions/cache@v4
+      with:
+        # exact key only: a stale table must never be restored when the data source changes
+        key: eos-datafiles-${{ hashFiles('src/main/datafiles.f90') }}
+        path: |
+          data/eos/*/*
+          !data/eos/*/README
+          data/star_data_files/pourmandwd.data*
+
     - name: "Run phantom tests"
       run: ./bin/phantomtest ${{ matrix.input[1] }}
+      env:
+        PHANTOM_DIR: ${{ matrix.input[2] != 'nodata' && github.workspace || '' }}
