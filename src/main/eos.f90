@@ -1078,7 +1078,7 @@ end subroutine calc_rho_from_PT
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
- use physcon,           only:radconst,Rg,kboltz,avogadro
+ use physcon,           only:radconst,Rg,kboltz
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa,mesa_tables_initialised
  use mesa_microphysics, only:getvalue_mesa
@@ -1129,15 +1129,13 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
        call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
     endif
 
-    ! Get entropy from rho and eint from MESA tables (output is not logs, it is s)
+    ! Get entropy from rho and eint from MESA tables (output is not logs, it is S in erg/g/K)
 
     if (present(ierr)) then
        call getvalue_mesa(rho,eint,9,entropy,ierr)
     else
        call getvalue_mesa(rho,eint,9,entropy)
     endif
-    entropy = entropy * kboltz*avogadro ! the MESA tables are specific entropy divided by (avo*kerg).
-    ! the units of entropy with cgs inputs should be erg/g/K now
  case default
     entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
@@ -1273,8 +1271,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
     temp = (cgsrho * exp(mu*cgss*kboltz/Rg))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
-    !!! For GR
-    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgspres,temp)
+    ! cgss is s/kB (see get_entropy) but the GR table lookup takes s as returned by entropy()
+    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss*kboltz,cgspres,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
@@ -1297,6 +1295,7 @@ end subroutine get_p_from_rho_s
 !-----------------------------------------------------------------------
 subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
+ use physcon, only:kboltz
  use units,   only:unit_density,unit_ergg
  use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
  real,    intent(in)  :: S,rho
@@ -1310,8 +1309,8 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
 
  select case (ieos)
  case(10)
-    !!! For GR
-    call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss,cgsu)
+    ! cgss is s/kB (see get_entropy) but the GR table lookup takes s as returned by entropy()
+    call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss*kboltz,cgsu)
 
  case default
     cgsu = 0.

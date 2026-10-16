@@ -15,9 +15,9 @@ module testgr
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, cons2primsolver, eos, eos_idealplusrad,
-!   extern_gr, inverse4x4, io, metric, metric_tools, part, physcon, ptmass,
-!   substepping, testutils, timestep_ind, timing, units, utils_gr,
-!   vectorutils
+!   extern_gr, inverse4x4, io, mesa_microphysics, metric, metric_tools,
+!   part, physcon, ptmass, substepping, table_utils, testutils,
+!   timestep_ind, timing, units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -47,6 +47,7 @@ subroutine test_gr(ntests,npass)
  call test_u_los(ntests,npass)
  call test_entropy_step(ntests,npass)
  call test_tde_entropy(ntests,npass)
+ call test_mesa_forward_backward(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
@@ -996,5 +997,136 @@ subroutine test_tde_entropy(ntests,npass)
  call update_test_scores(ntests,nfail(3:3),npass)
 
 end subroutine test_tde_entropy
+
+!-----------------------------------------------------------------------
+!+
+!  forward/backward consistency test between the two sets of MESA EoS
+!  tables for the same composition (X_in,Z_in):
+!
+!   - classical tables, tabulated in (rho, u): give P, T and s
+!   - GR tables, tabulated in (rho, s): give P, T and u
+!
+!  Forward:  (rho,u) -> s from classical tables -> u,P,T from GR tables
+!  Backward: (rho,s) -> u from GR tables -> s,P,T from classical tables
+!
+!  Also checks the round trip through the code-unit routines in the eos
+!  module used by the GR cons2prim solver (get_entropy, get_p_from_rho_s,
+!  get_u_from_rho_s). Points where either table would extrapolate are
+!  skipped.
+!+
+!-----------------------------------------------------------------------
+subroutine test_mesa_forward_backward(ntests,npass)
+ use io,                only:id,master
+ use eos,               only:ieos,init_eos,X_in,Z_in,gmw,get_entropy,get_p_from_rho_s,get_u_from_rho_s
+ use mesa_microphysics, only:getvalue_mesa,getvalue_mesa_gr
+ use units,             only:unit_density,unit_pressure,unit_ergg
+ use table_utils,       only:linspace
+ integer, intent(inout) :: ntests,npass
+ integer, parameter     :: ncheck_min = 50
+ integer                :: nfail(8),ncheck(8),i,j,ierr,ierr1,ierr2,ieos_prev
+ real                   :: errmax(8),tol_u,tol_s,tol_p,tol_t
+ real                   :: rhoi,ui,si,p1,t1,u2,p2,t2,s2
+ real                   :: rho_code,p_code,s_code,u_code,temp
+ real                   :: logrho(16),logu(16),logs(16)
+
+ if (id==master) write(*,"(/,a)") '--> testing forward/backward consistency of MESA EoS tables'
+
+ ieos_prev = ieos
+ ieos = 10
+ call init_eos(ieos,ierr)
+ if (ierr /= 0) then
+    if (id==master) write(*,"(a)") ' skipped: MESA EoS tables not available'
+    ieos = ieos_prev
+    return
+ endif
+ if (id==master) write(*,"(1x,a,f5.3,a,f5.3)") 'using X = ',X_in,', Z = ',Z_in
+
+ !
+ ! tolerances on relative errors, set by the interpolation error between
+ ! the two tables (different grids: GR table spacing is 0.27 dex in rho and
+ ! 0.012 dex in s; classical table is 0.059 dex in u and 0.2 dex in V).
+ ! Measured maxima on this grid are 1.5% in s, 6% in u (an error ds/s is
+ ! amplified to du/u ~ s/c_v ds/s ~ 15 ds/s) and 39% in P and T, the latter
+ ! in H/He partial ionisation zones where T(u) varies sharply between nodes
+ ! (median errors are 0.1% in s, 1.5% in u, 0.05% in P and T)
+ !
+ tol_s = 0.025
+ tol_u = 0.1
+ tol_p = 0.5
+ tol_t = 0.5
+
+ ! log-spaced grids in cgs units: rho in g/cm^3, u in erg/g, s in erg/g/K
+ ! (getvalue_mesa returns s in erg/g/K, but getvalue_mesa_gr expects s*kB*N_A,
+ !  the units returned by eos:entropy with ientropy=3)
+ ! (rho <= 1 g/cm^3 avoids cold degenerate states below the zero-temperature
+ !  energy, where the classical table is not monotonic in u)
+ call linspace(logrho,-8.,0.)
+ call linspace(logu,12.,17.)
+ call linspace(logs,9.,10.5)
+
+ nfail = 0; ncheck = 0; errmax = 0.
+ do i=1,size(logrho)
+    rhoi = 10.**logrho(i)
+    !
+    ! forward: (rho,u) -> s from classical tables -> u from GR tables
+    !
+    do j=1,size(logu)
+       ui = 10.**logu(j)
+       call getvalue_mesa(rhoi,ui,9,si,ierr1)
+       call getvalue_mesa_gr(rhoi,si,2,u2,ierr2)
+       if (ierr1 /= 0 .or. ierr2 /= 0) cycle  ! skip points off either table
+       call getvalue_mesa(rhoi,ui,2,p1)
+       call getvalue_mesa(rhoi,ui,4,t1)
+       call getvalue_mesa_gr(rhoi,si,1,p2)
+       call getvalue_mesa_gr(rhoi,si,3,t2)
+       call checkvalbuf(u2,ui,tol_u,'u(rho,s(rho,u))',nfail(1),ncheck(1),errmax(1),use_rel_tol=.true.)
+       call checkvalbuf(p2,p1,tol_p,'P(rho,s(rho,u))',nfail(2),ncheck(2),errmax(2),use_rel_tol=.true.)
+       call checkvalbuf(t2,t1,tol_t,'T(rho,s(rho,u))',nfail(3),ncheck(3),errmax(3),use_rel_tol=.true.)
+       !
+       ! same round trip via the code-unit routines in the eos module
+       !
+       rho_code = rhoi/unit_density
+       p_code   = p1/unit_pressure
+       s_code   = get_entropy(rho_code,p_code,gmw,ieos)
+       temp     = t1
+       call get_p_from_rho_s(ieos,s_code,rho_code,gmw,p2,temp)
+       call get_u_from_rho_s(ieos,s_code,rho_code,u_code)
+       call checkvalbuf(u_code*unit_ergg,ui,tol_u,'u(rho,S) via eos module',nfail(7),ncheck(7),errmax(7),use_rel_tol=.true.)
+       call checkvalbuf(p2,p_code,tol_p,'P(rho,S) via eos module',nfail(8),ncheck(8),errmax(8),use_rel_tol=.true.)
+    enddo
+    !
+    ! backward: (rho,s) -> u from GR tables -> s from classical tables
+    !
+    do j=1,size(logs)
+       si = 10.**logs(j)
+       call getvalue_mesa_gr(rhoi,si,2,ui,ierr2)
+       call getvalue_mesa(rhoi,ui,9,s2,ierr1)
+       if (ierr1 /= 0 .or. ierr2 /= 0) cycle  ! skip points off either table
+       call getvalue_mesa_gr(rhoi,si,1,p2)
+       call getvalue_mesa_gr(rhoi,si,3,t2)
+       call getvalue_mesa(rhoi,ui,2,p1)
+       call getvalue_mesa(rhoi,ui,4,t1)
+       call checkvalbuf(s2,si,tol_s,'s(rho,u(rho,s))',nfail(4),ncheck(4),errmax(4),use_rel_tol=.true.)
+       call checkvalbuf(p1,p2,tol_p,'P(rho,u(rho,s))',nfail(5),ncheck(5),errmax(5),use_rel_tol=.true.)
+       call checkvalbuf(t1,t2,tol_t,'T(rho,u(rho,s))',nfail(6),ncheck(6),errmax(6),use_rel_tol=.true.)
+    enddo
+ enddo
+ call checkvalbuf_end('forward:  u(rho,s(rho,u)) = u',ncheck(1),nfail(1),errmax(1),tol_u)
+ call checkvalbuf_end('forward:  P(rho,s(rho,u)) = P',ncheck(2),nfail(2),errmax(2),tol_p)
+ call checkvalbuf_end('forward:  T(rho,s(rho,u)) = T',ncheck(3),nfail(3),errmax(3),tol_t)
+ call checkvalbuf_end('backward: s(rho,u(rho,s)) = s',ncheck(4),nfail(4),errmax(4),tol_s)
+ call checkvalbuf_end('backward: P(rho,u(rho,s)) = P',ncheck(5),nfail(5),errmax(5),tol_p)
+ call checkvalbuf_end('backward: T(rho,u(rho,s)) = T',ncheck(6),nfail(6),errmax(6),tol_t)
+ call checkvalbuf_end('eos module: u(rho,S(rho,P)) = u',ncheck(7),nfail(7),errmax(7),tol_u)
+ call checkvalbuf_end('eos module: P(rho,S(rho,P)) = P',ncheck(8),nfail(8),errmax(8),tol_p)
+ call update_test_scores(ntests,nfail,npass)
+
+ ! make sure that a reasonable number of points were on both tables
+ nfail = 0
+ call checkval(min(ncheck(1),ncheck(4)) >= ncheck_min,.true.,nfail(1),'enough points on both tables')
+ call update_test_scores(ntests,nfail(1:1),npass)
+ ieos = ieos_prev
+
+end subroutine test_mesa_forward_backward
 
 end module testgr

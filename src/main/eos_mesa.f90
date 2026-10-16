@@ -67,20 +67,20 @@ subroutine init_eos_mesa(x,z,ierr)
  mesa_eos_dh=0.2d0  ! delta H in EOS tables
 
  call get_eos_constants_mesa(ierr)
- if (ierr /= 0) return
 
  !!! only read GR tables if it is a GR run
  mesa_eos_gr_prefix="output_rhos_"
- if (gr) then
+ if (gr .and. ierr == 0) then
     call get_eos_constants_mesa_gr(ierr)
-    if (ierr /= 0) return
-
-    call read_eos_mesa_gr(x,z,ierr)
-    if (ierr /= 0) return
+    if (ierr == 0) call read_eos_mesa_gr(x,z,ierr)
  endif
 
- call read_eos_mesa(x,z,ierr)
- if (ierr /= 0) return
+ if (ierr == 0) call read_eos_mesa(x,z,ierr)
+ if (ierr /= 0) then
+    ! tables not found: free memory so that a later call retries and reports the error
+    call finish_eos_mesa
+    return
+ endif
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
 
@@ -94,6 +94,7 @@ end subroutine init_eos_mesa
 subroutine finish_eos_mesa
 
  call deallocate_arrays_mesa
+ mesa_initialised = .false.
 
 end subroutine finish_eos_mesa
 
