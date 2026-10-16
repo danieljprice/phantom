@@ -26,6 +26,17 @@ contains
 
 !----------------------------------------------------------------
 !+
+!  query function for whether the mesa eos tables have been read
+!+
+!----------------------------------------------------------------
+logical function mesa_tables_initialised()
+
+ mesa_tables_initialised = mesa_initialised
+
+end function mesa_tables_initialised
+
+!----------------------------------------------------------------
+!+
 !  subroutine initialises the mesa eos tables
 !+
 !----------------------------------------------------------------

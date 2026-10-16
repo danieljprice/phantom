@@ -1080,7 +1080,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
  use physcon,           only:radconst,Rg,kboltz,avogadro
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
- use eos_mesa,          only:get_eos_eT_from_rhop_mesa
+ use eos_mesa,          only:get_eos_eT_from_rhop_mesa,mesa_tables_initialised
  use mesa_microphysics, only:getvalue_mesa
  real,    intent(in) :: rho,pres,mu_in
  integer, intent(in) :: ientropy
@@ -1120,7 +1120,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
     entropy = Rg / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
-    if (ieos /= 10 .and. ieos /= 20) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
+    if (.not.mesa_tables_initialised()) call fatal('eos','Using MESA tables to calculate S from rho and pres, but MESA EoS not initialised')
 
     if (present(eint_in)) then
        eint = eint_in
