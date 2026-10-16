@@ -891,13 +891,13 @@ end subroutine test_entropy_step
 !   Test that shock heating never decreases the entropy of a particle,
 !   using a low resolution polytrope passing close to the black hole.
 !   Tidal distortion of the star triggers the shock viscosity. With
-!   conductivity switched off, K can only increase
+!   conductivity switched off, dK/dt must never be negative
 !+
 !-----------------------------------------------------------------------
 subroutine test_tde_entropy(ntests,npass)
  use io,             only:id,master,iverbose,real4
  use dim,            only:maxp,maxalpha
- use part,           only:init_part,npart,npartoftype,xyzh,vxyzu,pxyzu,fext,dens,metrics,&
+ use part,           only:init_part,npart,npartoftype,xyzh,vxyzu,pxyzu,fxyzu,fext,dens,metrics,&
                           metricderivs,eos_vars,rad,massoftype,hfact,alphaind,xyzmh_ptmass,&
                           vxyz_ptmass,nptmass,nsinkproperties,ien_type,ien_entropy,&
                           isdead_or_accreted,igas
@@ -916,10 +916,10 @@ subroutine test_tde_entropy(ntests,npass)
  integer, intent(inout) :: ntests,npass
  type(star_t)  :: star
  type(orbit_t) :: orbit
- integer :: nfail(3),ierr,i,nsteps,ndecrease
+ integer :: nfail(3),ierr,i,nsteps,nnegative
  integer(kind=8) :: ntot
  real    :: xyzmh_in(nsinkproperties,2),vxyz_in(3,2),xstar(3),vstar(3)
- real    :: t,tmax,dt,dtnew,dtextforce,rhozero,kprev(maxp)
+ real    :: t,tmax,dt,dtnew,dtextforce,rhozero
 
  if (id==master) write(*,'(/,a)') '--> testing entropy does not decrease in a tidal disruption'
  iverbose = 0
@@ -979,22 +979,22 @@ subroutine test_tde_entropy(ntests,npass)
  call get_derivs_global()
  call init_step(npart,t,dtmax)
 
- ! count particles whose entropy decreases during any step
- ndecrease = 0
+ ! count particles with dK/dt < 0 after any step (this is local to each
+ ! particle, so does not depend on particle order, e.g. across MPI threads)
+ nnegative = 0
  nsteps = 0
  dt = min(dtcourant,dtforce,dtextforce)
  do while (t < tmax)
-    kprev(1:npart) = pxyzu(4,1:npart)
     t = t + dt
     call step(npart,npart,t,dt,dtextforce,dtnew)
     nsteps = nsteps + 1
     do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i)) .and. pxyzu(4,i) < kprev(i)) ndecrease = ndecrease + 1
+       if (.not.isdead_or_accreted(xyzh(4,i)) .and. fxyzu(4,i) < 0.) nnegative = nnegative + 1
     enddo
     dt = min(dtnew,tmax-t)
  enddo
  if (id==master) print*,' nsteps = ',nsteps
- call checkval(ndecrease,0,0,nfail(3),'number of times K decreased')
+ call checkval(nnegative,0,0,nfail(3),'number of times dK/dt < 0')
  call update_test_scores(ntests,nfail(3:3),npass)
 
 end subroutine test_tde_entropy
