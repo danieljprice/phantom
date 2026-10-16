@@ -70,6 +70,7 @@ jobs:
         path: |
           data/eos/*/*
           !data/eos/*/README
+          data/star_data_files/pourmandwd.data*
 
     - name: "Run phantom tests"
       run: ./bin/phantomtest ${{ matrix.input[1] }}
