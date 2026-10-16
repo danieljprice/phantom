@@ -836,10 +836,12 @@ allkernels:
 	@echo "Building all kernel modules"
 	@# clean between kernels: without module dependencies, objects using the
 	@# kernel module would otherwise keep the previous kernel's definitions
+	@# (also clean at the end, so later targets do not link the last kernel)
 	@for file in $(wildcard ../src/main/kernel_*.f90); do \
 	   echo "Building $$file"; \
 	   $(MAKE) clean && $(MAKE) SRCKERNEL="$$(basename $$file)" || exit 1; \
 	done
+	@$(MAKE) clean
 
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
