@@ -1120,7 +1120,8 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
     entropy = Rg / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
-    if (.not.mesa_tables_initialised()) call fatal('eos','Using MESA tables to calculate S from rho and pres, but MESA EoS not initialised')
+    if (.not.mesa_tables_initialised()) &
+       call fatal('eos','Using MESA tables to calculate S from rho and pres, but MESA EoS not initialised')
 
     if (present(eint_in)) then
        eint = eint_in
