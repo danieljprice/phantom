@@ -311,6 +311,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  vol_sphere  = 4./3.*pi*Rstar**3
  nx          = int(n**(1./3.))
  psep        = vol_sphere**(1./3.)/real(nx)
+ npart_total = npart  ! set_sphere adds the new particles to the existing total
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                  exactN=use_exactN,np_requested=n,mask=mask)
@@ -318,7 +319,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  ! get total particle number across all MPI threads
  ! and use this to set the particle mass
  !
- ntot = int(npart_total,kind=(kind(ntot)))
+ ntot = int(npart_total,kind=(kind(ntot))) - npart_old  ! number of particles in this star
  if (.not.mass_is_set) then
     massoftype(igas) = Mstar/ntot
  endif
