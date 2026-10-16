@@ -57,7 +57,7 @@ function get_ephemeris(object,got_elems,ierr,epoch) result(elems)
        print*,' ERROR: could not query horizons database for object='//trim(object)
        return
     endif
-    call download_datafile(url=url,dir=localfile,filename='',filepath=filepath,ierr=ierr)
+    call download_datafile(url=url,dir='',filename=localfile,filepath=filepath,ierr=ierr)
  else
     filepath = localfile
  endif

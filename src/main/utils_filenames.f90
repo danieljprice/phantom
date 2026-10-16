@@ -491,7 +491,6 @@ end subroutine string_delete
 subroutine string_replace(string,skey,sreplacewith)
  character(len=*), intent(inout) :: string
  character(len=*), intent(in)    :: skey,sreplacewith
- character(len=len(string)) :: remstring
  integer :: ipos,imax,lensub,i
 
  ipos = index(trim(string),skey)
@@ -500,8 +499,7 @@ subroutine string_replace(string,skey,sreplacewith)
  i = 0
  do while (ipos > 0 .and. i <= imax)
     i = i + 1  !  only allow as many replacements as characters
-    remstring = string(ipos+lensub:len_trim(string))
-    string = string(1:ipos-1)//sreplacewith//remstring
+    string = string(1:ipos-1)//sreplacewith//string(ipos+lensub:)
     ipos = index(trim(string),skey)
  enddo
 
