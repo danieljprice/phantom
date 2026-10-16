@@ -10,7 +10,7 @@ module testsetstar
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Francesco Radica
 !
 ! :Runtime parameters: None
 !
