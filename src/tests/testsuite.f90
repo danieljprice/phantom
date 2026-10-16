@@ -206,7 +206,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dorwdump = .true.
  case('setdisc','disc')
     dosetdisc = .true.
- case('setstar','star')
+ case('setstar','star','hcp','weighted_hcp')
     dosetstar = .true.
  case('eos')
     doeos = .true.
@@ -433,7 +433,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of set_star module
 !
  if (dosetstar.or.testall) then
-    call test_setstar(ntests,npass)
+    call test_setstar(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

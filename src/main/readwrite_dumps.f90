@@ -60,7 +60,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  !dvdx,dvdx_label,&
                    rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
                    iorig,iseed_sink,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                   luminosity,eta_nimhd,eta_nimhd_label,apr_level
+                   luminosity,eta_nimhd,eta_nimhd_label,apr_level,particle_mass,variable_mass
  use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling,two_kernel
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
@@ -193,6 +193,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
        ilen(1) = int(npart,kind=8)
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,nerr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,nerr)
+       ! Explicit real8 also preserves masses in legacy visualization readers.
+       if (variable_mass) call write_array(1,particle_mass,'m',npart,k,ipass,idump,nums,nerr,use_kind=8)
        if (use_dustgrowth) then
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,nerr)
           call write_array(1,VrelVf,VrelVf_label,3,npart,k,ipass,idump,nums,nerr)
@@ -253,10 +255,18 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,tau_store,'taumean',npart,k,ipass,idump,nums,nerr)
           call write_array(1,du_store,'dudt',npart,k,ipass,idump,nums,nerr)
        endif
-       ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
-       ! write rho with APR or two_kernel (otherwise recoverable from h via init_rho_from_h)
-       if (use_apr .or. two_kernel) call write_array(1,rho,'rho',npart,k,ipass,idump,nums,nerr,use_kind=4)
+       ! Preserve variable-mass initial conditions in full precision.
+       if (variable_mass) then
+          call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,index=4)
+       else
+          call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
+       endif
+       ! Mass density is not recoverable from h for number-density smoothing.
+       if (variable_mass) then
+          call write_array(1,rho,'rho',npart,k,ipass,idump,nums,nerr)
+       elseif (use_apr .or. two_kernel) then
+          call write_array(1,rho,'rho',npart,k,ipass,idump,nums,nerr,use_kind=4)
+       endif
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)
        call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,nerr)
        !if (maxdvdx==maxp) call write_array(1,dvdx,dvdx_label,9,npart,k,ipass,idump,nums,ierrs(17))
@@ -356,7 +366,7 @@ subroutine write_smalldump(t,dumpfile)
                         abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
                         dustprop,dustprop_label,dustfrac_label,&
                         filfac,filfac_label,ndusttypes,&
-                        rad,rad_label,do_radiation,maxirad,luminosity,apr_level,rho
+                        rad,rad_label,do_radiation,maxirad,luminosity,apr_level,rho,particle_mass,variable_mass
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                         write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi,start_threadwrite,end_threadwrite
@@ -427,6 +437,8 @@ subroutine write_smalldump(t,dumpfile)
        ilen(1) = npart
        if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (variable_mass) &
+          call write_array(1,particle_mass,'m',npart,k,ipass,idump,nums,ierr,use_kind=8)
        if (use_dustgrowth) then
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
           if (use_porosity) call write_array(1,filfac,filfac_label,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -437,7 +449,8 @@ subroutine write_smalldump(t,dumpfile)
             call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        call write_array(1,xyzh,xyzh_label,4,npart,k,ipass,idump,nums,ierr,index=4,use_kind=4)
        ! write rho with APR or two_kernel (otherwise recoverable from h via init_rho_from_h)
-       if (use_apr .or. two_kernel) call write_array(1,rho,'rho',npart,k,ipass,idump,nums,ierr,use_kind=4)
+       if (use_apr .or. two_kernel .or. variable_mass) &
+          call write_array(1,rho,'rho',npart,k,ipass,idump,nums,ierr,use_kind=4)
 
        if (track_lum) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (do_radiation) call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -480,7 +493,7 @@ end subroutine write_smalldump
 !-------------------------------------------------------------------
 subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,mhd,maxp_alloc,inject_parts,mpi,use_apr
+ use dim,      only:maxp,maxvxyzu,gravity,mhd,maxp_alloc,maxp_alloc_explicit,inject_parts,mpi,use_apr
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -623,7 +636,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     !--allocate main arrays
     !
     if (iblock==1) then
-       if (dynamic_bdy .or. inject_parts .or. use_apr) then
+       if (dynamic_bdy .or. inject_parts .or. use_apr .or. maxp_alloc_explicit) then
           if (mpi) then
              call allocate_memory(max(nparttot,maxp_alloc/nprocs))
           else
@@ -972,7 +985,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                         VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,pxyzu,pxyzu_label,dust_temp, &
                         rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                         nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                        ithick,ilambda,iorig,iseed_sink,dt_in,krome_nmols,T_gas_cool,apr_level,init_rho_from_h
+                        ithick,ilambda,iorig,iseed_sink,dt_in,krome_nmols,T_gas_cool,apr_level,init_rho_from_h, &
+                        particle_mass,variable_mass
  use eos_stamatellos, only:ttherm_store,ueqi_store,tau_store,du_store
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
@@ -985,7 +999,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: match
  logical               :: got_dustfrac(maxdusttypes)
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha(1),got_poten
- logical               :: got_rho
+ logical               :: got_rho,got_particle_mass
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_sink_sfprop(2),got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
@@ -1006,6 +1020,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_abund       = .false.
  got_alpha       = .false.
  got_rho         = .false.
+ got_particle_mass = .false.
  got_poten       = .false.
  got_sink_data   = .false.
  got_sink_vels   = .false.
@@ -1057,6 +1072,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (maxphase==maxp) call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (phantomdump .and. variable_mass) &
+                call read_array(particle_mass,'m',got_particle_mass,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (.not. phantomdump) then
                 call read_array(iphase,'iphase',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(mass_sphng,'m',got_mass,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1162,6 +1179,16 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                      xyzmh_ptmass,Bevol,iorig,iseed_sink,iprint,ierr)
 
  if (.not. phantomdump) call set_gas_particle_mass(mass_sphng)
+ if (variable_mass .and. (.not.got_particle_mass.or..not.got_rho)) then
+    write(iprint,*) 'ERROR: variable-mass dump is missing particle masses or density'
+    ierr = 1
+    return
+ endif
+ if (variable_mass .and. any(particle_mass(i1:i2) <= 0.)) then
+    write(iprint,*) 'ERROR: non-positive particle mass in dump'
+    ierr = 1
+    return
+ endif
  if (.not. got_rho) call init_rho_from_h(i1,i2)
  return
 

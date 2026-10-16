@@ -23,7 +23,7 @@ program phantom
 !
 ! :Dependencies: dim, evolve, initial, io, mpiutils, systemutils
 !
- use dim,             only:tagline,maxp_alloc
+ use dim,             only:tagline,maxp_alloc,maxp_alloc_explicit
  use mpiutils,        only:init_mpi,finalise_mpi
  use initial,         only:initialise,finalise,startrun,endrun
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
@@ -55,6 +55,7 @@ program phantom
  ! particle injection)
  !
  maxp_alloc = get_command_option('maxp',default=int(maxp_alloc))
+ maxp_alloc_explicit = get_command_option('maxp',default=0) > 0
  !
  ! catch error if .setup is on command line instead of .in
  !
