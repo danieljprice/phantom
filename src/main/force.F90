@@ -14,6 +14,8 @@ module forces
 !  Code paper:
 !      Price et al. (2018), PASA 35, e031
 !  Hydro:
+!      Gaburov, Lombardi & Portegies Zwart (2010), MNRAS 402, 105-126
+!        (number-density grad-h pressure forces for non-equal masses)
 !      Price (2012), J. Comp. Phys. 231, 759-794
 !      Lodato & Price (2010), MNRAS 405, 1212-1226
 !      Price & Federrath (2010), MNRAS 406, 1659-1674
@@ -53,6 +55,7 @@ module forces
  use kdtree,      only:inodeparts,inoderange,ih1,im,irho,izetaomega,isoftomega
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
+ use part, only:get_particle_mass,variable_mass
  implicit none
 
  integer, parameter :: maxcellcache = 1000
@@ -702,7 +705,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           if (use_apr) then
              pmassi = aprmassoftype(iamtypei,apr_level(i))
           else
-             pmassi = massoftype(iamtypei)
+             pmassi = get_particle_mass(i,iamtypei)
           endif
           rhoi = rho(i)
           if (rhoi > rho_crit) then
@@ -930,7 +933,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
                           ignoreself,rad,radprop,dens,metrics,apr_level,dt)
- use kernel,      only:radkern2
+ use kernel,      only:radkern2,grkern
  use derivutils,  only:get_grkern_corrected
  use part,        only:igas,idust,isink,iohm,ihall,iambi,maxphase,iactive,xyzmh_ptmass,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp,&
@@ -1009,6 +1012,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1
  real    :: grkerni,grgrkerni,dvx,dvy,dvz,projv,denij,vsigi,vsigu,dudtdissi
  real    :: grkern_tildei,grkern_tildej,omegai,zetai,zetaomegaj
+ real    :: grkerni_diss,grkernj_diss
 #ifdef GRAVITY
  real    :: softomegaj
 #endif
@@ -1331,7 +1335,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (use_apr) then
              pmassj = aprmassoftype(iamtypej,apr_level(j))
           else
-             pmassj = massoftype(iamtypej)
+             pmassj = get_particle_mass(j,iamtypej)
           endif
           rhoj         = rho(j)
           zetaomegaj   = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
@@ -1351,6 +1355,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        if (q2i < radkern2) then
           call get_grkern_corrected(q2i,qi,real(hi41),real(zetai*omegai),pmassj,grkerni,grkern_tildei)
+          grkerni_diss = grkerni
+          if (variable_mass) grkerni_diss = grkern(q2i,qi)*hi41*cnormk
 #ifdef GRAVITY
           call kernel_softening(q2i,qi,phii,fmi)
           phii   = phii*hi1
@@ -1359,6 +1365,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
        else
           grkerni = 0.
+          grkerni_diss = 0.
 #ifdef GRAVITY
           phii   = -rij1
           fmi    = rij1*rij1
@@ -1374,6 +1381,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (q2j < radkern2) then
           qj = (rij2*rij1)*hj1
           call get_grkern_corrected(q2j,qj,hj21*hj21,zetaomegaj,pmassi,grkernj,grkern_tildej)
+          grkernj_diss = grkernj
+          if (variable_mass) grkernj_diss = grkern(q2j,qj)*hj21*hj21*cnormk
 #ifdef GRAVITY
           call kernel_softening(q2j,qj,phij,fmj)
           fmj    = fmj*hj21
@@ -1382,11 +1391,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           usej = .true.
        else
           grkernj = 0.
+          grkernj_diss = 0.
 #ifdef GRAVITY
           fmj    = rij1*rij1
 #endif
           usej = .false.
        endif
+       ! Pressure keeps the number-density grad-h correction; dissipation must be monotone.
        if (mhd) usej = .true.
        if (use_dust) usej = .true.
        if (maxvxyzu >= 4 .and. .not.gravity) usej = .true.
@@ -1612,7 +1623,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
                    if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
                 endif
-                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni_diss
              else
                 if (projv < 0.) then
                    qrho2i = -0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
@@ -1621,7 +1632,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    qrho2i = -0.5*rho1i*alphai*spsoundi*hi*rij1*projv
                    if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
                 endif
-                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
+                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni_diss
              endif
           else
              if (projv < 0.) then
@@ -1634,12 +1645,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
              endif
              !--energy conservation from artificial viscosity
-             dudtdissi = pmassj*qrho2i*projv*grkerni
+             dudtdissi = pmassj*qrho2i*projv*grkerni_diss
           endif
 
           !--add av term to pressure
-          gradpi = pmassj*(pro2i + qrho2i)*grkerni
-          if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
+          if (variable_mass) then
+             gradpi = pmassj*(pro2i*grkerni + qrho2i*grkerni_diss)
+             if (usej) gradpj = pmassj*(pro2j*grkernj + qrho2j*grkernj_diss)
+          else
+             gradpi = pmassj*(pro2i + qrho2i)*grkerni
+             if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
+          endif
           !-- calculate grad P from gas pressure alone for cooling
           ! .not. mhd required to past jetnimhd test
           if (icooling == 9 .and. .not. mhd) then
@@ -1664,7 +1680,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 rhoav1 = 2./(rhoi + rhoj)
                 vsigu = sqrt(abs(pri - prj)*rhoav1)
              endif
-             dendissterm = vsigu*denij*pmassj*(auterm*grkerni + autermj*grkernj)
+             dendissterm = vsigu*denij*pmassj*(auterm*grkerni_diss + autermj*grkernj_diss)
           else
              dendissterm = 0.
           endif
@@ -1766,7 +1782,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
-          fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
+          if (variable_mass) then
+             fsum(idrhodti) = fsum(idrhodti) + pmassj*projv*grkerni
+          else
+             fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
+          endif
 
           if (maxvxyzu >= 4 .or. track_lum) then
              !--viscous heating
@@ -2051,7 +2071,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (use_apr) then
              pmassj = aprmassoftype(iamtypej,apr_level(j))
           else
-             pmassj = massoftype(iamtypej)
+             pmassj = get_particle_mass(j,iamtypej)
           endif
        endif
 
@@ -2313,7 +2333,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (use_apr) then
           pmassi = aprmassoftype(iamtypei,apr_level(i))
        else
-          pmassi = massoftype(iamtypei)
+          pmassi = get_particle_mass(i,iamtypei)
        endif
 
        hi = xyzh(4,i)
@@ -2428,13 +2448,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     !-- cell packing
     !
     cell%npcell                                    = cell%npcell + 1
+    cell%xpartvec(imsinki,cell%npcell)              = pmassi
     if (iamtypei == isink .and. use_sinktree) then ! sink in the cell only need pos mass hsoft
        cell%arr_index(cell%npcell)                 = i
        cell%iphase(cell%npcell)                    = isink
        cell%xpartvec(ixi,cell%npcell)              = xyzmh_ptmass(1,i-maxpsph)
        cell%xpartvec(iyi,cell%npcell)              = xyzmh_ptmass(2,i-maxpsph)
        cell%xpartvec(izi,cell%npcell)              = xyzmh_ptmass(3,i-maxpsph)
-       cell%xpartvec(imsinki,cell%npcell)          = pmassi
        cell%xpartvec(ihi,cell%npcell)              = hi
     else ! other type of particle
        cell%arr_index(cell%npcell)                    = ip
@@ -2643,13 +2663,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        cycle over_parts     ! also boundary particles are inactive
     endif
 
-    if (use_apr) then
-       pmassi = aprmassoftype(iamtypei,cell%apr(ip))
-    elseif (iamtypei == isink .and. use_sinktree) then
-       pmassi = cell%xpartvec(imsinki,ip)
-    else
-       pmassi = massoftype(iamtypei)
-    endif
+    pmassi = cell%xpartvec(imsinki,ip)
 
     hi    = cell%xpartvec(ihi,ip)
     hi1   = 1./hi
@@ -2736,7 +2750,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use neighkdtree,    only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
- use timestep,       only:C_cour,C_force,C_rad,bignumber,dtmax,psidecayfac,overcleanfac
+ use timestep,       only:C_cour,C_force,C_thermal,C_rad,bignumber,dtmax,psidecayfac,overcleanfac
  use units,          only:get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
  use metric_tools,   only:unpack_metric
@@ -2843,11 +2857,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     if (iamsinki) then
        pmassi = cell%xpartvec(imsinki,ip)
        i = cell%arr_index(ip)
-    elseif (use_apr) then
-       pmassi = aprmassoftype(iamtypei,cell%apr(ip))
-       i = inodeparts(cell%arr_index(ip))
     else
-       pmassi = massoftype(iamtypei)
+       pmassi = cell%xpartvec(imsinki,ip)
        i = inodeparts(cell%arr_index(ip))
     endif
 
@@ -3048,7 +3059,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fonrmaxi   = fsum(ifonrmaxi)
     endif
 
-    drhodti = pmassi*fsum(idrhodti)
+    drhodti = fsum(idrhodti)
+    if (.not.variable_mass) drhodti = pmassi*drhodti
 
     isgas: if (iamgasi) then
        divvi = -drhodti*rho1i
@@ -3198,7 +3210,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
        ! cooling timestep dt < fac*u/(du/dt)
        if (maxvxyzu >= 4 .and. .not. gr .and. .not. (ieos==23)) then ! not with gr which uses entropy
-          if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) then
+          if (variable_mass) then
+             ! Limit energy losses, not du/dt: pairwise exchange stays conservative.
+             if (eni > 0. .and. fxyzu(4,i) < -tiny(eni)) &
+                dtcool = min(dtcool,-C_thermal*eni/fxyzu(4,i))
+          elseif (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) then
              fxyzu(4,i) =  fxyzu(4,i)/(1.-dtc*fxyzu(4,i)/eni) ! change dudt to avoid negative energy
           endif
        endif

@@ -15,9 +15,9 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, apr, boundary, boundary_dyn, centreofmass, dim,
-!   dust, dust_formation, eos, externalforces, inject, io, metric,
-!   metric_tools, nicil, options, part, physcon, ptmass, ptmass_radiation,
-!   sortutils, timestep, units, utils_gr
+!   dust, dust_formation, eos, externalforces, gravwaveutils, inject, io,
+!   metric, metric_tools, nicil, options, part, physcon, ptmass,
+!   ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  implicit none
@@ -39,17 +39,20 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps,use_apr
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth,mpi, &
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps,use_apr,inject_parts
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
-                remove_particle_from_npartoftype,ien_type,ien_etotal,gr,eos_vars,itemp
+                remove_particle_from_npartoftype,ien_type,ien_etotal,gr,eos_vars,itemp, &
+                particle_mass,variable_mass
  use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
  use centreofmass,    only:get_centreofmass
  use apr,             only:sync_aprmassoftype
  use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid
+ use gravwaveutils,   only:calc_gravitwaves
+ use ptmass,          only:icreate_sinks
  use io,              only:id,master
  use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star
  use timestep,        only:time
@@ -297,6 +300,31 @@ subroutine check_setup(nerror,nwarn,restart)
  enddo
  !
  !  check for particles with identical positions
+ if (variable_mass) then
+    if (mpi .or. ind_timesteps) then
+       print*, 'ERROR: variable masses require MPI=no and shared timesteps (IND_TIMESTEPS=no)'
+       nerror = nerror + 1
+    endif
+    if (use_apr .or. use_dust .or. gr .or. mhd .or. do_radiation) then
+       print*, 'ERROR: continuous particle masses currently support Newtonian gas hydrodynamics without APR'
+       nerror = nerror + 1
+    endif
+    if (inject_parts .or. icreate_sinks > 0 .or. nptmass > 0 .or. calc_gravitwaves) then
+       print*, 'ERROR: variable masses do not support injection, sinks or gravitational-wave diagnostics'
+       nerror = nerror + 1
+    endif
+    if (sum(npartoftype(2:)) > 0) then
+       print*, 'ERROR: variable masses currently require all SPH particles to be gas'
+       nerror = nerror + 1
+    endif
+    do i=1,npart
+       if (isdeadh(xyzh(4,i))) cycle
+       if (.not.(particle_mass(i) > 0. .and. particle_mass(i) < huge(0.))) then
+          print*, 'ERROR: invalid particle mass for particle ',i
+          nerror = nerror + 1
+       endif
+    enddo
+ endif
  !
  call check_for_identical_positions(npart,xyzh,nbad)
  if (nbad > 0) then
