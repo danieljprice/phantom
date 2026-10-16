@@ -887,24 +887,11 @@ subroutine test_tde_entropy(ntests,npass)
  type(star_t)  :: star
  type(orbit_t) :: orbit
  integer :: nfail(3),ierr,i,nsteps,ndecrease
- integer :: ieos_prev,ien_type_prev,iexternalforce_prev,ishock_heating_prev,ireconav_prev
  integer(kind=8) :: ntot
  real    :: xyzmh_in(nsinkproperties,2),vxyz_in(3,2),xstar(3),vstar(3)
  real    :: t,tmax,dt,dtnew,dtextforce,rhozero,kprev(maxp)
- real    :: gamma_prev,alpha_prev,alphau_prev,beta_prev,dtmax_prev
 
  if (id==master) write(*,'(/,a)') '--> testing entropy does not decrease in a tidal disruption'
- ! save options changed by this test
- ieos_prev           = ieos
- gamma_prev          = gamma
- ien_type_prev       = ien_type
- ishock_heating_prev = ishock_heating
- alpha_prev          = alpha
- alphau_prev         = alphau
- beta_prev           = beta
- ireconav_prev       = ireconav
- iexternalforce_prev = iexternalforce
- dtmax_prev          = dtmax
  iverbose = 0
 
  ! polytropic star, with no relaxation since the test only needs tidal distortion
@@ -979,20 +966,6 @@ subroutine test_tde_entropy(ntests,npass)
  if (id==master) print*,' nsteps = ',nsteps
  call checkval(ndecrease,0,0,nfail(3),'number of times K decreased')
  call update_test_scores(ntests,nfail(3:3),npass)
-
- ! restore options and remove particles so later tests are unaffected
- ieos           = ieos_prev
- gamma          = gamma_prev
- ien_type       = ien_type_prev
- ishock_heating = ishock_heating_prev
- alpha          = alpha_prev
- alphau         = alphau_prev
- beta           = beta_prev
- ireconav       = ireconav_prev
- iexternalforce = iexternalforce_prev
- dtmax          = dtmax_prev
- if (maxalpha==maxp) alphaind(1,:) = real4(alpha)
- call init_part()
 
 end subroutine test_tde_entropy
 
