@@ -911,12 +911,12 @@ subroutine update_border_potential(iclump,npart,xyzh,xyzmh_ptmass,pmass)
     endif
  enddo
 !$omp enddo
-!$omp critical(collatedata)
+!$omp critical(collate_clumps)
  do ii = 1,nmember
     i = imember(ii)
     dpoten(i) = dpoten(i) + dpotenj_thread(i)
  enddo
-!$omp end critical(collatedata)
+!$omp end critical(collate_clumps)
 !$omp end parallel
 
 !$omp parallel default(none) &
