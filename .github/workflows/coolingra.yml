@@ -5,6 +5,7 @@ on:
   workflow_call:
 
 env:
+  PHANTOM_DATA_SOURCE: github  # download data files from the GitHub mirror before Zenodo
   SYSTEM: gfortran
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4

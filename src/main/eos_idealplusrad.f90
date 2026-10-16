@@ -19,7 +19,7 @@ module eos_idealplusrad
 ! :Dependencies: physcon
 !
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
- use physcon,  only:Rg,radconst,mass_proton_cgs,kboltz
+ use physcon,  only:Rg,radconst,kboltz
  implicit none
  real, parameter :: tolerance = 1.e-15
 
@@ -119,20 +119,20 @@ end subroutine get_idealgasplusrad_tempfrompres
 !  Entropy residual and derivative for ideal gas + radiation
 !+
 !----------------------------------------------------------------
-pure subroutine entropy_fdf(tempi,inv_mu_mh,log_rho,coeff_rad,cgss,fi,dfi,t2)
- real, intent(in)  :: tempi,inv_mu_mh,log_rho,coeff_rad,cgss
+pure subroutine entropy_fdf(tempi,ngas,log_rho,coeff_rad,cgss,fi,dfi,t2)
+ real, intent(in)  :: tempi,ngas,log_rho,coeff_rad,cgss
  real, intent(out) :: fi,dfi,t2
 
  t2 = tempi*tempi
- fi  = inv_mu_mh*(1.5*log(tempi) - log_rho) + coeff_rad*t2*tempi - cgss
- dfi = 1.5*inv_mu_mh/tempi + 3.*coeff_rad*t2
+ fi  = ngas*(1.5*log(tempi) - log_rho) + coeff_rad*t2*tempi - cgss
+ dfi = 1.5*ngas/tempi + 3.*coeff_rad*t2
 
 end subroutine entropy_fdf
 
 !----------------------------------------------------------------
 !+
 !  Solve for temperature and pressure from density and entropy
-!  (ideal gas + radiation, cgs units; entropy in erg/g/K)
+!  (ideal gas + radiation, cgs units; entropy s/kB in 1/g)
 !+
 !----------------------------------------------------------------
 subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
@@ -141,14 +141,14 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
  real,    intent(out)   :: pres
  integer, intent(out), optional :: niter_out
  real                :: corr,corr_ic,df,f,f_ic,temp_new,temp_gas,temp_rad,temp_ic
- real                :: inv_mu_mh,coeff_rad,log_rho,cgss_tol,best_f,t2,term
+ real                :: ngas,coeff_rad,log_rho,cgss_tol,best_f,t2,term
  real, parameter     :: eoserr = 1.e-13
  real, parameter     :: one_third = 1./3.
  integer             :: niter
  integer, parameter  :: nitermax = 1000
 
  niter = 0
- inv_mu_mh = 1./(mu*mass_proton_cgs)
+ ngas = Rg/(mu*kboltz)  ! gas particles per gram, 1/(mu*m_u)
  coeff_rad = 4.*radconst/(3.*rho*kboltz)
  log_rho   = log(rho)
  cgss_tol  = eoserr*abs(s)
@@ -160,7 +160,7 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
  ! below we try three possible guesses to accelerate convergence
  ! first guess is the input temperature
  if (temp > 0.) then
-    call entropy_fdf(temp,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+    call entropy_fdf(temp,ngas,log_rho,coeff_rad,s,f,df,t2)
     corr = f/df
     if (abs(corr) <= eoserr*temp .and. abs(f) <= cgss_tol) then
        pres = Rg*rho/mu*temp + radconst*t2*t2*one_third
@@ -176,7 +176,7 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
  if (s > 0.) then
     temp_rad = (3.*s*rho*kboltz/(4.*radconst))**one_third
     if (temp_rad > 0.) then
-       call entropy_fdf(temp_rad,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+       call entropy_fdf(temp_rad,ngas,log_rho,coeff_rad,s,f,df,t2)
        if (abs(f) < best_f) then
           temp_ic = temp_rad; corr_ic = f/df; f_ic = f
           best_f  = abs(f)
@@ -186,10 +186,10 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
 
  ! third guess is the gas temperature (skip expensive exp if IC already good)
  if (best_f > cgss_tol .or. temp_ic <= 0.) then
-    term = mu*s*mass_proton_cgs
+    term = s/ngas
     if (term < 100.) then
-       temp_gas = (rho*exp(mu*s*mass_proton_cgs))**(2./3.)
-       call entropy_fdf(temp_gas,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+       temp_gas = (rho*exp(term))**(2./3.)
+       call entropy_fdf(temp_gas,ngas,log_rho,coeff_rad,s,f,df,t2)
        if (abs(f) < best_f) then
           temp_ic = temp_gas; corr_ic = f/df; f_ic = f
        endif
@@ -210,7 +210,7 @@ subroutine get_idealplusrad_tempfromrhoS(rho,s,mu,temp,pres,niter_out)
        temp = temp_new
     endif
     niter = niter + 1
-    call entropy_fdf(temp,inv_mu_mh,log_rho,coeff_rad,s,f,df,t2)
+    call entropy_fdf(temp,ngas,log_rho,coeff_rad,s,f,df,t2)
     corr = f/df
  enddo
 

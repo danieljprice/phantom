@@ -43,18 +43,17 @@ subroutine run_test_stam(ntests,npass)
  if (ierr  /=  0) then
     nfail(1) = 1
  else
-    call test_interp_optab(nfail(1),npass)
+    call test_interp_optab(nfail(1))
  endif
- ntests = ntests + 1
  call update_test_scores(ntests,nfail(:),npass)
  call finish_test_stam
 end subroutine run_test_stam
 
-subroutine test_interp_optab(nfail,npass)
+subroutine test_interp_optab(nfail)
  use units,  only:unit_density,unit_ergg,unit_velocity
  use eos, only:equationofstate
  use physcon, only:kb_on_mh
- integer, intent(out) :: nfail,npass
+ integer, intent(out) :: nfail
  real :: logrhomin,logrhomax,logtmin,logtmax,tol,errmax
  real :: dlogtemp,dlogrho,rhoi,Ti,ui,Tref,spsoundi
  integer  :: irho,itemp,ndiff,ncheck
@@ -64,7 +63,7 @@ subroutine test_interp_optab(nfail,npass)
  character(len=30) :: label
  label = 'eos_stamatellos interpolation'
  xi = 0.; yi = 0.; zi = 0. !These aren't used but needed for eos call
- ndiff = 0; ncheck = 0; nfail = 0
+ ndiff = 0; ncheck = 0; nfail = 0; errmax = 0.
  tol = 0.001 !tolerance
  call checkvalbuf_start(label)
  ! create temperature array and rho array
@@ -91,11 +90,7 @@ subroutine test_interp_optab(nfail,npass)
     enddo
  enddo
  call checkvalbuf_end(label,ncheck,ndiff,errmax,tol)
- if (ndiff >0) then
-    nfail = nfail + 1
- else
-    npass = npass + 1
- endif
+ if (ndiff > 0) nfail = nfail + 1
 end subroutine test_interp_optab
 
 subroutine finish_test_stam

@@ -297,3 +297,14 @@ ishock_heating
          ishock_heating =           1    ! shock heating (0=off, 1=on)
 
 specifies whether or not the energy dissipation from the artificial viscosity term is included in the evolution of thermal energy (du/dt).  Not relevant if an isothermal equation of state is used.
+
+In General Relativity the energy variable is an entropy, so setting ishock_heating=0 also switches off the shock conductivity. The entropy of each particle is then conserved, giving isentropic flow. This is the way to run without shock heating in GR, since the GR code cannot be compiled with ISOTHERMAL=yes.
+
+ien_type
+--------
+
+::
+
+               ien_type =           0    ! energy variable (0=auto,1=entropy,2=entropy_s)
+
+General Relativity only. Selects the evolved energy variable: the entropy K = P/rho^gamma (1) or the specific entropy s (2). The default (0) chooses automatically from the equation of state: K for an ideal gas, and s for equations of state that are not a simple ideal gas (ieos=10, MESA; ieos=12, gas+radiation).

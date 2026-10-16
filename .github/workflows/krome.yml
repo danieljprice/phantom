@@ -4,6 +4,7 @@ on:
   workflow_call:
 
 env:
+  PHANTOM_DATA_SOURCE: github  # download data files from the GitHub mirror before Zenodo
   PREFIX: /usr/local/
   PHANTOM_DIR: ${{ github.workspace }}
   KROMEPATH: ${{ github.workspace }}/krome

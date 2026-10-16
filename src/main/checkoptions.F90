@@ -91,6 +91,10 @@ subroutine check_compile_time_settings(ierr)
     if (id==master) call error(string,'General relativity not compatible with dust.')
     ierr = 7
  endif
+ if (gr .and. maxvxyzu < 4) then
+    if (id==master) call error(string,'GR not compatible with ISOTHERMAL=yes: use ishock_heating=0 for isentropic flow')
+    ierr = 9
+ endif
  if (gr .and. gravity) then
     if (id==master) call warning(string,'You are using SELF GRAVITY in GENERAL RELATIVITY. Proceed with caution...!')
  endif

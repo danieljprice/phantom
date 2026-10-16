@@ -39,6 +39,8 @@ subroutine test_eos(ntests,npass)
  use eos_gasradrec, only:irecomb
  use testeos_stratified, only:test_eos_stratified
  use test_eos_stam, only:run_test_stam
+ use dim,           only:gr
+ use eos,           only:eos_works_with_gr
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
@@ -56,12 +58,15 @@ subroutine test_eos(ntests,npass)
  !  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
 
- do irecomb = 0,3
-    call test_hormone(ntests,npass)
- enddo
+ ! skip tests of equations of state that cannot be used with GR
+ if (.not.gr .or. eos_works_with_gr(20)) then
+    do irecomb = 0,3
+       call test_hormone(ntests,npass)
+    enddo
+ endif
 
- call test_eos_stratified(ntests,npass)
- call run_test_stam(ntests,npass)
+ if (.not.gr .or. eos_works_with_gr(7)) call test_eos_stratified(ntests,npass)
+ if (.not.gr .or. eos_works_with_gr(24)) call run_test_stam(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -75,10 +80,10 @@ end subroutine test_eos
 subroutine test_all(ntests, npass)
  use eos,       only:maxeos,init_eos,isink,polyk,polyk2,qfacdisc,&
                      ierr_file_not_found,ierr_option_conflict,&
-                     eos_is_not_implemented,eos_works_with_radiation
+                     eos_is_not_implemented,eos_works_with_radiation,eos_works_with_gr
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores
- use dim,       only:do_radiation
+ use dim,       only:do_radiation,gr
  use part,      only:xyzmh_ptmass,vxyz_ptmass,nptmass
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(1)
@@ -109,6 +114,7 @@ subroutine test_all(ntests, npass)
     ! skip equations of state that are not implemented
     if (eos_is_not_implemented(ieos)) cycle
     if (ieos==24) cycle ! skip Stamatellos/Lombardi -tested separately
+    if (gr .and. .not.eos_works_with_gr(ieos)) cycle
     if (id==master) write(*,"(/,a,i2)") '--> testing equation of state ',ieos
     call init_eos(ieos,ierr)
     correct_answer = 0

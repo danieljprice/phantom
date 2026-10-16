@@ -168,8 +168,8 @@ module part
 !
  integer, public :: ien_type
  integer, public, parameter :: ien_entropy = 1, &
-                               ien_etotal  = 2, &
-                               ien_entropy_s = 3
+                               ien_entropy_s = 2, &
+                               ien_etotal  = 3   ! internal to cons2primsolver, not a runtime option
 !
 !--one-fluid dust (small grains)
 !
@@ -679,6 +679,9 @@ subroutine init_part
 !--initialise sinktree array
  shortsinktree = 1
  fxyz_ptmass_tree = 0.
+!--initialise external forces and GR metric derivatives, used before being recomputed
+ fext = 0.
+ metricderivs = 0.
  ! initialise arrays not passed to setup routine to zero
  rho = 0. ! flags density as not yet computed, see init_rho_from_h
  if (mhd) then
