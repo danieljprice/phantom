@@ -23,8 +23,8 @@ ENDIANFLAGLITTLE= -fconvert=little-endian
 OMPFLAGS = -fopenmp
 # with LTO the whole program is one unit: the default 40% growth budget is
 # used up before kernel_softening gets inlined into the force pair loop
-CC = gcc -flto=auto
-CCFLAGS = -O3
+CC = gcc 
+CCFLAGS = -O3 -flto=auto
 LIBCXX = -lstdc++
 
 # for gfortran version 7+ need this flag to fix DEBUG=yes compile failures
