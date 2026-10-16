@@ -19,7 +19,7 @@ module utils_gr
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
- public :: perturb_metric,get_u_los
+ public :: perturb_metric,get_u_los,get_coord_accel
 
  private
 
@@ -87,6 +87,52 @@ pure real function get_u_los(gcov,projv,rhat)
  get_u_los = U0*dot_product(gcov(0,1:3) + matmul(gcov(1:3,1:3),v),rhat)
 
 end function get_u_los
+
+!----------------------------------------------------------------
+!+
+!  Coordinate acceleration a^i = dv^i/dt of a particle, given the
+!  rate of change of its canonical momentum dp_i/dt, where
+!  p_i = h U_i and U_i = U^0 (g_{0i} + g_{ij} v^j). By the chain rule
+!
+!   dp_i/dt = h U^0 (g_ik + U_i U_k) a^k + h v^k d_k U_i
+!
+!  neglecting dh/dt. The matrix is inverted analytically using the
+!  Sherman-Morrison formula with the inverse spatial metric gamma^ij.
+!  Returns a = 0 if v is superluminal
+!+
+!----------------------------------------------------------------
+pure subroutine get_coord_accel(metrici,metricderivsi,v,enth,dpdt,a)
+ use metric_tools, only:unpack_metric
+ real, intent(in)  :: metrici(0:3,0:3,2),metricderivsi(0:3,0:3,3)
+ real, intent(in)  :: v(3),enth,dpdt(3)
+ real, intent(out) :: a(3)
+ real    :: gcov(0:3,0:3),gammaijUP(3,3),dgdt(0:3,0:3),v4(0:3),dgv4(0:3)
+ real    :: U0,Ulow(3),Uup(3),rhs(3)
+ integer :: k,ierr
+
+ a = 0.
+ v4(0)   = 1.
+ v4(1:3) = v
+ call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP)
+ call get_u0(gcov,v,U0,ierr)
+ if (ierr /= 0) return
+ Ulow = U0*matmul(gcov(1:3,:),v4)
+
+ ! rate of change of the metric along the particle path, v^k d_k g_mu nu
+ dgdt = 0.
+ do k=1,3
+    dgdt = dgdt + v(k)*metricderivsi(:,:,k)
+ enddo
+ dgv4 = matmul(dgdt,v4)
+
+ ! subtract h v^k d_k U_i, using d_k U^0 = 0.5 (U^0)^3 d_k g_mu nu v^mu v^nu
+ rhs = dpdt - enth*U0*(dgv4(1:3) + 0.5*U0*dot_product(v4,dgv4)*Ulow)
+
+ ! solve h U^0 (g_ij + U_i U_j) a^j = rhs_i
+ Uup = matmul(gammaijUP,Ulow)
+ a = (matmul(gammaijUP,rhs) - Uup*dot_product(Uup,rhs)/(1. + dot_product(Ulow,Uup)))/(enth*U0)
+
+end subroutine get_coord_accel
 
 !----------------------------------------------------------------
 !+

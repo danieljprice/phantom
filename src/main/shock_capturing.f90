@@ -178,4 +178,18 @@ pure real function xi_limiter(dvdx)
 
 end function xi_limiter
 
+!-------------------------------------------------------------------------------
+!+
+!  Cullen & Dehnen (2010) switch: return alphaloc for a single particle
+!  given d(divv)/dt, the velocity gradients, sound speed and smoothing length
+!+
+!-------------------------------------------------------------------------------
+pure real(kind=4) function get_alphaloc_cd(ddivvdti,dvdxi,spsoundi,hi)
+ real(kind=4), intent(in) :: ddivvdti,dvdxi(9)
+ real,         intent(in) :: spsoundi,hi
+
+ get_alphaloc_cd = real(get_alphaloc(real(ddivvdti),spsoundi,hi,xi_limiter(dvdxi),alpha,alphamax),kind=4)
+
+end function get_alphaloc_cd
+
 end module shock_capturing

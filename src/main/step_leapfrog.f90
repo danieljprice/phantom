@@ -130,6 +130,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use utils_gr,        only:get_u0
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr,substep_sph_gr,substep_sph
  use ptmass,         only:ptmass_kick
@@ -141,7 +142,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  integer            :: i,its,np,ntypes,itype,nwake,nvfloorp,nvfloorps,nvfloorc,ialphaloc
  real               :: timei,erri,errmax,v2i,errmaxmean
  real               :: vxi,vyi,vzi,eni,hdtsph
- real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi
+ real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi,u0i
+ integer            :: ierru0
  real               :: v2mean,hdti
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
@@ -297,12 +299,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(Bevol,dBevol,Bpred,dtsph,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
-!$omp shared(alphaind,alphamax,ialphaloc) &
+!$omp shared(alphaind,alphamax,ialphaloc,metrics) &
 !$omp shared(eos_vars,ufloor,icooling,Tfloor) &
 !$omp shared(twas,timei) &
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
-!$omp private(i,spsoundi,alphaloci) &
+!$omp private(i,spsoundi,alphaloci,u0i,ierru0) &
 !$omp firstprivate(itype,alpha) &
 !$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
@@ -376,6 +378,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           rhoi = rho(i)
           spsoundi = eos_vars(ics,i)
           tdecay1  = avdecayconst*spsoundi/hi
+          if (gr) then
+             ! decay over the proper time of the fluid, dtau = dt/U^0
+             call get_u0(metrics(:,:,1,i),vxyzu(1:3,i),u0i,ierru0)
+             tdecay1 = tdecay1/u0i
+          endif
           ddenom   = 1./(1. + dtsph*tdecay1) ! implicit integration for decay term
           if (nalpha >= 2) then
              ! Cullen and Dehnen (2010) switch
