@@ -1092,7 +1092,7 @@ subroutine test_mesa_forward_backward(ntests,npass)
        temp     = t1
        call get_p_from_rho_s(ieos,s_code,rho_code,gmw,p2,temp)
        call get_u_from_rho_s(ieos,s_code,rho_code,u_code)
-       call checkvalbuf(u_code*unit_ergg,ui,tol_u,'u(rho,S) via eos module',nfail(7),ncheck(7),errmax(7),use_rel_tol=.true.)
+       call checkvalbuf(real(u_code*unit_ergg),ui,tol_u,'u(rho,S) via eos module',nfail(7),ncheck(7),errmax(7),use_rel_tol=.true.)
        call checkvalbuf(p2,p_code,tol_p,'P(rho,S) via eos module',nfail(8),ncheck(8),errmax(8),use_rel_tol=.true.)
     enddo
     !
