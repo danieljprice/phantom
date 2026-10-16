@@ -21,8 +21,6 @@ KNOWN_SYSTEM=yes
 ENDIANFLAGBIG= -fconvert=big-endian
 ENDIANFLAGLITTLE= -fconvert=little-endian
 OMPFLAGS = -fopenmp
-# with LTO the whole program is one unit: the default 40% growth budget is
-# used up before kernel_softening gets inlined into the force pair loop
 CC = gcc 
 CCFLAGS = -O3 -flto=auto
 LIBCXX = -lstdc++
@@ -40,6 +38,9 @@ ifneq ($(UNAME), Darwin)
     ifneq ($(wildcard $(LTO_PLUGIN)),)
         LIBTOOL = ar --plugin $(LTO_PLUGIN) rcs
     endif
+else # on macOS, dsymutil cannot read GCC's LTO debug info (-g): build without LTO.
+    FFLAGS := $(filter-out -flto%,$(FFLAGS))
+    CCFLAGS := $(filter-out -flto%,$(CCFLAGS))
 endif
 
 ifeq ($(NOWARN), yes)
