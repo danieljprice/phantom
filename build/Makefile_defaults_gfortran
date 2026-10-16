@@ -33,6 +33,15 @@ ifeq ($(shell [ $(GFORTRAN_VERSION_MAJOR) -gt 6 ] && echo true),true)
     DEBUGFLAG+= -finit-derived
 endif
 
+# archives of LTO objects must be indexed with the LTO plugin of this gfortran:
+# plain ar loads the system GCC plugin, which can differ from gfortran's version
+ifneq ($(UNAME), Darwin)
+    LTO_PLUGIN := $(shell gfortran -print-prog-name=liblto_plugin.so)
+    ifneq ($(wildcard $(LTO_PLUGIN)),)
+        LIBTOOL = ar --plugin $(LTO_PLUGIN) rcs
+    endif
+endif
+
 ifeq ($(NOWARN), yes)
     FFLAGS+= -Werror
 endif

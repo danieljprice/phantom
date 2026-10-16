@@ -926,7 +926,7 @@ OBJLIBA=${SRCLIBA:.f90=.o}
 LIBPHANTOMAMUSE=$(BINDIR)/libphantom-amuse.a
 
 libphantom-amuse.a: checksystem checkparams $(OBJECTS) $(OBJLIBA)
-	ar rc $(LIBPHANTOMAMUSE) $(OBJLIBA) $(OBJECTS)
+	$(LIBTOOL) $(LIBPHANTOMAMUSE) $(OBJLIBA) $(OBJECTS)
 
 libphantom-amuse.so: checksystem checkparams phantom ${OBJLIBA}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIBA} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom-amuse.so

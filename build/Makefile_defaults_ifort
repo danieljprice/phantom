@@ -12,6 +12,8 @@ CC = icc
 CCFLAGS = -O3 -ipo
 LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
+# -ipo objects must be archived with xiar
+LIBTOOL = xiar rcs
 
 # for ifort version 18+ -openmp flag is obsolete
 IFORT_VERSION_MAJOR=${shell ifort -v 2>&1 | head -1 | cut -d' ' -f 3 | cut -d'.' -f 1}
