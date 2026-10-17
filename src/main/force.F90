@@ -1464,8 +1464,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (iamgasi .and. iamgasj) then
           !--work out vsig for timestepping and av
           if (gr) then
-             ! Relativistic version vij + csi    (could put a beta here somewhere?)
-             vsigi     = (beta*vij+spsoundi)/(1.+beta*vij*spsoundi)
+             ! fastest signal speed between particles, cs + vij added relativistically
+             ! so that vsig < 1 (Liptai & Price 2019)
+             vsigi     = (spsoundi + vij)/(1. + spsoundi*vij)
              vsigavi   = alphai*vsigi
           else
              vsigi     = max(vwavei - beta*projv,0.)
@@ -1540,8 +1541,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              avBtermj = 0.5*alphaB*rho1j*rho1j
 
              if (gr) then
-                ! Relativistic version vij + csi
-                vsigj   = (beta*vij+spsoundj)/(1.+beta*vij*spsoundj)
+                ! as for particle i
+                vsigj   = (spsoundj + vij)/(1. + spsoundj*vij)
                 vsigavj = alphaj*vsigj
              else
                 vsigj = max(vwavej - beta*projv,0.)

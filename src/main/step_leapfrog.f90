@@ -26,7 +26,7 @@ module step_lf_global
 !   cooling_radapprox, damping, deriv, dim, dynamic_dtmax, eos, extern_gr,
 !   growth, io, io_summary, metric_tools, mpiutils, options, part,
 !   porosity, ptmass, shock_capturing, substepping, timestep, timestep_ind,
-!   timing
+!   timing, utils_gr
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred

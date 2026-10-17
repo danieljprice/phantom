@@ -90,15 +90,16 @@ end function get_u_los
 
 !----------------------------------------------------------------
 !+
-!  Coordinate acceleration a^i = dv^i/dt of a particle, given the
-!  rate of change of its canonical momentum dp_i/dt, where
-!  p_i = h U_i and U_i = U^0 (g_{0i} + g_{ij} v^j). By the chain rule
+!  Coordinate acceleration a^i = dv^i/dt of a particle, given
+!  the rate of change of its canonical momentum dp_i/dt, where
+!  p_i = w U_i, w is the specific enthalpy and
+!  U_i = U^0 (g_{0i} + g_{ij} v^j). By the chain rule
 !
-!   dp_i/dt = h U^0 (g_ik + U_i U_k) a^k + h v^k d_k U_i
+!   dp_i/dt = w U^0 (g_ik + U_i U_k) a^k + w v^k d_k U_i
 !
-!  neglecting dh/dt. The matrix is inverted analytically using the
-!  Sherman-Morrison formula with the inverse spatial metric gamma^ij.
-!  Returns a = 0 if v is superluminal
+!  neglecting dw/dt. The matrix is inverted analytically using
+!  the Sherman-Morrison formula with the inverse spatial metric
+!  gamma^ij. Returns a = 0 if v is superluminal
 !+
 !----------------------------------------------------------------
 pure subroutine get_coord_accel(metrici,metricderivsi,v,enth,dpdt,a)
@@ -125,10 +126,10 @@ pure subroutine get_coord_accel(metrici,metricderivsi,v,enth,dpdt,a)
  enddo
  dgv4 = matmul(dgdt,v4)
 
- ! subtract h v^k d_k U_i, using d_k U^0 = 0.5 (U^0)^3 d_k g_mu nu v^mu v^nu
+ ! subtract w v^k d_k U_i, using d_k U^0 = 0.5 (U^0)^3 d_k g_mu nu v^mu v^nu
  rhs = dpdt - enth*U0*(dgv4(1:3) + 0.5*U0*dot_product(v4,dgv4)*Ulow)
 
- ! solve h U^0 (g_ij + U_i U_j) a^j = rhs_i
+ ! solve w U^0 (g_ij + U_i U_j) a^j = rhs_i
  Uup = matmul(gammaijUP,Ulow)
  a = (matmul(gammaijUP,rhs) - Uup*dot_product(Uup,rhs)/(1. + dot_product(Ulow,Uup)))/(enth*U0)
 
