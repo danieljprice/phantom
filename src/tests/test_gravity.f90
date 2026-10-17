@@ -774,7 +774,7 @@ end subroutine test_spheres
 !+
 !-----------------------------------------------------------------------
 subroutine test_sphere(ntests,npass,iprofile)
- use dim,         only:maxp,use_sinktree
+ use dim,         only:maxp
  use deriv,       only:get_derivs_global
  use eos,         only:gamma,polyk
  use mpiutils,    only:reduceall_mpi
