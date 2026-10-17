@@ -166,12 +166,17 @@ endif
 ifdef STACKSIZE
     FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
 endif
+
+
 # Set other optional flags depending on settings
 
 ifeq ($(DEBUG), yes)
     FFLAGS += ${DEBUGFLAG}
     FFLAGS := $(FFLAGS:-O3=-O0)
     FFLAGS := $(FFLAGS:-ipo= )
+    CCFLAGS := $(CCFLAGS:-ipo= )
+    FFLAGS := $(filter-out -flto%,$(FFLAGS))
+    CCFLAGS := $(filter-out -flto%,$(CCFLAGS))
 endif
 
 ifeq ($(ENDIAN), BIG)
@@ -507,7 +512,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          cons2primsolver.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
-         mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.f90 utils_healpix.f90 utils_raytracer.f90 \
+         mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.f90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 ptmass_tree.f90 \
          utils_deriv.f90 utils_neighcompact.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
@@ -590,7 +595,7 @@ edit: checksetup
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
          ${DOMAIN} mpi_dens.F90 mpi_force.F90 boundary.f90 boundary_dynamic.f90 \
-         mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.f90 ptmass_tree.f90\
+         mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.F90 ptmass_tree.f90\
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 cubicsolve.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 dynamic_dtmax.f90 \
@@ -666,11 +671,11 @@ SRCSPLITPART=utils_indtimesteps.f90 utils_getneighbours.F90 utils_splitmerge.f90
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 test_kernel.f90 \
          ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_coala.F90 \
-         test_nonidealmhd.f90 directsum.f90 test_gravity.f90 \
+         test_nonidealmhd.f90 directsum.f90 set_disc.f90 test_gravity.f90 \
          test_derivs.f90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos_stam.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.f90 ${SRCSETSTAR} utils_filenames.f90 utils_tables.f90 \
-         grids_for_setup.f90 set_disc.f90 test_setdisc.f90 test_setstar.f90 \
+         grids_for_setup.f90 test_setdisc.f90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_neigh.f90 test_kdtree.F90 test_orbits.f90 test_part.f90 test_ptmass.f90 test_luminosity.f90\
          test_gnewton.f90 test_corotate.f90 test_gr.f90 test_geometry.f90 \
@@ -826,10 +831,14 @@ allmoddumps:
 .PHONY: allkernels
 allkernels:
 	@echo "Building all kernel modules"
+	@# clean between kernels: without module dependencies, objects using the
+	@# kernel module would otherwise keep the previous kernel's definitions
+	@# (also clean at the end, so later targets do not link the last kernel)
 	@for file in $(wildcard ../src/main/kernel_*.f90); do \
 	   echo "Building $$file"; \
-	   $(MAKE) SRCKERNEL="$$(basename $$file)" || exit 1; \
+	   $(MAKE) clean && $(MAKE) SRCKERNEL="$$(basename $$file)" || exit 1; \
 	done
+	@$(MAKE) clean
 
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
@@ -918,7 +927,7 @@ OBJLIBA=${SRCLIBA:.f90=.o}
 LIBPHANTOMAMUSE=$(BINDIR)/libphantom-amuse.a
 
 libphantom-amuse.a: checksystem checkparams $(OBJECTS) $(OBJLIBA)
-	ar rc $(LIBPHANTOMAMUSE) $(OBJLIBA) $(OBJECTS)
+	$(LIBTOOL) $(LIBPHANTOMAMUSE) $(OBJLIBA) $(OBJECTS)
 
 libphantom-amuse.so: checksystem checkparams phantom ${OBJLIBA}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIBA} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom-amuse.so
