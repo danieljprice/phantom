@@ -2007,7 +2007,7 @@ subroutine test_sink_potential(ntests,npass)
  use units,      only:set_units
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(1)
- real :: phi1,phi,eps,x0(3)
+ real :: phi1,phi2,phi,eps,x0(3)
  real :: dphidx,hi,xi,yi,zi,dumxi,dumyi,dumzi,fxi,fyi,fzi,rp
 
  if (id==master) write(*,"(/,a)") '--> testing sink particle surface force'
@@ -2033,14 +2033,18 @@ subroutine test_sink_potential(ntests,npass)
  zi = x0(3) + 1.*rp
  fxi = 0.; fyi = 0.; fzi = 0.; phi = 0.
  call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi)
- ! evaluate sink-gas acceleration at some position + epsilon
- eps = 1.e-6
+ ! evaluate sink-gas potential at position +/- epsilon: phi (~27) is much larger
+ ! than phi1 - phi (~fx*eps), so a one-sided difference with eps=1e-6 loses ~8
+ ! digits to roundoff; a centred difference with eps=1e-4 is accurate to ~1e-9
+ eps = 1.e-4
  dumxi = 0.; dumyi = 0.; dumzi = 0.; phi1 = 0.
  call get_accel_sink_gas(nptmass,xi+eps,yi,zi,hi,xyzmh_ptmass,dumxi,dumyi,dumzi,phi1)
+ dumxi = 0.; dumyi = 0.; dumzi = 0.; phi2 = 0.
+ call get_accel_sink_gas(nptmass,xi-eps,yi,zi,hi,xyzmh_ptmass,dumxi,dumyi,dumzi,phi2)
  ! get the derivative of phi and check it equals the acceleration
- dphidx = -(phi1 - phi)/eps
+ dphidx = -(phi1 - phi2)/(2.*eps)
 
- call checkval(dphidx,fxi,3.9e-8,nfailed(1),'dphi/dx = acceleration')
+ call checkval(dphidx,fxi,5.e-9,nfailed(1),'dphi/dx = acceleration')
  call update_test_scores(ntests,nfailed(1:1),npass)
 
  ! reset options

@@ -406,12 +406,12 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr,
     !$omp enddo
  endif
 
-!$omp critical(collatedata)
+!$omp critical(collate_bkg)
  if (rho_bkg_thread < rho_bkg) then
     rho_bkg = rho_bkg_thread
     ibkg    = ibkg_thread
  endif
-!$omp end critical(collatedata)
+!$omp end critical(collate_bkg)
 !$omp end parallel
 
  if (n_bkg > 1) then

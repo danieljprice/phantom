@@ -169,7 +169,7 @@ subroutine download_datafile(url,dir,filename,filepath,ierr)
     print*,'ERROR: cannot write to '//trim(dir)//', writing to current directory'
     call retrieve_remote_file(url,trim(adjustl(filename)),'',filepath,ierr)
  else  ! return an error
-    filepath = trim(filename)
+    filepath = trim(dir)//trim(filename)
     print*,'ERROR: cannot write to '//trim(dir)//' or current directory'
     ierr = 1
  endif

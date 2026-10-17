@@ -28,12 +28,10 @@ module dtypekdtree
                     + 4 &    ! leftchild
                     + 4 &    ! rightchild
                     + 4 &    ! parent
-                    + 4 &    ! idum
+                    + 4 &    ! level
 #ifdef GRAVITY
-                    + 8*6 &  ! quads(6)
+                    + 8*6 &  ! quads(6) (quads)
                     + 8*10 & ! octs(10)
-                    + 4 &    ! tobecached
-                    + 4 &    ! cached
 #endif
                     + 0
 
@@ -60,10 +58,8 @@ module dtypekdtree
     integer :: leftchild
     integer :: rightchild
     integer :: parent
-    integer :: idum ! avoid ifort warning: align on 4-byte boundary
+    integer :: level ! avoid ifort warning: align on 4-byte boundary
 #ifdef GRAVITY
-    integer :: tobecached
-    logical :: cached
     real    :: quads(6)
     real    :: octs(10)  ! xxx,xxy,xxz,xyy,xyz,xzz,yyy,yyz,yzz,zzz
 #endif
@@ -80,7 +76,7 @@ module dtypekdtree
  end type ptmassnode
 
  type ptmasstree
-    type(ptmassnode), allocatable :: nodes(:)
+    type(ptmassnode),  allocatable :: nodes(:)
     integer,           allocatable :: iptmassnode(:)     ! permutation of point indices (1..N)
     integer                        :: nnodes
  end type ptmasstree
@@ -153,6 +149,12 @@ subroutine get_mpitype_of_kdnode(dtype)
  call MPI_GET_ADDRESS(node%parent,addr,mpierr)
  disp(nblock) = addr - start
 
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(node%level,addr,mpierr)
+ disp(nblock) = addr - start
+
 #ifdef GRAVITY
  nblock = nblock + 1
  blens(nblock) = size(node%quads)
@@ -164,18 +166,6 @@ subroutine get_mpitype_of_kdnode(dtype)
  blens(nblock) = size(node%octs)
  mpitypes(nblock) = MPI_REAL8
  call MPI_GET_ADDRESS(node%octs,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(node%tobecached,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(node%cached,addr,mpierr)
  disp(nblock) = addr - start
 #endif
 

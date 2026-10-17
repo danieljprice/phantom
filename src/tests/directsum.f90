@@ -18,7 +18,7 @@ module directsum
 ! :Dependencies: dim, io, kernel, part
 !
  implicit none
- public :: directsum_grav
+ public :: directsum_grav, directsum_grav_omp, directsum_parallel
 
  private
 
@@ -194,5 +194,180 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
  phitot = 0.5*phitot
 
 end subroutine directsum_grav
+
+!----------------------------------------------------------------------------
+!
+! OpenMP parallel copy of directsum_grav.
+!
+! Same physics (and results, to round-off) as directsum_grav, but computed
+! with a full N^2 loop instead of the symmetric N(N+1)/2 loop: each outer
+! iteration i accumulates the force from every other particle j (j /= i)
+! into its own column of fgrav, so the two particles of a pair are handled
+! independently. Since iteration i only writes fgrav(:,i) there is no write
+! conflict between threads and the outer loop parallelises trivially; the
+! only shared reduction is the scalar phitot.
+!
+! Note: because the pair sum is double-counted here (each unordered pair is
+! visited twice, once from each end), the 0.5 factor on phitot at the end
+! reproduces the result of the triangular loop, as does the per-particle
+! self-energy pmassi^2*potensoft0*hi1 which is added once per particle.
+!----------------------------------------------------------------------------
+subroutine directsum_grav_omp(xyzh,gradh,fgrav,phitot,ntot)
+ use kernel,    only:grkern,kernel_softening,radkern2,cnormk
+ use part,      only:igas,iamtype,maxphase,maxp,iphase, &
+                     iactive,isdead_or_accreted,massoftype,maxgradh, &
+                     apr_level,aprmassoftype
+ use dim,       only:maxvxyzu,maxp,use_apr,igradsoft
+ use io,        only:error
+ integer,      intent(in)    :: ntot
+ real,         intent(in)    :: xyzh(4,ntot)
+ real(kind=4), intent(in)    :: gradh(:,:)
+ real,         intent(inout) :: fgrav(maxvxyzu,ntot)
+ real,         intent(out)   :: phitot
+ integer :: i,j,iamtypei,iamtypej
+ real :: dx(3),dr(3),fgravi(3),xi(3)
+ real :: rij,rij1,rij2,rij21,pmassi,pmassj
+ real :: gradhi,gradsofti,grkerni,grkernj,dsofti,dsoftj
+ real :: phii,phij,phiterm,fm,fmi,fmj,phitemp,potensoft0,qi,qj
+ real :: hi,hj,hi1,hj1,hi21,hj21,hi41,hj41,q2i,q2j
+ logical :: iactivei
+!
+!--check that we have everything we need (same as directsum_grav)
+!
+ call kernel_softening(0.,0.,potensoft0,fmi)
+ if (size(gradh(:,1)) < 3) then
+    call error('directsum','cannot do direct sum with ngradh < 3')
+    return
+ endif
+ if (maxgradh /= maxp) then
+    call error('directsum','gradh not stored (maxgradh /= maxp in part.F90)')
+    return
+ endif
+!
+!--calculate gravitational force by direct summation on all particles.
+!  N^2 loop, parallelised over i; each thread writes only fgrav(:,i) for the
+!  particle it owns, so fgrav needs no reduction.
+!
+ phitot = 0.
+!$omp parallel do schedule(static) default(none) &
+!$omp shared(xyzh,gradh,fgrav,ntot,potensoft0,maxphase,maxp) &
+!$omp shared(iphase,massoftype,aprmassoftype,apr_level) &
+!$omp private(i,j,xi,hi,hi1,hi21,hi41,gradhi,gradsofti,iamtypei,iactivei,pmassi) &
+!$omp private(fgravi,phitemp) &
+!$omp private(dx,hj,hj1,hj21,hj41,iamtypej,pmassj) &
+!$omp private(rij,rij1,rij2,rij21,dr,q2i,q2j,qi,qj) &
+!$omp private(grkerni,grkernj,dsofti,dsoftj,phii,phij,phiterm,fm,fmi,fmj) &
+!$omp reduction(+:phitot)
+ overi: do i=1,ntot
+    xi(1:3) = xyzh(1:3,i)
+    hi      = xyzh(4,i)
+    if (isdead_or_accreted(hi)) cycle overi
+
+    iamtypei = igas
+    iactivei = .true.
+    pmassi   = massoftype(iamtypei)
+    if (maxphase==maxp) then
+       iamtypei = iamtype(iphase(i))
+       iactivei = iactive(iphase(i))
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi = massoftype(iamtypei)
+       endif
+    else
+       if (use_apr) pmassi = aprmassoftype(igas,apr_level(i))
+    endif
+
+    hi1  = 1./hi
+    hi21 = hi1*hi1
+    hi41 = hi21*hi21
+    gradhi    = gradh(1,i)
+    gradsofti = gradh(igradsoft,i)
+    fgravi(:) = 0.
+    phitemp   = 0.
+
+    overj: do j=1,ntot
+       if (j==i) cycle overj
+       dx(1) = xi(1) - xyzh(1,j)
+       dx(2) = xi(2) - xyzh(2,j)
+       dx(3) = xi(3) - xyzh(3,j)
+       hj    = xyzh(4,j)
+       if (isdead_or_accreted(hj)) cycle overj
+       hj1   = 1./hj
+       rij2  = dot_product(dx,dx)
+       rij   = sqrt(rij2)
+       rij1  = 1./rij
+       rij21 = rij1*rij1
+       dr(:) = dx(:)*rij1
+       hj21  = hj1*hj1
+       hj41  = hj21*hj21
+       iamtypej = igas
+       pmassj   = massoftype(iamtypej)
+       if (maxphase==maxp) then
+          iamtypej = iamtype(iphase(j))
+          pmassj   = massoftype(iamtypej)
+       endif
+       dsofti = 0.
+       dsoftj = 0.
+       q2i = rij2*hi21
+       q2j = rij2*hj21
+       if (q2i < radkern2) then
+          qi = sqrt(q2i)
+          grkerni = grkern(q2i,qi)
+          call kernel_softening(q2i,qi,phii,fmi)
+          phii       = phii*hi1
+          fmi        = fmi*hi21
+          grkerni    = cnormk*grkerni*hi41*gradhi
+          dsofti     = 0.5*grkerni*gradsofti
+       else
+          phii = -rij1
+          fmi  = rij21
+       endif
+       if (q2j < radkern2) then
+          qj = sqrt(q2j)
+          grkernj = grkern(q2j,qj)
+          call kernel_softening(q2j,qj,phij,fmj)
+          phij       = phij*hj1
+          fmj        = fmj*hj21
+          grkernj    = cnormk*grkernj*hj41*gradh(1,j)
+          dsoftj     = 0.5*grkernj*gradh(igradsoft,j)
+       else
+          phij = -rij1
+          fmj  = rij21
+       endif
+
+       phiterm = 0.5*(phii + phij)
+       phitemp = phitemp + pmassj*phiterm
+       fm      = 0.5*(fmi + fmj)
+       fgravi(1:3) = fgravi(1:3) - dr(1:3)*(pmassj*fm + dsofti + dsoftj)
+    enddo overj
+!
+!--add self contribution to potential and force
+!
+    if (iactivei) then
+       fgrav(1:3,i) = fgrav(1:3,i) + fgravi(1:3)
+    endif
+    phitot = phitot + pmassi*phitemp + pmassi*pmassi*potensoft0*hi1
+ enddo overi
+!$omp end parallel do
+
+ phitot = 0.5*phitot
+
+end subroutine directsum_grav_omp
+
+!----------------------------------------------------------------------------
+!
+! Convenience wrapper around directsum_grav_omp for use from the gravity
+! test suite: computes the exact acceleration on the global particle array
+! (part module) and stores it in fxyzu.
+!----------------------------------------------------------------------------
+subroutine directsum_parallel()
+ use part, only:npart,xyzh,gradh,fxyzu
+ real :: phitot
+
+ fxyzu = 0.
+ call directsum_grav_omp(xyzh,gradh,fxyzu,phitot,npart)
+
+end subroutine directsum_parallel
 
 end module directsum
