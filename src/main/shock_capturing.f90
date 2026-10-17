@@ -81,7 +81,8 @@ subroutine write_options_shock_capturing(iunit,use_conductivity)
  else
     call write_inopt(alpha,'alpha','shock viscosity parameter',iunit)
  endif
- call write_inopt(beta,'beta','non-linear shock viscosity parameter',iunit)
+ ! beta is not used in GR, where the signal speed is limited by the speed of light
+ if (.not.gr) call write_inopt(beta,'beta','non-linear shock viscosity parameter',iunit)
  if (.not.isothermal .and. use_conductivity) call write_inopt(alphau,'alphau','shock conductivity parameter',iunit)
  if (mhd) then
     call write_inopt(alphaB,'alphaB','shock resistivity parameter',iunit)
@@ -108,7 +109,7 @@ subroutine read_options_shock_capturing(db,nerr)
 
  call read_inopt(alpha,'alpha',db,errcount=nerr,min=0.,max=10.)
  call read_inopt(alphamax,'alphamax',db,errcount=nerr,default=1.,min=0.,max=100.)
- call read_inopt(beta,'beta',db,errcount=nerr,min=0.,max=4.)
+ if (.not.gr) call read_inopt(beta,'beta',db,errcount=nerr,min=0.,max=4.)
  if (.not.isothermal) call read_inopt(alphau,'alphau',db,errcount=nerr,min=0.,max=10.,default=alphau)
  if (mhd) call read_inopt(alphaB,'alphaB',db,errcount=nerr,min=0.,max=10.)
  if (gr) call read_inopt(ireconav,'ireconav',db,errcount=nerr,default=ireconav)

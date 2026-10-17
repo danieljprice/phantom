@@ -1020,7 +1020,7 @@ subroutine test_tde_entropy(ntests,npass)
  use mpidomain,      only:i_belong
  use mpiutils,       only:reduceall_mpi
  use eos,            only:ieos,gamma,X_in,Z_in,ishock_heating
- use options,        only:alpha,alphamax,alphau,beta,ireconav,iexternalforce
+ use options,        only:alpha,alphamax,alphau,ireconav,iexternalforce
  use setstar,        only:star_t,set_star,set_defaults_star,ipoly
  use setorbit,       only:orbit_t,set_defaults_orbit,set_orbit
  use externalforces, only:initialise_externalforces
@@ -1079,7 +1079,6 @@ subroutine test_tde_entropy(ntests,npass)
  ien_type       = ien_entropy
  ishock_heating = 1
  alphau         = 0.
- beta           = 2.
  ireconav       = -1
  if (maxalpha==maxp) then
     ! Cullen & Dehnen switch, which must switch on the viscosity from alpha = 0
