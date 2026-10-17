@@ -204,7 +204,6 @@ endif
 
 ifeq ($(GR), yes)
     FPPFLAGS += -DGR
-    CONST_AV=yes
 endif
 
 ifeq ($(DUST), yes)

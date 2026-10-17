@@ -192,6 +192,8 @@ module part
  real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
 ! cached GR metric-gradient force from kickdrift_gr (reused in get_force)
  real, allocatable :: fgr(:,:)       ! fgr(3,maxgr)
+! coordinate acceleration dv/dt, used in the Cullen & Dehnen shock detector
+ real, allocatable :: agr(:,:)       ! agr(3,maxgr)
 !
 !--sink particles in General relativity
 !
@@ -496,6 +498,7 @@ subroutine allocate_part
  call allocate_array('sqrtgs', sqrtgs, maxgr)
  if (gr) then
     call allocate_array('fgr', fgr, 3, maxgr)
+    call allocate_array('agr', agr, 3, maxgr)
     call allocate_array('fgr_ptmass', fgr_ptmass, 3, maxptmassgr)
  endif
  call allocate_array('pxyzu_ptmass', pxyzu_ptmass, maxvxyzu, maxptmassgr)
@@ -597,6 +600,7 @@ subroutine deallocate_part
  if (allocated(tmunus))       deallocate(tmunus)
  if (allocated(sqrtgs))       deallocate(sqrtgs)
  if (allocated(fgr))          deallocate(fgr)
+ if (allocated(agr))          deallocate(agr)
  if (allocated(fgr_ptmass))     deallocate(fgr_ptmass)
  if (allocated(pxyzu_ptmass)) deallocate(pxyzu_ptmass)
  if (allocated(metrics_ptmass))  deallocate(metrics_ptmass)
@@ -682,6 +686,7 @@ subroutine init_part
 !--initialise external forces and GR metric derivatives, used before being recomputed
  fext = 0.
  metricderivs = 0.
+ if (gr) agr = 0.
  ! initialise arrays not passed to setup routine to zero
  rho = 0. ! flags density as not yet computed, see init_rho_from_h
  if (mhd) then

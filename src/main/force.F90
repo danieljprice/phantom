@@ -1058,10 +1058,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: ii,ia,ib,ic
  real    :: densj
  real    :: bigvi(1:3),bigv2i,alphagri,lorentzi
- real    :: veli(3),vij,vijstar,rhat(3)
+ real    :: veli(3),vij,rhat(3)
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: du_losi,du_losj,lorentzj,projbigvi,projbigvj
- real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
+ real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projvstari,projvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
@@ -1449,23 +1449,26 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
           projbigvj = bigvj(1)*runix + bigvj(2)*runiy + bigvj(3)*runiz
 
-          ! Reconstruction of velocity
-          if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
-          projbigvstari = projbigvi
-          projbigvstarj = projbigvj
-          if (ireconav >= 0) call reconstruct_dv_gr(projbigvi,projbigvj,runix,runiy,runiz,rij2*rij1,&
-                                 dvdxi,dvdxj,projbigvstari,projbigvstarj,ireconav)
+          ! reconstruct the coordinate velocity along the line of sight to the midpoint,
+          ! using the gradient of the coordinate velocity, for use in the viscosity jump
+          projvstari = projvi
+          projvstarj = projvj
+          if (ireconav >= 0) then
+             dvdxj(:) = dvdx(:,j)
+             call reconstruct_dv_gr(projvi,projvj,runix,runiy,runiz,rij2*rij1,&
+                                    dvdxi,dvdxj,projvstari,projvstarj,ireconav)
+          endif
 
           ! Relativistic version of vi-vj
           vij = abs((projbigvi-projbigvj)/(1.-projbigvi*projbigvj))
-          vijstar = abs((projbigvstari-projbigvstarj)/(1.-projbigvstari*projbigvstarj))
        endif
 
        if (iamgasi .and. iamgasj) then
           !--work out vsig for timestepping and av
           if (gr) then
-             ! Relativistic version vij + csi    (could put a beta here somewhere?)
-             vsigi     = (beta*vij+spsoundi)/(1.+beta*vij*spsoundi)
+             ! fastest signal speed between particles, cs + vij added relativistically
+             ! so that vsig < 1 (Liptai & Price 2019)
+             vsigi     = (spsoundi + vij)/(1. + spsoundi*vij)
              vsigavi   = alphai*vsigi
           else
              vsigi     = max(vwavei - beta*projv,0.)
@@ -1540,8 +1543,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              avBtermj = 0.5*alphaB*rho1j*rho1j
 
              if (gr) then
-                ! Relativistic version vij + csi
-                vsigj   = (beta*vij+spsoundj)/(1.+beta*vij*spsoundj)
+                ! as for particle i
+                vsigj   = (spsoundj + vij)/(1. + spsoundj*vij)
                 vsigavj = alphaj*vsigj
              else
                 vsigj = max(vwavej - beta*projv,0.)
@@ -1597,8 +1600,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              ! with the metric of each particle so that it has the same sign as
              ! projv, giving positive shock heating
              rhat = [runix,runiy,runiz]
-             du_losi = get_u_los(metrici(:,:,1),projvi,rhat) - get_u_los(metrici(:,:,1),projvj,rhat)
-             du_losj = get_u_los(metricj(:,:,1),projvi,rhat) - get_u_los(metricj(:,:,1),projvj,rhat)
+             du_losi = get_u_los(metrici(:,:,1),projvstari,rhat) - get_u_los(metrici(:,:,1),projvstarj,rhat)
+             du_losj = get_u_los(metricj(:,:,1),projvstari,rhat) - get_u_los(metricj(:,:,1),projvstarj,rhat)
           endif
 
           if (disc_viscosity) then
@@ -3435,7 +3438,10 @@ end subroutine reconstruct_dv
 
 !-----------------------------------------------------------------------------
 !+
-!  Apply reconstruction to GR velocity gradients
+!  Reconstruct the coordinate velocity along the line of sight of a
+!  pair of particles to their midpoint, for use in the GR viscosity.
+!  The velocity gradients are of the coordinate velocity, so a linear
+!  velocity field gives zero jump between the reconstructed velocities
 !+
 !-----------------------------------------------------------------------------
 subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,projvstarj,ilimiter)
@@ -3444,10 +3450,8 @@ subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,pr
  integer, intent(in)  :: ilimiter
  real :: slopei,slopej,slope
 
- ! CAUTION: here we use dx, not the unit vector to
- ! define the projected slope. This is fine as
- ! long as the slope limiter is linear, otherwise
- ! one should use the unit
+ ! derivative of the projected velocity along the unit vector r,
+ ! multiplied by the separation dr to give the change between particles
  slopei = rx*(rx*dvdxi(1) + ry*dvdxi(4) + rz*dvdxi(7)) &
         + ry*(rx*dvdxi(2) + ry*dvdxi(5) + rz*dvdxi(8)) &
         + rz*(rx*dvdxi(3) + ry*dvdxi(6) + rz*dvdxi(9))
@@ -3465,8 +3469,9 @@ subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,pr
     !
     slope = 0.5*dr*(slopei + slopej)
  endif
- projvstari = (projvi - slope) / (1. - projvi*slope)
- projvstarj = (projvj + slope) / (1. + projvj*slope)
+ ! each particle is reconstructed half of the separation, to the midpoint
+ projvstari = projvi - 0.5*slope
+ projvstarj = projvj + 0.5*slope
 
 end subroutine reconstruct_dv_gr
 

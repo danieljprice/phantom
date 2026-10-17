@@ -113,12 +113,6 @@ subroutine check_compile_time_settings(ierr)
  if (gr .and. disc_viscosity) then
     if (id==master) call warning(string,'General relativity not properly tested with disc viscosity.')
  endif
-#ifndef CONST_AV
- if (gr) then
-    if (id==master) call error(string,'General relativity should have CONST_AV=yes.')
-    ierr = 14
- endif
-#endif
 
 #ifdef DUSTGROWTH
  if (.not. use_dustgrowth) then

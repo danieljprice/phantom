@@ -138,25 +138,33 @@ end subroutine prim2consi
 !  Solve for primitive variables (dens,v,u)
 !  from conserved variables (rho, pxyzu = p*,entropy).
 !  dens(:) is the initial guess for the primitive density root finder.
+!  If dvdx and alphaind are present, also sets alphaloc for the
+!  Cullen & Dehnen switch.
 !+
 !----------------------------------------------------------------------
-subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphaind)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,rho,igasP,ics,ien_type,itemp,igamma
  use io,              only:fatal
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
- integer, intent(in)    :: npart
- real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
- real,    intent(inout) :: vxyzu(:,:),dens(:)
- real,    intent(out)   :: eos_vars(:,:)
+ use dim,             only:nalpha
+ use shock_capturing, only:get_alphaloc_cd
+ integer,      intent(in)    :: npart
+ real,         intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
+ real,         intent(inout) :: vxyzu(:,:),dens(:)
+ real,         intent(out)   :: eos_vars(:,:)
+ real(kind=4), intent(in),    optional :: dvdx(:,:)
+ real(kind=4), intent(inout), optional :: alphaind(:,:)
  integer :: i, ierr
  real    :: p_guess,rhoi,tempi,gammai
+ logical :: set_alphaloc
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
+ set_alphaloc = (nalpha >= 2 .and. present(dvdx) .and. present(alphaind))
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,rho) &
-!$omp shared(ieos,eos_vars,ien_type) &
+!$omp shared(ieos,eos_vars,ien_type,set_alphaloc,dvdx,alphaind) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -173,6 +181,10 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        eos_vars(ics,i)    = get_spsound(ieos,xyzh(1:3,i),dens(i),vxyzu(:,i),gammai)
        eos_vars(itemp,i)  = tempi
        eos_vars(igamma,i) = gammai
+       !
+       ! Cullen & Dehnen (2010) shock viscosity switch, set alphaloc
+       !
+       if (set_alphaloc) alphaind(2,i) = get_alphaloc_cd(alphaind(3,i),dvdx(:,i),eos_vars(ics,i),xyzh(4,i))
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',real(rho(i))
@@ -247,9 +259,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
- use io,                only:fatal,real4,warning
- use shock_capturing,   only:get_alphaloc,xi_limiter
- use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
+ use io,                only:fatal,warning
+ use shock_capturing,   only:get_alphaloc_cd
+ use options,           only:use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
@@ -259,7 +271,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  integer      :: i,iamtypei,ierr
  integer      :: ierrlist(n_warn)
  real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,uui
- real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,mui,X_i,Z_i,gammai
+ real         :: Bxi,Byi,Bzi,psii,Bi,temperaturei,mui,X_i,Z_i,gammai
  real         :: xi,yi,zi,hi
  logical      :: iactivei,iamgasi,iamdusti
 
@@ -280,11 +292,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,rho) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
-!$omp shared(alpha,alphamax,iphase,maxphase,maxp) &
+!$omp shared(iphase,maxphase,maxp) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
-!$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr) &
+!$omp private(Bxi,Byi,Bzi,psii,Bi,temperaturei,ierr) &
 !$omp private(xi,yi,zi,hi) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,gammai,X_i,Z_i) &
 !$omp reduction(+:ierrlist)
@@ -372,10 +384,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        !
        ! Cullen & Dehnen (2010) shock viscosity switch, set alphaloc
        !
-       if (nalpha >= 2) then
-          xi_limiteri = xi_limiter(dvdx(:,i))
-          alphaind(2,i) = real4(get_alphaloc(real(alphaind(3,i)),spsound,hi,xi_limiteri,alpha,alphamax))
-       endif
+       if (nalpha >= 2) alphaind(2,i) = get_alphaloc_cd(alphaind(3,i),dvdx(:,i),spsound,hi)
 
        if (mhd) then
           ! construct B from B/rho (conservative to primitive)

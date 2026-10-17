@@ -40,7 +40,8 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps,use_apr
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps,use_apr,&
+                maxdvdx
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
@@ -49,7 +50,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
  use centreofmass,    only:get_centreofmass
  use apr,             only:sync_aprmassoftype
- use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid
+ use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid,ireconav
  use io,              only:id,master
  use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star
  use timestep,        only:time
@@ -122,6 +123,11 @@ subroutine check_setup(nerror,nwarn,restart)
        if (id==master) print*,'WARNING! gamma not set (should be set > 0 even if not used)'
        nwarn = nwarn + 1
     endif
+ endif
+ ! reconstruction in the shock viscosity needs the stored velocity gradients
+ if (gr .and. ireconav >= 0 .and. maxdvdx /= maxp) then
+    print*,'ERROR: ireconav >= 0 requires velocity gradients to be stored (maxdvdx = maxp)'
+    nerror = nerror + 1
  endif
  if (npart < 0) then
     print*,'ERROR: npart = ',npart,', should be >= 0'
