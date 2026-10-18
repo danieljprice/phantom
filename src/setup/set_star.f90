@@ -1009,17 +1009,27 @@ subroutine read_options_star(star,db,nerr,label)
  if (star%iprofile > 0) then
     call read_inopt(star%particle_lattice,'particle_lattice'//trim(c),db,err=ierr)
     if (ierr /= 0) star%particle_lattice = 'closepacked'
-    call read_inopt(star%hcp_density_exponent,'hcp_density_exponent'//trim(c),db,err=ierr,min=0.,max=1.)
-    if (ierr /= 0) star%hcp_density_exponent = 0.
+    ! Missing HCP options retain their defaults; supplied values must validate.
+    if (any(db%tag=='hcp_density_exponent'//trim(c))) &
+       call read_inopt(star%hcp_density_exponent,'hcp_density_exponent'//trim(c),db,errcount=nerr,min=0.,max=1.)
     if (trim(star%particle_lattice) == 'weighted_hcp') then
        if (len_trim(c)>0 .and. trim(c)/='1') call read_inopt(star%np,'np'//trim(c),db,errcount=nerr,min=10)
-       call read_inopt(star%hcp_nnopt,'hcp_nnopt'//trim(c),db,err=ierr,min=1)
-       call read_inopt(star%hcp_surface_factor,'hcp_surface_factor'//trim(c),db,err=ierr,min=0.)
-       call read_inopt(star%hcp_hfloor,'hcp_hfloor'//trim(c),db,err=ierr,min=0.)
-       call read_inopt(star%hcp_surface_buffer,'hcp_surface_buffer'//trim(c),db,err=ierr)
-       if (ierr /= 0) star%hcp_surface_buffer = -1.
-       call read_inopt(star%hcp_profile_mass_unit,'hcp_profile_mass_unit'//trim(c),db,err=ierr,min=0.)
-       call read_inopt(star%hcp_profile_radius_unit,'hcp_profile_radius_unit'//trim(c),db,err=ierr,min=0.)
+       if (any(db%tag=='hcp_nnopt'//trim(c))) &
+          call read_inopt(star%hcp_nnopt,'hcp_nnopt'//trim(c),db,errcount=nerr,min=1)
+       if (any(db%tag=='hcp_surface_factor'//trim(c))) &
+          call read_inopt(star%hcp_surface_factor,'hcp_surface_factor'//trim(c),db,errcount=nerr,min=tiny(0.))
+       if (any(db%tag=='hcp_hfloor'//trim(c))) &
+          call read_inopt(star%hcp_hfloor,'hcp_hfloor'//trim(c),db,errcount=nerr,min=0.)
+       if (any(db%tag=='hcp_surface_buffer'//trim(c))) &
+          call read_inopt(star%hcp_surface_buffer,'hcp_surface_buffer'//trim(c),db,errcount=nerr)
+       if (star%hcp_surface_buffer /= -1. .and. star%hcp_surface_buffer <= 0.) then
+          print "(a)",'ERROR: hcp_surface_buffer'//trim(c)//' must be -1 (automatic) or positive'
+          nerr = nerr + 1
+       endif
+       if (any(db%tag=='hcp_profile_mass_unit'//trim(c))) &
+          call read_inopt(star%hcp_profile_mass_unit,'hcp_profile_mass_unit'//trim(c),db,errcount=nerr,min=tiny(0.))
+       if (any(db%tag=='hcp_profile_radius_unit'//trim(c))) &
+          call read_inopt(star%hcp_profile_radius_unit,'hcp_profile_radius_unit'//trim(c),db,errcount=nerr,min=tiny(0.))
     endif
  endif
 

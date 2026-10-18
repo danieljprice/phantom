@@ -14,9 +14,10 @@ module testsetstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, datafiles, dim, eos, io, mpidomain, options,
-!   part, physcon, radiation_utils, readwrite_mesa, relaxstar, setstar,
-!   setstar_utils, sortutils, stellar_hcp, table_utils, testutils, units
+! :Dependencies: checksetup, datafiles, dim, eos, infile_utils, io,
+!   mpidomain, options, part, physcon, radiation_utils, readwrite_mesa,
+!   relaxstar, setstar, setstar_utils, sortutils, stellar_hcp, table_utils,
+!   testutils, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -48,6 +49,7 @@ subroutine test_setstar(ntests,npass,string)
  call test_get_mass_coord(ntests,npass)
  call test_weighted_hcp(ntests,npass)
  call test_hcp_surface_buffer(ntests,npass)
+ call test_hcp_options(ntests,npass)
  call test_composition_without_mu(ntests,npass)
  if (.not.(do_radiation.or.mpi.or.use_apr.or.ind_timesteps)) call test_analytic_hcp(ntests,npass)
  if (present(string)) then
@@ -162,6 +164,61 @@ subroutine test_hcp_surface_buffer(ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_hcp_surface_buffer
+
+subroutine test_hcp_options(ntests,npass)
+ use infile_utils, only:inopts
+ use setstar, only:star_t,set_defaults_star,read_options_star
+ use units, only:set_units
+ use physcon, only:solarm,solarr
+ integer, intent(inout) :: ntests,npass
+ type(star_t) :: star,defaults
+ type(inopts) :: db(6)
+ integer :: i,nerr,nfailed(22)
+ character(len=32), parameter :: tags(*) = [character(len=32) :: &
+    'hcp_density_exponent1','hcp_density_exponent1','hcp_density_exponent1', &
+    'hcp_nnopt1','hcp_surface_factor1','hcp_hfloor1','hcp_surface_buffer1', &
+    'hcp_surface_buffer1','hcp_profile_mass_unit1','hcp_profile_radius_unit1']
+ character(len=16), parameter :: values(*) = [character(len=16) :: &
+    '1.5','-0.5','not_a_number','0','0','-1','0','-2','0','-1']
+
+ call set_units(dist=solarr,mass=solarm,G=1.d0)
+ call set_defaults_star(defaults)
+ db(1:5) = [inopts('iprofile1','2',.false.),inopts('np1','2000',.false.), &
+            inopts('Mstar1','1*msun',.false.),inopts('Rstar1','1*rsun',.false.), &
+            inopts('particle_lattice1','weighted_hcp',.false.)]
+ nfailed = 0
+ star = defaults
+ nerr = 0
+ call read_options_star(star,db(1:5),nerr,label='1')
+ call checkval(nerr,0,0,nfailed(1),'missing optional HCP parameters are accepted')
+ call checkval(star%hcp_density_exponent,defaults%hcp_density_exponent,0.,nfailed(2),'missing exponent keeps default')
+ call checkval(star%hcp_nnopt,defaults%hcp_nnopt,0,nfailed(3),'missing neighbour target keeps default')
+ call checkval(star%hcp_surface_buffer,defaults%hcp_surface_buffer,0.,nfailed(4),'missing surface buffer keeps default')
+
+ do i=1,size(tags)
+    star = defaults
+    db(6) = inopts(tags(i),values(i),.false.)
+    nerr = 0
+    call read_options_star(star,db,nerr,label='1')
+    call checkval(nerr,1,0,nfailed(4+i),'invalid '//trim(tags(i))//' is a setup error')
+ enddo
+ do i=0,2
+    star = defaults
+    db(6) = inopts('hcp_density_exponent1','',.false.)
+    write(db(6)%val,*) 0.5*i
+    nerr = 0
+    call read_options_star(star,db,nerr,label='1')
+    call checkval(nerr,0,0,nfailed(15+2*i),'valid HCP exponent is accepted')
+    call checkval(star%hcp_density_exponent,0.5*i,0.,nfailed(16+2*i),'valid exponent is retained')
+ enddo
+ star = defaults
+ nerr = 0
+ call read_options_star(star,db(1:4),nerr,label='1')
+ call checkval(nerr,0,0,nfailed(21),'legacy star options need no HCP parameters')
+ call checkval(trim(star%particle_lattice)=='closepacked',.true.,nfailed(22),'legacy lattice default is retained')
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_hcp_options
 
 subroutine test_composition_without_mu(ntests,npass)
  use part, only:init_part,xyzh,eos_vars,particle_mass,variable_mass,imu,iX,iZ

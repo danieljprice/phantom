@@ -25,6 +25,11 @@ def read_binary(f, count, type):
 
 # Read a fortran record (size, data, size)
 def read_fortran_record(f, type, memorymap=False):
+  """Read one record enclosed by matching 32-bit Fortran length markers.
+
+  Return a NumPy array of the requested dtype, optionally memory-mapped.
+  The stream is positioned after the trailing marker on return.
+  """
   try:
     size1 = read_binary(f, 1, 'i4').item()
   except IOError:

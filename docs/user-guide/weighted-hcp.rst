@@ -1,5 +1,5 @@
 Density-weighted stellar models
-==============================
+===============================
 
 ``particle_lattice = weighted_hcp`` generates a star directly from a radial
 profile using antipodal hexagonal close-packed sites and a natural cubic
