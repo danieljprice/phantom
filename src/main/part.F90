@@ -407,7 +407,7 @@ module part
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter :: ipartbufsize = 131
+ integer, parameter :: ipartbufsize = 137
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -1358,6 +1358,7 @@ subroutine copy_particle(src,dst,new_part)
  if (gr) then
     pxyzu(:,dst) = pxyzu(:,src)
     if (allocated(fgr)) fgr(:,dst) = fgr(:,src)
+    if (allocated(agr)) agr(:,dst) = agr(:,src)
  endif
  divcurlv(:,dst)  = divcurlv(:,src)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
@@ -1442,6 +1443,7 @@ subroutine copy_particle_all(src,dst,new_part)
     endif
     dens(dst) = dens(src)
     if (allocated(fgr)) fgr(:,dst) = fgr(:,src)
+    if (allocated(agr)) agr(:,dst) = agr(:,src)
  endif
 
  divcurlv(:,dst) = divcurlv(:,src)
@@ -1765,6 +1767,8 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,pxyzu(:,i),nbuf)
        call fill_buffer(xtemp,ppred(:,i),nbuf)
        call fill_buffer(xtemp,dens(i),nbuf)
+       call fill_buffer(xtemp,agr(:,i),nbuf)
+       call fill_buffer(xtemp,fgr(:,i),nbuf)
     endif
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
@@ -1854,6 +1858,8 @@ subroutine unfill_buffer(ipart,xbuf)
     pxyzu(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
     ppred(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
     dens(ipart)          = unfill_buf(xbuf,j)
+    agr(:,ipart)         = unfill_buf(xbuf,j,3)
+    fgr(:,ipart)         = unfill_buf(xbuf,j,3)
  endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)

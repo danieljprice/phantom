@@ -90,7 +90,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use part,           only:mhd,gradh,alphaind,iradxi,ifluxx,ifluxy,ifluxz,ithick,metricderivs
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything
- use metric_tools,   only:init_metric
+ use metric_tools,   only:init_metric,metric_is_time_dependent
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
  use HIIRegion,      only:HIIupdateflag,iH2R,HII_feedback
@@ -147,8 +147,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
     if (gr) then
        ! update time-dependent metric (e.g. binary BH) and repack at particle positions
-       if (mpi) then
-          ! also the derivatives, which are not sent with particles that move between ranks
+       if (mpi .or. metric_is_time_dependent()) then
+          ! also the derivatives, if the metric changes with time or
+          ! particles may have moved between ranks (derivatives are not sent)
           call init_metric(npart,xyzh,metrics,metricderivs,time=time)
        else
           call init_metric(npart,xyzh,metrics,time=time)
