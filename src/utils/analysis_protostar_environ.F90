@@ -822,13 +822,13 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
     endif
  enddo
 !$omp enddo
-!$omp critical(collatedata)
+!$omp critical(collate_environ)
  do j = 1,nrad
     mass(j) = mass(j) + mass_thread(j)
     vol(j)  = vol(j)  + vol_thread(j)
     B(j)    = B(j)    + B_thread(j)
  enddo
-!$omp end critical(collatedata)
+!$omp end critical(collate_environ)
 !$omp end parallel
 
  ! Add mass contribution of point masses

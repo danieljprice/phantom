@@ -4,6 +4,7 @@ on:
   workflow_call:
 
 env:
+  PHANTOM_DATA_SOURCE: github  # download data files from the GitHub mirror before Zenodo
   OMP_STACKSIZE: 512M
   SPLASH_DIR: ${{ github.workspace }}/splash
   MCFOST_DIR: ${{ github.workspace }}/mcfost

@@ -552,7 +552,7 @@ real function wallclock()
 ! From a routine originally by Aake Nordlund
 !+
 !-----------------------------------------------------------------------
- integer, save :: count, count_rate=0, count_max
+ integer(kind=8), save :: count, count_rate=0, count_max
  real, save :: previous=0., offset=0.
 
  if (count_rate == 0) then                                                     ! initialized?

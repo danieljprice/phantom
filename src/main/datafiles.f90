@@ -46,7 +46,8 @@ function find_phantom_datafile(filename,loc)
  if (id == master) then ! search for and download datafile if necessary
     find_phantom_datafile = find_datafile(filename,dir=search_dir,env_var='PHANTOM_DIR',&
                             url=map_dir_to_web(trim(search_dir)),&
-                            url_fallback=map_dir_to_mirror(trim(search_dir),trim(filename)))
+                            url_fallback=map_dir_to_mirror(trim(search_dir),trim(filename)),&
+                            prefer_fallback=mirror_first())
  endif
  call barrier_mpi()
  if (id /= master) then ! find datafile location, do not attempt to download it
@@ -105,6 +106,20 @@ function map_dir_to_web(search_dir) result(url)
  end select
 
 end function map_dir_to_web
+
+!----------------------------------------------------------------
+!+
+!  query whether to download from the GitHub mirror before Zenodo,
+!  set by the environment variable PHANTOM_DATA_SOURCE=github
+!+
+!----------------------------------------------------------------
+logical function mirror_first()
+ character(len=20) :: source
+
+ call get_environment_variable('PHANTOM_DATA_SOURCE',source)
+ mirror_first = (trim(adjustl(source))=='github')
+
+end function mirror_first
 
 !----------------------------------------------------------------
 !+

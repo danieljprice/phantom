@@ -1698,6 +1698,7 @@ subroutine add_overrides_to_db(db)
  type(inopts), allocatable :: dbnew(:)
  integer :: n,i
 
+ if (.not.allocated(override_tag)) return !- avoid compiler warning
  n = size(db)
  allocate(dbnew(n+size(override_tag)))
  dbnew(1:n) = db

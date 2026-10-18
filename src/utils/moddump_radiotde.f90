@@ -60,6 +60,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,       only:solarm,years
  use setup_params,  only:npart_total
+ use mpiutils,      only:reduceall_mpi
  use part,          only:igas,set_particle_type,pxyzu,delete_particles_inside_radius, &
                          delete_particles_outside_sphere,kill_particle,shuffle_part, &
                          eos_vars,itemp,igamma,igasP
@@ -182,6 +183,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  totmass = get_mass_r(rhof,rad_max,rad_min)
  write(*,'(a42,1x,f5.2,1x,a10)') ' Total mass of the circumnuclear gas cloud:', totmass*umass/solarm, 'solar mass'
  np_sphere = nint(totmass/massoftype(igas))
+ npart_total = reduceall_mpi('+',int(npart,kind=8))  ! existing particles across all MPI threads
  call set_sphere('random',id,master,rad_min,rad_max,delta,hfact_default,npart,xyzh, &
                  rhofunc=rhof,nptot=npart_total,exactN=.true.,np_requested=np_sphere,mask=i_belong)
 

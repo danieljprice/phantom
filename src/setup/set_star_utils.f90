@@ -280,6 +280,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  use spherical,    only:set_sphere
  use unifdis,      only:mask_prototype
  use physcon,      only:pi
+ use mpiutils,     only:reduceall_mpi
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master,npts,np
  integer(kind=8),  intent(out)   :: npart_total
@@ -294,6 +295,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  integer,          intent(in), optional :: hcp_nnopt
  procedure(mask_prototype) :: mask
  integer :: nx,i,ntot,npart_old,n
+ integer(kind=8) :: npart_old_total
  real :: vol_sphere,psep
  real :: exponent
  logical :: mass_is_set
@@ -318,6 +320,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  ! place particles in sphere
  !
  vol_sphere  = 4./3.*pi*Rstar**3
+ npart_old_total = reduceall_mpi('+',int(npart_old,kind=8))
  if (trim(lattice) == 'weighted_hcp') then
     exponent = 0.
     if (present(hcp_density_exponent)) exponent = hcp_density_exponent
@@ -327,6 +330,8 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  else
     nx          = int(n**(1./3.))
     psep        = vol_sphere**(1./3.)/real(nx)
+    ! set_sphere adds the new particles to the total number across all MPI threads
+    npart_total = npart_old_total
     call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                     rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
                     exactN=use_exactN,np_requested=n,mask=mask)
@@ -335,7 +340,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  ! get total particle number across all MPI threads
  ! and use this to set the particle mass
  !
- ntot = int(npart_total,kind=(kind(ntot)))
+ ntot = int(npart_total - npart_old_total,kind=(kind(ntot)))  ! number of particles in this star
  if (.not.mass_is_set .and. trim(lattice) /= 'weighted_hcp') then
     massoftype(igas) = Mstar/ntot
  endif

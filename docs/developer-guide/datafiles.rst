@@ -107,7 +107,15 @@ When Phantom downloads a file from Zenodo it:
    file after download
 4. Writes a ``<filename>.md5`` next to the file for checking the checksum
 5. If the Zenodo download fails, retries from the phantom-datafiles
-   GitHub mirror
+   GitHub mirror. After one failed Zenodo download, subsequent downloads
+   in the same run try the GitHub mirror first
+
+To always try the GitHub mirror before Zenodo (e.g. if Zenodo is slow or
+blocked on your machine), set the environment variable
+
+::
+
+   $ export PHANTOM_DATA_SOURCE=github
 
 You do not need to embed MD5 hashes in the Phantom source code for
 Zenodo-hosted files; they are retrieved automatically from the record

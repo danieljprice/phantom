@@ -22,20 +22,27 @@ module datautils
 
  private
 
+ ! set once a download from the primary url fails, so that later
+ ! downloads in the same run try the fallback url first
+ logical, save :: fallback_first = .false.
+
 contains
 
 !----------------------------------------------------------------
 !+
 !  Search for a datafile, download it if necessary
 !  Returns the full path to the data file
+!
+!  If prefer_fallback is .true., or a previous download from the
+!  primary url failed, url_fallback is tried before url
 !+
 !----------------------------------------------------------------
-function find_datafile(filename,dir,env_var,url,url_fallback,verbose) result(filepath)
+function find_datafile(filename,dir,env_var,url,url_fallback,verbose,prefer_fallback) result(filepath)
  character(len=*), intent(in) :: filename
  character(len=*), intent(in), optional :: dir,env_var,url,url_fallback
- logical,          intent(in), optional :: verbose
- character(len=:), allocatable :: filepath,mydir,env_dir,my_url,my_env_var
- logical :: iexist,isverbose,ok
+ logical,          intent(in), optional :: verbose,prefer_fallback
+ character(len=:), allocatable :: filepath,mydir,env_dir,my_env_var,my_fallback
+ logical :: iexist,isverbose,ok,try_fallback_first
  integer :: ierr,env_len
 
  isverbose = .true.
@@ -89,13 +96,24 @@ function find_datafile(filename,dir,env_var,url,url_fallback,verbose) result(fil
           if (present(url)) then
              !
              ! try to download the file from a remote url, then optional fallback
+             ! (or the other way round if requested or if the primary url failed before)
              !
-             my_url = url
-             call download_datafile(trim(my_url),trim(mydir),trim(filename),filepath,ierr)
-             if (ierr /= 0 .and. present(url_fallback)) then
-                if (len_trim(url_fallback) > 0) then
+             my_fallback = ''
+             if (present(url_fallback)) my_fallback = trim(url_fallback)
+             try_fallback_first = fallback_first
+             if (present(prefer_fallback)) try_fallback_first = try_fallback_first .or. prefer_fallback
+             if (len_trim(my_fallback) > 0 .and. try_fallback_first) then
+                call download_datafile(my_fallback,trim(mydir),trim(filename),filepath,ierr)
+                if (ierr /= 0) then
+                   if (isverbose) print "(a)",' trying primary URL...'
+                   call download_datafile(trim(url),trim(mydir),trim(filename),filepath,ierr)
+                endif
+             else
+                call download_datafile(trim(url),trim(mydir),trim(filename),filepath,ierr)
+                if (ierr /= 0 .and. len_trim(my_fallback) > 0) then
+                   fallback_first = .true.  ! primary failed: try fallback first from now on
                    if (isverbose) print "(a)",' trying fallback URL...'
-                   call download_datafile(trim(url_fallback),trim(mydir),trim(filename),filepath,ierr)
+                   call download_datafile(my_fallback,trim(mydir),trim(filename),filepath,ierr)
                 endif
              endif
              if (ierr == 0) then
@@ -151,7 +169,7 @@ subroutine download_datafile(url,dir,filename,filepath,ierr)
     print*,'ERROR: cannot write to '//trim(dir)//', writing to current directory'
     call retrieve_remote_file(url,trim(adjustl(filename)),'',filepath,ierr)
  else  ! return an error
-    filepath = trim(filename)
+    filepath = trim(dir)//trim(filename)
     print*,'ERROR: cannot write to '//trim(dir)//' or current directory'
     ierr = 1
  endif

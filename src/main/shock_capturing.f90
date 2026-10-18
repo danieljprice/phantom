@@ -69,9 +69,10 @@ end subroutine set_defaults_shock_capturing
 !  writes shock capturing options to the input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_options_shock_capturing(iunit)
+subroutine write_options_shock_capturing(iunit,use_conductivity)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
+ logical, intent(in) :: use_conductivity
 
  write(iunit,"(/,a)") '# shock capturing'
  if (maxalpha==maxp .and. nalpha > 0) then
@@ -81,7 +82,7 @@ subroutine write_options_shock_capturing(iunit)
     call write_inopt(alpha,'alpha','shock viscosity parameter',iunit)
  endif
  call write_inopt(beta,'beta','non-linear shock viscosity parameter',iunit)
- if (.not.isothermal) call write_inopt(alphau,'alphau','shock conductivity parameter',iunit)
+ if (.not.isothermal .and. use_conductivity) call write_inopt(alphau,'alphau','shock conductivity parameter',iunit)
  if (mhd) then
     call write_inopt(alphaB,'alphaB','shock resistivity parameter',iunit)
  endif
@@ -108,7 +109,7 @@ subroutine read_options_shock_capturing(db,nerr)
  call read_inopt(alpha,'alpha',db,errcount=nerr,min=0.,max=10.)
  call read_inopt(alphamax,'alphamax',db,errcount=nerr,default=1.,min=0.,max=100.)
  call read_inopt(beta,'beta',db,errcount=nerr,min=0.,max=4.)
- if (.not.isothermal) call read_inopt(alphau,'alphau',db,errcount=nerr,min=0.,max=10.)
+ if (.not.isothermal) call read_inopt(alphau,'alphau',db,errcount=nerr,min=0.,max=10.,default=alphau)
  if (mhd) call read_inopt(alphaB,'alphaB',db,errcount=nerr,min=0.,max=10.)
  if (gr) call read_inopt(ireconav,'ireconav',db,errcount=nerr,default=ireconav)
  call read_inopt(disc_viscosity,'disc_viscosity',db,errcount=nerr,default=disc_viscosity)

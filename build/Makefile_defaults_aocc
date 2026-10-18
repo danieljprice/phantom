@@ -1,16 +1,20 @@
 # default settings for aocc compiler
 # override these in the Makefile
 FC= flang
-FFLAGS= -O3 -flto -march=native -Qunused-arguments
+FFLAGS= -O3 -march=native -Qunused-arguments -flto=auto
 DBLFLAG= -fdefault-real-8 -fdefault-double-8
 DEBUGFLAG= -fcheck=all -g --debug
 
 CC = clang
-CCFLAGS = -O3 -flto -march=native
+CCFLAGS = -O3 -march=native -flto=auto
 LIBCXX = -cxxlib
 KNOWN_SYSTEM=yes
 
 OMPFLAGS= -fopenmp
+LTO_DEFAULT= yes
+# -flto objects are LLVM bitcode: archive them with the llvm-ar shipped with flang
+LLVM_AR := $(firstword $(wildcard $(dir $(shell command -v flang 2>/dev/null))llvm-ar) llvm-ar)
+LIBTOOL = $(LLVM_AR) rcs
 ifeq ($(UNAME), Darwin)
    LDFLAGS+=-L/opt/homebrew/opt/libomp/lib
 endif

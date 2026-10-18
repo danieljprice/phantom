@@ -38,11 +38,10 @@ module eos
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - C_ent              : *restrict timestep when ds/dt is too large*
 !   - T_warm             : *temperature of atomic warm neutral background in K*
 !   - X                  : *H mass fraction (ignored if variable composition)*
 !   - Z                  : *metallicity (ignored if variable composition)*
-!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
+!   - ien_type           : *energy variable (0=auto,1=entropy,2=entropy_s)*
 !   - ieos               : *eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
@@ -59,7 +58,7 @@ module eos
 !   infile_utils, io, ionization_mod, mesa_microphysics, part, physcon,
 !   units
 !
- use part,          only:ien_etotal,ien_entropy,ien_type
+ use part,          only:ien_entropy,ien_entropy_s,ien_type
  use dim,           only:gr,do_radiation
  use eos_gasradrec, only:irecomb
  implicit none
@@ -75,11 +74,12 @@ module eos
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
  public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
- public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
+ public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,correct_entropy_derivative
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
  public  :: eos_requires_isothermal,eos_works_with_radiation,eos_requires_polyk,eos_conserves_energy
+ public  :: eos_works_with_gr
  public  :: eos_allows_shock_and_work,eos_is_not_implemented,eos_has_pressure_without_u
 
  public :: irecomb  ! propagated from eos_gasradrec
@@ -100,9 +100,9 @@ module eos
  ! options for heating and cooling
  !
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
- real,    public :: C_ent
 
  logical, public :: done_init_eos = .false.
+ logical :: ien_type_auto = .true.  ! ien_type=0: choose GR energy variable from the eos
 
  !
  ! error codes for calls to init_eos
@@ -173,7 +173,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
- if (gr .and. .not.any((/2,4,10,11,12/)==eos_type)) then
+ if (gr .and. .not.eos_works_with_gr(eos_type)) then
     ponrhoi = 0.; spsoundi = 0. ! avoid compiler warning
     call fatal('eos','GR currently only works for ieos=2,4,10,12 or 11',&
          var='eos_type',val=real(eos_type))
@@ -674,6 +674,7 @@ subroutine init_eos(eos_type,ierr)
 
  end select
  done_init_eos = .true.
+ if (gr .and. ien_type_auto) ien_type = get_auto_ien_type(eos_type)
 
  if (do_radiation) then
     if (.not. eos_works_with_radiation(eos_type)) then
@@ -930,18 +931,26 @@ end function get_local_u_internal
 !+
 !-----------------------------------------------------------------------
 real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
- use eos_mesa, only:get_eos_u_from_rhoT_mesa
+ use eos_mesa,         only:get_eos_u_from_rhoT_mesa
+ use eos_idealplusrad, only:get_idealplusrad_enfromtemp
+ use units,            only:unit_density,unit_ergg
  integer, intent(in) :: eos_type
  real,    intent(in) :: rho,temp
  real,    intent(in), optional :: uguess
 
+ ! rho and u are in code units, temperature in K
  select case (eos_type)
- case(10) ! MESA EoS
+ case(10) ! MESA EoS, tables are in cgs units
     if (present(uguess)) then
-       call get_eos_u_from_rhoT_mesa(rho,temp,u,uguess)
+       call get_eos_u_from_rhoT_mesa(real(rho*unit_density),temp,u,real(uguess*unit_ergg))
     else
-       call get_eos_u_from_rhoT_mesa(rho,temp,u)
+       call get_eos_u_from_rhoT_mesa(real(rho*unit_density),temp,u)
     endif
+    u = u/unit_ergg
+
+ case(12) ! ideal gas plus radiation
+    call get_idealplusrad_enfromtemp(real(rho*unit_density),temp,gmw,u)
+    u = u/unit_ergg
 
  case default
     u = temp/(gmw*temperature_coef*(gamma-1.))
@@ -1069,9 +1078,9 @@ end subroutine calc_rho_from_PT
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
- use physcon,           only:radconst,kb_on_mh,Rg, kboltz, avogadro
+ use physcon,           only:radconst,Rg,kboltz
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
- use eos_mesa,          only:get_eos_eT_from_rhop_mesa
+ use eos_mesa,          only:get_eos_eT_from_rhop_mesa,mesa_tables_initialised
  use mesa_microphysics, only:getvalue_mesa
  real,    intent(in) :: rho,pres,mu_in
  integer, intent(in) :: ientropy
@@ -1092,7 +1101,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  case(1) ! Only include gas contribution
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
-    entropy = kb_on_mh / mu * log(temp**1.5/rho)
+    entropy = Rg / mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation contributions (up to additive constants)
     if (present(T_in)) then
@@ -1108,10 +1117,11 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
     endif
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
-    entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
+    entropy = Rg / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
-    if (ieos /= 10 .and. ieos /= 20) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
+    if (.not.mesa_tables_initialised()) &
+       call fatal('eos','Using MESA tables to calculate S from rho and pres, but MESA EoS not initialised')
 
     if (present(eint_in)) then
        eint = eint_in
@@ -1119,15 +1129,13 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
        call get_eos_eT_from_rhop_mesa(rho,pres,eint,temp)
     endif
 
-    ! Get entropy from rho and eint from MESA tables (output is not logs, it is s)
+    ! Get entropy from rho and eint from MESA tables (output is not logs, it is S in erg/g/K)
 
     if (present(ierr)) then
        call getvalue_mesa(rho,eint,9,entropy,ierr)
     else
        call getvalue_mesa(rho,eint,9,entropy)
     endif
-    entropy = entropy * kboltz*avogadro ! the MESA tables are specific entropy divided by (avo*kerg).
-    ! the units of entropy with cgs inputs should be erg/g/K now
  case default
     entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
@@ -1158,6 +1166,48 @@ real function get_entropy(rho,pres,mu_in,ieos)
  get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
 
 end function get_entropy
+
+!-----------------------------------------------------------------------
+!+
+!  Correct the time derivative of the GR entropy variable so that an
+!  explicit step of length dt gives a physical change in u. Input x is
+!  dt*(du/dt)/u, the fractional change in u implied by dsdt.
+!
+!  As for u in the non-GR code, cooling that would make u negative is
+!  limited. For K entropy u is proportional to K at fixed density, so
+!  nothing else is needed. For s entropy an Euler step ds = du/(kT)
+!  overshoots when cold gas is strongly heated, overflowing T(s), so for
+!  large |x| we instead return the derivative that gives the entropy of
+!  the state with internal energy u(1+x) at fixed density from the eos
+!+
+!-----------------------------------------------------------------------
+real function correct_entropy_derivative(ien,x,dsdt,dt,eos_type,xyzi,dens,u,pres) result(dsdt_new)
+ integer, intent(in) :: ien,eos_type
+ real,    intent(in) :: x,dsdt,dt,xyzi(3),dens,u,pres
+ real, parameter :: xmin = 1.e-2  ! below this an Euler step in s is accurate
+ real :: xlim,pnew,vxyzui(4)
+
+ ! limit cooling so that u stays positive
+ if (x <= -1.) then
+    xlim = x/(1. - x)
+ else
+    xlim = x
+ endif
+
+ dsdt_new = dsdt
+ select case(ien)
+ case(ien_entropy)
+    if (x <= -1.) dsdt_new = dsdt*xlim/x
+ case(ien_entropy_s)
+    if (abs(x) > xmin) then
+       vxyzui(1:3) = 0.
+       vxyzui(4)   = u*(1. + xlim)
+       pnew = get_pressure(eos_type,xyzi,dens,vxyzui)
+       dsdt_new = (get_entropy(dens,pnew,gmw,eos_type) - get_entropy(dens,pres,gmw,eos_type))/dt
+    endif
+ end select
+
+end function correct_entropy_derivative
 
 !-----------------------------------------------------------------------
 !+
@@ -1196,7 +1246,7 @@ end subroutine get_rho_from_p_s
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
- use physcon, only:Rg,mass_proton_cgs
+ use physcon, only:Rg,kboltz
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres,&
                             get_idealplusrad_tempfromrhoS
@@ -1218,11 +1268,11 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
 
  select case (ieos)
  case (2,5)
-    temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
+    temp = (cgsrho * exp(mu*cgss*kboltz/Rg))**(2./3.)
     cgspres = cgsrho*Rg*temp / mu
  case(10)
-    !!! For GR
-    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,cgss,cgspres,temp)
+    ! cgss is s/kB (see get_entropy) but the GR table lookup takes s as returned by entropy()
+    call get_eos_ptemp_from_rhos_mesa_gr(cgsrho,real(cgss*kboltz),cgspres,temp)
  case (12)
     call get_idealplusrad_tempfromrhoS(cgsrho,cgss,mu,temp,cgspres,niter_out)
  case default
@@ -1231,8 +1281,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp,niter_out)
  end select
 
  ! check temp
- if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinite temperature:'// &
-                                 ' suggest to reduce C_ent for one dump')
+ if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinite temperature')
 
  ! change back to code unit
  P = cgspres / unit_pressure
@@ -1246,6 +1295,7 @@ end subroutine get_p_from_rho_s
 !-----------------------------------------------------------------------
 subroutine get_u_from_rho_s(ieos,S,rho,u)
  use io,      only:fatal
+ use physcon, only:kboltz
  use units,   only:unit_density,unit_ergg
  use eos_mesa,          only: get_eos_u_from_rhos_mesa_gr
  real,    intent(in)  :: S,rho
@@ -1259,8 +1309,8 @@ subroutine get_u_from_rho_s(ieos,S,rho,u)
 
  select case (ieos)
  case(10)
-    !!! For GR
-    call get_eos_u_from_rhos_mesa_gr(cgsrho,cgss,cgsu)
+    ! cgss is s/kB (see get_entropy) but the GR table lookup takes s as returned by entropy()
+    call get_eos_u_from_rhos_mesa_gr(cgsrho,real(cgss*kboltz),cgsu)
 
  case default
     cgsu = 0.
@@ -1544,6 +1594,24 @@ logical function eos_works_with_radiation(ieos)
  end select
 
 end function eos_works_with_radiation
+
+!-----------------------------------------------------------------------
+!+
+!  Query function for whether the equation of state is compatible
+!  with the GR cons2prim routines
+!+
+!-----------------------------------------------------------------------
+logical function eos_works_with_gr(ieos)
+ integer, intent(in) :: ieos
+
+ select case(ieos)
+ case(2,4,10,11,12)
+    eos_works_with_gr = .true.
+ case default
+    eos_works_with_gr = .false.
+ end select
+
+end function eos_works_with_gr
 
 !-----------------------------------------------------------------------
 !+
@@ -1879,8 +1947,11 @@ subroutine write_options_eos(iunit)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iunit)
     if (mhd) call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iunit)
     if (gr) then
-       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iunit)
-       if (ien_type == 3) call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large',iunit)
+       if (ien_type_auto) then
+          call write_inopt(0,'ien_type','energy variable (0=auto,1=entropy,2=entropy_s)',iunit)
+       else
+          call write_inopt(ien_type,'ien_type','energy variable (0=auto,1=entropy,2=entropy_s)',iunit)
+       endif
     endif
  endif
 
@@ -1923,8 +1994,12 @@ subroutine read_options_eos(db,nerr)
     call read_inopt(ipdv_heating,'ipdv_heating',db,errcount=nerr,min=0,max=1,default=ipdv_heating)
     call read_inopt(ishock_heating,'ishock_heating',db,errcount=nerr,min=0,max=1,default=ishock_heating)
     if (mhd) call read_inopt(iresistive_heating,'iresistive_heating',db,errcount=nerr,min=0,max=1,default=iresistive_heating)
-    call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=3,default=ien_type)
-    if (ien_type == 3) call read_inopt(C_ent,'C_ent',db,errcount=nerr,min=0.,max=3.,default=C_ent)
+    if (gr) then
+       if (ien_type_auto) ien_type = 0
+       call read_inopt(ien_type,'ien_type',db,errcount=nerr,min=0,max=2,default=ien_type)
+       ien_type_auto = (ien_type == 0)
+       if (ien_type_auto) ien_type = get_auto_ien_type(ieos)
+    endif
  endif
 
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
@@ -1940,6 +2015,26 @@ subroutine read_options_eos(db,nerr)
  endif
 
 end subroutine read_options_eos
+
+!-----------------------------------------------------------------------
+!+
+!  automatic choice of the energy variable in GR:
+!  entropy K = P/rho^gamma for an ideal gas, entropy s for
+!  equations of state that are not a simple ideal gas
+!  (gas + radiation, MESA)
+!+
+!-----------------------------------------------------------------------
+pure integer function get_auto_ien_type(eos_type) result(ien)
+ integer, intent(in) :: eos_type
+
+ select case(eos_type)
+ case(10,12)
+    ien = ien_entropy_s
+ case default
+    ien = ien_entropy
+ end select
+
+end function get_auto_ien_type
 
 !------------------------------------------
 !+
@@ -1959,8 +2054,8 @@ subroutine set_defaults_eos
  iresistive_heating = 1
  icooling           = 0
  ien_type           = 0
- if (gr) ien_type   = ien_entropy
- C_ent              = 3.
+ ien_type_auto      = .true.
+ if (gr) ien_type   = get_auto_ien_type(ieos)
  polyk2             = 0. ! only used for ieos=8
  use_var_comp = .false.  ! variable composition
  T_warm         = 1.42e3

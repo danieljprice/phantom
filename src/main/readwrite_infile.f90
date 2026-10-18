@@ -56,7 +56,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dust_formation,   only:write_options_dust_formation
  use nicil_sup,        only:write_options_nicil
  use metric,           only:write_options_metric
- use eos,              only:write_options_eos
+ use eos,              only:write_options_eos,ishock_heating
  use ptmass,           only:write_options_ptmass
  use ptmass_radiation, only:write_options_ptmass_radiation
  use cooling,          only:write_options_cooling
@@ -108,7 +108,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact*n^(-1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-n iterations',iwritein,exp=.true.)
 
- call write_options_shock_capturing(iwritein)
+ ! in GR energy variable is an entropy, so ishock_heating=0 also switches off conductivity
+ call write_options_shock_capturing(iwritein,use_conductivity=.not.(gr .and. ishock_heating == 0))
  call write_options_damping(iwritein)
  !
  ! thermodynamics

@@ -653,9 +653,8 @@ end subroutine getvalue_mesa
 ! The columns in the data are:
 ! 1. logP          2. logu       3. logT         4. Gamma1
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
-! inputted s should be in cgs units, then it has to be converted to log10(S/(k_B*N_A)) in cgs units (because the MESA tables are in these units)
+! inputted s should be the specific entropy S in cgs units (erg/g/K), as tabulated (in log10) in the MESA tables
 pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
- use physcon, only:kboltz,avogadro
  real,    intent(in)  :: rho, s
  real,    intent(out) :: vout
  integer, intent(in)  :: ivout
@@ -665,7 +664,7 @@ pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
  real :: dx
  integer :: nx
 
- logs = log10(s/(kboltz*avogadro))  ! convert to log10(S/(k_B*N_A)) in cgs units (because the MESA tables are in these units)
+ logs = log10(s)
  logrho = log10(rho)
 
  ! Get the s and rho indices for looking up the tables
