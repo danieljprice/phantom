@@ -634,6 +634,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
     elseif (variable_mass) then
        densi = rho(i)
        presi = spline_value(r(1:npts),pres(1:npts),pres2,ri)
+       if (.not.(presi > 0.)) presi = yinterp(pres(1:npts),r(1:npts),ri)
     else
        ! interpolate density and pressure from table
        densi = yinterp(den(1:npts),r(1:npts),ri)

@@ -257,8 +257,11 @@ subroutine test_analytic_hcp(ntests,npass)
  use, intrinsic :: ieee_arithmetic, only:ieee_is_finite
  use io, only:id,master
  use part, only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,eos_vars,rad,&
-               xyzmh_ptmass,vxyz_ptmass,nptmass,particle_mass,variable_mass,hfact
+               xyzmh_ptmass,vxyz_ptmass,nptmass,particle_mass,variable_mass,hfact,rho
  use setstar, only:star_t,set_defaults_star,set_star,ipoly
+ use setstar_utils, only:set_star_thermalenergy
+ use stellar_hcp, only:natural_spline,spline_value
+ use table_utils, only:yinterp
  use eos, only:gamma,polyk,init_eos
  use options, only:ieos
  use mpidomain, only:i_belong
@@ -267,9 +270,11 @@ subroutine test_analytic_hcp(ntests,npass)
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
- integer :: ierr,nfailed(8),ieosprev
+ integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4)
  integer(kind=8) :: ntot
  real :: rhozero,gammaprev,polykprev,hfactprev
+ real, parameter :: rtest(4) = [0.,1./3.,2./3.,1.],ptest(4) = [1.,0.1,0.01,0.001]
+ real :: p2test(4),expected(2)
 
  ieosprev = ieos
  gammaprev = gamma
@@ -305,6 +310,24 @@ subroutine test_analytic_hcp(ntests,npass)
     call checkval(all(vxyzu(4,1:npart) > 0.),.true.,nfailed(8),'positive analytic HCP internal energy')
  endif
  call update_test_scores(ntests,nfailed,npass)
+
+ ! Positive, steeply falling pressure samples can produce a negative cubic interpolant.
+ call natural_spline(rtest,ptest,p2test)
+ expected = [spline_value(rtest,ptest,p2test,1./6.),spline_value(rtest,ptest,p2test,0.5)]
+ call checkval(expected(1)>0. .and. expected(2)<0.,.true.,nfailed_pressure(1),'pressure spline overshoot fixture')
+ expected(2) = yinterp(ptest,rtest,0.5)
+ variable_mass = .true.
+ xyzh(:,1:2) = 0.
+ xyzh(1,1) = 1./6.
+ xyzh(1,2) = 0.5
+ rho(1:2) = 1.
+ call set_star_thermalenergy(2,[1.,1.,1.,1.],ptest,[0.,0.,0.,0.],rtest,4,2,xyzh,vxyzu,rad,eos_vars,&
+                            .false.,.false.,0.,0.)
+ call checkval(vxyzu(4,1),expected(1)/(gamma-1.),tol,nfailed_pressure(2),'positive pressure keeps cubic interpolation')
+ call checkval(vxyzu(4,2),expected(2)/(gamma-1.),tol,nfailed_pressure(3),'negative pressure uses linear interpolation')
+ call checkval(all(ieee_is_finite(vxyzu(4,1:2))).and.all(vxyzu(4,1:2)>0.),.true.,&
+               nfailed_pressure(4),'finite positive thermal energy after pressure fallback')
+ call update_test_scores(ntests,nfailed_pressure,npass)
  call init_part()
  ieos = ieosprev
  gamma = gammaprev
