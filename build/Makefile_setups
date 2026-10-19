@@ -873,7 +873,7 @@ endif
 ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     SETUPFILE= setup_wind.f90
-    ANALYSIS= analysis_cooling.F90
+    ANALYSIS= analysis_cooling.f90
     SINK_RADIATION=yes
     DUST_NUCLEATION=yes
     INJECT_PARTICLES=yes
@@ -894,7 +894,7 @@ endif
 ifeq ($(SETUP), ismwind)
 #   wind setup with dust nucleation and ISM cooling
     SETUPFILE= setup_wind.f90
-    ANALYSIS= analysis_cooling.F90
+    ANALYSIS= analysis_cooling.f90
     H2CHEM=yes
     SINK_RADIATION=yes
     DUST_NUCLEATION=yes
