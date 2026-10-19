@@ -140,7 +140,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real,    intent(inout) :: dtextforce
  real,    intent(out)   :: dtnew
  integer            :: i,its,np,ntypes,itype,nwake,nvfloorp,nvfloorps,nvfloorc,ialphaloc
- real               :: timei,erri,errmax,v2i,errmaxmean
+ real               :: timei,erri,errmax,v2i,errmaxmean,omega,errmax_prev
  real               :: vxi,vyi,vzi,eni,hdtsph
  real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi,u0i
  integer            :: ierru0
@@ -150,6 +150,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: dti,time_now
  logical, parameter :: allow_waking = .true.
  integer, parameter :: maxits = 30
+ real,    parameter :: omegamin = 0.1  ! minimum damping factor in the velocity iterations
  logical            :: converged,store_itype
 
 !
@@ -451,6 +452,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
+ omega       = 1.
+ errmax_prev = huge(errmax_prev)
  nwake      = 0
  nvfloorc   = 0
  iterations: do while (its < maxits .and. .not.converged .and. npart > 0)
@@ -637,11 +640,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     else
        call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
     endif
+    ! damp the fixed point iteration for velocity-dependent forces if the error is not decreasing
+    if (.not.converged .and. its > 1 .and. errmax >= errmax_prev) omega = max(0.5*omega,omegamin)
+    errmax_prev = errmax
 
     if (.not.converged .and. npart > 0) then
 !$omp parallel do default(none)&
 !$omp private(i) &
-!$omp shared(npart,hdtsph)&
+!$omp shared(npart,hdtsph,omega)&
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
@@ -656,9 +662,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (ind_timesteps) then
              if (iactive(iphase(i))) then
                 if (gr) then
-                   ppred(:,i) = pxyzu(:,i)
+                   call update_prediction(ppred(:,i),pxyzu(:,i),omega)
                 else
-                   vpred(:,i) = vxyzu(:,i)
+                   call update_prediction(vpred(:,i),vxyzu(:,i),omega)
                 endif
                 if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
                 if (use_porosity) filfacpred(i) = filfac(i)
@@ -668,9 +674,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
           else
              if (gr) then
-                ppred(:,i) = pxyzu(:,i)
+                call update_prediction(ppred(:,i),pxyzu(:,i),omega)
              else
-                vpred(:,i) = vxyzu(:,i)
+                call update_prediction(vpred(:,i),vxyzu(:,i),omega)
              endif
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
              if (use_porosity) filfacpred(i) = filfac(i)
@@ -760,6 +766,25 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (gr) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 end subroutine step
+
+!----------------------------------------------------------------
+!+
+!  update the prediction used in the fixed point iterations for
+!  velocity-dependent forces, damped by omega (< 1) if the
+!  iterations are not converging
+!+
+!----------------------------------------------------------------
+pure subroutine update_prediction(xpred,xnew,omega)
+ real, intent(inout) :: xpred(:)
+ real, intent(in)    :: xnew(:),omega
+
+ if (omega < 1.) then
+    xpred = xpred + omega*(xnew - xpred)
+ else
+    xpred = xnew
+ endif
+
+end subroutine update_prediction
 
 !-----------------------------------------------------
 !+
