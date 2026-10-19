@@ -963,7 +963,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
  use metric_tools,only:imet_minkowski,imetric
- use utils_gr,    only:get_bigv,get_u_los
+ use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
  use io,          only:fatal
  integer,         intent(in)    :: i
@@ -1061,7 +1061,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: veli(3),vij,rhat(3)
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: du_losi,du_losj,lorentzj,projbigvi,projbigvj
- real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projvstari,projvstarj
+ real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),dvlos,u0max
  real    :: radPj,fgravxi,fgravyi,fgravzi
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
@@ -1449,14 +1449,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
           projbigvj = bigvj(1)*runix + bigvj(2)*runiy + bigvj(3)*runiz
 
-          ! reconstruct the coordinate velocity along the line of sight to the midpoint,
-          ! using the gradient of the coordinate velocity, for use in the viscosity jump
-          projvstari = projvi
-          projvstarj = projvj
+          ! limited change in the line of sight coordinate velocity between the
+          ! particles, used to reconstruct the viscosity jump to their midpoint
+          dvlos = 0.
           if (ireconav >= 0) then
              dvdxj(:) = dvdx(:,j)
-             call reconstruct_dv_gr(projvi,projvj,runix,runiy,runiz,rij2*rij1,&
-                                    dvdxi,dvdxj,projvstari,projvstarj,ireconav)
+             call reconstruct_dv_gr(runix,runiy,runiz,rij2*rij1,dvdxi,dvdxj,dvlos,ireconav)
           endif
 
           ! Relativistic version of vi-vj
@@ -1600,8 +1598,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              ! with the metric of each particle so that it has the same sign as
              ! projv, giving positive shock heating
              rhat = [runix,runiy,runiz]
-             du_losi = get_u_los(metrici(:,:,1),projvstari,rhat) - get_u_los(metrici(:,:,1),projvstarj,rhat)
-             du_losj = get_u_los(metricj(:,:,1),projvstari,rhat) - get_u_los(metricj(:,:,1),projvstarj,rhat)
+             ! limit U^0 of the line of sight states to twice the largest U^0 = W/alpha of
+             ! the pair, needed near a horizon (see get_u_los); no effect in flat space
+             u0max = 2.*max(lorentzi/alphagri,lorentzj/alphagrj)
+             du_losi = get_du_los(metrici(:,:,1),projvi,projvj,rhat,dvlos,u0max)
+             du_losj = get_du_los(metricj(:,:,1),projvi,projvj,rhat,dvlos,u0max)
           endif
 
           if (disc_viscosity) then
@@ -3438,17 +3439,16 @@ end subroutine reconstruct_dv
 
 !-----------------------------------------------------------------------------
 !+
-!  Reconstruct the coordinate velocity along the line of sight of a
-!  pair of particles to their midpoint, for use in the GR viscosity.
-!  The velocity gradients are of the coordinate velocity, so a linear
-!  velocity field gives zero jump between the reconstructed velocities
+!  Limited change in the line of sight coordinate velocity between a pair
+!  of particles, from the coordinate velocity gradients, for use in
+!  reconstructing the GR viscosity jump to the midpoint of the pair
 !+
 !-----------------------------------------------------------------------------
-subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,projvstarj,ilimiter)
- real,    intent(in)  :: projvi,projvj,rx,ry,rz,dr,dvdxi(9),dvdxj(9)
- real,    intent(out) :: projvstari,projvstarj
+subroutine reconstruct_dv_gr(rx,ry,rz,dr,dvdxi,dvdxj,slope,ilimiter)
+ real,    intent(in)  :: rx,ry,rz,dr,dvdxi(9),dvdxj(9)
+ real,    intent(out) :: slope
  integer, intent(in)  :: ilimiter
- real :: slopei,slopej,slope
+ real :: slopei,slopej
 
  ! derivative of the projected velocity along the unit vector r,
  ! multiplied by the separation dr to give the change between particles
@@ -3461,7 +3461,7 @@ subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,pr
         + rz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
 
  if (ilimiter > 0) then
-    slope = dr*slope_limiter_gr(slopei,slopej)
+    slope = dr*slope_limiter_gr(slopei,slopej,ilimiter)
  else
     !
     !--reconstruction with no slope limiter
@@ -3469,11 +3469,40 @@ subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,pr
     !
     slope = 0.5*dr*(slopei + slopej)
  endif
- ! each particle is reconstructed half of the separation, to the midpoint
- projvstari = projvi - 0.5*slope
- projvstarj = projvj + 0.5*slope
 
 end subroutine reconstruct_dv_gr
+
+!-----------------------------------------------------------------------------
+!+
+!  Jump in the covariant 4-velocity along the line of sight, U_i rhat^i,
+!  between particles a and b, evaluated with a single metric. With
+!  reconstruction, dvlos is the limited change in line of sight coordinate
+!  velocity between the particles (zero = no reconstruction). The jump is
+!  scaled by the fraction of the velocity jump that remains after
+!  reconstruction, |dv*|/max(|dv|,|dv*|), which lies between 0 and 1. This
+!  keeps the sign of the unreconstructed jump, so the shock heating stays
+!  positive, and is bounded where dv -> 0. u0max limits U^0 of the
+!  line of sight states (see get_u_los)
+!+
+!-----------------------------------------------------------------------------
+pure real function get_du_los(gcov,projva,projvb,rhat,dvlos,u0max) result(du_los)
+ use utils_gr, only:get_u_los
+ real, intent(in) :: gcov(0:3,0:3),projva,projvb,rhat(3),dvlos,u0max
+ real :: dv,dvstar,denom
+
+ du_los = get_u_los(gcov,projva,rhat,u0max) - get_u_los(gcov,projvb,rhat,u0max)
+ if (abs(dvlos) > 0.) then
+    dv     = projva - projvb
+    dvstar = dv - dvlos
+    denom  = max(abs(dv),abs(dvstar))
+    if (denom > 0.) then
+       du_los = du_los*abs(dvstar)/denom
+    else
+       du_los = 0.
+    endif
+ endif
+
+end function get_du_los
 
 !-----------------------------------------------------------------------------
 !+
@@ -3508,12 +3537,20 @@ end function slope_limiter
 !  as described in Price & Laibe (2020), MNRAS 495, 3929-3934
 !+
 !-----------------------------------------------------------------------------
-real function slope_limiter_gr(sl,sr) result(s)
- real, intent(in) :: sl,sr
+real function slope_limiter_gr(sl,sr,ilimiter) result(s)
+ real,    intent(in) :: sl,sr
+ integer, intent(in) :: ilimiter
 
  s = 0.
- ! Van Leer is the only slope limiter we found that works for relativistic shocks
- if (sl*sr > 0.) s = 2.*sl*sr/(sl + sr)
+ if (sl*sr > 0.) then
+    if (ilimiter==2) then
+       ! Van Leer monotonised central (MC)
+       s = sign(1.0,sl)*min(abs(0.5*(sl + sr)),2.*abs(sl),2.*abs(sr))
+    else
+       ! Van Leer
+       s = 2.*sl*sr/(sl + sr)
+    endif
+ endif
 
 end function slope_limiter_gr
 

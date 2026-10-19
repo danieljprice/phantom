@@ -746,7 +746,8 @@ end subroutine test_rn_charged
 !   Test of the line of sight covariant 4-velocity used in the shock
 !   viscosity: it should reduce to Gamma*v in flat space and, for a
 !   fixed metric, be a monotonic function of the coordinate velocity
-!   so that the shock heating is positive
+!   so that the shock heating is positive, including near a horizon
+!   where the line of sight velocity can lie outside the light cone
 !+
 !-----------------------------------------------------------------------
 subroutine test_u_los(ntests,npass)
@@ -756,9 +757,11 @@ subroutine test_u_los(ntests,npass)
  use metric,       only:a
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nv = 9
- integer :: nfail(2),i,j,k,l,ia,ib,ierr,nwrong
+ integer :: nfail(3),i,j,k,l,ia,ib,ierr,nwrong
  real    :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,rhat(3),pos(3),vel(nv),a_prev
- real    :: ua,ub,u0,errmax
+ real    :: ua,ub,u0,errmax,w,ua_prev
+ real, parameter :: u0max = 1.e3          ! large enough to have no effect on valid states
+ real, parameter :: u0max_horizon = 10.   ! as for a pair of particles with U^0 ~ 5
  real, parameter :: radii(3) = (/3.,5.,10./), theta(3) = (/0.3,pi/2.,2.5/)
  real, parameter :: spin(2) = (/0.,0.9/)
 
@@ -774,7 +777,7 @@ subroutine test_u_los(ntests,npass)
  rhat = (/1.,2.,2./)/3.
  errmax = 0.
  do i=1,nv
-    errmax = max(errmax,abs(get_u_los(gcov,vel(i),rhat) - vel(i)/sqrt(1. - vel(i)**2)))
+    errmax = max(errmax,abs(get_u_los(gcov,vel(i),rhat,u0max) - vel(i)/sqrt(1. - vel(i)**2)))
  enddo
  call checkval(errmax,0.,1.e-15,nfail(1),'U_los = Gamma*v in flat space')
 
@@ -792,11 +795,11 @@ subroutine test_u_los(ntests,npass)
              do ia=1,nv
                 call get_u0(gcov,vel(ia)*rhat,u0,ierr)
                 if (ierr /= 0) cycle  ! skip velocities faster than light
-                ua = get_u_los(gcov,vel(ia),rhat)
+                ua = get_u_los(gcov,vel(ia),rhat,u0max)
                 do ib=1,nv
                    call get_u0(gcov,vel(ib)*rhat,u0,ierr)
                    if (ierr /= 0) cycle
-                   ub = get_u_los(gcov,vel(ib),rhat)
+                   ub = get_u_los(gcov,vel(ib),rhat,u0max)
                    if ((ua - ub)*(vel(ia) - vel(ib)) < 0.) nwrong = nwrong + 1
                 enddo
              enddo
@@ -804,8 +807,24 @@ subroutine test_u_los(ntests,npass)
        enddo
     enddo
  enddo
- a = a_prev
  call checkval(nwrong,0,0,nfail(2),'U_los monotonic in v for fixed metric')
+
+ ! near the horizon the line of sight velocity can lie outside the light cone even when
+ ! the full velocity does not; U_los must then stay finite and monotonic in v
+ a = 0.
+ pos = (/2.627,0.,0./)
+ rhat = (/1.,0.,0./)
+ call get_metric(pos,gcov,gcon,sqrtg)
+ nwrong = 0
+ ua_prev = -huge(ua_prev)
+ do i=-90,90
+    w  = 0.01*i
+    ua = get_u_los(gcov,w,rhat,u0max_horizon)
+    if (.not.(abs(ua) < 1.e10) .or. ua < ua_prev) nwrong = nwrong + 1
+    ua_prev = ua
+ enddo
+ a = a_prev
+ call checkval(nwrong,0,0,nfail(3),'U_los finite and monotonic outside light cone')
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_u_los

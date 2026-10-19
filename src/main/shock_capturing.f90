@@ -88,7 +88,7 @@ subroutine write_options_shock_capturing(iunit,use_conductivity)
     call write_inopt(alphaB,'alphaB','shock resistivity parameter',iunit)
  endif
  if (gr) call write_inopt(ireconav,'ireconav',&
-              'use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iunit)
+              'use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer,2=MC)',iunit)
 
  if (disc_viscosity) call write_inopt(disc_viscosity,'disc_viscosity',&
                           'use cs, multiply by h/|rij| and apply to approaching/receding',iunit)

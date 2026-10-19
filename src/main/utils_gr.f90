@@ -74,16 +74,24 @@ end subroutine get_u0
 !  U_i rhat^i with U_i = U^0 (g_{0i} + g_{ij} v^j), for the
 !  coordinate velocity v = projv*rhat. Used for the velocity
 !  jump in the shock viscosity; for a fixed metric this is a
-!  monotonic function of projv
+!  monotonic function of projv.
+!
+!  Near a horizon, v = projv*rhat can lie outside the light cone
+!  even when the full velocity does not. U^0 is therefore limited
+!  to u0max by bounding g_mu nu v^mu v^nu <= -1/u0max^2. This
+!  keeps U_los finite and monotonic in projv, and does not change
+!  states with U^0 < u0max
 !+
 !----------------------------------------------------------------
-pure real function get_u_los(gcov,projv,rhat)
- real, intent(in) :: gcov(0:3,0:3),projv,rhat(3)
- real    :: v(3),U0
- integer :: ierr
+pure real function get_u_los(gcov,projv,rhat,u0max)
+ real, intent(in) :: gcov(0:3,0:3),projv,rhat(3),u0max
+ real :: v(3),v4(0:3),vv,U0
 
  v = projv*rhat
- call get_u0(gcov,v,U0,ierr)
+ v4(0)   = 1.
+ v4(1:3) = v
+ vv = min(dot_product_gr(v4,v4,gcov),-1./u0max**2)
+ U0 = 1./sqrt(-vv)
  get_u_los = U0*dot_product(gcov(0,1:3) + matmul(gcov(1:3,1:3),v),rhat)
 
 end function get_u_los
