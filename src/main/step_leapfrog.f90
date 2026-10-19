@@ -640,8 +640,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     else
        call check_velocity_error(errmax,v2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
     endif
-    ! damp the fixed point iteration for velocity-dependent forces if the error is not decreasing
-    if (.not.converged .and. its > 1 .and. errmax >= errmax_prev) omega = max(0.5*omega,omegamin)
+    ! damp the fixed point iteration for velocity-dependent forces if the error is decreasing
+    ! slowly, i.e. by less than a factor of 2, as when the iterations oscillate
+    if (.not.converged .and. its > 1 .and. errmax > 0.5*errmax_prev) omega = max(0.5*omega,omegamin)
     errmax_prev = errmax
 
     if (.not.converged .and. npart > 0) then
