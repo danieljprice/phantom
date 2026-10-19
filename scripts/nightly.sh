@@ -33,7 +33,6 @@ htmlfile="$dir/$datetag.html";
 incoming="$dir/incoming.txt";
 tagfile="$dir/gittag.tmp";
 slackfile="$dir/slack.tmp";
-slackfile2="$dir/slack-perf.tmp";
 #---------------------
 gittag='';
 summary=[];
@@ -138,16 +137,6 @@ run_buildbot ()
       ./buildbot.sh 17000000 "$urllogs";
    done
 }
-create_slack_performance_report ()
-{
-   cd $dir;
-   echo "--- creating performance report ---";
-   if [ -e $benchdir/opt2slack.pl ]; then
-      text=`cd $benchdir; ./opt2slack.pl opt*.html`
-      line="Nightly performance report (graphs <$url/nightly/opt/|here>):\n$text"
-      echo $line > $slackfile2;
-   fi
-}
 run_benchmarks ()
 {
    # run performance suite
@@ -155,12 +144,11 @@ run_benchmarks ()
    cd $benchdir;
    export PHANTOM_DIR=$codedir;
    for sys in $systems; do
-       export SYSTEM=$sys;
        echo "SYSTEM=$sys";
-       ./run-benchmarks.sh;
+       SYSTEM=$sys ./phantombench run;
+       SYSTEM=$sys ./phantombench status;
    done
-   ./plot-benchmarks.sh;
-   create_slack_performance_report;
+   ./phantombench site;
 }
 pull_wiki ()
 {
@@ -196,7 +184,7 @@ write_htmlfile_gittag_and_mailfile ()
        export SYSTEM=$sys;
        cat test-status-$SYSTEM.html >> $htmlfile
        cat build-status-$SYSTEM.html >> $htmlfile
-       cat $benchdir/opt-status-$SYSTEM.html >> $htmlfile
+       cat $benchdir/runs/opt-status-$SYSTEM.html >> $htmlfile
        files=`ls make-*errors*-$SYSTEM.txt make-*errors*-$SYSTEM-debug.txt test-results*-$SYSTEM.txt test-results*-$SYSTEM-debug.txt`
        if [ -d "$weblogdir" ]; then
           for x in $files; do
@@ -372,8 +360,7 @@ commit_and_push_to_website ()
    echo "--- commit and push to web server / git repo ---";
    # commit and push changes to web server
    cp $htmlfile $webdir/nightly/build;
-   cp $benchdir/performance.html ${webdir}/nightly/opt/index.html;
-   cp $benchdir/*.js ${webdir}/nightly/opt/;
+   cp -r $benchdir/site/* ${webdir}/nightly/opt/;
    cd $webdir/nightly/build;
    if [ -e $htmlfile ]; then
       cp $htmlfile index.html;
@@ -409,10 +396,6 @@ post_slack_messages()
   post_to_slack "$message" "#commits"
   message=`cat $slackfile`
   post_to_slack "$message" "#nightly"
-  if [ -e $slackfile2 ]; then
-     message=`cat $slackfile2`
-     post_to_slack "$message" "#nightly"
-  fi
 }
 get_incoming_changes
 extract_names_of_users
@@ -421,7 +404,6 @@ pull_changes
 clean_logs
 run_buildbot
 run_benchmarks
-#create_slack_performance_report
 pull_wiki
 write_htmlfile_gittag_and_mailfile
 tag_code_and_push_tags

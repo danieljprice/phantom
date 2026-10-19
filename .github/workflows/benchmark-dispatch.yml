@@ -1,0 +1,27 @@
+name: benchmark-dispatch
+
+# Asks the benchmark suite (phantomSPH/phantom-benchmarks) to run on GitHub-hosted runners
+# for each push to main. Needs a token with Actions read/write permission on
+# phantomSPH/phantom-benchmarks stored in the secret PHANTOMBENCH_DISPATCH_TOKEN
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: trigger benchmarks
+        env:
+          GH_TOKEN: ${{ secrets.PHANTOMBENCH_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+             echo "::notice::PHANTOMBENCH_DISPATCH_TOKEN not set, benchmarks not triggered"
+             exit 0
+          fi
+          gh api repos/phantomSPH/phantom-benchmarks/dispatches \
+             -f event_type=phantom-push -f "client_payload[sha]=$GITHUB_SHA"

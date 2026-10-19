@@ -1,0 +1,102 @@
+name: benchmark
+
+# Runs the phantom-benchmarks suite (quick tier) on the pull request and on its base,
+# on a self-hosted runner, and posts the comparison as a comment.
+#
+# Triggered by either:
+#  - a maintainer adding the "benchmark" label (also the only way to run on fork PRs), or
+#  - ticking "- [x] Run benchmarks" in the description of a PR from a branch of this repo
+#
+# Code from forks is never run on the self-hosted runner without a maintainer applying the label,
+# and pushes to a fork PR do not re-trigger it (the label must be removed and re-added).
+
+on:
+  pull_request:
+    types: [opened, edited, labeled, synchronize]
+
+concurrency:
+  group: benchmark-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - id: decide
+        env:
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          ACTION: ${{ github.event.action }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'benchmark') }}
+          NEW_LABEL: ${{ github.event.label.name }}
+          TICKED: ${{ contains(github.event.pull_request.body, '- [x] Run benchmarks') }}
+        run: |
+          run=false
+          if [[ "$SAME_REPO" == "true" ]]; then
+             # branches of this repo: checkbox or label, re-run on every push
+             if [[ "$TICKED" == "true" || "$LABELLED" == "true" ]]; then run=true; fi
+          elif [[ "$ACTION" == "labeled" && "$NEW_LABEL" == "benchmark" ]]; then
+             # forks: only when a maintainer applies the label
+             run=true
+          fi
+          echo "run=$run" >> $GITHUB_OUTPUT
+
+  benchmark:
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    runs-on: [self-hosted, benchmark]
+    timeout-minutes: 240
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SYSTEM: gfortran
+      PHANTOMBENCH_TIER: quick
+      PHANTOMBENCH_RESULTS: ${{ github.workspace }}/results
+      OMP_STACKSIZE: 1024m
+      OMP_SCHEDULE: dynamic
+    steps:
+      - name: checkout base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: checkout pull request
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+
+      - name: checkout benchmark suite
+        uses: actions/checkout@v7
+        with:
+          repository: phantomSPH/phantom-benchmarks
+          path: bench
+
+      - name: run benchmarks on base and pull request
+        run: |
+          rm -rf $PHANTOMBENCH_RESULTS
+          export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(source bench/scripts/machine.sh; get_ncores)}
+          for label in base head; do
+             PHANTOM_DIR=$PWD/$label PHANTOMBENCH_LABEL=$label ./bench/phantombench run
+          done
+
+      - name: compare
+        run: |
+          ./bench/phantombench compare base head > comment.md
+          echo "" >> comment.md
+          echo "Commit ${{ github.event.pull_request.head.sha }} vs base ${{ github.event.pull_request.base.sha }}" >> comment.md
+          cat comment.md >> $GITHUB_STEP_SUMMARY
+
+      - name: post comment
+        continue-on-error: true  # token is read-only for fork PRs; results remain in the job summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} \
+             --body-file comment.md --edit-last || \
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} \
+             --body-file comment.md
