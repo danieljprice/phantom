@@ -85,7 +85,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:)     = 0.
  hfact          = hfact_default
  ! set units
- call set_units(mass=1.e6*solarm,c=1.,G=1.)
+ call set_units(mass=1.e6*solarm,c=1.d0,G=1.d0)
  mstar = 1.*solarm/umass
  rstar = 1.*solarr/udist
 

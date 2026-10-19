@@ -116,7 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--Read / write .setup file
 !
  print "(/,a,/)",'  >>> Setting up particles for dust settling test <<<'
- call set_units(dist=10.*au,mass=solarm,G=1.)
+ call set_units(dist=10.*au,mass=solarm,G=1.d0)
 
  !--Read values from .setup
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&

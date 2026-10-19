@@ -413,7 +413,7 @@ ifeq ($(SETUP), grbondi)
 endif
 ifeq ($(SETUP), grbondi-inject)
 #   Bondi accretion flow in GR with particle injection
-    SETUPFILE= setup_bondiinject.F90
+    SETUPFILE= setup_bondiinject.f90
     SRCINJECT=bondiexact_gr.f90 inject_bondi.f90
     KNOWN_SETUP=yes
     KERNEL=quintic

@@ -49,7 +49,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
  real, parameter        :: onethird=1/3.
  logical, save         :: first = .true., firstdump=.true.,firstdumpa=.true.
  real                  :: hp(4),hx(4),ddq_xy(3,3)
- real                  :: utime_tmp,umass_tmp,udist_tmp,dtmax
+ real                  :: dtmax
+ real(kind=8)          :: utime_tmp,umass_tmp,udist_tmp
 
 !
 !--store units, otherwise initialise() put them to 1

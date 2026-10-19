@@ -169,9 +169,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! default is to use code units everywhere, but some shock tube
  ! problems require physical units to be set
  if (gr) then
-    call set_units(G=1.,c=1.,mass=10.*solarm)
+    call set_units(G=1.d0,c=1.d0,mass=10.*solarm)
  elseif (use_radpulse_units) then
-    call set_units(dist=1.,mass=1.,time=1.e-4)
+    call set_units(dist=1.d0,mass=1.d0,time=1.d-4)
  elseif (do_radiation .or. icooling > 0 .or. mhd_nonideal) then
     call set_units(dist=au,mass=solarm,G=1.d0)
  endif
@@ -484,7 +484,7 @@ subroutine choose_shock()
        call prompt('Follow recommendation?',use_radpulse_units)
     endif
     if ((choice==11) .and. use_radpulse_units) then
-       call set_units(dist=1.,mass=1.,time=1.e-4)
+       call set_units(dist=1.d0,mass=1.d0,time=1.d-4)
     else
        call set_units_interactive(gr)
     endif

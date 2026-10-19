@@ -159,7 +159,7 @@ subroutine amuse_commit_parameters()
  call amuse_set_defaults()  ! replaces reading infile
 
  ! Hard coded defaults, should be set in a different way...
- call set_units(dist = 1*au, mass = 1.*solarm, G = 1.)
+ call set_units(dist = 1*au, mass = 1.*solarm, G = 1.d0)
  call set_units_extra()
 end subroutine amuse_commit_parameters
 

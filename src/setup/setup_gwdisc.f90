@@ -77,7 +77,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--set code units
  !
- call set_units(mass=1.*solarm,c=1.)
+ call set_units(mass=1.*solarm,c=1.d0)
 
  time  = 0.
  hfact = hfact_default

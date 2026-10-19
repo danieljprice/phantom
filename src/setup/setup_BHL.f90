@@ -48,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real            :: m,hacc
  integer         :: ierr
 
- call set_units(dist=1.,time=1.,G=1.)
+ call set_units(dist=1.d0,time=1.d0,G=1.d0)
 !
 !--general parameters
 !

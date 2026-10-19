@@ -194,7 +194,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: omega_corotate, posang_ascnode, arg_peri, incl
 
  hfact = hfact_default
- call set_units(dist=au,mass=solarm,G=1.)
+ call set_units(dist=au,mass=solarm,G=1.d0)
  call set_default_parameters_wind()
  filename = trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)

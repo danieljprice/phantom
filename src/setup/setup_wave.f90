@@ -100,7 +100,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  K_code = 1000.
  hfact = hfact_default
  ! code units must have G = c = 1 in GR
- if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
+ if (gr) call set_units(G=1.d0,c=1.d0,mass=10.*solarm)
  ! Print setup header
  if (id==master) print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
 
