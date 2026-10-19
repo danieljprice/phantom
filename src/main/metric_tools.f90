@@ -50,7 +50,7 @@ module metric_tools
  logical, private, parameter :: useinv4x4 = .true.
 
  public :: get_metric, get_metric_derivs, print_metricinfo, init_metric, pack_metric, unpack_metric
- public :: pack_metricderivs
+ public :: pack_metricderivs, metric_is_time_dependent
  public :: imetric
  public :: numerical_metric_derivs
 
@@ -167,6 +167,18 @@ subroutine print_metricinfo(iprint)
  write(iprint,*) 'Metric = ',trim(metric_type)
 
 end subroutine print_metricinfo
+
+!-------------------------------------------------------------------------------
+!+
+!  query whether the metric changes with time (moving black holes,
+!  expanding universe or a metric evolved by numerical relativity)
+!+
+!-------------------------------------------------------------------------------
+pure logical function metric_is_time_dependent()
+
+ metric_is_time_dependent = (imetric==imet_binarybh .or. imetric==imet_flrw .or. imetric==imet_et)
+
+end function metric_is_time_dependent
 
 !-------------------------------------------------------------------------------
 !+

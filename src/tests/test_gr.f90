@@ -14,10 +14,12 @@ module testgr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, cons2primsolver, eos, eos_idealplusrad,
-!   extern_gr, inverse4x4, io, mesa_microphysics, metric, metric_tools,
-!   part, physcon, ptmass, substepping, table_utils, testutils,
-!   timestep_ind, timing, units, utils_gr, vectorutils
+! :Dependencies: cons2prim, cons2primsolver, deriv, dim, eos,
+!   eos_idealplusrad, extern_gr, externalforces, inverse4x4, io,
+!   mesa_microphysics, metric, metric_tools, mpidomain, mpiutils, options,
+!   part, physcon, ptmass, setorbit, setstar, step_lf_global, substepping,
+!   table_utils, testutils, timestep, timestep_ind, timing, units,
+!   utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -41,6 +43,7 @@ subroutine test_gr(ntests,npass)
  call set_units(mass=1.d6*solarm,G=1.d0,c=1.d0)
  if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
  call test_combinations_all(ntests,npass)
+ call test_coord_accel(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
  call test_rn_charged(ntests,npass)
@@ -743,7 +746,8 @@ end subroutine test_rn_charged
 !   Test of the line of sight covariant 4-velocity used in the shock
 !   viscosity: it should reduce to Gamma*v in flat space and, for a
 !   fixed metric, be a monotonic function of the coordinate velocity
-!   so that the shock heating is positive
+!   so that the shock heating is positive, including near a horizon
+!   where the line of sight velocity can lie outside the light cone
 !+
 !-----------------------------------------------------------------------
 subroutine test_u_los(ntests,npass)
@@ -753,9 +757,11 @@ subroutine test_u_los(ntests,npass)
  use metric,       only:a
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nv = 9
- integer :: nfail(2),i,j,k,l,ia,ib,ierr,nwrong
+ integer :: nfail(3),i,j,k,l,ia,ib,ierr,nwrong
  real    :: gcov(0:3,0:3),gcon(0:3,0:3),sqrtg,rhat(3),pos(3),vel(nv),a_prev
- real    :: ua,ub,u0,errmax
+ real    :: ua,ub,u0,errmax,w,ua_prev
+ real, parameter :: u0max = 1.e3          ! large enough to have no effect on valid states
+ real, parameter :: u0max_horizon = 10.   ! as for a pair of particles with U^0 ~ 5
  real, parameter :: radii(3) = (/3.,5.,10./), theta(3) = (/0.3,pi/2.,2.5/)
  real, parameter :: spin(2) = (/0.,0.9/)
 
@@ -771,7 +777,7 @@ subroutine test_u_los(ntests,npass)
  rhat = (/1.,2.,2./)/3.
  errmax = 0.
  do i=1,nv
-    errmax = max(errmax,abs(get_u_los(gcov,vel(i),rhat) - vel(i)/sqrt(1. - vel(i)**2)))
+    errmax = max(errmax,abs(get_u_los(gcov,vel(i),rhat,u0max) - vel(i)/sqrt(1. - vel(i)**2)))
  enddo
  call checkval(errmax,0.,1.e-15,nfail(1),'U_los = Gamma*v in flat space')
 
@@ -789,11 +795,11 @@ subroutine test_u_los(ntests,npass)
              do ia=1,nv
                 call get_u0(gcov,vel(ia)*rhat,u0,ierr)
                 if (ierr /= 0) cycle  ! skip velocities faster than light
-                ua = get_u_los(gcov,vel(ia),rhat)
+                ua = get_u_los(gcov,vel(ia),rhat,u0max)
                 do ib=1,nv
                    call get_u0(gcov,vel(ib)*rhat,u0,ierr)
                    if (ierr /= 0) cycle
-                   ub = get_u_los(gcov,vel(ib),rhat)
+                   ub = get_u_los(gcov,vel(ib),rhat,u0max)
                    if ((ua - ub)*(vel(ia) - vel(ib)) < 0.) nwrong = nwrong + 1
                 enddo
              enddo
@@ -801,8 +807,24 @@ subroutine test_u_los(ntests,npass)
        enddo
     enddo
  enddo
- a = a_prev
  call checkval(nwrong,0,0,nfail(2),'U_los monotonic in v for fixed metric')
+
+ ! near the horizon the line of sight velocity can lie outside the light cone even when
+ ! the full velocity does not; U_los must then stay finite and monotonic in v
+ a = 0.
+ pos = (/2.627,0.,0./)
+ rhat = (/1.,0.,0./)
+ call get_metric(pos,gcov,gcon,sqrtg)
+ nwrong = 0
+ ua_prev = -huge(ua_prev)
+ do i=-90,90
+    w  = 0.01*i
+    ua = get_u_los(gcov,w,rhat,u0max_horizon)
+    if (.not.(abs(ua) < 1.e10) .or. ua < ua_prev) nwrong = nwrong + 1
+    ua_prev = ua
+ enddo
+ a = a_prev
+ call checkval(nwrong,0,0,nfail(3),'U_los finite and monotonic outside light cone')
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_u_los
@@ -888,10 +910,123 @@ end subroutine test_entropy_step
 
 !-----------------------------------------------------------------------
 !+
+!   Test that the coordinate acceleration computed from dp/dt is
+!   consistent with p(x,v), i.e. that moving a particle along
+!   (dx/dt,dv/dt) = (v,a) changes its momentum at the rate dp/dt.
+!   Also check the flat space limit against special relativity
+!+
+!-----------------------------------------------------------------------
+subroutine test_coord_accel(ntests,npass)
+ use io,              only:id,master
+ use physcon,         only:pi
+ use utils_gr,        only:get_coord_accel,get_u0
+ use metric_tools,    only:pack_metric,pack_metricderivs
+ integer, intent(inout) :: ntests,npass
+ real    :: radii(3),theta(2),phi(3),vel(3),dpdt(3,2)
+ real    :: x(3),v(3),a(3),xp(3),xm(3),vp(3),vm(3),pp(3),pm(3),dpdt_fd(3)
+ real    :: metrici(0:3,0:3,2),metricderivsi(0:3,0:3,3),gcov(0:3,0:3)
+ real    :: Ulow(3),U0,rhs(3),a_sr(3),enth,errmax,errmax_sr
+ integer :: i,j,k,l,m,n,ip,jj,nfail(2),ncheck(2),ierr
+ real, parameter :: dens = 1., u = 0.1, pr = 2./3.*u*dens, eps = 1.e-4
+ real, parameter :: tol = 1.e-6, tol_sr = 1.e-14
+
+ if (id==master) write(*,'(/,a)') '--> testing coordinate acceleration from dp/dt'
+ radii = (/2.5,5.,10./)
+ theta = (/pi/4.,pi/2./)
+ phi   = (/0.,pi/3.,pi/)
+ vel   = (/-0.25,0.,0.3/)
+ dpdt(:,1) = (/0.3,-0.7,0.5/)
+ dpdt(:,2) = (/-0.02,0.01,0.04/)
+ enth  = 1. + u + pr/dens
+ nfail = 0
+ ncheck = 0
+ errmax = 0.
+ errmax_sr = 0.
+
+ do i=1,size(radii)
+    do j=1,size(theta)
+       do k=1,size(phi)
+          x = radii(i)*(/sin(theta(j))*cos(phi(k)),sin(theta(j))*sin(phi(k)),cos(theta(j))/)
+          call pack_metric(x,metrici)
+          call pack_metricderivs(x,metricderivsi)
+          do l=1,size(vel)
+             do m=1,size(vel)
+                do n=1,size(vel)
+                   v = (/vel(l),vel(m),vel(n)/)
+                   call get_u0(metrici(:,:,1),v,U0,ierr)
+                   if (ierr /= 0) cycle
+                   do ip=1,size(dpdt,2)
+                      call get_coord_accel(metrici,metricderivsi,v,enth,dpdt(:,ip),a)
+                      ! centred finite difference of p along the trajectory
+                      xp = x + eps*v
+                      xm = x - eps*v
+                      vp = v + eps*a
+                      vm = v - eps*a
+                      call get_pmom(xp,vp,dens,u,pr,pp)
+                      call get_pmom(xm,vm,dens,u,pr,pm)
+                      dpdt_fd = (pp - pm)/(2.*eps)
+                      do jj=1,3
+                         call checkvalbuf(dpdt_fd(jj),dpdt(jj,ip),tol,'dp/dt from a',nfail(1),ncheck(1),errmax)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+ enddo
+ call checkvalbuf_end('p(x+v dt,v+a dt) - p(x,v) = dp/dt dt',ncheck(1),nfail(1),errmax,tol)
+
+ ! flat space: a = (dp/dt - U (U.dp/dt)/(1 + U.U))/(h U^0)
+ metrici = 0.
+ do i=0,3
+    metrici(i,i,:) = 1.
+ enddo
+ metrici(0,0,:) = -1.
+ metricderivsi = 0.
+ gcov = metrici(:,:,1)
+ do l=1,size(vel)
+    v = (/vel(l),0.5*vel(l),-0.3/)
+    call get_u0(gcov,v,U0,ierr)
+    Ulow = U0*v
+    rhs = dpdt(:,1)
+    call get_coord_accel(metrici,metricderivsi,v,enth,rhs,a)
+    a_sr = (rhs - Ulow*dot_product(Ulow,rhs)/(1. + dot_product(Ulow,Ulow)))/(enth*U0)
+    do jj=1,3
+       call checkvalbuf(a(jj),a_sr(jj),tol_sr,'flat space a',nfail(2),ncheck(2),errmax_sr)
+    enddo
+ enddo
+ call checkvalbuf_end('flat space limit = special relativity',ncheck(2),nfail(2),errmax_sr,tol_sr)
+ call update_test_scores(ntests,nfail,npass)
+
+end subroutine test_coord_accel
+
+!-----------------------------------------------------------------------
+!+
+!   canonical momentum p_i at position x and velocity v,
+!   for given rest-frame density, internal energy and pressure
+!+
+!-----------------------------------------------------------------------
+subroutine get_pmom(x,v,dens,u,pr,pmom)
+ use metric_tools,    only:pack_metric
+ use cons2primsolver, only:primitive2conservative
+ use part,            only:ien_entropy
+ real, intent(in)  :: x(3),v(3),dens,u,pr
+ real, intent(out) :: pmom(3)
+ real :: metrici(0:3,0:3,2),rhoi,eni
+
+ call pack_metric(x,metrici)
+ call primitive2conservative(x,metrici,v,dens,u,pr,rhoi,pmom,eni,ien_entropy)
+
+end subroutine get_pmom
+
+!-----------------------------------------------------------------------
+!+
 !   Test that shock heating never decreases the entropy of a particle,
 !   using a low resolution polytrope passing close to the black hole.
 !   Tidal distortion of the star triggers the shock viscosity. With
-!   conductivity switched off, dK/dt must never be negative
+!   conductivity switched off, dK/dt must never be negative. Also
+!   checks that the Cullen & Dehnen switch turns on the viscosity
 !+
 !-----------------------------------------------------------------------
 subroutine test_tde_entropy(ntests,npass)
@@ -902,8 +1037,9 @@ subroutine test_tde_entropy(ntests,npass)
                           vxyz_ptmass,nptmass,nsinkproperties,ien_type,ien_entropy,&
                           isdead_or_accreted,igas
  use mpidomain,      only:i_belong
+ use mpiutils,       only:reduceall_mpi
  use eos,            only:ieos,gamma,X_in,Z_in,ishock_heating
- use options,        only:alpha,alphau,beta,ireconav,iexternalforce
+ use options,        only:alpha,alphamax,alphau,ireconav,iexternalforce
  use setstar,        only:star_t,set_star,set_defaults_star,ipoly
  use setorbit,       only:orbit_t,set_defaults_orbit,set_orbit
  use externalforces, only:initialise_externalforces
@@ -916,10 +1052,10 @@ subroutine test_tde_entropy(ntests,npass)
  integer, intent(inout) :: ntests,npass
  type(star_t)  :: star
  type(orbit_t) :: orbit
- integer :: nfail(3),ierr,i,nsteps,nnegative
- integer(kind=8) :: ntot
+ integer :: nfail(4),ierr,i,nsteps,nnegative
+ integer(kind=8) :: ntot,nlive
  real    :: xyzmh_in(nsinkproperties,2),vxyz_in(3,2),xstar(3),vstar(3)
- real    :: t,tmax,dt,dtnew,dtextforce,rhozero
+ real    :: t,tmax,dt,dtnew,dtextforce,rhozero,alphapeak,alphasum
 
  if (id==master) write(*,'(/,a)') '--> testing entropy does not decrease in a tidal disruption'
  iverbose = 0
@@ -961,11 +1097,16 @@ subroutine test_tde_entropy(ntests,npass)
  ! evolve K with shock viscosity but no conductivity
  ien_type       = ien_entropy
  ishock_heating = 1
- alpha          = 1.
  alphau         = 0.
- beta           = 2.
  ireconav       = -1
- if (maxalpha==maxp) alphaind(1,:) = real4(alpha)
+ if (maxalpha==maxp) then
+    ! Cullen & Dehnen switch, which must switch on the viscosity from alpha = 0
+    alpha    = 0.
+    alphamax = 1.
+    alphaind(1,:) = real4(alpha)
+ else
+    alpha    = 1.
+ endif
  iexternalforce = 1
 
  t = 0.
@@ -983,19 +1124,35 @@ subroutine test_tde_entropy(ntests,npass)
  ! particle, so does not depend on particle order, e.g. across MPI threads)
  nnegative = 0
  nsteps = 0
+ alphapeak = 0.
  dt = min(dtcourant,dtforce,dtextforce)
  do while (t < tmax)
     t = t + dt
     call step(npart,npart,t,dt,dtextforce,dtnew)
     nsteps = nsteps + 1
+    alphasum = 0.
+    nlive = 0
     do i=1,npart
-       if (.not.isdead_or_accreted(xyzh(4,i)) .and. fxyzu(4,i) < 0.) nnegative = nnegative + 1
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          if (fxyzu(4,i) < 0.) nnegative = nnegative + 1
+          if (maxalpha==maxp) alphasum = alphasum + alphaind(1,i)
+          nlive = nlive + 1
+       endif
     enddo
+    ! peak of the mean viscosity parameter over all MPI ranks, to check the switch responds
+    alphasum = reduceall_mpi('+',alphasum)
+    nlive    = reduceall_mpi('+',nlive)
+    alphapeak = max(alphapeak,alphasum/max(nlive,1_8))
     dt = min(dtnew,tmax-t)
  enddo
- if (id==master) print*,' nsteps = ',nsteps
+ if (id==master) print*,' nsteps = ',nsteps,' peak mean alpha = ',alphapeak
  call checkval(nnegative,0,0,nfail(3),'number of times dK/dt < 0')
  call update_test_scores(ntests,nfail(3:3),npass)
+ if (maxalpha==maxp) then
+    ! mean alpha stays ~0.03 for the same star far from the hole
+    call checkval(alphapeak > 0.5,.true.,nfail(4),'Cullen-Dehnen switch turns on viscosity')
+    call update_test_scores(ntests,nfail(4:4),npass)
+ endif
 
 end subroutine test_tde_entropy
 

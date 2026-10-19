@@ -42,7 +42,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=*), intent(in)    :: fileprefix
  real,             intent(out)   :: vxyzu(:,:)
 
- call set_units(dist=100.*au,mass=solarm,G=1.)
+ call set_units(dist=100.*au,mass=solarm,G=1.d0)
  time = 0.
  polyk = 0.
  gamma = 5./3.

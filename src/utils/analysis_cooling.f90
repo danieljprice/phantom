@@ -92,7 +92,7 @@ subroutine test_cooling_solvers(dumpfile)
  real :: T_floor
  ! For reading the input file:
  character(len=*), intent(in) :: dumpfile
- real :: utime_tmp,umass_tmp,udist_tmp
+ real(kind=8) :: utime_tmp,umass_tmp,udist_tmp
  character(len=120)            :: infile,logfile,evfile,dfile
 
  integer :: i,imethod,ierr,iunit,ifunct,irate

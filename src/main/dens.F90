@@ -631,8 +631,8 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1,get_kernel_tilde
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rho
- use part,     only:massoftype,iradxi,aprmassoftype
- use dim,      only:gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph,curlv
+ use part,     only:massoftype,iradxi,aprmassoftype,agr
+ use dim,      only:gravity,maxp,nalpha,use_dust,do_radiation,use_apr,maxpsph,curlv,gr
  use options,  only:implicit_radiation,two_kernel
  integer,         intent(in)    :: i
  real,            intent(in)    :: xpartveci(:)
@@ -838,9 +838,16 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 
                    if (nalpha > 1 .and. gas_gas) then
                       !--divergence of acceleration for Cullen & Dehnen switch
-                      fxj = fxyzu(1,j) + fext(1,j)
-                      fyj = fxyzu(2,j) + fext(2,j)
-                      fzj = fxyzu(3,j) + fext(3,j)
+                      if (gr) then
+                         ! use coordinate acceleration, not dp/dt
+                         fxj = agr(1,j)
+                         fyj = agr(2,j)
+                         fzj = agr(3,j)
+                      else
+                         fxj = fxyzu(1,j) + fext(1,j)
+                         fyj = fxyzu(2,j) + fext(2,j)
+                         fzj = fxyzu(3,j) + fext(3,j)
+                      endif
                       dax = fxi - fxj
                       day = fyi - fyj
                       daz = fzi - fzj
@@ -1359,9 +1366,9 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  use io,          only:fatal
- use dim,         only:maxp,maxvxyzu,do_radiation,use_apr,maxpsph
+ use dim,         only:maxp,maxvxyzu,do_radiation,use_apr,maxpsph,gr
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
-                       iamboundary,ibasetype,iradxi,rho
+                       iamboundary,ibasetype,iradxi,rho,agr
 
  type(celldens),  intent(inout) :: cell
  integer(kind=1), intent(in)    :: iphase(:)
@@ -1417,9 +1424,14 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
        cell%xpartvec(ieni,cell%npcell)        = vxyzu(4,i)
     endif
 
-    cell%xpartvec(ifxi,cell%npcell)           = fxyzu(1,i) + fext(1,i)
-    cell%xpartvec(ifyi,cell%npcell)           = fxyzu(2,i) + fext(2,i)
-    cell%xpartvec(ifzi,cell%npcell)           = fxyzu(3,i) + fext(3,i)
+    if (gr) then
+       ! coordinate acceleration for the Cullen & Dehnen switch, not dp/dt
+       cell%xpartvec(ifxi:ifzi,cell%npcell)   = agr(1:3,i)
+    else
+       cell%xpartvec(ifxi,cell%npcell)        = fxyzu(1,i) + fext(1,i)
+       cell%xpartvec(ifyi,cell%npcell)        = fxyzu(2,i) + fext(2,i)
+       cell%xpartvec(ifzi,cell%npcell)        = fxyzu(3,i) + fext(3,i)
+    endif
 
     if (mhd) then
        if (iamgasi) then

@@ -48,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: R_in, R_out
  real :: Mdisc,Mstar
 
- call set_units(dist=10.*km,c=1.)
+ call set_units(dist=10.*km,c=1.d0)
 
  udist_km = 1.e5/udist   ! code units are cm
  gamma = 1.0

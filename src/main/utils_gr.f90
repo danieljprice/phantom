@@ -19,7 +19,7 @@ module utils_gr
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
- public :: perturb_metric,get_u_los
+ public :: perturb_metric,get_u_los,get_coord_accel
 
  private
 
@@ -74,19 +74,74 @@ end subroutine get_u0
 !  U_i rhat^i with U_i = U^0 (g_{0i} + g_{ij} v^j), for the
 !  coordinate velocity v = projv*rhat. Used for the velocity
 !  jump in the shock viscosity; for a fixed metric this is a
-!  monotonic function of projv
+!  monotonic function of projv.
+!
+!  Near a horizon, v = projv*rhat can lie outside the light cone
+!  even when the full velocity does not. U^0 is therefore limited
+!  to u0max by bounding g_mu nu v^mu v^nu <= -1/u0max^2. This
+!  keeps U_los finite and monotonic in projv, and does not change
+!  states with U^0 < u0max
 !+
 !----------------------------------------------------------------
-pure real function get_u_los(gcov,projv,rhat)
- real, intent(in) :: gcov(0:3,0:3),projv,rhat(3)
- real    :: v(3),U0
- integer :: ierr
+pure real function get_u_los(gcov,projv,rhat,u0max)
+ real, intent(in) :: gcov(0:3,0:3),projv,rhat(3),u0max
+ real :: v(3),v4(0:3),vv,U0
 
  v = projv*rhat
- call get_u0(gcov,v,U0,ierr)
+ v4(0)   = 1.
+ v4(1:3) = v
+ vv = min(dot_product_gr(v4,v4,gcov),-1./u0max**2)
+ U0 = 1./sqrt(-vv)
  get_u_los = U0*dot_product(gcov(0,1:3) + matmul(gcov(1:3,1:3),v),rhat)
 
 end function get_u_los
+
+!----------------------------------------------------------------
+!+
+!  Coordinate acceleration a^i = dv^i/dt of a particle, given
+!  the rate of change of its canonical momentum dp_i/dt, where
+!  p_i = w U_i, w is the specific enthalpy and
+!  U_i = U^0 (g_{0i} + g_{ij} v^j). By the chain rule
+!
+!   dp_i/dt = w U^0 (g_ik + U_i U_k) a^k + w v^k d_k U_i
+!
+!  neglecting dw/dt. The matrix is inverted analytically using
+!  the Sherman-Morrison formula with the inverse spatial metric
+!  gamma^ij. Returns a = 0 if v is superluminal
+!+
+!----------------------------------------------------------------
+pure subroutine get_coord_accel(metrici,metricderivsi,v,enth,dpdt,a)
+ use metric_tools, only:unpack_metric
+ real, intent(in)  :: metrici(0:3,0:3,2),metricderivsi(0:3,0:3,3)
+ real, intent(in)  :: v(3),enth,dpdt(3)
+ real, intent(out) :: a(3)
+ real    :: gcov(0:3,0:3),gammaijUP(3,3),dgdt(0:3,0:3),v4(0:3),dgv4(0:3)
+ real    :: U0,Ulow(3),Uup(3),rhs(3)
+ integer :: k,ierr
+
+ a = 0.
+ v4(0)   = 1.
+ v4(1:3) = v
+ call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP)
+ call get_u0(gcov,v,U0,ierr)
+ if (ierr /= 0) return
+ Ulow = U0*matmul(gcov(1:3,:),v4)
+
+ ! rate of change of the metric along the particle path, v^k d_k g_mu nu
+ dgdt = 0.
+ do k=1,3
+    dgdt = dgdt + v(k)*metricderivsi(:,:,k)
+ enddo
+ dgv4 = matmul(dgdt,v4)
+
+ ! subtract w v^k d_k U_i, using d_k U^0 = 0.5 (U^0)^3 d_k g_mu nu v^mu v^nu
+ rhs = dpdt - enth*U0*(dgv4(1:3) + 0.5*U0*dot_product(v4,dgv4)*Ulow)
+
+ ! solve w U^0 (g_ij + U_i U_j) a^j = rhs_i
+ Uup = matmul(gammaijUP,Ulow)
+ a = (matmul(gammaijUP,rhs) - Uup*dot_product(Uup,rhs)/(1. + dot_product(Ulow,Uup)))/(enth*U0)
+
+end subroutine get_coord_accel
 
 !----------------------------------------------------------------
 !+

@@ -53,9 +53,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use part,         only:set_particle_type,igas,idust,dustfrac,periodic,ndustsmall,ndustlarge,ndusttypes
- use physcon,      only:pi
+ use physcon,      only:pi,solarm
  use kernel,       only:radkern
- use dim,          only:maxvxyzu
+ use dim,          only:maxvxyzu,gr
+ use units,        only:set_units
  use dust,         only:idrag
  use set_dust,     only:set_dustfrac
  use mpidomain,    only:i_belong
@@ -77,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical, parameter :: ishift_box =.true.
  real, parameter    :: dust_shift = 0.
  real    :: xmin_dust,xmax_dust,ymin_dust,ymax_dust,zmin_dust,zmax_dust
- real    :: denom,length,uuzero,przero,massfac
+ real    :: denom,length,uuzero,przero,massfac,cswave
  real    :: xmini,xmaxi
  procedure(rho_func), pointer :: density_func
 !
@@ -88,6 +89,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rhozero = 1.
  massfac = 1.
  cs      = 1.
+ if (gr) cs = 0.1  ! must be less than the speed of light
  ampl    = 1.d-4
  use_dustfrac = .false.
  ndustsmall = 0
@@ -97,6 +99,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  idrag = 2
  K_code = 1000.
  hfact = hfact_default
+ ! code units must have G = c = 1 in GR
+ if (gr) call set_units(G=1.d0,c=1.d0,mass=10.*solarm)
  ! Print setup header
  if (id==master) print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
 
@@ -153,6 +157,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     polyk = 0.
  endif
+ !
+ ! sound speed for a wave travelling in +x, delta v = cs*delta rho/rho;
+ ! in GR this is the relativistic sound speed, cs^2 = gamma*P/(rho*w),
+ ! with enthalpy w = 1 + gamma*u
+ !
+ cswave = cs
+ if (gr .and. maxvxyzu >= 4 .and. gamma > 1.) then
+    uuzero = cs**2/(gamma*(gamma-1.))
+    cswave = sqrt(gamma*(gamma-1.)*uuzero/(1. + gamma*uuzero))
+ endif
 
  npart = 0
  npart_total = 0
@@ -189,7 +203,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
 
-       vxyzu(1,i) = ampl*sin(kwave*(xyzh(1,i)-xmin))
+       vxyzu(1,i) = ampl*cswave*sin(kwave*(xyzh(1,i)-xmin))
        vxyzu(2:3,i) = 0.
 !
 !--perturb internal energy if not using a polytropic equation of state

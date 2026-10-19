@@ -63,7 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: rblast,prblast,enblast,gam1,spsoundzero
  real(8) :: uenergy
 
- call set_units(dist=pc,mass=solarm,G=1.)
+ call set_units(dist=pc,mass=solarm,G=1.d0)
 !
 !--general parameters
 !

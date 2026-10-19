@@ -82,7 +82,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical            :: use_exactN,use_var_comp
  character(len=30)  :: lattice
 
- call set_units(mass=solarm,dist=solarr,G=1.)
+ call set_units(mass=solarm,dist=solarr,G=1.d0)
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !

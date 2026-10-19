@@ -124,7 +124,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1 = accrad
  gamma = gamma_ad
  ! default units
- call set_units(G=1.,c=1.,mass=mhole*solarm) ! Set central mass to M=1 in code units
+ call set_units(G=1.d0,c=1.d0,mass=mhole*solarm) ! Set central mass to M=1 in code units
 
  call update_metric(0.)
 
@@ -153,7 +153,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! Convert to code units
 !
  mhole = mhole*solarm
- call set_units(G=1.,c=1.,mass=mhole) ! Set central mass to M=1 in code units
+ call set_units(G=1.d0,c=1.d0,mass=real(mhole,kind=8)) ! Set central mass to M=1 in code units
  mdisc           = mdisc*solarm/umass
  accradius1_hard = accradius1
  if (np > 0) then

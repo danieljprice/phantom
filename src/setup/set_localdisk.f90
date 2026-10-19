@@ -107,7 +107,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  zmax = H
 
  call set_boundary(xmin,xmax,ymin,ymax,zmin,zmax)
- call set_units(dist=r_unit,time=r_unit/v_unit,G=1.)
+ call set_units(dist=real(r_unit,kind=8),time=real(r_unit/v_unit,kind=8),G=1.d0)
  time = 0.
  polyk = 0.
  gamma = 4./3.
