@@ -164,7 +164,12 @@ subroutine set_hmaxcell(inode,hmaxcell)
  real    :: hmaxn
 
  n = inode
- node(n)%hmax = hmaxcell
+ ! never lower it: with individual timesteps the caller's hmaxcell covers only the
+ ! cell's active particles (dens.F90 compute_hmax), and the inactive ones in the same
+ ! leaf keep their own h, which the symmetric neighbour search in the force pass needs
+ ! the leaf's hmax to cover.  The tree is rebuilt every step, so the bound never has
+ ! to shrink.
+ node(n)%hmax = max(node(n)%hmax, hmaxcell)
 
  ! walk tree up, stopping at the first ancestor whose hmax already covers hmaxcell:
  ! a node's hmax is never below its children's, so neither is any of its ancestors'.
