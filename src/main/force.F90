@@ -1250,6 +1250,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours2
 
     sinkinpair = .false.
+    ! GRMHD terms for the stress of particle j, set below if gr and mhd
+    bdownj = 0.; b2j = 0.; rhoej = 0.
     if (maxphase==maxp) then
        call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
        iamsinkj = (iamtypej == isink)
@@ -1480,7 +1482,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
           if (vsigi > vsigmax) vsigmax = vsigi
 
-          bdownj = 0.; b2j = 0.; rhoej = 0.
           if (mhd) then
              hj   = xyzh(4,j)
              Bxj  = Bevol(1,j)*rhoj
