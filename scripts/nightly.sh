@@ -139,6 +139,8 @@ run_buildbot ()
 }
 run_benchmarks ()
 {
+   # the performance website is built from the results by GitHub Pages:
+   # https://phantomsph.github.io/phantom-benchmarks/
    # run performance suite
    echo "--- running benchmarks ---";
    cd $benchdir;
@@ -148,7 +150,8 @@ run_benchmarks ()
        SYSTEM=$sys ./phantombench run;
        SYSTEM=$sys ./phantombench status;
    done
-   ./phantombench site;
+   # push the results to phantom-benchmarks, which updates the website
+   ./phantombench publish;
 }
 pull_wiki ()
 {
@@ -360,7 +363,6 @@ commit_and_push_to_website ()
    echo "--- commit and push to web server / git repo ---";
    # commit and push changes to web server
    cp $htmlfile $webdir/nightly/build;
-   cp -r $benchdir/site/* ${webdir}/nightly/opt/;
    cd $webdir/nightly/build;
    if [ -e $htmlfile ]; then
       cp $htmlfile index.html;

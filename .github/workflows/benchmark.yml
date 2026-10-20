@@ -69,6 +69,9 @@ jobs:
           path: base
           persist-credentials: false
 
+      # checking out fork code from pull_request_target must be allowed explicitly. It is safe
+      # here only because: a maintainer must label fork PRs, this job has a read-only token that
+      # is not stored, no secrets are used, and it runs on a dedicated (ideally ephemeral) runner
       - name: checkout pull request
         uses: actions/checkout@v7
         with:
@@ -76,6 +79,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           path: head
           persist-credentials: false
+          allow-unsafe-pr-checkout: true
 
       - name: checkout benchmark suite
         uses: actions/checkout@v7
