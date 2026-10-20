@@ -5,14 +5,15 @@ name: benchmark
 # same machine one after the other, so the comparison is fair even though timings on these shared
 # runners vary from machine to machine.
 #
-# Triggered by either:
-#  - a maintainer adding the "benchmark" label (also the only way to run on fork PRs), or
-#  - ticking "- [x] Run benchmarks" in the description of a PR from a branch of this repo
+# Triggered on any pull request, including from forks, by either:
+#  - ticking "- [x] Run benchmarks" in the description of the pull request, or
+#  - adding the "benchmark" label
+# and re-run on each push to the pull request while either is set.
 #
 # This uses pull_request_target, so this file and the decision of whether to run always come
-# from the base branch: a pull request cannot change them. Code from forks only runs after a
-# maintainer applies the label (pushes to a fork PR do not re-trigger it), on a disposable
-# GitHub-hosted runner, and never has access to a token or secrets.
+# from the base branch: a pull request cannot change them. The code from the pull request runs
+# on a disposable GitHub-hosted runner, with a read-only token that is not stored and no secrets;
+# the comment is posted by a separate job that does not run any of that code.
 
 on:
   pull_request_target:
@@ -29,21 +30,20 @@ jobs:
     steps:
       - id: decide
         env:
-          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           ACTION: ${{ github.event.action }}
           LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'benchmark') }}
           NEW_LABEL: ${{ github.event.label.name }}
           TICKED: ${{ contains(github.event.pull_request.body, '- [x] Run benchmarks') }}
+          WAS_TICKED: ${{ contains(github.event.changes.body.from, '- [x] Run benchmarks') }}
         run: |
-          run=false
-          if [[ "$SAME_REPO" == "true" ]]; then
-             # branches of this repo: checkbox or label, re-run on every push
-             if [[ "$TICKED" == "true" || "$LABELLED" == "true" ]]; then run=true; fi
-          elif [[ "$ACTION" == "labeled" && "$NEW_LABEL" == "benchmark" ]]; then
-             # forks: only when a maintainer applies the label
-             run=true
-          fi
-          echo "run=$run" >> $GITHUB_OUTPUT
+          case $ACTION in
+             # new pull request or new commits: run if the box is ticked or the label is set
+             opened|synchronize) [[ "$TICKED" == "true" || "$LABELLED" == "true" ]] && run=true ;;
+             labeled)            [[ "$NEW_LABEL" == "benchmark" ]] && run=true ;;
+             # description edited: run only if the box has just been ticked
+             edited)             [[ "$TICKED" == "true" && "$WAS_TICKED" != "true" ]] && run=true ;;
+          esac
+          echo "run=${run:-false}" >> $GITHUB_OUTPUT
 
   benchmark:
     needs: check
@@ -71,9 +71,8 @@ jobs:
           path: base
           persist-credentials: false
 
-      # checking out fork code from pull_request_target must be allowed explicitly. It is safe
-      # here because a maintainer must label fork PRs, this job has a read-only token that is
-      # not stored, no secrets are used, and it runs on a disposable GitHub-hosted runner
+      # checking out fork code from pull_request_target must be allowed explicitly; this job has
+      # a read-only token that is not stored, uses no secrets, and runs on a disposable runner
       - name: checkout pull request
         uses: actions/checkout@v7
         with:
