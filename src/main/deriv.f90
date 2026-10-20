@@ -197,7 +197,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
  if (gr) then
-    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphaind)
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphaind,Bevol=Bevol,Bxyz=Bxyz)
  else
     call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
  endif
@@ -286,7 +286,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
-                        apr_level
+                        apr_level,Bxyz
  use timing,       only:printused,getused
  use io,           only:id,master
  use cons2prim,    only:prim2consall
@@ -310,7 +310,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
     ! kernel-summed rho required for prim2consall (all MPI ranks must call this)
     call get_density_global(2,zero_fxyzu=.true.)
     call init_metric(npart,xyzh,metrics,time=time)
-    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens,Bxyz=Bxyz,Bevol=Bevol)
  endif
 
  ! evaluate derivatives

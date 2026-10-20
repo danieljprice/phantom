@@ -262,7 +262,7 @@ end subroutine evol_prestep
 !+
 !----------------------------------------------------------------
 subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,nactive,abortrun)
- use dim,             only:driving,mhd
+ use dim,             only:driving,mhd,gr
  use io,              only:id,master,iprint
  use boundary_dyn,    only:dynamic_bdy,update_boundaries
  use centreofmass,    only:correct_bulk_motions
@@ -306,8 +306,9 @@ subroutine evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,n
  call increment_timer(itimer_lastdump,t2-t1,tcpu2-tcpu1)
  !
  !--div B projection to zero, once per dtmax
+ !  (not yet implemented in GR, where Bxyz holds the comoving field b^mu)
  !
- if (at_dump_time .and. mhd .and. use_divb_proj) then
+ if (at_dump_time .and. mhd .and. use_divb_proj .and. .not.gr) then
     call project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,&
                       divb_tol,divb_maxit,nsteps,ierr_divb)
     if (ierr_divb /= 0 .and. id == master) write(iprint,'(a,i2)') &

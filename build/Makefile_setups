@@ -723,6 +723,17 @@ ifeq ($(SETUP), alfven)
     KERNEL=quintic
 endif
 
+ifeq ($(SETUP), gralfven)
+#   relativistic circularly polarised Alfven wave (GRMHD code, Minkowski metric)
+    PERIODIC=yes
+    SETUPFILE= setup_alfvenwave.f90
+    MHD=yes
+    GR=yes
+    METRIC=minkowski
+    KNOWN_SETUP=yes
+    KERNEL=quintic
+endif
+
 ifeq ($(SETUP), orstang)
 #   Orszag-Tang vortex
     PERIODIC=yes
@@ -1153,6 +1164,7 @@ endif
 ifeq ($(SETUP), testgr)
 #   unit tests of general relativistic code
     GR=yes
+    MHD=yes
     KNOWN_SETUP=yes
     METRIC=kerr
     SETUPFILE= setup_grdisc.f90

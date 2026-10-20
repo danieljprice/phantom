@@ -35,16 +35,17 @@ contains
 !   whether a particle is gas or test particle.)
 !+
 !---------------------------------------------------------------
-subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf)
+subroutine get_grforce(xyzhi,metrici,metricderivsi,veli,densi,ui,pi,fexti,dtf,bxyzi)
  use io, only:iprint,fatal,error
  use metric_tools, only:imetric,imet_binarybh
  !use metric,       only:metric_params
  real, intent(in)  :: xyzhi(4),metrici(:,:,:),metricderivsi(0:3,0:3,3),veli(3),densi,ui,pi
  real, intent(out) :: fexti(3)
  real, intent(out), optional :: dtf
+ real, intent(in),  optional :: bxyzi(4)
  integer :: ierr
 
- call forcegr(xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,fexti,ierr)
+ call forcegr(xyzhi(1:3),metrici,metricderivsi,veli,densi,ui,pi,fexti,ierr,bxyzi)
  if (ierr > 0) then
     write(iprint,*) 'x,y,z = ',xyzhi(1:3),' r = ',sqrt(dot_product(xyzhi(1:3),xyzhi(1:3)))
     !if (imetric==imet_binarybh) then
@@ -68,7 +69,8 @@ end subroutine get_grforce
 subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtexternal,use_sink,dens)
  use timestep, only:C_force
  use eos,      only:ieos,get_pressure
- use part,     only:isdead_or_accreted
+ use part,     only:isdead_or_accreted,Bxyz
+ use dim,      only:mhd
  integer, intent(in)    :: npart
  real,    intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:)
@@ -77,13 +79,13 @@ subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtexternal
  logical, intent(in), optional :: use_sink ! we pick the data from the xyzh array and assume u=0 for this case
  integer :: i
  real    :: dtf,pi,densi
- real    :: xyzhi(4),vxyzui(4)
+ real    :: xyzhi(4),vxyzui(4),bxyzi(4)
 
  dtexternal = huge(dtexternal)
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force,use_sink) &
- !$omp private(i,dtf,pi,xyzhi,vxyzui,densi) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,ieos,C_force,use_sink,Bxyz) &
+ !$omp private(i,dtf,pi,xyzhi,vxyzui,densi,bxyzi) &
  !$omp reduction(min:dtexternal)
  do i=1,npart
     if (present(use_sink)) then
@@ -101,7 +103,10 @@ subroutine get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtexternal
 
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
-          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,fext(1:3,i),dtf)
+          bxyzi = 0.
+          if (mhd) bxyzi = Bxyz(:,i)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,&
+                           fext(1:3,i),dtf,bxyzi=bxyzi)
           dtexternal = min(dtexternal,C_force*dtf)
        endif
     endif
@@ -151,22 +156,34 @@ end subroutine dt_grforce
 !  Compute the source terms required on the right hand side of
 !  the relativistic momentum equation. These are of the form:
 !   T^\mu\nu dg_\mu\nu/dx^i
+!  For MHD, bxyzi = (b^1,b^2,b^3,b^0) is the comoving magnetic field and
+!  T^\mu\nu = (rho w + b^2) U^mu U^nu + (P + b^2/2) g^mu nu - b^mu b^nu
 !+
 !----------------------------------------------------------------
-pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
+pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm,ierr,bxyzi)
  use metric_tools, only:unpack_metric
- use utils_gr,     only:get_u0
+ use utils_gr,     only:get_u0,dot_product_gr
  real,    intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
  real,    intent(out) :: fterm(3)
  integer, intent(out) :: ierr
+ real,    intent(in), optional :: bxyzi(4)
  real    :: gcov(0:3,0:3), gcon(0:3,0:3)
  real    :: v4(0:3), term(0:3,0:3)
- real    :: enth, uzero
+ real    :: enth, uzero, ptot, b4(0:3), b2
  integer :: i
 
  call unpack_metric(metrici,gcov=gcov,gcon=gcon)
 
  enth = 1. + u + p/dens
+ ptot = p
+ b4   = 0.
+ if (present(bxyzi)) then
+    b4(0)   = bxyzi(4)
+    b4(1:3) = bxyzi(1:3)
+    b2      = dot_product_gr(b4,b4,gcov)
+    enth    = enth + b2/dens
+    ptot    = ptot + 0.5*b2
+ endif
 
  ! lower-case 4-velocity
  v4(0) = 1.
@@ -177,7 +194,7 @@ pure subroutine forcegr(x,metrici,metricderivsi,v,dens,u,p,fterm,ierr)
 
  ! energy-momentum tensor times sqrtg on 2rho*
  do i=0,3
-    term(0:3,i) = 0.5*(enth*uzero*v4(0:3)*v4(i) + P*gcon(0:3,i)/(dens*uzero))
+    term(0:3,i) = 0.5*(enth*uzero*v4(0:3)*v4(i) + (ptot*gcon(0:3,i) - b4(0:3)*b4(i))/(dens*uzero))
  enddo
 
  ! source term

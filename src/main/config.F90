@@ -138,7 +138,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 15 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 63 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 66 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! dens, 16 gcov, 16 gcon
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -209,6 +209,11 @@ module dim
  logical, parameter :: mhd = .false.
 #endif
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
+#ifdef GR
+ integer, parameter :: maxBxyz   = 4  ! size of Bxyz array (b^1,b^2,b^3,b^0)
+#else
+ integer, parameter :: maxBxyz   = 3  ! size of Bxyz array (Bx,By,Bz)
+#endif
  integer, parameter :: ndivcurlB = 4
 
 ! Non-ideal MHD

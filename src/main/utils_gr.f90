@@ -19,7 +19,7 @@ module utils_gr
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
- public :: perturb_metric,get_u_los,get_coord_accel
+ public :: perturb_metric,get_u_los,get_coord_accel,get_b0,get_b_lower
 
  private
 
@@ -340,5 +340,49 @@ subroutine perturb_metric(phi,gcovper,gcov)
  gcovper(3,3) = gcovper(3,3) - 2.*phi
 
 end subroutine perturb_metric
+
+!----------------------------------------------------------------
+!+
+!  time component of the comoving magnetic field four-vector, b^0,
+!  given the spatial components b^i and the coordinate velocity v^i,
+!  from the orthogonality condition b^mu U_mu = 0
+!+
+!----------------------------------------------------------------
+pure subroutine get_b0(gcov,v,b,b0)
+ real, intent(in)  :: gcov(0:3,0:3),v(1:3),b(1:3)
+ real, intent(out) :: b0
+ real :: vdown(0:3)
+ integer :: mu
+
+ ! v_mu = g_mu nu v^nu with v^0 = 1
+ do mu=0,3
+    vdown(mu) = gcov(mu,0) + dot_product(gcov(mu,1:3),v)
+ enddo
+ b0 = -dot_product(b,vdown(1:3))/vdown(0)
+
+end subroutine get_b0
+
+!----------------------------------------------------------------
+!+
+!  lower the comoving magnetic field four-vector, given
+!  bxyz = (b^1,b^2,b^3,b^0), returning the spatial components
+!  of b_mu and b^2 = b^mu b_mu
+!+
+!----------------------------------------------------------------
+pure subroutine get_b_lower(gcov,bxyz,bdown,b2)
+ real, intent(in)  :: gcov(0:3,0:3),bxyz(4)
+ real, intent(out) :: bdown(3),b2
+ real :: b4(0:3),b4down(0:3)
+ integer :: mu
+
+ b4(0)   = bxyz(4)
+ b4(1:3) = bxyz(1:3)
+ do mu=0,3
+    b4down(mu) = dot_product(gcov(mu,:),b4)
+ enddo
+ b2    = dot_product(b4,b4down)
+ bdown = b4down(1:3)
+
+end subroutine get_b_lower
 
 end module utils_gr

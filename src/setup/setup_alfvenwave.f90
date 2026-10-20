@@ -6,12 +6,16 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup for MHD wave tests in 3D
+! Setup for MHD wave tests in 3D. In the GRMHD code the circularly
+! polarised Alfven wave is the exact large amplitude solution
+! in special relativity from Del Zanna et al. (2007)
 !
 ! :References:
 !    Toth G., 2000, J. Comp. Phys., 161, 605
 !    Stone J. M., et al., 2008, ApJS, 178, 137
 !    Gardiner T. A., Stone J. M., 2008, J. Comp. Phys., 227, 4123
+!    Del Zanna L., et al., 2007, A&A, 473, 11
+!    Beckwith K., Stone J. M., 2011, ApJS, 193, 6
 !
 ! :Owner: Daniel Price
 !
@@ -31,7 +35,7 @@ module setup
  integer :: iselect
  integer :: nx
  logical :: rotated
- real    :: wavelength, ampl
+ real    :: wavelength, ampl, przero, gamma_ad
 
  integer, parameter :: maxwaves = 5
  character(len=*), parameter :: wavetype(0:maxwaves-1) = &
@@ -54,14 +58,16 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu
+ use dim,          only:maxvxyzu,gr
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,&
                         dxbound,dybound,dzbound
  use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master
- use physcon,      only:pi
+ use physcon,      only:pi,solarm
+ use units,        only:set_units
+ use kernel,       only:radkern
  use geometry,     only:igeom_rotated,igeom_cartesian,&
                         set_rotation_angles,coord_transform
  use timestep,     only:tmax,dtmax
@@ -79,7 +85,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  character(len=*), intent(in)    :: fileprefix
  real :: deltax,totmass
  integer :: i,ierr,igeom
- real :: przero,uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3)
+ real :: uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3),U0,fac
  real :: sina,sinb,cosa,cosb,wk,sinx1,cosx1,rvec(8),uui
  real :: runit(3),gam1,x0(3),xdot0,x1
  real :: drho,dv(3),dB(3),du
@@ -89,13 +95,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 !--general parameters
 !
  time = 0.
- gamma = 5./3.
+ if (gr) call set_units(G=1.d0,c=1.d0,mass=10.*solarm)
 !
 !--default settings
 !
  rotated = .false.
  iselect = 0
  wavelength = 1.
+ if (gr) then
+    ! circularly polarised Alfven wave from Del Zanna et al. (2007)
+    gamma_ad = 4./3.
+    przero   = 1.
+    ampl     = 1.
+ else
+    gamma_ad = 5./3.
+    przero   = 0.1
+    ampl     = 0.1
+ endif
  !
  ! read setup parameters from the .setup file.
  ! if file does not exist, then ask for user input
@@ -103,6 +119,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
                   read_setupfile,write_setupfile,interactive_setup)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+ gamma = gamma_ad
 !
 !--setup parameters
 !
@@ -139,12 +156,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     call get_eigenvector(iselect,rvec)
     call get_amplitudes(iselect,Bzero,sqrt(gamma*przero/rhozero),rhozero,uuzero,przero,ampl,drho,dv,dB,du,vwave)
  case default
-    ampl   = 0.1
-    przero = 0.1
     Bzero  = (/1.,0.,0./)
     vzero  = 0.
     uuzero = przero/(gam1*rhozero)
-    vwave  = sqrt(dot_product(Bzero,Bzero)/rhozero) ! Alfven speed
+    if (gr) then
+       vwave = get_valfven_rel(rhozero,przero,gamma,Bzero(1),ampl)
+    else
+       vwave = sqrt(dot_product(Bzero,Bzero)/rhozero) ! Alfven speed
+    endif
  end select
 
  call prim_to_cons(rhozero,vzero,Bzero,uuzero,q0)
@@ -155,7 +174,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
             ' density = ',f6.3,',       pressure = ',f6.3,/, &
             '   vwave = ',f6.3,',         period = ',f6.3,/)
 
- call print_amplitudes(rhozero,drho,vzero,dv,Bzero,dB,uuzero,du)
+ if (iselect==0) then
+    print "(a,es12.4,a,f6.3)",' amplitude eta = ',ampl,' gamma = ',gamma
+ else
+    call print_amplitudes(rhozero,drho,vzero,dv,Bzero,dB,uuzero,du)
+ endif
 
  if (maxvxyzu < 4) then
     polyk = przero/rhozero**gamma
@@ -165,8 +188,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 !
 !--boundaries
 !
- call set_boundary(-1.5,1.5,-0.75,0.75,-0.75,0.75)
- deltax = dxbound/nx
+ if (gr .and. .not.rotated) then
+    ! one wavelength in x, thin in y and z with a multiple of 6 particle spacings
+    deltax = wavelength/nx
+    fac = 6.*(int((1.-epsilon(0.))*radkern/6.) + 1)
+    call set_boundary(-0.5*wavelength,0.5*wavelength,-fac*deltax*sqrt(0.75),fac*deltax*sqrt(0.75),&
+                      -fac*deltax*sqrt(6.)/3.,fac*deltax*sqrt(6.)/3.)
+ else
+    call set_boundary(-1.5,1.5,-0.75,0.75,-0.75,0.75)
+    deltax = dxbound/nx
+ endif
 
  wk = 2.*pi/wavelength
  x0 = (/xmin,ymin,zmin/)
@@ -183,7 +214,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  npartoftype(:) = 0
  npartoftype(igas) = npart
 
- totmass = rhozero*dxbound*dybound*dzbound
+ ! in GR the particle mass gives the conserved density rho* = U^0 rho (Minkowski),
+ ! which is uniform in the circularly polarised wave since |v| is constant
+ U0 = 1.
+ if (gr .and. iselect==0) U0 = 1./sqrt(1. - (vwave*ampl)**2)
+ totmass = U0*rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart
  print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
@@ -209,8 +244,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
        !q = q0 + ampl*rvec*cosx1
        !call cons_to_prim(q,rhoi,vvec,Bvec,uui)
     case default
-       vvec = vzero + ampl*(/0.,sinx1,cosx1/)
-       bvec = Bzero + ampl*(/0.,sinx1,cosx1/)
+       if (gr) then
+          ! lab frame field B = B0 (1, eta cos, eta sin), v = -v_A B_perp/B0,
+          ! converted to the comoving field b^i = B^i/U^0 + U^0 (v.B) v^i
+          bvec = Bzero + Bzero(1)*ampl*(/0.,cosx1,sinx1/)
+          vvec = vzero - vwave*ampl*(/0.,cosx1,sinx1/)
+          bvec = bvec/U0 + U0*dot_product(vvec,bvec)*vvec
+       else
+          vvec = vzero + ampl*(/0.,sinx1,cosx1/)
+          bvec = Bzero + ampl*(/0.,sinx1,cosx1/)
+       endif
        uui  = uuzero
     end select
 
@@ -225,6 +268,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 
  tmax = wavelength/vwave
  dtmax = 0.1*tmax
+ if (gr) then
+    ! two wave periods, dumps every half period
+    dtmax = 0.5*tmax
+    tmax  = 2.*tmax
+ endif
 
 contains
 
@@ -243,6 +291,22 @@ real function rhofunc(xi)
 end function rhofunc
 
 end subroutine setpart
+
+!-------------------------------------------------
+!+
+!  phase speed of the large amplitude circularly polarised
+!  Alfven wave in special relativity, Eq. 60 of Del Zanna et al. (2007)
+!+
+!-------------------------------------------------
+real function get_valfven_rel(rho,pr,gamma,B0,eta) result(va)
+ real, intent(in) :: rho,pr,gamma,B0,eta
+ real :: rhow,denom
+
+ rhow  = rho + gamma/(gamma - 1.)*pr
+ denom = rhow + B0**2*(1. + eta**2)
+ va    = sqrt(2.*B0**2/denom/(1. + sqrt(1. - (2.*eta*B0**2/denom)**2)))
+
+end function get_valfven_rel
 
 !-------------------------------------------------
 !+
@@ -492,6 +556,11 @@ subroutine write_setupfile(filename)
  call write_inopt(rotated,'rotated',' rotate wave vector?',lu,ierr1)
  if (ierr1 /= 0) write(*,*) 'ERROR writing rotated'
 
+ write(lu,"(/,a)") '# circularly polarised Alfven wave (iselect=0)'
+ call write_inopt(ampl,'ampl','amplitude eta of transverse field, B_perp = eta B_x',lu,ierr1)
+ call write_inopt(przero,'przero','pressure',lu,ierr1)
+ call write_inopt(gamma_ad,'gamma','adiabatic index',lu,ierr1)
+
  write(lu,"(/,a)") '# resolution'
  call write_inopt(nx,'nx','resolution (number of particles in x) for -xleft < x < xshock',lu,ierr1)
  if (ierr1 /= 0) write(*,*) 'ERROR writing nx'
@@ -521,6 +590,9 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(nx,'nx',db,min=8,errcount=nerr)
  call read_inopt(iselect,'iselect',db,min=0,errcount=nerr)
  call read_inopt(rotated,'rotated',db,errcount=nerr)
+ call read_inopt(ampl,'ampl',db,min=0.,errcount=nerr)
+ call read_inopt(przero,'przero',db,min=0.,errcount=nerr)
+ call read_inopt(gamma_ad,'gamma',db,min=1.,errcount=nerr)
 
  if (nerr > 0) then
     print "(1x,a,i2,a)",'setup_wave: ',nerr,' error(s) during read of setup file'

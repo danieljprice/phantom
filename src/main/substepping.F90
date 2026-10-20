@@ -44,7 +44,8 @@ contains
 
 subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,rho,eos_vars,igasP,&
-                              ien_type,eos_vars,igamma,itemp
+                              ien_type,eos_vars,igamma,itemp,Bevol,Bxyz
+ use dim,             only:mhd
  use cons2primsolver, only:conservative2primitive
  use io,              only:warning
  use metric_tools,    only:pack_metric
@@ -58,13 +59,13 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  integer :: i,niter,ierr
  real    :: xpred(1:3),vold(1:3),diff
  logical :: converged
- real    :: rhoi,pri,tempi,gammai
+ real    :: rhoi,pri,tempi,gammai,bevoli(3),bxyzi(4)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol,rho) &
- !$omp shared(pxyzu,metrics,ien_type,eos_vars) &
+ !$omp shared(pxyzu,metrics,ien_type,eos_vars,Bevol,Bxyz) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
- !$omp private(pri,rhoi,tempi,gammai)
+ !$omp private(pri,rhoi,tempi,gammai,bevoli,bxyzi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
 
@@ -73,9 +74,12 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        tempi  = eos_vars(itemp,i)
        gammai = eos_vars(igamma,i)
        rhoi   = rho(i)
+       bevoli = 0.
+       if (mhd) bevoli = Bevol(1:3,i)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
-                                      pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+                                      pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type,&
+                                      bevol=bevoli,bxyz=bxyzi)
        if (ierr > 0) call warning('cons2primsolver [in substep_sph_gr (a)]','enthalpy did not converge',i=i)
        !
        ! main position update
@@ -87,7 +91,8 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        do while (.not. converged .and. niter<=nitermax)
           niter = niter + 1
           call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
-                                         pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+                                         pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type,&
+                                      bevol=bevoli,bxyz=bxyzi)
           if (ierr > 0) call warning('cons2primsolver [in substep_sph_gr (b)]','enthalpy did not converge',i=i)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
@@ -98,6 +103,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
        if (niter > nitermax) call warning('substep_sph_gr','Reached max number of x iterations. x_err ',val=diff)
 
        ! repack values
+       if (mhd) Bxyz(:,i) = bxyzi
        eos_vars(igasP,i)  = pri
        eos_vars(itemp,i)  = tempi
        eos_vars(igamma,i) = gammai
@@ -746,7 +752,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                      metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,dens,pxyzu_ptmass,&
                      skip_metric_update,recompute_gr_force)
  use io,              only:iverbose,master,id,iprint,warning,fatal
- use dim,             only:maxp,maxvxyzu,itau_alloc,gr,use_apr,maxptmass,use_sinktree
+ use dim,             only:maxp,maxvxyzu,itau_alloc,gr,use_apr,maxptmass,use_sinktree,mhd
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
                            ptmass_vdependent_correction,n_force_order,use_regnbody,&
                            icreate_sinks
@@ -755,7 +761,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
                            nucleation,idK2,idmu,idkappa,idgamma,imu,igamma,n_group,n_ingroup,n_sing,&
-                           apr_level,aprmassoftype,ipert,fgr,igasP,rho
+                           apr_level,aprmassoftype,ipert,fgr,igasP,rho,Bxyz
  use cooling_ism,     only:dphot0,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force,dtf_gr_min
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
@@ -792,7 +798,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real                 :: fonrmaxi,phii,dtphi2i
  real                 :: dkdt,extrapfac
- real                 :: densi,uui,pri,vxyz(3),fext_gr(3),xyz(3)
+ real                 :: densi,uui,pri,vxyz(3),fext_gr(3),xyz(3),bxyzi(4)
  logical              :: extrap,last,do_recompute_gr,do_skip_metric_update
 
  allocate(merge_ij(nptmass))
@@ -920,10 +926,10 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp shared(isink_radiation,itau_alloc,tau,bin_info) &
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,C_force) &
- !$omp shared(fgr,do_recompute_gr) &
+ !$omp shared(fgr,do_recompute_gr,Bxyz) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
- !$omp private(densi,uui,pri,xyz,vxyz,fext_gr) &
+ !$omp private(densi,uui,pri,xyz,vxyz,fext_gr,bxyzi) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
@@ -976,7 +982,10 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           densi = dens(i)
           pri   = eos_vars(igasP,i)
           if (do_recompute_gr) then
-             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fext_gr,dtf)
+             bxyzi = 0.
+             if (mhd) bxyzi = Bxyz(:,i)
+             call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fext_gr,dtf,&
+                              bxyzi=bxyzi)
              fgr(1:3,i) = fext_gr
              dtextforcenew = min(dtextforcenew,C_force*dtf)
           else
@@ -1218,7 +1227,8 @@ end subroutine get_external_force_gas
 subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,timei,&
                         xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,fxyz_ptmass,metrics_ptmass,metricderivs_ptmass,dsdt_ptmass)
  use part,           only:isdead_or_accreted,rho,&
-                          eos_vars,igamma,itemp,igasP,ien_type,fgr
+                          eos_vars,igamma,itemp,igasP,ien_type,fgr,Bevol,Bxyz
+ use dim,            only:mhd
  use extern_gr,      only:get_grforce
  use io,             only:warning,id,master,iverbose,iprint
  use cons2primsolver,only:conservative2primitive
@@ -1241,6 +1251,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
  real    :: densi,pri,gammai,tempi,rhoi
  real    :: pmom_err,x_err,perrmax,xerrmax
  real    :: pprev(3),xyz_prev(3),fstar(3),vxyz_star(3),xyz(3),pxyz(3),vxyz(3),fexti(3),fprev(3),dtf
+ real    :: bevoli(3),bxyzi(4)
 
  dtf_gr_min = bignumber
 
@@ -1256,7 +1267,8 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
  !$omp parallel do default(none) &
  !$omp shared(xyzh,npart,pxyzu,vxyzu,rho) &
  !$omp shared(hdt,dens,eos_vars,ien_type,metrics,metrics_ptmass) &
- !$omp shared(metricderivs,fext,ptol,dt,xtol,fgr,nsubsteps) &
+ !$omp shared(metricderivs,fext,ptol,dt,xtol,fgr,nsubsteps,Bevol,Bxyz) &
+ !$omp private(bevoli,bxyzi) &
  !$omp private(eni,uui,densi,pri,gammai,tempi,rhoi) &
  !$omp private(i,hi,its,converged,ierr,pmom_err,x_err) &
  !$omp private(pprev,xyz_prev,fstar,vxyz_star,xyz,pxyz,vxyz,fexti,fprev,dtf) &
@@ -1280,6 +1292,12 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
        vxyz(1:3) = vxyzu(1:3,i)
        uui       = vxyzu(4,i)
        fexti     = fext(1:3,i)
+       bevoli    = 0.
+       bxyzi     = 0.
+       if (mhd) then
+          bevoli = Bevol(1:3,i)
+          bxyzi  = Bxyz(:,i)
+       endif
 
        pxyz = pxyz + hdt*fexti  ! pmom_star
 
@@ -1295,7 +1313,8 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
        if (nsubsteps > 1) then
           fprev = fgr(1:3,i)
        else
-          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar,&
+                           bxyzi=bxyzi)
           fprev = fstar
        endif
        fexti = fexti - fprev
@@ -1306,10 +1325,12 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
           its = its + 1
           pprev = pxyz
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
-                                      tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
+                                      tempi,gammai,rhoi,pxyz,eni,ierr,ien_type,&
+                                      bevol=bevoli,bxyz=bxyzi)
           if (ierr > 0) call warning('cons2primsolver [in substep_gr gas (a)]','enthalpy did not converge',i=i)
           ! calculate the force on gas particles using new vxyz
-          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
+          call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar,&
+                           bxyzi=bxyzi)
 
           pxyz = pprev + hdt*(fstar - fprev)
           pmom_err = maxval(abs(pxyz - pprev))
@@ -1326,7 +1347,8 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
 
        ! recalculate velocity for the new pxyz
        call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
-                                   gammai,rhoi,pxyz,eni,ierr,ien_type)
+                                   gammai,rhoi,pxyz,eni,ierr,ien_type,&
+                                      bevol=bevoli,bxyz=bxyzi)
        if (ierr > 0) call warning('cons2primsolver [in kickdrift_gr gas (b)]','enthalpy did not converge',i=i)
        xyz = xyz + dt*vxyz
        call pack_metric(xyz,metrics(:,:,:,i))
@@ -1344,7 +1366,8 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
           its      = its + 1
           xyz_prev = xyz
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
-                                      pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
+                                      pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type,&
+                                      bevol=bevoli,bxyz=bxyzi)
           if (ierr > 0) call warning('cons2primsolver [in kickdrift_gr gas (c)]','enthalpy did not converge',i=i)
           xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
           x_err = maxval(abs(xyz-xyz_prev))
@@ -1362,7 +1385,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
        ! cache GR force at final predictor state for get_force
        xyzh(1:3,i) = xyz(1:3)
        call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,&
-                        fgr(1:3,i),dtf)
+                        fgr(1:3,i),dtf,bxyzi=bxyzi)
        dtf_gr_min = min(dtf_gr_min,dtf)
 
        ! re-pack arrays back where they belong
@@ -1371,6 +1394,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
        vxyzu(4,i) = uui
        fext(:,i)  = fexti ! update fext with new force (this isn't actually used as next step calls get_force)
        dens(i) = densi
+       if (mhd) Bxyz(:,i) = bxyzi
        eos_vars(igasP,i)  = pri
        eos_vars(itemp,i)  = tempi
        eos_vars(igamma,i) = gammai

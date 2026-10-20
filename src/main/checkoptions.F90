@@ -83,10 +83,6 @@ subroutine check_compile_time_settings(ierr)
 
  if (use_dust .and. mhd .and. id==master) call error(string,'-DDUST currently not compatible with magnetic fields (-DMHD)')
 
- if (gr .and. mhd) then
-    if (id==master) call error(string,'General relativity not compatible with MHD.')
-    ierr = 6
- endif
  if (gr .and. use_dust) then
     if (id==master) call error(string,'General relativity not compatible with dust.')
     ierr = 7

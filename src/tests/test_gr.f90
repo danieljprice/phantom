@@ -43,6 +43,7 @@ subroutine test_gr(ntests,npass)
  call set_units(mass=1.d6*solarm,G=1.d0,c=1.d0)
  if (id==master) write(*,"(/,a,/)") '--> TESTING GENERAL RELATIVITY'
  call test_combinations_all(ntests,npass)
+ call test_cons2prim_mhd(ntests,npass)
  call test_coord_accel(ntests,npass)
  call test_precession(ntests,npass)
  call test_inccirc(ntests,npass)
@@ -54,6 +55,105 @@ subroutine test_gr(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
+
+!-----------------------------------------------------------------------
+!+
+!   Test of the GRMHD primitive variable solver: round trip
+!   prim -> cons -> prim for a range of positions, velocities and
+!   magnetic fields, and checks of the identities between the
+!   conserved variables, e.g. p_mu B^mu = sqrt(-g) b^0 w
+!+
+!-----------------------------------------------------------------------
+subroutine test_cons2prim_mhd(ntests,npass)
+ use dim,             only:mhd
+ use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use part,            only:ien_entropy
+ use metric_tools,    only:pack_metric,unpack_metric
+ use utils_gr,        only:get_sqrtg,get_u0,dot_product_gr
+ use io,              only:id,master
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nx = 3, nv = 4, nb = 4
+ real    :: xlist(3,nx),vlist(3,nv),blist(3,nb)
+ real    :: metrici(0:3,0:3,2),gcov(0:3,0:3)
+ real    :: x(3),v(3),dens,u,p,gamma,rho,pmom(3),en,bxyz(4),bevol(3)
+ real    :: v_out(3),dens_out,u_out,p_out,temp,gamma_out,bxyz_out(4)
+ real    :: sqrtg,u0,enth,pdotb,v4(0:3),b4(0:3)
+ real    :: errmax(6)
+ integer :: ix,iv,ib,ierr,nfail(7),ncheck(7),ierrmax
+ ! tolerances set just above the errors obtained
+ real, parameter :: tolpb = 1.e-15, tolbu = 1.e-16, tolv = 2.e-16, tolprim = 4.e-16
+
+ if (.not.mhd) return
+ if (id==master) write(*,"(/,a)") '--> testing GRMHD cons2prim'
+ ! positions outside the horizon, velocities and comoving fields b^i
+ xlist(:,1) = (/10.,0.,0./)
+ xlist(:,2) = (/5.,-3.,2./)
+ xlist(:,3) = (/-3.,4.,8./)
+ vlist(:,1) = (/0.,0.,0./)
+ vlist(:,2) = (/0.1,-0.05,0.02/)
+ vlist(:,3) = (/-0.2,0.15,0.1/)
+ vlist(:,4) = (/0.,0.25,-0.1/)
+ blist(:,1) = (/0.,0.,0./)
+ blist(:,2) = (/1.e-3,0.,0./)
+ blist(:,3) = (/0.3,-0.2,0.1/)
+ blist(:,4) = (/1.,0.5,-0.8/)
+
+ gamma = 5./3.
+ dens  = 1.
+ u     = 1.
+ nfail = 0; ncheck = 0; errmax = 0.; ierrmax = 0
+ do ix=1,nx
+    x = xlist(:,ix)
+    call pack_metric(x,metrici)
+    call unpack_metric(metrici,gcov=gcov)
+    call get_sqrtg(gcov,sqrtg)
+    do iv=1,nv
+       v = vlist(:,iv)
+       do ib=1,nb
+          p = (gamma - 1.)*dens*u
+          bxyz(1:3) = blist(:,ib)
+          call primitive2conservative(x,metrici,v,dens,u,p,rho,pmom,en,ien_entropy,bxyz=bxyz,bevol=bevol)
+
+          ! check p_mu B^mu = sqrt(-g) b^0 w, with B^0 = 0 and B^i = rho* bevol
+          enth  = 1. + u + p/dens
+          pdotb = dot_product(pmom,rho*bevol)
+          call checkvalbuf(pdotb,sqrtg*bxyz(4)*enth,tolpb,'p_i B^i = sqrt(-g) b^0 w',&
+                           nfail(1),ncheck(1),errmax(1))
+          ! check b^mu U_mu = 0
+          call get_u0(gcov,v,u0,ierr)
+          v4(0) = 1.
+          v4(1:3) = v
+          b4(0) = bxyz(4)
+          b4(1:3) = bxyz(1:3)
+          call checkvalbuf(dot_product_gr(b4,v4,gcov),0.,tolbu,'b^mu U_mu = 0',nfail(2),ncheck(2),errmax(2))
+
+          ! solve for the primitive variables starting from a perturbed guess
+          v_out    = 0.
+          dens_out = 1.1*dens
+          u_out    = 0.9*u
+          p_out    = 0.9*p
+          gamma_out = gamma
+          temp     = 0.
+          call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho,pmom,en,&
+                                      ierr,ien_entropy,bevol=bevol,bxyz=bxyz_out)
+          call checkvalbuf(ierr,0,0,'ierr (convergence)',nfail(3),ncheck(3),ierrmax)
+          call checkvalbuf(maxval(abs(v_out - v)),0.,tolv,'v',nfail(4),ncheck(4),errmax(3))
+          call checkvalbuf(dens_out,dens,tolprim,'dens',nfail(5),ncheck(5),errmax(4))
+          call checkvalbuf(u_out,u,tolprim,'u',nfail(6),ncheck(6),errmax(5))
+          call checkvalbuf(maxval(abs(bxyz_out - bxyz)),0.,tolprim,'b^mu',nfail(7),ncheck(7),errmax(6))
+       enddo
+    enddo
+ enddo
+ call checkvalbuf_end('p_i B^i = sqrt(-g) b^0 w',ncheck(1),nfail(1),errmax(1),tolpb)
+ call checkvalbuf_end('b^mu U_mu = 0',ncheck(2),nfail(2),errmax(2),tolbu)
+ call checkvalbuf_end('cons2prim converged',ncheck(3),nfail(3),ierrmax,0)
+ call checkvalbuf_end('cons2prim v',ncheck(4),nfail(4),errmax(3),tolv)
+ call checkvalbuf_end('cons2prim dens',ncheck(5),nfail(5),errmax(4),tolprim)
+ call checkvalbuf_end('cons2prim u',ncheck(6),nfail(6),errmax(5),tolprim)
+ call checkvalbuf_end('cons2prim b^mu',ncheck(7),nfail(7),errmax(6),tolprim)
+ call update_test_scores(ntests,nfail,npass)
+
+end subroutine test_cons2prim_mhd
 
 !-----------------------------------------------------------------------
 !+

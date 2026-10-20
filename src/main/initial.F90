@@ -460,7 +460,7 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
  use dim,            only:gr,maxp,maxphase
  use io,             only:iprint,id,master,fatal
  use part,           only:npart,xyzh,vxyzu,fext,iphase,iamtype,iboundary,&
-                          isdead_or_accreted,dens,metrics,metricderivs,pxyzu,rho
+                          isdead_or_accreted,dens,metrics,metricderivs,pxyzu,rho,Bxyz,Bevol
  use cons2prim,      only:prim2consall
  use deriv,          only:get_density_global
  use externalforces, only:initialise_externalforces,externalforce,&
@@ -484,7 +484,7 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
     ! kernel-summed rho required for prim2consall (all MPI ranks must call this)
     call get_density_global(2,zero_fxyzu=.true.)
     call init_metric(npart,xyzh,metrics,metricderivs,time=time)
-    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
+    call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens,Bxyz=Bxyz,Bevol=Bevol)
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
        call initialise_externalforces(iexternalforce,ierr)
        if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')

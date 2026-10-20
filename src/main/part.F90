@@ -25,7 +25,7 @@ module part
 ! :Dependencies: allocutils, dim, dtypekdtree, io, krome_user, mpiutils
 !
  use dim, only:ndim,maxp,maxpsph,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
-               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
+               maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,maxBxyz,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,track_lum,maxlum,nalpha,maxmhdni, &
@@ -472,7 +472,7 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('apr_level',apr_level,maxp_apr)
- call allocate_array('Bxyz', Bxyz, 3, maxmhd)
+ call allocate_array('Bxyz', Bxyz, maxBxyz, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('iseed_sink', iseed_sink, maxp*merge(1,0,inject_parts))
  call allocate_array('dustprop', dustprop, 2, maxp_growth)

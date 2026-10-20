@@ -97,7 +97,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation,&
                           use_porosity,icooling
  use shock_capturing,only:avdecayconst,alpha,alphamax
- use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
+ use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,Bxyz, &
                           rad,drad,radprop,isdead_or_accreted,rho,&
                           iphase,iamtype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
@@ -261,7 +261,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !----------------------------------------------------------------------
  call get_timings(t1,tcpu1)
  if (gr) then
-    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,Bevol=Bevol,Bxyz=Bxyz)
     !call cons2primall_sink(nptmass,xyzmh_ptmass,metrics_ptmass,pxyzu_ptmass,vxyz_ptmass)
 
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0 .or. nptmass > 0) then
@@ -764,7 +764,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
 
- if (gr) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+ if (gr) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,Bevol=Bevol,Bxyz=Bxyz)
 
 end subroutine step
 

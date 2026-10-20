@@ -120,14 +120,18 @@ module forces
        imsinki         = 52, &
        idvxdxi         = 53, &
        idvzdzi         = 61, &
+ !--lower half of the (non-symmetric) stress tensor in GRMHD
+       isyxi           = 62, &
+       iszxi           = 63, &
+       iszyi           = 64, &
  !--dust arrays initial index
-       idustfraci      = 62, &
+       idustfraci      = 65, &
  !--dust arrays final index
-       idustfraciend   = 62 + (maxdusttypes - 1), &
-       itstop          = 63 + (maxdusttypes - 1), &
-       itstopend       = 63 + 2*(maxdusttypes - 1), &
+       idustfraciend   = 65 + (maxdusttypes - 1), &
+       itstop          = 66 + (maxdusttypes - 1), &
+       itstopend       = 66 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust     = 63 + 2*(maxdusttypes - 1), &
+       lastxpvdust     = 66 + 2*(maxdusttypes - 1), &
        iradxii         = lastxpvdust + 1, &
        iradfxi         = lastxpvdust + 2, &
        iradfyi         = lastxpvdust + 3, &
@@ -949,7 +953,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dim,         only:use_dust,use_dustgrowth,ind_timesteps
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon,drag_implicit
  use kernel,      only:wkern_drag,cnormk_drag,wkern,cnormk
- use part,        only:ndustsmall,grainsize,graindens,ndustsmall,grainsize,graindens,filfac
+ use part,        only:ndustsmall,grainsize,graindens,filfac,Bxyz
  use options,     only:use_porosity
  use growth,      only:get_size
  use kernel,      only:wkern,cnormk
@@ -961,7 +965,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use options,     only:use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
  use metric_tools,only:imet_minkowski,imetric
- use utils_gr,    only:get_bigv
+ use utils_gr,    only:get_bigv,get_b_lower
  use radiation_utils, only:get_rad_R
  use io,          only:fatal
  integer,         intent(in)    :: i
@@ -1016,6 +1020,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: gradp,projsx,projsy,projsz,Bxj,Byj,Bzj,Bj,Bj1,psij
  real    :: grkernj,grgrkernj,autermj,avBtermj,vsigj,spsoundj,tempj
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
+ real    :: syxj,szxj,szyj,bdownj(3),b2j,rhoej
  real    :: visctermisoj,visctermanisoj,enj,hj,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
  real    :: hj1,hj21,q2j,qj,vwavej,divvj
@@ -1039,7 +1044,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: sqrtrhodustfraci(maxdusttypes),sqrtrhodustfracj(maxdusttypes)
  real    :: dustfracisum,dustfracjsum,rhogasj,epstsi!,rhogas1j
  real    :: vwavei,rhoi,rho1i,spsoundi,tempi
- real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi
+ real    :: sxxi,sxyi,sxzi,syyi,syzi,szzi,syxi,szxi,szyi
  real    :: visctermiso,visctermaniso
  real    :: pri,pro2i
  real    :: etaohmi,etahalli,etaambii
@@ -1083,6 +1088,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  syyi          = xpartveci(isyyi)
  syzi          = xpartveci(isyzi)
  szzi          = xpartveci(iszzi)
+ syxi          = xpartveci(isyxi)
+ szxi          = xpartveci(iszxi)
+ szyi          = xpartveci(iszyi)
  visctermiso   = xpartveci(ivisctermisoi)
  visctermaniso = xpartveci(ivisctermanisoi)
  pri           = xpartveci(ipri)
@@ -1462,9 +1470,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        if (iamgasi .and. iamgasj) then
           !--work out vsig for timestepping and av
           if (gr) then
-             ! fastest signal speed between particles, cs + vij added relativistically
+             ! fastest signal speed between particles, vwave + vij added relativistically
              ! so that vsig < 1 (Liptai & Price 2019)
-             vsigi     = (spsoundi + vij)/(1. + spsoundi*vij)
+             vsigi     = (vwavei + vij)/(1. + vwavei*vij)
              vsigavi   = alphai*vsigi
           else
              vsigi     = max(vwavei - beta*projv,0.)
@@ -1472,12 +1480,19 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
           if (vsigi > vsigmax) vsigmax = vsigi
 
+          bdownj = 0.; b2j = 0.; rhoej = 0.
           if (mhd) then
              hj   = xyzh(4,j)
              Bxj  = Bevol(1,j)*rhoj
              Byj  = Bevol(2,j)*rhoj
              Bzj  = Bevol(3,j)*rhoj
              psij = Bevol(4,j)
+             if (gr) then
+                ! b_i/U^0, b^2 and rho(1+u) for the GRMHD stress, with U^0 = W/alpha
+                call get_b_lower(metricj(:,:,1),Bxyz(:,j),bdownj,b2j)
+                bdownj = bdownj*alphagrj/lorentzj
+                rhoej  = dens(j)*(1. + enj)
+             endif
 
              dBx = Bxi - Bxj
              dBy = Byi - Byj
@@ -1531,8 +1546,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              !
              call get_stress(prj,spsoundj,rhoj,rho1j,xj,yj,zj,Bxj,Byj,Bzj, &
                         pro2j,vwavej, &
-                        sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
-                        realviscosity,divvj,bulkvisc,dvdxj,stressmax,radPj)
+                        sxxj,sxyj,sxzj,syyj,syzj,szzj,syxj,szxj,szyj,visctermisoj,visctermanisoj, &
+                        realviscosity,divvj,bulkvisc,dvdxj,stressmax,radPj, &
+                        bdownj,b2j,rhoej)
 
              ! shock conductivity / resistivity (mass applied in pair loop)
              autermj  = 0.5*rho1j*alphau
@@ -1540,7 +1556,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
              if (gr) then
                 ! as for particle i
-                vsigj   = (spsoundj + vij)/(1. + spsoundj*vij)
+                vsigj   = (vwavej + vij)/(1. + vwavej*vij)
                 vsigavj = alphaj*vsigj
              else
                 vsigj = max(vwavej - beta*projv,0.)
@@ -1552,6 +1568,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (vsigj > vsigmax) vsigmax = vsigj
              vsigavj = 0.; vwavej = 0.; avBtermj = 0.; autermj = 0. ! avoid compiler warnings
              sxxj = 0.; sxyj = 0.; sxzj = 0.; syyj = 0.; syzj = 0.; szzj = 0.; pro2j = 0.; prj = 0.
+             syxj = 0.; szxj = 0.; szyj = 0.
              dustfracj = 0.; dustfracjsum = 0.; sqrtrhodustfracj = 0.
           endif
        else ! set to zero terms which are used below without an if (usej)
@@ -1579,6 +1596,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           sqrtrhodustfracj = 0.
           dvdxj(:) = 0.
           sxxj = 0.; sxyj = 0.; sxzj = 0.; syyj = 0.; syzj = 0.; szzj = 0.
+          syxj = 0.; szxj = 0.; szyj = 0.
        endif
 
        ifgas: if (iamgasi .and. iamgasj) then
@@ -1726,12 +1744,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !  in direction of particle pair
           !
           projsxi = pmassj*(sxxi*runix + sxyi*runiy + sxzi*runiz)*grkerni
-          projsyi = pmassj*(sxyi*runix + syyi*runiy + syzi*runiz)*grkerni
-          projszi = pmassj*(sxzi*runix + syzi*runiy + szzi*runiz)*grkerni
+          projsyi = pmassj*(syxi*runix + syyi*runiy + syzi*runiz)*grkerni
+          projszi = pmassj*(szxi*runix + szyi*runiy + szzi*runiz)*grkerni
           if (usej) then
              projsxj = pmassj*(sxxj*runix + sxyj*runiy + sxzj*runiz)*grkernj
-             projsyj = pmassj*(sxyj*runix + syyj*runiy + syzj*runiz)*grkernj
-             projszj = pmassj*(sxzj*runix + syzj*runiy + szzj*runiz)*grkernj
+             projsyj = pmassj*(syxj*runix + syyj*runiy + syzj*runiz)*grkernj
+             projszj = pmassj*(szxj*runix + szyj*runiy + szzj*runiz)*grkernj
           endif
           !
           !--physical viscosity term (direct second derivatives)
@@ -2119,25 +2137,26 @@ end subroutine compute_forces
 subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
                  Bxi,Byi,Bzi, &
                  pro2i,vwavei, &
-                 sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
+                 sxxi,sxyi,sxzi,syyi,syzi,szzi,syxi,szxi,szyi,visctermiso,visctermaniso, &
                  realviscosity,divvi,bulkvisc,dvdx,stressmax, &
-                 radPi)
+                 radPi,bdowni,b2i,rhoei)
 
- use dim,             only:maxdvdx,maxp
+ use dim,             only:maxdvdx,maxp,gr
  use part,            only:mhd,strain_from_dvdx
  use viscosity,       only:shearfunc
 
  real,    intent(in)  :: pri,spsoundi,rhoi,rho1i,xi,yi,zi
  real,    intent(in)  :: Bxi,Byi,Bzi
  real,    intent(out) :: pro2i,vwavei
- real,    intent(out) :: sxxi,sxyi,sxzi,syyi,syzi,szzi
+ real,    intent(out) :: sxxi,sxyi,sxzi,syyi,syzi,szzi,syxi,szxi,szyi
  real,    intent(out) :: visctermiso,visctermaniso
  logical, intent(in)  :: realviscosity
  real,    intent(in)  :: divvi,bulkvisc,stressmax
  real,    intent(in)  :: dvdx(9)
  real,    intent(in)  :: radPi
+ real,    intent(in)  :: bdowni(3),b2i,rhoei  ! GRMHD only: b_i/U^0, b^2 and rho(1+u)
 
- real :: Bro2i,Brhoxi,Brhoyi,Brhozi
+ real :: Bro2i,Brhoxi,Brhoyi,Brhozi,cxi,cyi,czi
  real :: stressiso,term,graddivvcoeff,del2vcoeff,strain(6)
  real :: shearvisc,etavisc,valfven2i
 
@@ -2180,6 +2199,11 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
     endif
  endif
 
+ !--viscous stress is symmetric
+ syxi = sxyi
+ szxi = sxzi
+ szyi = syzi
+
  if (mhd) then
 !
 !--construct useful terms based on the B-field
@@ -2192,13 +2216,35 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
     valfven2i = Bro2i*rhoi
     vwavei    = sqrt(spsoundi*spsoundi + valfven2i)
 
-    !--MHD terms in stress tensor
-    sxxi  = sxxi - Brhoxi*Brhoxi
-    sxyi  = sxyi - Brhoxi*Brhoyi
-    sxzi  = sxzi - Brhoxi*Brhozi
-    syyi  = syyi - Brhoyi*Brhoyi
-    syzi  = syzi - Brhoyi*Brhozi
-    szzi  = szzi - Brhozi*Brhozi
+    if (gr) then
+       !
+       !--GRMHD: sqrt(-g) S_i^j/rho*^2 with S_i^j = (P + b^2/2) delta_i^j - b_i B^j/(sqrt(-g) U^0)
+       !  where B^j/rho* = Bevol and bdowni = b_i/U^0. The sqrt(-g) on the isotropic
+       !  part is assumed to be unity, as in the hydro terms
+       !
+       cxi = bdowni(1)*rho1i
+       cyi = bdowni(2)*rho1i
+       czi = bdowni(3)*rho1i
+       Bro2i = b2i*rho1i*rho1i
+       !--fast magnetosonic speed using the relativistic Alfven speed, v_A^2 = b^2/(rho w + b^2)
+       valfven2i = b2i/(rhoei + pri + b2i)
+       vwavei    = sqrt(valfven2i + spsoundi*spsoundi*(1. - valfven2i))
+    else
+       cxi = Brhoxi
+       cyi = Brhoyi
+       czi = Brhozi
+    endif
+
+    !--MHD terms in stress tensor, S_i^j = -c_i B^j/rho
+    sxxi  = sxxi - cxi*Brhoxi
+    sxyi  = sxyi - cxi*Brhoyi
+    sxzi  = sxzi - cxi*Brhozi
+    syxi  = syxi - cyi*Brhoxi
+    syyi  = syyi - cyi*Brhoyi
+    syzi  = syzi - cyi*Brhozi
+    szxi  = szxi - czi*Brhoxi
+    szyi  = szyi - czi*Brhoyi
+    szzi  = szzi - czi*Brhozi
 !
 !--construct total isotropic pressure term (gas + magnetic + stress)
 !
@@ -2231,7 +2277,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                 igradzeta,igradsoft
  use part,      only:iamgas,maxphase,igas,isink,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
-                     xyzmh_ptmass,rho
+                     xyzmh_ptmass,rho,Bxyz
+ use utils_gr,  only:get_u0,get_b_lower
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
  use options,   only:use_porosity,implicit_radiation
@@ -2271,7 +2318,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: hi,rhoi,rho1i,pmassi,eni
  real(kind=8) :: hi1
  real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,pro2i,pri,spsoundi,tempi
- real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
+ real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,syxi,szxi,szyi,visctermiso,visctermaniso
+ real         :: bdowni(3),b2gri,u0i,rhoei
+ integer      :: ierru0
  real         :: tstopi(maxdusttypes)
  real         :: Bxi,Byi,Bzi,B2i,Bi1
  real         :: vwavei,alphai
@@ -2358,10 +2407,18 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           rhogasi      = rhoi
        endif
 
+       bdowni = 0.; b2gri = 0.; rhoei = 0.
        if (mhd) then
           Bxi = Bevol(1,i) * rhoi ! B/rho -> B (conservative to primitive)
           Byi = Bevol(2,i) * rhoi
           Bzi = Bevol(3,i) * rhoi
+          if (gr) then
+             ! b_i/U^0, b^2 and rho(1+u) for the GRMHD stress tensor
+             call get_u0(metrics(:,:,1,i),vxyzu(1:3,i),u0i,ierru0)
+             call get_b_lower(metrics(:,:,1,i),Bxyz(:,i),bdowni,b2gri)
+             bdowni = bdowni/u0i
+             rhoei  = dens(i)*(1. + eni)
+          endif
           if (mhd_nonideal) then
              B2i = Bxi**2 + Byi**2 + Bzi**2
              if (B2i > 0.0) then
@@ -2387,9 +2444,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   xyzh(1,i),xyzh(2,i),xyzh(3,i), &
                   Bxi,Byi,Bzi, &
                   pro2i, &
-                  vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
+                  vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi,syxi,szxi,szyi, &
                   visctermiso,visctermaniso,realviscosity,divvi,bulkvisc,dvdxi,stressmax, &
-                  radPi)
+                  radPi,bdowni,b2gri,rhoei)
 
        !
        ! get stopping time - for one fluid dust we don't know deltav, but as small by definition we assume=0
@@ -2422,6 +2479,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        syyi = 0.
        syzi = 0.
        szzi = 0.
+       syxi = 0.
+       szxi = 0.
+       szyi = 0.
        visctermiso = 0.
        visctermaniso = 0.
        dustfraci = 0.
@@ -2499,6 +2559,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(isyyi,cell%npcell)           = syyi
           cell%xpartvec(isyzi,cell%npcell)           = syzi
           cell%xpartvec(iszzi,cell%npcell)           = szzi
+          cell%xpartvec(isyxi,cell%npcell)           = syxi
+          cell%xpartvec(iszxi,cell%npcell)           = szxi
+          cell%xpartvec(iszyi,cell%npcell)           = szyi
           cell%xpartvec(ivisctermisoi,cell%npcell)   = visctermiso
           cell%xpartvec(ivisctermanisoi,cell%npcell) = visctermaniso
           cell%xpartvec(ipri,cell%npcell)            = pri
@@ -2727,7 +2790,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,ndustsmall,imu,&
-                          igamma,aprmassoftype
+                          igamma,aprmassoftype,Bxyz
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -2744,7 +2807,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use units,          only:get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
  use metric_tools,   only:unpack_metric
- use utils_gr,       only:get_u0
+ use utils_gr,       only:get_u0,get_b_lower
  use io,             only:error
  use growth,         only:get_size
  use dust,           only:idrag,get_ts
@@ -2795,7 +2858,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: c_code,dtradi,radlambdai,radkappai
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
  real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi,gammai
- real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
+ real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6),bsubi(3)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani,fonrmaxi
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
  real    :: psii,dtau
@@ -2926,6 +2989,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           Bxyzi(3) = xpartveci(iBevolzi) * rhoi
           B2i      = Bxyzi(1)**2 + Bxyzi(2)**2 + Bxyzi(3)**2
           divBi    = xpartveci(idivBi)
+          if (gr) then
+             ! the stress is -b_i B^j/(U^0 rho*^2), so the source term is (b_i/U^0) div B;
+             ! B2i is then the comoving b^2
+             call get_b_lower(gcov,Bxyz(:,i),bsubi,B2i)
+             bsubi = bsubi/u0i
+          else
+             bsubi = Bxyzi
+          endif
        endif
 
        if (mhd_nonideal) then
@@ -3011,9 +3082,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        else
           frac_divB = 0.0
        endif
-       fsum(ifxi) = fsum(ifxi) - Bxyzi(1)*divBsymmi*frac_divB
-       fsum(ifyi) = fsum(ifyi) - Bxyzi(2)*divBsymmi*frac_divB
-       fsum(ifzi) = fsum(ifzi) - Bxyzi(3)*divBsymmi*frac_divB
+       fsum(ifxi) = fsum(ifxi) - bsubi(1)*divBsymmi*frac_divB
+       fsum(ifyi) = fsum(ifyi) - bsubi(2)*divBsymmi*frac_divB
+       fsum(ifzi) = fsum(ifzi) - bsubi(3)*divBsymmi*frac_divB
        divBsymm(i) = real(rhoi*divBsymmi,kind=kind(divBsymm)) ! for output store div B as rho*div B
        !
        ! store difference-operator div B (same sum as used for cleaning)
@@ -3166,7 +3237,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           !
           ! hyperbolic/parabolic cleaning terms (dpsi/dt) from Tricco & Price (2012)
           !
-          if (psidecayfac > 0.) then
+          ! (divergence cleaning is not yet implemented in GR)
+          if (psidecayfac > 0. .and. .not.gr) then
              vcleani = overcleanfac*vwavei
              dtau = psidecayfac*vcleani*hi1
              !

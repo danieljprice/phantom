@@ -44,21 +44,27 @@ contains
 !  Kernel-summed mass density rho(i) is the conserved rho*.
 !+
 !----------------------------------------------------------------------
-subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
+subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink,Bxyz,Bevol)
  use io,              only:fatal
  use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp,rho
  use eos,  only:gamma,ieos
+ use dim,  only:mhd
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(out) :: pxyzu(:,:)
  real,    intent(inout), optional :: dens(:)
  logical, intent(in),    optional :: use_sink
+ real,    intent(inout), optional :: Bxyz(:,:),Bevol(:,:)
  integer :: i
- real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
+ real    :: pri,tempi,xyzhi(4),vxyzui(4),densi,bxyzi(4),bevoli(3)
+ logical :: use_B
+
+ ! comoving field b^i in, b^0 and conserved B/rho* out (MHD only)
+ use_B = mhd .and. present(Bxyz) .and. present(Bevol)
 
  !$omp parallel do default (none) &
- !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,ien_type,eos_vars,gamma,ieos,use_sink,rho) &
- !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
+ !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,ien_type,eos_vars,gamma,ieos,use_sink,rho,Bxyz,Bevol,use_B) &
+ !$omp private(i,pri,tempi,xyzhi,vxyzui,densi,bxyzi,bevoli)
  do i=1,npart
 
     if (present(use_sink)) then
@@ -72,8 +78,14 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
     else
        if (.not.present(dens)) call fatal('prim2consall','dens array required for gas particles')
        if (.not.isdead_or_accreted(xyzh(4,i))) then
+          bxyzi = 0.
+          if (use_B) bxyzi = Bxyz(:,i)
           call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
-                   dens_i=dens(i),rho_i=rho(i))
+                          dens_i=dens(i),rho_i=rho(i),bxyzi=bxyzi,bevoli=bevoli)
+          if (use_B) then
+             Bxyz(:,i)    = bxyzi
+             Bevol(1:3,i) = bevoli
+          endif
 
           ! save eos vars for later use
           eos_vars(igasP,i)  = pri
@@ -97,7 +109,7 @@ end subroutine prim2consall
 !  for a single SPH particle
 !+
 !----------------------------------------------------------------------
-subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,dens_i,rho_i,use_sink)
+subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,dens_i,rho_i,use_sink,bxyzi,bevoli)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:rho2dens
  use eos,             only:equationofstate,ieos
@@ -110,6 +122,8 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,dens_i,rho_
  real,    intent(inout) :: dens_i
  real,    intent(in), optional :: rho_i
  logical, intent(in), optional :: use_sink
+ real,    intent(inout), optional :: bxyzi(:)
+ real,    intent(out),   optional :: bevoli(:)
  real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
 
  pondensi = 0.
@@ -128,7 +142,8 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,pri,tempi,pxyzui,ien_type,dens_i,rho_
  endif
 
  pri = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),ien_type,&
+                             bxyz=bxyzi,bevol=bevoli)
 
 end subroutine prim2consi
 
@@ -142,12 +157,12 @@ end subroutine prim2consi
 !  Cullen & Dehnen switch.
 !+
 !----------------------------------------------------------------------
-subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphaind)
+subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphaind,Bevol,Bxyz)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,rho,igasP,ics,ien_type,itemp,igamma
  use io,              only:fatal
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
- use dim,             only:nalpha
+ use dim,             only:nalpha,mhd
  use shock_capturing, only:get_alphaloc_cd
  integer,      intent(in)    :: npart
  real,         intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
@@ -155,17 +170,21 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphai
  real,         intent(out)   :: eos_vars(:,:)
  real(kind=4), intent(in),    optional :: dvdx(:,:)
  real(kind=4), intent(inout), optional :: alphaind(:,:)
+ real,         intent(in),    optional :: Bevol(:,:)
+ real,         intent(inout), optional :: Bxyz(:,:)
  integer :: i, ierr
- real    :: p_guess,rhoi,tempi,gammai
- logical :: set_alphaloc
+ real    :: p_guess,rhoi,tempi,gammai,bevoli(3),bxyzi(4)
+ logical :: set_alphaloc,use_B
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
  set_alphaloc = (nalpha >= 2 .and. present(dvdx) .and. present(alphaind))
+ ! conserved B/rho* in, comoving field (b^i,b^0) out (MHD only)
+ use_B = mhd .and. present(Bevol) .and. present(Bxyz)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,rho) &
-!$omp shared(ieos,eos_vars,ien_type,set_alphaloc,dvdx,alphaind) &
-!$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
+!$omp shared(ieos,eos_vars,ien_type,set_alphaloc,dvdx,alphaind,Bxyz,Bevol,use_B) &
+!$omp private(i,ierr,p_guess,rhoi,tempi,gammai,bevoli,bxyzi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        ! get pressure, temperature and gamma from previous step as the initial guess
@@ -174,8 +193,12 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphai
        gammai  = eos_vars(igamma,i)
        rhoi    = rho(i)
 
+       bevoli = 0.
+       if (use_B) bevoli = Bevol(1:3,i)
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                                  p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+                                   p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type,&
+                                   bevol=bevoli,bxyz=bxyzi)
+       if (use_B) Bxyz(:,i) = bxyzi
        ! store results
        eos_vars(igasP,i)  = p_guess
        eos_vars(ics,i)    = get_spsound(ieos,xyzh(1:3,i),dens(i),vxyzu(:,i),gammai)
@@ -189,6 +212,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphai
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',real(rho(i))
           print*,' en   =',pxyzu(4,i)
+          if (use_B) print*,' B/rho* =',bevoli
           call fatal('cons2prim','could not solve rootfinding',i)
        endif
     endif
