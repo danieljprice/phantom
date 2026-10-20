@@ -7,16 +7,16 @@ name: benchmark
 #  - a maintainer adding the "benchmark" label (also the only way to run on fork PRs), or
 #  - ticking "- [x] Run benchmarks" in the description of a PR from a branch of this repo
 #
-# Code from forks is never run on the self-hosted runner without a maintainer applying the label,
-# and pushes to a fork PR do not re-trigger it (the label must be removed and re-added).
+# This uses pull_request_target, so this file and the decision of whether to run always come
+# from the base branch: a pull request cannot change them. Code from forks only runs on the
+# self-hosted runner after a maintainer applies the label (pushes to a fork PR do not
+# re-trigger it), and never has access to a token. Use an ephemeral or isolated runner.
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, labeled, synchronize]
 
-concurrency:
-  group: benchmark-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+permissions: {}
 
 jobs:
 
@@ -48,55 +48,101 @@ jobs:
     if: needs.check.outputs.run == 'true'
     runs-on: [self-hosted, benchmark]
     timeout-minutes: 240
+    # only runs that will benchmark are in this group, so an ineligible event cannot cancel one
+    concurrency:
+      group: benchmark-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
       contents: read
-      pull-requests: write
     env:
       SYSTEM: gfortran
       PHANTOMBENCH_TIER: quick
       PHANTOMBENCH_RESULTS: ${{ github.workspace }}/results
       OMP_STACKSIZE: 1024m
       OMP_SCHEDULE: dynamic
+      RETURN_ERR: 'yes'
     steps:
       - name: checkout base
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
+          persist-credentials: false
 
       - name: checkout pull request
         uses: actions/checkout@v7
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           path: head
+          persist-credentials: false
 
       - name: checkout benchmark suite
         uses: actions/checkout@v7
         with:
           repository: phantomSPH/phantom-benchmarks
           path: bench
+          persist-credentials: false
 
       - name: run benchmarks on base and pull request
+        id: run
         run: |
           rm -rf $PHANTOMBENCH_RESULTS
           export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(source bench/scripts/machine.sh; get_ncores)}
+          # run both, then fail at the end if either failed, so the comparison is still posted
+          status=0
           for label in base head; do
-             PHANTOM_DIR=$PWD/$label PHANTOMBENCH_LABEL=$label ./bench/phantombench run
+             PHANTOM_DIR=$PWD/$label PHANTOMBENCH_LABEL=$label ./bench/phantombench run || status=1
           done
+          echo "status=$status" >> $GITHUB_OUTPUT
 
       - name: compare
+        if: ${{ !cancelled() }}
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           ./bench/phantombench compare base head > comment.md
           echo "" >> comment.md
-          echo "Commit ${{ github.event.pull_request.head.sha }} vs base ${{ github.event.pull_request.base.sha }}" >> comment.md
+          echo "Commit $HEAD_SHA vs base $BASE_SHA" >> comment.md
           cat comment.md >> $GITHUB_STEP_SUMMARY
 
-      - name: post comment
-        continue-on-error: true  # token is read-only for fork PRs; results remain in the job summary
+      - name: save comparison for the comment job
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-comment
+          path: comment.md
+
+      - name: fail if any benchmark failed
+        if: steps.run.outputs.status != '0'
+        run: exit 1
+
+  # posting the comment is a separate job that does not run any code from the pull request
+  comment:
+    needs: benchmark
+    if: ${{ !cancelled() && needs.benchmark.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: benchmark-comment
+
+      - name: post or update the benchmark comment
         env:
           GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} \
-             --body-file comment.md --edit-last || \
-          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} \
-             --body-file comment.md
+          # a marker identifies the benchmark comment, so only that comment is ever edited
+          marker='<!-- phantom-benchmarks -->'
+          printf '%s\n%s\n' "$marker" "$(cat comment.md)" > body.md
+          id=$(gh api repos/$REPO/issues/$PR/comments --paginate \
+               --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -1)
+          if [ -n "$id" ]; then
+             gh api -X PATCH repos/$REPO/issues/comments/$id -F body=@body.md > /dev/null
+          else
+             gh pr comment $PR --repo $REPO --body-file body.md
+          fi

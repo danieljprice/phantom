@@ -1,8 +1,9 @@
 name: benchmark-dispatch
 
 # Asks the benchmark suite (phantomSPH/phantom-benchmarks) to run on GitHub-hosted runners
-# for each push to main. Needs a token with Actions read/write permission on
-# phantomSPH/phantom-benchmarks stored in the secret PHANTOMBENCH_DISPATCH_TOKEN
+# for each push to main. Needs a fine-grained token with Contents read/write permission on
+# phantomSPH/phantom-benchmarks (required for repository_dispatch), stored in the secret
+# PHANTOMBENCH_DISPATCH_TOKEN
 
 on:
   push:
@@ -10,6 +11,8 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'README.md'
+
+permissions: {}
 
 jobs:
   dispatch:

@@ -69,6 +69,9 @@ GETLOG='`grep logfile "$(INFILE)" | sed "s/logfile =//g" | sed "s/\\!.*//g" | se
 
 ifdef CMD
     USERCMD=yes
+    # passed to the recipe through the environment, so it is written to the script
+    # literally rather than being interpreted (e.g. redirections) by the shell running make
+    qscript: export QSCRIPT_CMD = $(value CMD)
 else
     CMD='./phantom $(INFILE) >& $$outfile'
 endif
@@ -307,7 +310,9 @@ qscript:
     endif
 	@echo 'echo "writing output to $$outfile"'
     endif
-    ifeq ($(USEMPI),yes)
+    ifeq ($(USERCMD),yes)
+	@printf '%s\n' "$$QSCRIPT_CMD"
+    else ifeq ($(USEMPI),yes)
 	@echo $(MPIEXEC)' '$(CMD)
     else
 	@echo $(CMD)
