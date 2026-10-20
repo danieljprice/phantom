@@ -28,6 +28,7 @@ jobs:
           private-key: ${{ secrets.PHANTOMBENCH_APP_KEY }}
           owner: phantomSPH
           repositories: phantom-benchmarks
+          permission-contents: write
 
       - name: trigger benchmarks
         env:
