@@ -223,6 +223,11 @@ ifeq ($(SYSTEM), aocc)
    include Makefile_defaults_aocc
 endif
 
+ifeq ($(SYSTEM), flang)
+#  default settings for LLVM flang (same defaults as AMD's flang-based compiler)
+   include Makefile_defaults_aocc
+endif
+
 ifeq ($(SYSTEM), nvfortran)
 #   default settings for the NVIDIA HPC Fortran compiler
     include Makefile_defaults_nvfortran

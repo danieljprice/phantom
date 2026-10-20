@@ -25,6 +25,11 @@ Type of change:
 Testing:
 <!-- Describe how you have tested the change -->
 
+Benchmarks:
+<!-- Tick to run the benchmark suite (phantom-benchmarks) on this PR vs the base branch;
+     results are posted as a comment. Recommended for performance improvements -->
+- [ ] Run benchmarks
+
 Did you run the bots? yes/no
 
 Did you update relevant documentation in the docs directory? yes/no

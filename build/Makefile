@@ -1211,7 +1211,7 @@ showheader: checksys $(OBJSHOWHEADER)
 	@echo ""
 	@echo "showheader: show me the header!"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJSHOWHEADER)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJSHOWHEADER) $(LDFLAGS)
 
 cleanshowheader:
 	rm -f $(BINDIR)/showheader

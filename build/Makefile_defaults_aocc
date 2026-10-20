@@ -13,7 +13,8 @@ KNOWN_SYSTEM=yes
 OMPFLAGS= -fopenmp
 LTO_DEFAULT= yes
 # -flto objects are LLVM bitcode: archive them with the llvm-ar shipped with flang
-LLVM_AR := $(firstword $(wildcard $(dir $(shell command -v flang 2>/dev/null))llvm-ar) llvm-ar)
+# (Homebrew installs flang and llvm-ar as separate packages)
+LLVM_AR := $(firstword $(wildcard $(dir $(shell command -v flang 2>/dev/null))llvm-ar /opt/homebrew/opt/llvm/bin/llvm-ar) llvm-ar)
 LIBTOOL = $(LLVM_AR) rcs
 ifeq ($(UNAME), Darwin)
    LDFLAGS+=-L/opt/homebrew/opt/libomp/lib

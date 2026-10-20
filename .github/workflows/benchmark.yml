@@ -1,0 +1,153 @@
+name: benchmark
+
+# Runs the phantom-benchmarks suite (quick tier) on the pull request and on its base,
+# on a GitHub-hosted runner, and posts the comparison as a comment. Both are built and run on the
+# same machine one after the other, so the comparison is fair even though timings on these shared
+# runners vary from machine to machine.
+#
+# Triggered on any pull request, including from forks, by either:
+#  - ticking "- [x] Run benchmarks" in the description of the pull request, or
+#  - adding the "benchmark" label
+# and re-run on each push to the pull request while either is set.
+#
+# This uses pull_request_target, so this file and the decision of whether to run always come
+# from the base branch: a pull request cannot change them. The code from the pull request runs
+# on a disposable GitHub-hosted runner, with a read-only token that is not stored and no secrets;
+# the comment is posted by a separate job that does not run any of that code.
+
+on:
+  pull_request_target:
+    types: [opened, edited, labeled, synchronize]
+
+permissions: {}
+
+jobs:
+
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - id: decide
+        env:
+          ACTION: ${{ github.event.action }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'benchmark') }}
+          NEW_LABEL: ${{ github.event.label.name }}
+          TICKED: ${{ contains(github.event.pull_request.body, '- [x] Run benchmarks') }}
+          WAS_TICKED: ${{ contains(github.event.changes.body.from, '- [x] Run benchmarks') }}
+        run: |
+          case $ACTION in
+             # new pull request or new commits: run if the box is ticked or the label is set
+             opened|synchronize) [[ "$TICKED" == "true" || "$LABELLED" == "true" ]] && run=true ;;
+             labeled)            [[ "$NEW_LABEL" == "benchmark" ]] && run=true ;;
+             # description edited: run only if the box has just been ticked
+             edited)             [[ "$TICKED" == "true" && "$WAS_TICKED" != "true" ]] && run=true ;;
+          esac
+          echo "run=${run:-false}" >> $GITHUB_OUTPUT
+
+  benchmark:
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    # only runs that will benchmark are in this group, so an ineligible event cannot cancel one
+    concurrency:
+      group: benchmark-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+    env:
+      SYSTEM: gfortran
+      PHANTOMBENCH_TIER: quick
+      PHANTOMBENCH_RESULTS: ${{ github.workspace }}/results
+      OMP_STACKSIZE: 1024m
+      OMP_SCHEDULE: dynamic
+      RETURN_ERR: 'yes'
+    steps:
+      - name: checkout base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      # checking out fork code from pull_request_target must be allowed explicitly; this job has
+      # a read-only token that is not stored, uses no secrets, and runs on a disposable runner
+      - name: checkout pull request
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+          allow-unsafe-pr-checkout: true
+
+      - name: checkout benchmark suite
+        uses: actions/checkout@v7
+        with:
+          repository: phantomSPH/phantom-benchmarks
+          path: bench
+          persist-credentials: false
+
+      - name: run benchmarks on base and pull request
+        id: run
+        run: |
+          rm -rf $PHANTOMBENCH_RESULTS
+          export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(source bench/scripts/machine.sh; get_ncores)}
+          # run both, then fail at the end if either failed, so the comparison is still posted
+          status=0
+          for label in base head; do
+             PHANTOM_DIR=$PWD/$label PHANTOMBENCH_LABEL=$label ./bench/phantombench run || status=1
+          done
+          echo "status=$status" >> $GITHUB_OUTPUT
+
+      - name: compare
+        if: ${{ !cancelled() }}
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          ./bench/phantombench compare base head > comment.md
+          echo "" >> comment.md
+          echo "Commit $HEAD_SHA vs base $BASE_SHA" >> comment.md
+          cat comment.md >> $GITHUB_STEP_SUMMARY
+
+      - name: save comparison for the comment job
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-comment
+          path: comment.md
+
+      - name: fail if any benchmark failed
+        if: steps.run.outputs.status != '0'
+        run: exit 1
+
+  # posting the comment is a separate job that does not run any code from the pull request
+  comment:
+    needs: benchmark
+    if: ${{ !cancelled() && needs.benchmark.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: benchmark-comment
+
+      - name: post or update the benchmark comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # a marker identifies the benchmark comment, so only that comment is ever edited
+          marker='<!-- phantom-benchmarks -->'
+          printf '%s\n%s\n' "$marker" "$(cat comment.md)" > body.md
+          id=$(gh api repos/$REPO/issues/$PR/comments --paginate \
+               --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -1)
+          if [ -n "$id" ]; then
+             gh api -X PATCH repos/$REPO/issues/comments/$id -F body=@body.md > /dev/null
+          else
+             gh pr comment $PR --repo $REPO --body-file body.md
+          fi
