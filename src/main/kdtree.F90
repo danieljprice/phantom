@@ -1236,7 +1236,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
                            level,global_build,doparallel)
 
- if (use_geosplit) then !--for gravity KDtree, we need the geo centre to split the node
+ ! for gravity KDtree, we need the geo centre to split the node. The global (MPI) levels
+ ! decide which particles each task owns, so are split at the centre of mass, which keeps the
+ ! domains balanced: a box centre set by a few distant particles would overload one task
+ if (use_geosplit .and. .not.global_build) then
     x0 = (xmaxi+xmini)*0.5
  else  !--for default KDtree, we need the split centre to be the centre of mass
     x0 = xyzcofm
