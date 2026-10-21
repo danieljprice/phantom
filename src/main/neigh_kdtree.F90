@@ -79,11 +79,16 @@ subroutine allocate_neigh
  use allocutils, only:allocate_array
  use kdtree,     only:allocate_kdtree,maxdepth
  use dim,        only:maxp
+ use io,         only:nprocs
+ integer(kind=8) :: nglobal
 
- call allocate_array('cellatid',       cellatid,       ncellsmaxglobal+1 )
+ ! the global tree needs at least one level of refinement below the
+ ! level of the MPI tasks, however few particles there are per task
+ nglobal = max(ncellsmaxglobal+1,2_8**(ceiling(log(real(nprocs))/log(2.0))+2))
+ call allocate_array('cellatid',       cellatid,       nglobal           )
  call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
  call allocate_array('active_leaves',  active_leaves,  ncellsmax+1       )
- call allocate_array('nodeglobal',     nodeglobal,     ncellsmaxglobal+1 )
+ call allocate_array('nodeglobal',     nodeglobal,     nglobal           )
  call allocate_array('node',           node,           ncellsmax+1       )
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
  call allocate_kdtree()
