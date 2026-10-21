@@ -23,7 +23,6 @@ module energies
 !
  use dim,   only:maxdusttypes,maxdustsmall,track_lum
  use units, only:utime
- use part, only:get_particle_mass
  implicit none
 
  logical,         public    :: gas_only,track_mass
@@ -220,13 +219,13 @@ subroutine compute_energies(t)
           if (use_apr) then
              pmassi = aprmassoftype(itype,apr_level(i))
           else
-             pmassi = get_particle_mass(i,itype)
+             pmassi = massoftype(itype)
           endif
        else
           if (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           else
-             pmassi = get_particle_mass(i,igas)
+             pmassi = massoftype(igas)
           endif
        endif
 

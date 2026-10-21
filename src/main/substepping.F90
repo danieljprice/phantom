@@ -25,11 +25,10 @@ module substepping
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, chem, cons2primsolver, cooling, cooling_ism,
-!   damping, dim, dust_formation, eos_HIIR, extern_gr, externalforces, io,
-!   io_summary, krome_interface, metric, metric_tools, mpiutils,
-!   neighkdtree, options, part, ptmass, ptmass_radiation, ptmass_tree,
-!   subgroup, timestep, timing
+! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
+!   dust_formation, eos_HIIR, extern_gr, externalforces, io, io_summary,
+!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
+!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
 !
  implicit none
 
@@ -760,8 +759,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use cooling_ism,     only:dphot0,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force,dtf_gr_min
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
- use damping,         only:apply_damp,idamp,calc_damp,set_stellar_damping_frame
- use centreofmass,    only:get_centreofmass
+ use damping,         only:apply_damp,idamp,calc_damp
  use externalforces,  only:update_externalforce
  use extern_gr,       only:get_grforce
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
@@ -795,7 +793,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: fonrmaxi,phii,dtphi2i
  real                 :: dkdt,extrapfac
  real                 :: densi,uui,pri,vxyz(3),fext_gr(3),xyz(3)
- real                 :: stellar_xcom(3),stellar_vcom(3)
  logical              :: extrap,last,do_recompute_gr,do_skip_metric_update
 
  allocate(merge_ij(nptmass))
@@ -835,13 +832,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  ! update time-dependent external forces
  !
  call calc_damp(timei, damp_fac)
- if (idamp==4) then
-    if (gr .or. nptmass > 0) call fatal('damping','rigid-spin relaxation requires an isolated Newtonian gas star')
-    call get_centreofmass(stellar_xcom,stellar_vcom,npart,xyzh,vxyzu)
-    call set_stellar_damping_frame(stellar_xcom,stellar_vcom)
-    ! Explicit velocity drag must also resolve its e-folding time.
-    if (damp_fac > 0.) dtextforcenew = min(dtextforcenew,0.1/damp_fac)
- endif
  if (.not.do_skip_metric_update) then
     call update_externalforce(iexternalforce,timei,dmdt)
  endif

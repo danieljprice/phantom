@@ -17,10 +17,11 @@ module relaxstar
 !   - maxits   : *maximum number of relaxation iterations*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
-!   energies, eos, externalforces, fileutils, infile_utils, initial, io,
-!   io_summary, memory, neighkdtree, options, part, physcon, ptmass,
-!   readwrite_dumps, setstar_utils, step_lf_global, table_utils, units
+! :Dependencies: apr, centreofmass, checksetup, damping, deriv, dim,
+!   dump_utils, energies, eos, externalforces, fileutils, infile_utils,
+!   initial, io, io_summary, memory, neighkdtree, options, part, physcon,
+!   ptmass, readwrite_dumps, setstar_utils, step_lf_global, table_utils,
+!   units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -50,13 +51,15 @@ contains
 !    rhotab(nt) - tabulated density as function of r (in code units)
 !    pr(nt)     - tabulated pressure as function of r (in code units)
 !    r(nt)      - radius for each point in the table
+!    omega      - optional angular speed about z, in code units
 !
 !  IN/OUT:
 !    xyzh(:,:) - positions and smoothing lengths of all particles
 !+
 !----------------------------------------------------------------
 subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,&
-                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error,mtab)
+                      iptmass_core,xyzmh_ptmass,ierr,npin,label,write_dumps,density_error,energy_error,mtab,omega)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_finite
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
@@ -68,7 +71,6 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  use checksetup,      only:check_setup
  use io,              only:error,warning,fatal,id,master
  use fileutils,       only:getnextfilename
- use readwrite_dumps, only:write_fulldump
  use eos,             only:gamma,eos_outputs_mu,ieos,eos_has_pressure_without_u,polyk
  use physcon,         only:pi
  use options,         only:iexternalforce
@@ -88,9 +90,10 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  logical,           intent(in),  optional :: write_dumps
  real,              intent(out), optional :: density_error,energy_error
  real,              intent(in),  optional :: mtab(nt)
+ real,              intent(in),  optional :: omega ! signed angular speed about z, in code units
  integer :: nits,nerr,nwarn,iunit,i1
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn,x0(3),mtot
- real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
+ real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew,omega_star
  logical :: converged,use_step,restart
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
  logical :: write_files
@@ -112,6 +115,18 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  ! save settings and set a bunch of options
  !
  ierr = 0
+ omega_star = 0.
+ if (present(omega)) omega_star = omega
+ if (.not.ieee_is_finite(omega_star)) then
+    call error('relax_star','angular speed must be finite')
+    ierr = ierr_setup_errors
+    return
+ endif
+ if (omega_star /= 0. .and. (gr .or. .not.gravity .or. iexternalforce > 0)) then
+    call error('relax_star','rotating relaxation requires Newtonian gravity without external forces')
+    ierr = ierr_setup_errors
+    return
+ endif
  x0 = 0.
  if (gr) x0 = [1000.,0.,0.]   ! for GR need to shift star away from origin to avoid singularities
  rstar = maxval(r)
@@ -219,7 +234,7 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
 
  if (write_files) then
     if (gr) call shift_star_origin(-x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
-    if (.not.restart) call write_fulldump(t,filename)
+    if (.not.restart) call write_relaxed_dump(t,filename,i1,npart,xyzh,vxyzu,x0,omega_star)
     ! move star back to 100,0,0
     if (gr) call shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
     open(newunit=iunit,file='relax'//trim(mylabel)//'.ev',status='replace')
@@ -246,7 +261,7 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
        call step(npart,npart,t,dt,dtext,dtnew)
        dt = dtnew
     else
-       call shift_particles(i1,npart,xyzh,vxyzu,dt)
+       call shift_particles(i1,npart,xyzh,vxyzu,dt,x0,omega_star)
     endif
     ! if using apr, update here
     if (use_apr) call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
@@ -306,7 +321,7 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
              ! move star back to 0,0,0
              if (gr) call shift_star_origin(-x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
              ! write snapshot
-             call write_fulldump(t,filename)
+             call write_relaxed_dump(t,filename,i1,npart,xyzh,vxyzu,x0,omega_star)
              ! move star back to 100,0,0
              if (gr) call shift_star_origin(x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
           endif
@@ -348,6 +363,8 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  !
  call restore_original_options(i1,npart)
 
+ if (omega_star /= 0.) call set_spin_velocity(i1,npart,xyzh,vxyzu,x0,omega_star)
+
  ! move star back to 0,0,0
  if (gr) call shift_star_origin(-x0,i1,npart,xyzh,iptmass_core,xyzmh_ptmass)
 
@@ -360,7 +377,8 @@ end subroutine relax_star
 !  where dt is the local courant timestep, i.e. h/c_s
 !+
 !----------------------------------------------------------------
-subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
+subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin,x0,omega)
+ use centreofmass, only:get_centreofmass
  use deriv, only:get_derivs_global
  use part,  only:fxyzu,fext,rho,xyzmh_ptmass,nptmass
  use ptmass,only:get_accel_sink_gas
@@ -369,7 +387,8 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  integer, intent(in)    :: i1,npart
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(out)   :: dtmin
- real :: dx(3),dti,phi,rhoi,cs,hi
+ real,    intent(in)    :: x0(3),omega
+ real :: dx(3),dti,phi,rhoi,cs,hi,centrifugal(3),xcom(3),vcom(3)
  integer :: i,nlargeshift
 !
 ! shift particles asynchronously
@@ -377,8 +396,8 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  dtmin = huge(dtmin)
  nlargeshift = 0
  !$omp parallel do schedule(guided) default(none) &
-!$omp shared(i1,npart,xyzh,vxyzu,fxyzu,fext,xyzmh_ptmass,nptmass,ieos,rho) &
- !$omp private(i,dx,dti,phi,cs,rhoi,hi) &
+!$omp shared(i1,npart,xyzh,vxyzu,fxyzu,fext,xyzmh_ptmass,nptmass,ieos,rho,x0,omega) &
+ !$omp private(i,dx,dti,phi,cs,rhoi,hi,centrifugal) &
  !$omp reduction(min:dtmin) &
  !$omp reduction(+:nlargeshift)
  do i=i1+1,npart
@@ -391,7 +410,9 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
     rhoi = rho(i)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs
-    dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i))
+    ! Find force balance in the rotating frame, without integrating an orbit.
+    centrifugal = omega**2*[xyzh(1,i)-x0(1),xyzh(2,i)-x0(2),0.]
+    dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i) + centrifugal)
     if (dot_product(dx,dx) > hi**2) then
        dx = dx / sqrt(dot_product(dx,dx)) * hi  ! Avoid large shift in particle position
        nlargeshift = nlargeshift + 1
@@ -402,12 +423,57 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  enddo
  !$omp end parallel do
  if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
+ if (omega /= 0.) then
+    if (.not.any(xyzmh_ptmass(4,1:nptmass) > 0.)) then
+       call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu)
+       xyzh(1:3,i1+1:npart) = xyzh(1:3,i1+1:npart) - spread(xcom-x0,2,npart-i1)
+    endif
+ endif
  !
  ! get forces on particles
  !
  call get_derivs_global()
 
 end subroutine shift_particles
+
+!----------------------------------------------------------------
+!+
+!  assign the physical rigid-spin velocity after relaxation
+!+
+!----------------------------------------------------------------
+subroutine set_spin_velocity(i1,npart,xyzh,vxyzu,x0,omega)
+ integer, intent(in) :: i1,npart
+ real, intent(in) :: xyzh(:,:),x0(3),omega
+ real, intent(inout) :: vxyzu(:,:)
+
+ vxyzu(1,i1+1:npart) = -omega*(xyzh(2,i1+1:npart)-x0(2))
+ vxyzu(2,i1+1:npart) =  omega*(xyzh(1,i1+1:npart)-x0(1))
+ vxyzu(3,i1+1:npart) = 0.
+
+end subroutine set_spin_velocity
+
+!----------------------------------------------------------------
+!+
+!  save physical spin velocities, retaining residual velocities for
+!  the convergence criterion and subsequent asynchronous shifts
+!+
+!----------------------------------------------------------------
+subroutine write_relaxed_dump(t,filename,i1,npart,xyzh,vxyzu,x0,omega)
+ use readwrite_dumps, only:write_fulldump
+ real, intent(in) :: t,xyzh(:,:),x0(3),omega
+ character(len=*), intent(in) :: filename
+ integer, intent(in) :: i1,npart
+ real, intent(inout) :: vxyzu(:,:)
+ real, allocatable :: residual_velocity(:,:)
+
+ if (omega /= 0.) then
+    residual_velocity = vxyzu(1:3,i1+1:npart)
+    call set_spin_velocity(i1,npart,xyzh,vxyzu,x0,omega)
+ endif
+ call write_fulldump(t,filename)
+ if (omega /= 0.) vxyzu(1:3,i1+1:npart) = residual_velocity
+
+end subroutine write_relaxed_dump
 
 !----------------------------------------------------------------
 !+

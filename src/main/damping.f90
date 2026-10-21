@@ -17,18 +17,13 @@ module damping
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - damp          : *damping timescale as fraction of orbital timescale*
-!   - damp_spin_x_s : *target spin x in radians/second*
-!   - damp_spin_y_s : *target spin y in radians/second*
-!   - damp_spin_z_s : *target spin z in radians/second*
-!   - damp_stop_s   : *absolute switch-off time in seconds (0=never)*
-!   - damp_time_s   : *isolated stellar relaxation e-folding time in seconds*
-!   - idamp         : *artificial damping (0=off, 1=constant, 2=star, 3=disc, 4=rigid spin)*
-!   - r1in          : *inner boundary of inner disc damping zone*
-!   - r1out         : *inner boundary of outer disc damping zone*
-!   - r2in          : *outer boundary of inner disc damping zone*
-!   - r2out         : *outer boundary of outer disc damping zone*
-!   - tdyn_s        : *dynamical timescale of star in seconds - damping is dependent on it*
+!   - damp   : *damping timescale as fraction of orbital timescale*
+!   - idamp  : *artificial damping of velocities (0=off, 1=constant, 2=star, 3=disc)*
+!   - r1in   : *inner boundary of inner disc damping zone*
+!   - r1out  : *inner boundary of outer disc damping zone*
+!   - r2in   : *outer boundary of inner disc damping zone*
+!   - r2out  : *outer boundary of outer disc damping zone*
+!   - tdyn_s : *dynamical timescale of star in seconds - damping is dependent on it*
 !
 ! :Dependencies: infile_utils, physcon, units
 !
@@ -36,21 +31,17 @@ module damping
 
  public  :: calc_damp,apply_damp,get_damp_fac_disc
  public  :: write_options_damping,read_options_damping
- public  :: set_stellar_damping_frame,rigid_rotation_velocity
 
  private
 
  integer, public    :: idamp     = 0
- integer, parameter :: idamp_max = 4  ! maximum allowed value of idamp
+ integer, parameter :: idamp_max = 3  ! maximum allowed value of idamp
  real, public :: tdyn_s      = 0.
  real, public :: damp        = 0.
  real, public :: r1in = 0.3
  real, public :: r2in = 0.357
  real, public :: r1out = 2.52
  real, public :: r2out = 3.0
- real, public :: damp_time_s = 0.,damp_stop_s = 0.
- real, public :: damp_spin_s(3) = 0.
- real :: stellar_xcom(3) = 0.,stellar_vcom(3) = 0.
 
 contains
 
@@ -67,11 +58,6 @@ subroutine calc_damp(time, damp_fac)
  real                :: tau1, tau2, tdyn_star, orbital_period
 
  select case(idamp)
- case(4)
-    damp_fac = 0.
-    if (damp_time_s > 0.) then
-       if (damp_stop_s <= 0. .or. time*utime < damp_stop_s) damp_fac = utime/damp_time_s
-    endif
  case(3)
     orbital_period = 2.*pi*sqrt(r1in**3)  ! G=M=1
     damp_fac = damp/orbital_period ! fraction of orbital time at r=r1in with G=M=1
@@ -100,7 +86,6 @@ end subroutine calc_damp
 !+
 !-----------------------------------------------------------------------
 subroutine apply_damp(fextx, fexty, fextz, vxyz, xyz, damp_fac)
- use units, only:utime
  real, intent(inout) :: fextx, fexty, fextz
  real, intent(in)    :: vxyz(3), xyz(3), damp_fac
  real :: v0(3),fac
@@ -113,37 +98,12 @@ subroutine apply_damp(fextx, fexty, fextz, vxyz, xyz, damp_fac)
  ! also in this case we relax to a prescribed velocity, not zero
  !
  if (idamp==3) fac = get_damp_fac_disc(xyz,v0)
- if (idamp==4) v0 = stellar_vcom + rigid_rotation_velocity(xyz-stellar_xcom,damp_spin_s*utime)
 
  fextx = fextx - damp_fac*(vxyz(1)-v0(1))*fac
  fexty = fexty - damp_fac*(vxyz(2)-v0(2))*fac
  fextz = fextz - damp_fac*(vxyz(3)-v0(3))*fac
 
 end subroutine apply_damp
-
-!-----------------------------------------------------------------------
-!+
-!  Update the mass-weighted stellar frame before the parallel force loop.
-!  The drag removes deviations from rigid spin, not centre-of-mass motion.
-!+
-!-----------------------------------------------------------------------
-subroutine set_stellar_damping_frame(xcom,vcom)
- real, intent(in) :: xcom(3),vcom(3)
-
- stellar_xcom = xcom
- stellar_vcom = vcom
-
-end subroutine set_stellar_damping_frame
-
-pure function rigid_rotation_velocity(xyz,omega) result(vxyz)
- real, intent(in) :: xyz(3),omega(3)
- real :: vxyz(3)
-
- vxyz(1) = omega(2)*xyz(3) - omega(3)*xyz(2)
- vxyz(2) = omega(3)*xyz(1) - omega(1)*xyz(3)
- vxyz(3) = omega(1)*xyz(2) - omega(2)*xyz(1)
-
-end function rigid_rotation_velocity
 
 !-----------------------------------------------------------------------
 !+
@@ -190,15 +150,9 @@ subroutine write_options_damping(iunit)
  if (idamp <= 0) return
 
  write(iunit,"(/,a)") '# options controlling damping'
- call write_inopt(idamp,'idamp','artificial damping (0=off, 1=constant, 2=star, 3=disc, 4=rigid spin)',iunit)
+ call write_inopt(idamp,'idamp','artificial damping of velocities (0=off, 1=constant, 2=star, 3=disc)',iunit)
 
  select case(idamp)
- case(4)
-    call write_inopt(damp_time_s,'damp_time_s','isolated stellar relaxation e-folding time in seconds',iunit)
-    call write_inopt(damp_stop_s,'damp_stop_s','absolute switch-off time in seconds (0=never)',iunit)
-    call write_inopt(damp_spin_s(1),'damp_spin_x_s','target spin x in radians/second',iunit)
-    call write_inopt(damp_spin_s(2),'damp_spin_y_s','target spin y in radians/second',iunit)
-    call write_inopt(damp_spin_s(3),'damp_spin_z_s','target spin z in radians/second',iunit)
  case(1)
     call write_inopt(damp,'damp','fraction to damp velocity each timestep (if > 0, v=0 initially)',iunit)
  case(2)
@@ -224,14 +178,8 @@ subroutine read_options_damping(db,nerr)
  integer,      intent(inout) :: nerr
 
  call read_inopt(idamp,'idamp',db,errcount=nerr,min=0,max=idamp_max,default=0)
- if (idamp > 0 .and. idamp < 4) call read_inopt(damp,'damp',db,errcount=nerr,min=0.,max=1.,default=0.)
+ if (idamp > 0) call read_inopt(damp,'damp',db,errcount=nerr,min=0.,max=1.,default=0.)
  select case(idamp)
- case(4)
-    call read_inopt(damp_time_s,'damp_time_s',db,errcount=nerr,min=tiny(0.))
-    call read_inopt(damp_stop_s,'damp_stop_s',db,errcount=nerr,min=0.,default=0.)
-    call read_inopt(damp_spin_s(1),'damp_spin_x_s',db,errcount=nerr,default=0.)
-    call read_inopt(damp_spin_s(2),'damp_spin_y_s',db,errcount=nerr,default=0.)
-    call read_inopt(damp_spin_s(3),'damp_spin_z_s',db,errcount=nerr,default=0.)
  case(3)
     call read_inopt(r1in,'r1in',db,errcount=nerr,min=0.)
     call read_inopt(r2in,'r2in',db,errcount=nerr,min=r1in)

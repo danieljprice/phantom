@@ -25,15 +25,10 @@ def read_binary(f, count, type):
 
 # Read a fortran record (size, data, size)
 def read_fortran_record(f, type, memorymap=False):
-  """Read one record enclosed by matching 32-bit Fortran length markers.
-
-  Return a NumPy array of the requested dtype, optionally memory-mapped.
-  The stream is positioned after the trailing marker on return.
-  """
   try:
-    size1 = read_binary(f, 1, 'i4').item()
+    size1 = int(read_binary(f, 1, 'i4'))
   except IOError:
-    size1 = read_binary(f, 1, 'i4').item()
+    size1 = int(read_binary(f, 1, 'i4'))
   #print (size1)
   itemsize = dtype(type).itemsize
   n = int(size1/itemsize)
@@ -48,7 +43,7 @@ def read_fortran_record(f, type, memorymap=False):
         print('Warning: unable to mmap (overflow) (chunk of size %d from offset %d to %d)' % (size1, pstart, pstart+size1))
   else:
       data = read_binary(f, n, type)
-  size2 = read_binary(f, 1, 'i4').item()
+  size2 = int(read_binary(f, 1, 'i4'))
   if size1 != size2:
     print('Warning: inconsistent record sizes: ', size1, size2)
   return data
@@ -117,9 +112,9 @@ def read_dump(filename, memorymap=False):
 
   # Number of particles, twice
   dump['part_numbers'] = read_fortran_record_with_names(f, 'i4')
-  dump['header_int1'] = read_fortran_record_with_names(f, 'i1')
-  dump['header_int2'] = read_fortran_record_with_names(f, 'i2')
-  dump['header_int4'] = read_fortran_record_with_names(f, 'i4')
+  read_fortran_record_with_names(f, 'i4') # ?
+  read_fortran_record_with_names(f, 'i4') # ?
+  read_fortran_record_with_names(f, 'i4') # ?
   dump['part_numbers_long'] = read_fortran_record_with_names(f, 'i8')
 
   # Various quantities (time, gamma, hfact etc.)
@@ -131,7 +126,7 @@ def read_dump(filename, memorymap=False):
   dump['units'] = read_fortran_record_with_names(f, 'f8')
 
   # Number of blocks
-  nblocks = read_fortran_record(f, 'i4').item()
+  nblocks = int(read_fortran_record(f, 'i4'))
 
   # Read block sizes
   blocks = []
@@ -144,7 +139,6 @@ def read_dump(filename, memorymap=False):
     block['nintdb'] = n[6]
     block['ndouble'] = n[7]
     block['nsingle'] = n[8]
-    block['nreal8'] = n[9]
     blocks.append(block)
 
   # Read blocks
@@ -158,17 +152,13 @@ def read_dump(filename, memorymap=False):
       b['data'][column_name] = column_data
     for i in range(b['ndouble']):
       column_name = read_string(f).strip()
-      column_data = read_fortran_record(f, variable_type, memorymap)
+      column_data = read_fortran_record(f, 'f8', memorymap)
       #print('[ndouble] ',i,column_name,type(column_data), variable_type)
       b['data'][column_name] = column_data
     for i in range(b['nsingle']):
       column_name = read_string(f).strip()
       column_data = read_fortran_record(f, 'f4', memorymap)
       #print('[nsingle] ',i,column_name,type(column_data), variable_type)
-      b['data'][column_name] = column_data
-    for i in range(b['nreal8']):
-      column_name = read_string(f).strip()
-      column_data = read_fortran_record(f, 'f8', memorymap)
       b['data'][column_name] = column_data
   dump['blocks'] = blocks
 

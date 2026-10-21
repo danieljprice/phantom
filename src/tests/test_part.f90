@@ -14,8 +14,8 @@ module testpart
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kernel, mpidomain, part, physcon,
-!   testutils, unifdis
+! :Dependencies: boundary, io, kernel, mpidomain, part, physcon, testutils,
+!   unifdis
 !
  use testutils, only:update_test_scores,checkval
  implicit none
@@ -37,7 +37,6 @@ subroutine test_part(ntests,npass)
  if (id==master) write(*,"(/,a,/)") '--> TESTING PART MODULE'
 
  call test_accrete_and_kill_routines(ntests, npass)
- call test_variable_mass(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- PART MODULE TEST COMPLETE'
 
@@ -131,46 +130,5 @@ subroutine test_accrete_and_kill_routines(ntests, npass)
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_accrete_and_kill_routines
-
-subroutine test_variable_mass(ntests,npass)
- use dim, only:use_apr
- use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
-               get_pmass,copy_particle,copy_particle_all,fill_sendbuf,unfill_buffer,&
-               ipartbufsize,reorder_particles,xyzh
- integer, intent(inout) :: ntests,npass
- integer :: nfailed(5),nbuf,i
- real :: buffer(ipartbufsize)
-
- if (use_apr) return
- call init_part()
- npart = 3
- npartoftype = 0
- npartoftype(igas) = npart
- massoftype(igas) = 10.
- xyzh(4,1:npart) = 1.
- particle_mass(1:3) = [1.,2.,3.]
- nfailed = 0
- call checkval(get_pmass(1,.true.),10.,0.,nfailed(1),'equal-mass fallback')
- variable_mass = .true.
- call checkval(get_pmass(1,.true.),1.,0.,nfailed(2),'individual particle mass')
- call fill_sendbuf(1,buffer,nbuf)
- call unfill_buffer(3,buffer)
- call checkval(particle_mass(3),1.,0.,nfailed(3),'mass survives particle buffer')
- call copy_particle(2,3,.false.)
- call checkval(particle_mass(3),2.,0.,nfailed(4),'mass survives particle copy')
- call copy_particle_all(1,3,.false.)
- call checkval(particle_mass(3),1.,0.,nfailed(5),'mass survives full particle copy')
- call update_test_scores(ntests,nfailed,npass)
-
- particle_mass(1:3) = [1.,2.,3.]
- call reorder_particles([3,2,1],3)
- nfailed = 0
- do i=1,3
-    call checkval(particle_mass(i),real(4-i),0.,nfailed(i),'mass survives particle reorder')
- enddo
- call update_test_scores(ntests,nfailed,npass)
- call init_part()
-
-end subroutine test_variable_mass
 
 end module testpart

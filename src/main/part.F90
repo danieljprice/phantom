@@ -45,8 +45,6 @@ module part
 !
 
  real,         allocatable :: xyzh(:,:)
- real,         allocatable :: particle_mass(:)
- logical :: variable_mass = .false.
  real,         allocatable :: treecache(:,:)
  real,         allocatable :: vxyzu(:,:)
  real(kind=4), allocatable :: alphaind(:,:)
@@ -407,7 +405,7 @@ module part
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter :: ipartbufsize = 132
+ integer, parameter :: ipartbufsize = 131
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -464,7 +462,6 @@ subroutine allocate_part
  use allocutils, only:allocate_array
 
  call allocate_array('xyzh', xyzh, 4, maxp)
- call allocate_array('particle_mass',particle_mass,maxp)
  call allocate_array('treecache', treecache, 5, maxp)
  call allocate_array('vxyzu', vxyzu, maxvxyzu, maxp)
  call allocate_array('alphaind', alphaind, nalpha, maxalpha)
@@ -567,7 +564,6 @@ end subroutine allocate_part
 subroutine deallocate_part
 
  if (allocated(xyzh))     deallocate(xyzh)
- if (allocated(particle_mass)) deallocate(particle_mass)
  if (allocated(treecache)) deallocate(treecache)
  if (allocated(vxyzu))    deallocate(vxyzu)
  if (allocated(alphaind)) deallocate(alphaind)
@@ -672,8 +668,6 @@ subroutine init_part
  npartoftype(:) = 0
  npartoftypetot(:) = 0
  massoftype(:)  = 0.
- particle_mass = 0.
- variable_mass = .false.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
@@ -765,35 +759,22 @@ end subroutine init_part
 !  where use_gas == .not. (maxphase==maxp)
 !+
 !----------------------------------------------------------------
-pure real function get_pmass(i,use_gas)
+real function get_pmass(i,use_gas)
  integer, intent(in) :: i
  logical, intent(in) :: use_gas
  integer :: itype
 
  itype = igas
- if (.not.use_gas .and. maxphase > 0) then
-    if (iphase(i) /= 0) itype = max(igas,iamtype(iphase(i)))
+ if (.not.use_gas) then
+    if (iphase(i) /= 0) itype = iamtype(iphase(i))
  endif
- get_pmass = get_particle_mass(i,itype)
+ if (use_apr) then
+    get_pmass = aprmassoftype(itype,apr_level(i))
+ else
+    get_pmass = massoftype(itype)
+ endif
 
 end function get_pmass
-
-pure real function get_particle_mass(i,itype) result(pmass)
- integer, intent(in) :: i
- integer, intent(in), optional :: itype
- integer :: it
-
- it = igas
- if (present(itype)) it = itype
- if (variable_mass) then
-    pmass = particle_mass(i)
- elseif (use_apr) then
-    pmass = aprmassoftype(it,apr_level(i))
- else
-    pmass = massoftype(it)
- endif
-
-end function get_particle_mass
 
 !
 !----------------------------------------------------------------
@@ -943,7 +924,11 @@ subroutine init_rho_from_h(i1,i2)
           call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
           if (iamtypei <= 0) iamtypei = igas
        endif
-       pmassi = get_particle_mass(i,iamtypei)
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi = massoftype(iamtypei)
+       endif
        rho(i) = rhoh(xyzh(4,i),pmassi)
     else
        rho(i) = 0.
@@ -1355,7 +1340,6 @@ subroutine copy_particle(src,dst,new_part)
  logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
- particle_mass(dst) = particle_mass(src)
  vxyzu(:,dst) = vxyzu(:,src)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
@@ -1420,7 +1404,6 @@ subroutine copy_particle_all(src,dst,new_part)
  logical, intent(in) :: new_part
 
  xyzh(:,dst)  = xyzh(:,src)
- particle_mass(dst) = particle_mass(src)
  treecache(:,dst)  = treecache(:,src)
  vxyzu(:,dst) = vxyzu(:,src)
  if (maxan==maxp) then
@@ -1840,7 +1823,6 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
     call fill_buffer(xtemp,iorig(i),nbuf)
     if (inject_parts) call fill_buffer(xtemp,iseed_sink(i),nbuf)
     if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
-    call fill_buffer(xtemp,particle_mass(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 
@@ -1929,7 +1911,6 @@ subroutine unfill_buffer(ipart,xbuf)
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
  if (inject_parts) iseed_sink(ipart) = nint(unfill_buf(xbuf,j),kind=8)
  if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
- particle_mass(ipart) = unfill_buf(xbuf,j)
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then

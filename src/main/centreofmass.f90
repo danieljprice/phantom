@@ -17,7 +17,6 @@ module centreofmass
 !
 ! :Dependencies: dim, io, mpiutils, part, vectorutils
 !
- use part, only:get_particle_mass,get_pmass
  implicit none
  public :: reset_centreofmass,get_centreofmass,correct_bulk_motions,get_total_angular_momentum
  public :: get_centreofmass_accel,get_particle_extent,print_particle_extent
@@ -29,6 +28,7 @@ contains
 !----------------------------------------------------------------
 !+
 !  routine to reset the centre of mass in the initial conditions
+!  (assuming equal mass particles)
 !+
 !----------------------------------------------------------------
 subroutine reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
@@ -73,8 +73,9 @@ end subroutine reset_centreofmass
 !----------------------------------------------------------------
 subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,mass)
  use io,       only:id,master
- use dim,      only:maxphase,maxp
- use part,     only:isdead_or_accreted
+ use dim,      only:maxphase,maxp,use_apr
+ use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
+                    aprmassoftype,apr_level
  use mpiutils, only:reduceall_mpi
  real,    intent(out) :: xcom(3),vcom(3)
  integer, intent(in)  :: npart
@@ -82,7 +83,7 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  integer, intent(in),  optional :: nptmass
  real,    intent(in),  optional :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
  real,    intent(out), optional :: mass
- integer :: i
+ integer :: i,itype
  real :: xi,yi,zi,hi
  real(kind=8) :: xpos,ypos,zpos,vxpos,vypos,vzpos
  real(kind=8) :: dm,pmassi,totmass
@@ -94,9 +95,12 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  vypos = 0.d0
  vzpos = 0.d0
  totmass = 0.d0
+ pmassi = massoftype(igas)
 !$omp parallel default(none) &
-!$omp shared(maxphase,maxp,npart,xyzh,vxyzu) &
-!$omp private(i,xi,yi,zi,hi,pmassi) &
+!$omp shared(maxphase,maxp,aprmassoftype,apr_level) &
+!$omp shared(npart,xyzh,vxyzu,iphase,massoftype) &
+!$omp private(i,itype,xi,yi,zi,hi) &
+!$omp firstprivate(pmassi) &
 !$omp reduction(+:xpos,ypos,zpos,vxpos,vypos,vzpos,totmass)
 !$omp do
  do i=1,npart
@@ -105,7 +109,22 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
     zi = xyzh(3,i)
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
-       pmassi = get_pmass(i,maxphase /= maxp)
+       if (maxphase==maxp) then
+          itype = iamtype(iphase(i))
+          if (itype > 0) then ! avoid problems if called from ICs
+             if (use_apr) then
+                pmassi = aprmassoftype(itype,apr_level(i))
+             else
+                pmassi = massoftype(itype)
+             endif
+          else
+             if (use_apr) then
+                pmassi = aprmassoftype(igas,apr_level(i))
+             else
+                pmassi = massoftype(igas)
+             endif
+          endif
+       endif
        totmass = totmass + pmassi
        xpos    = xpos  + pmassi*xi
        ypos    = ypos  + pmassi*yi
@@ -189,13 +208,13 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
           if (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
           else
-             pmassi = get_particle_mass(i,iamtype(iphase(i)))
+             pmassi = massoftype(iamtype(iphase(i)))
           endif
        else
           if (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           else
-             pmassi = get_particle_mass(i,igas)
+             pmassi = massoftype(igas)
           endif
        endif
        totmass = totmass + pmassi
@@ -277,13 +296,13 @@ subroutine correct_bulk_motions()
           if (use_apr) then
              pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
           else
-             pmassi = get_particle_mass(i,iamtype(iphase(i)))
+             pmassi = massoftype(iamtype(iphase(i)))
           endif
        else
           if (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           else
-             pmassi = get_particle_mass(i,igas)
+             pmassi = massoftype(igas)
           endif
        endif
        totmass = totmass + pmassi
@@ -398,7 +417,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
        if (use_apr) then
           pmassi = aprmassoftype(itype,apr_level(ii))
        else
-          pmassi = get_particle_mass(ii,itype)
+          pmassi = massoftype(itype)
        endif
        call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
        L_tot = L_tot + temp*pmassi

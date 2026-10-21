@@ -36,7 +36,6 @@ module dim
  ! is NOT a compile-time parameter
  !
  integer(kind=8) :: maxp_alloc = 5200000
- logical :: maxp_alloc_explicit = .false.
 
  ! maximum number of point masses
 #ifdef MAXPTMASS
@@ -137,7 +136,7 @@ module dim
                                   radensumforce
 
 ! xpartveci
- integer, parameter :: maxxpartvecidens = 16 + radenxpartvetden
+ integer, parameter :: maxxpartvecidens = 15 + radenxpartvetden
 
  integer, parameter :: maxxpartvecvars = 63 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
