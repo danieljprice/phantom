@@ -394,11 +394,8 @@ subroutine update_max_sizes(n,ntot)
  ncellsmaxglobal = NCELLSMAX
 #else
  ncellsmax = 2*maxp
- if (present(ntot)) then
-    ncellsmaxglobal = 2*ntot
- else
-    ncellsmaxglobal = ncellsmax
- endif
+ ! the global tree is limited to the size of the local tree (see maketreeglobal)
+ ncellsmaxglobal = ncellsmax
 #endif
 
  nnodeptmassmax = 2*maxptmass

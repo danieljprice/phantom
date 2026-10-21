@@ -2010,7 +2010,13 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     call maketree(node,xyzh,np,leaf_is_active,ncells,apr_tree,refinelevels)
  endif
 
- ! tree refinement
+ ! tree refinement: the top levels of the local trees are copied into the global tree.
+ ! Limit the depth so the global tree fits in nodeglobal, which is the size of the local
+ ! tree, so that memory per task does not grow with the total number of particles.
+ ! A shallower global tree only means coarser cells are used to decide what to export
+ do while (refinelevels > 1 .and. 2**(globallevel+refinelevels+1)-1 > size(nodeglobal))
+    refinelevels = refinelevels - 1
+ enddo
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
  roffset_prev = 1
 
@@ -2022,7 +2028,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     nnodestart = offset
     nnodeend   = 2*nnodestart-1
 
-    if (nnodeend > ncellsmax) call fatal('kdtree', 'global tree refinement has exceeded ncellsmax')
+    if (nnodeend > size(nodeglobal)) call fatal('kdtree', 'global tree refinement has exceeded ncellsmaxglobal')
 
     locstart   = roffset
     locend     = 2*locstart-1

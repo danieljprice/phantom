@@ -55,8 +55,42 @@ subroutine print_cpuinfo(unit)
     write(lu,"(f6.2,a)",advance='no') cpuspeed,' Ghz'
     write(lu,"(a)")        ', cache size '//trim(adjustl(cachesize))
  endif
+ call print_lscpu(lu)
 
 end subroutine print_cpuinfo
+
+!---------------------------------------------------
+!+
+!  On Linux, print the cpu topology from lscpu
+!  (sockets, cores, cache sizes and instances, NUMA
+!  nodes), which explains the parallel scaling.
+!  Leaves out the long lists of cpu flags and
+!  vulnerabilities
+!+
+!---------------------------------------------------
+subroutine print_lscpu(lu)
+ integer, intent(in) :: lu
+ integer, parameter :: iunit = 609
+ character(len=*), parameter :: tempfile = 'lscpu.tmp'
+ character(len=200) :: line
+ integer :: ierr,istat
+ logical :: iexist
+
+ inquire(file='/proc/cpuinfo',exist=iexist)
+ if (.not.iexist) return
+ call execute_command_line('command -v lscpu > /dev/null 2>&1 && lscpu 2> /dev/null | '// &
+      'grep -Ev "^(Flags|Vulnerability)" > '//tempfile,wait=.true.,exitstat=istat,cmdstat=ierr)
+ inquire(file=tempfile,exist=iexist)
+ if (.not.iexist) return
+ open(unit=iunit,file=tempfile,status='old',iostat=ierr)
+ if (ierr == 0 .and. istat == 0) write(lu,"(/,1x,a)") 'lscpu:'
+ do while (ierr == 0 .and. istat == 0)
+    read(iunit,"(a)",iostat=ierr) line
+    if (ierr == 0) write(lu,"(3x,a)") trim(line)
+ enddo
+ close(unit=iunit,status='delete',iostat=ierr)
+
+end subroutine print_lscpu
 
 !---------------------------------------------------
 !+
