@@ -92,7 +92,7 @@ subroutine allocate_memory(ntot, part_only,reallocation)
     call allocate_neigh
     call allocate_ptmasstree
     if (mpi) then
-       call allocate_mpi_memory(npart=n)
+       call allocate_mpi_memory(npart=ntot) ! total number of particles on all tasks
        call allocate_balance_arrays
        call allocate_tree_comms_arrays
     endif

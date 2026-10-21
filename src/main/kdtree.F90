@@ -1236,7 +1236,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
                            level,global_build,doparallel)
 
- if (use_geosplit) then !--for gravity KDtree, we need the geo centre to split the node
+ ! for gravity KDtree, we need the geo centre to split the node. The global (MPI) levels
+ ! decide which particles each task owns, so are split at the centre of mass, which keeps the
+ ! domains balanced: a box centre set by a few distant particles would overload one task
+ if (use_geosplit .and. .not.global_build) then
     x0 = (xmaxi+xmini)*0.5
  else  !--for default KDtree, we need the split centre to be the centre of mass
     x0 = xyzcofm
@@ -2010,7 +2013,13 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     call maketree(node,xyzh,np,leaf_is_active,ncells,apr_tree,refinelevels)
  endif
 
- ! tree refinement
+ ! tree refinement: the top levels of the local trees are copied into the global tree.
+ ! Limit the depth so the global tree fits in nodeglobal, which is the size of the local
+ ! tree, so that memory per task does not grow with the total number of particles.
+ ! A shallower global tree only means coarser cells are used to decide what to export
+ do while (refinelevels > 1 .and. 2**(globallevel+refinelevels+1)-1 > size(nodeglobal))
+    refinelevels = refinelevels - 1
+ enddo
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
  roffset_prev = 1
 
@@ -2022,7 +2031,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     nnodestart = offset
     nnodeend   = 2*nnodestart-1
 
-    if (nnodeend > ncellsmax) call fatal('kdtree', 'global tree refinement has exceeded ncellsmax')
+    if (nnodeend > size(nodeglobal)) call fatal('kdtree', 'global tree refinement has exceeded ncellsmaxglobal')
 
     locstart   = roffset
     locend     = 2*locstart-1

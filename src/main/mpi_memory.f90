@@ -75,7 +75,7 @@ module mpimemory
 contains
 
 subroutine allocate_mpi_memory(npart, stacksize_in)
- integer, intent(in), optional :: npart
+ integer(kind=8), intent(in), optional :: npart
  integer, intent(in), optional :: stacksize_in
  integer :: allocstat
 
@@ -147,7 +147,7 @@ end subroutine increase_mpi_memory
 subroutine calculate_stacksize(npart)
  use dim, only:mpi,minpart
  use io,  only:nprocs,id,master
- integer, intent(in) :: npart
+ integer(kind=8), intent(in) :: npart ! total number of particles on all tasks
  integer, parameter  :: safety = 8
 
  ! size of the stack needed for communication,
@@ -159,7 +159,7 @@ subroutine calculate_stacksize(npart)
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
     ! assume that every cell will be exported, with some safety factor
-    stacksize = (npart / minpart / nprocs) * safety
+    stacksize = int((npart / minpart / nprocs) * safety)
 
     if (id == master) then
        write(iprint, *) 'MPI memory stack size = ', stacksize
