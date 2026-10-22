@@ -37,7 +37,13 @@ module neighkdtree
  integer,      public , allocatable :: listneigh(:)
  integer,      public , allocatable :: listneigh_global(:)
 !-- dual tree cache arrays
- integer,               allocatable :: cachestate(:)
+! cachestate is read without an atomic in the tree walks, which read it for every node visited:
+! some compilers (e.g. aocc) put every OpenMP atomic behind one global lock, which serialises
+! the walk. This is safe because the state of a node only increases during a walk (0 -> 1 -> 2 -> 3),
+! it is written with an atomic and a flush after the data it refers to, and readers flush before
+! using cached data: a reader seeing an old value just computes the interaction instead of reusing it.
+! It is volatile so that every read is a fresh load from memory
+ integer, volatile,     allocatable :: cachestate(:)
  integer,               allocatable :: neighnodecount_branch(:)
  integer,               allocatable :: neighnode_branch(:,:)
  integer,               allocatable :: neighnodecache(:)
@@ -766,9 +772,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
     if (use_dualcache) then
-       !$omp atomic read
-       nodestate = cachestate(iparent)
-       !$omp end atomic
+       nodestate = cachestate(iparent) ! no atomic needed, see declaration of cachestate
        if (nodestate == 0) then ! first fence to avoid capture collision
           !$omp atomic capture
           nodestate = cachestate(iparent)
@@ -898,9 +902,7 @@ subroutine get_list_of_parent_nodes(inode,node,parents,nparents,startwith)
     j = node(j)%parent
     nparents = nparents + 1
     parents(nparents) = j
-    !$omp atomic read
-    nodestate = cachestate(j)
-    !$omp end atomic
+    nodestate = cachestate(j) ! no atomic needed, see declaration of cachestate
     if (nodestate==3 .and. startwith(2)==0) then
        ! deepest fully-cached ancestor: candidate pruned start
        startwith(1) = j
@@ -1081,9 +1083,7 @@ subroutine node_interaction(idst,node_dst,node_src,tree_acc2,fnode,stackit,xoffs
  call get_node_size(node_dst,node_src,size_dst,size_src,rcut_dst,rcut_src)
 
  if (use_dualcache) then
-    !$omp atomic read
-    dststate = cachestate(idst)
-    !$omp end atomic
+    dststate = cachestate(idst) ! no atomic needed, see declaration of cachestate
  else
     dststate = 0
  endif
