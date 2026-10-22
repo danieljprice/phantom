@@ -22,7 +22,8 @@ module setup
 !   - rhozero     : *initial gas density*
 !
 ! :Dependencies: boundary, dim, dust, infile_utils, io, kernel, mpidomain,
-!   options, part, physcon, prompting, set_dust, setup_params, unifdis
+!   options, part, physcon, prompting, set_dust, setup_params, unifdis,
+!   units
 !
  use dim,          only:use_dust
  use options,      only:use_dustfrac

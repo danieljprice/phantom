@@ -21,7 +21,7 @@ module dust
 !   - grainsize         : *Grain size in cm*
 !   - icut_backreaction : *cut the drag on the gas phase (0=no, 1=yes)*
 !   - idrag             : *gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)*
-!   - ilimitdustflux    : *limit the dust flux using Ballabio et al. (2018)*
+!   - ilimitdustflux    : *limit the dust flux using Ballabio et al. (2018) (one-fluid only)*
 !   - irecon            : *use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)*
 !
 ! :Dependencies: dim, eos, fileutils, infile_utils, io, options, part,

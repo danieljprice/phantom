@@ -21,7 +21,7 @@ module timestep
 !   - overcleanfac  : *factor to increase div B cleaning speed (decreases timestep)*
 !   - psidecayfac   : *div B diffusion parameter*
 !   - ptol          : *tolerance on pmom iterations*
-!   - tolv          : *tolerance on v iterations in timestepping*
+!   - tolv          : *tolerance on v iterations in timestepping (> 100 to skip)*
 !   - use_divb_proj : *project div B to zero every dtmax*
 !   - xtol          : *tolerance on xyz iterations*
 !

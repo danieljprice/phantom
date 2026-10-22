@@ -11,7 +11,7 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
