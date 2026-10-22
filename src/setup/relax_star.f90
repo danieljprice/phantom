@@ -17,7 +17,7 @@ module relaxstar
 !   - maxits   : *maximum number of relaxation iterations*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: apr, centreofmass, checksetup, damping, deriv, dim,
+! :Dependencies: apr, checksetup, damping, deriv, dim,
 !   dump_utils, energies, eos, externalforces, fileutils, infile_utils,
 !   initial, io, io_summary, memory, neighkdtree, options, part, physcon,
 !   ptmass, readwrite_dumps, setstar_utils, step_lf_global, table_utils,
@@ -378,7 +378,6 @@ end subroutine relax_star
 !+
 !----------------------------------------------------------------
 subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin,x0,omega)
- use centreofmass, only:get_centreofmass
  use deriv, only:get_derivs_global
  use part,  only:fxyzu,fext,rho,xyzmh_ptmass,nptmass
  use ptmass,only:get_accel_sink_gas
@@ -388,7 +387,7 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin,x0,omega)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(out)   :: dtmin
  real,    intent(in)    :: x0(3),omega
- real :: dx(3),dti,phi,rhoi,cs,hi,centrifugal(3),xcom(3),vcom(3)
+ real :: dx(3),dti,phi,rhoi,cs,hi,centrifugal(3)
  integer :: i,nlargeshift
 !
 ! shift particles asynchronously
@@ -423,12 +422,6 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin,x0,omega)
  enddo
  !$omp end parallel do
  if (nlargeshift > 0) print*,'Warning: Restricted dx for ', nlargeshift, 'particles'
- if (omega /= 0.) then
-    if (.not.any(xyzmh_ptmass(4,1:nptmass) > 0.)) then
-       call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu)
-       xyzh(1:3,i1+1:npart) = xyzh(1:3,i1+1:npart) - spread(xcom-x0,2,npart-i1)
-    endif
- endif
  !
  ! get forces on particles
  !
