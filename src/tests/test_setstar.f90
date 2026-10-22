@@ -16,7 +16,7 @@ module testsetstar
 !
 ! :Dependencies: checksetup, datafiles, dim, eos, io, mpidomain, options,
 !   part, physcon, radiation_utils, readwrite_mesa, relaxstar, setstar,
-!   setstar_utils, sortutils, table_utils, testutils, units
+!   setstar_utils, sortutils, table_utils, testutils, units, vectorutils
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -46,6 +46,9 @@ subroutine test_setstar(ntests,npass)
  ! test the get_mass_coordinate routine in relax_star
  call test_get_mass_coord(ntests,npass)
 
+ ! test that a star moved onto a circular orbit is set corotating
+ call test_shift_star_corotate(ntests,npass)
+
  ! test polytrope
  if (.not. do_radiation) call test_polytrope(ntests,npass)
 
@@ -56,6 +59,42 @@ subroutine test_setstar(ntests,npass)
  call test_whitedwarf(ntests,npass)
 
 end subroutine test_setstar
+
+!-----------------------------------------------------------------------
+!+
+!   Check that shift_star with corotate puts a star on a circular orbit
+!   into rigid rotation with the orbit, i.e. v = omega x r for every
+!   particle, so the star keeps its orbital velocity and spins the same
+!   way as it orbits
+!+
+!-----------------------------------------------------------------------
+subroutine test_shift_star_corotate(ntests,npass)
+ use setstar,     only:shift_star
+ use vectorutils, only:cross_product3D
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: np = 3
+ integer :: i,npartoftype(1),nfail(1)
+ real    :: xyz(3,np),vxyz(3,np),vexact(3,np),x0(3),v0(3),omega(3)
+
+ ! particles at the centre and around it, initially at rest
+ xyz(:,1) = (/0.,0.,0./)
+ xyz(:,2) = (/0.1,0.,0./)
+ xyz(:,3) = (/0.,0.2,-0.1/)
+ vxyz = 0.
+ npartoftype = np
+
+ ! circular orbit at radius 2 with speed 1, so omega = (0,0,1/2)
+ x0 = (/2.,0.,0./)
+ v0 = (/0.,1.,0./)
+ omega = (/0.,0.,0.5/)
+ call shift_star(np,npartoftype,xyz,vxyz,x0,v0,corotate=.true.)
+ do i=1,np
+    call cross_product3D(omega,xyz(:,i),vexact(:,i))
+ enddo
+ call checkval(3*np,reshape(vxyz,(/3*np/)),reshape(vexact,(/3*np/)),epsilon(0.),nfail(1),'v = omega x r for corotating star')
+ call update_test_scores(ntests,nfail,npass)
+
+end subroutine test_shift_star_corotate
 
 !-----------------------------------------------------------------------
 !+
