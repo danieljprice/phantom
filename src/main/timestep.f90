@@ -128,7 +128,7 @@ subroutine write_options_timestep(iunit)
 
  call write_inopt(C_cour,'C_cour','Courant factor',iunit)
  call write_inopt(C_force,'C_force','dt_force factor',iunit)
- call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iunit,exp=.true.)
+ call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping (> 100 to skip)',iunit,exp=.true.)
  if (gr) then
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iunit)
@@ -159,7 +159,7 @@ subroutine read_options_timestep(db,nerr)
 
  call read_inopt(C_cour,'C_cour',db,min=0.,max=1.,errcount=nerr)
  call read_inopt(C_force,'C_force',db,errcount=nerr,default=C_force)
- call read_inopt(tolv,'tolv',db,min=0.,max=0.1,errcount=nerr)
+ call read_inopt(tolv,'tolv',db,min=0.,errcount=nerr)
  if (gr) then
     call read_inopt(xtol,'xtol',db,min=0.,max=0.1,errcount=nerr)
     call read_inopt(ptol,'ptol',db,min=0.,max=0.1,errcount=nerr)
