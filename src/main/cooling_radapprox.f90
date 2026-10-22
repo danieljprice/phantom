@@ -219,7 +219,7 @@ subroutine write_options_cooling_radapprox(iunit)
 end subroutine write_options_cooling_radapprox
 
 subroutine read_options_cooling_radapprox(db,nerr)
- use io,              only:fatal
+ use io,              only:error
  use eos_stamatellos, only:eos_file
  use infile_utils,    only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
@@ -230,7 +230,10 @@ subroutine read_options_cooling_radapprox(db,nerr)
  call read_inopt(eos_file,'EOS_file',db,errcount=nerr)
  call read_inopt(ieosread,'ieos',db,errcount=nerr,min=1,default=24)
 
- if (ieosread /= 24) call fatal('ieosread','For icooling=9, you need ieos=24')
+ if (ieosread /= 24) then
+    call error('ieosread','For icooling=9, you need ieos=24')
+    nerr = nerr + 1
+ endif
 
 end subroutine read_options_cooling_radapprox
 

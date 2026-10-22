@@ -153,7 +153,7 @@ end subroutine write_options_timestep
 subroutine read_options_timestep(db,nerr)
  use infile_utils, only:inopts,read_inopt
  use dim,          only:gr,mhd,mpi
- use io,           only:fatal
+ use io,           only:error
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
@@ -170,7 +170,10 @@ subroutine read_options_timestep(db,nerr)
     call read_inopt(use_divb_proj,'use_divb_proj',db,errcount=nerr,default=use_divb_proj)
     call read_inopt(divb_tol,'divb_tol',db,min=0.,max=1.,errcount=nerr,default=divb_tol)
     call read_inopt(divb_maxit,'divb_maxit',db,min=1,max=1000000,errcount=nerr,default=divb_maxit)
-    if (use_divb_proj .and. mpi) call fatal('read_options','use_divb_proj is not supported with MPI')
+    if (use_divb_proj .and. mpi) then
+       call error('read_options','use_divb_proj is not supported with MPI')
+       nerr = nerr + 1
+    endif
  endif
 
 end subroutine read_options_timestep

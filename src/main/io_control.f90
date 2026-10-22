@@ -106,7 +106,7 @@ end subroutine write_options_iocontrol
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_iocontrol(db,nerr)
- use io,            only:fatal,warn
+ use io,            only:error,warn
  use dynamic_dtmax, only:read_options_dynamic_dtmax
  use infile_utils,  only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
@@ -126,13 +126,25 @@ subroutine read_options_iocontrol(db,nerr)
 
  if (dtmax > tmax) call warn(label,'no output dtmax > tmax')
  if (nout > nmax)  call warn(label,'no output nout > nmax')
- if (nout==0)      call fatal(label,'nout = 0')
+ if (nout==0) then
+    call error(label,'nout = 0')
+    nerr = nerr + 1
+ endif
 
- if (nfulldump==0 .or. nfulldump > 10000) call fatal(label,'nfulldump = 0')
+ if (nfulldump==0 .or. nfulldump > 10000) then
+    call error(label,'nfulldump = 0')
+    nerr = nerr + 1
+ endif
  if (nfulldump >= 50) call warn(label,'no full dumps for a long time...')
 
- if (twallmax < 0.) call fatal(label,'invalid twallmax (use 000:00 to ignore)')
- if (iverbose > 99 .or. iverbose < -9) call fatal(label,'invalid verboseness setting (two digits only)')
+ if (twallmax < 0.) then
+    call error(label,'invalid twallmax (use 000:00 to ignore)')
+    nerr = nerr + 1
+ endif
+ if (iverbose > 99 .or. iverbose < -9) then
+    call error(label,'invalid verboseness setting (two digits only)')
+    nerr = nerr + 1
+ endif
 
 end subroutine read_options_iocontrol
 

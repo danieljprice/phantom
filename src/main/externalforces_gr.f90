@@ -304,7 +304,7 @@ end subroutine read_headeropts_extern
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_externalforces(db,nerr,iexternalforce)
- use io,           only:fatal
+ use io,           only:error
  use infile_utils, only:inopts,read_inopt
  use metric_tools, only:imet_minkowski,imetric,imet_binarybh
  type(inopts), intent(inout) :: db(:)
@@ -320,8 +320,14 @@ subroutine read_options_externalforces(db,nerr,iexternalforce)
  else
     call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.,default=accradius1)
     call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
-    if (accradius1 > 0.)      call fatal(tag,'accradius1 > 0 when metric = Minkowski')
-    if (accradius1_hard > 0.) call fatal(tag,'accradius1_hard > 0 when metric = Minkowski')
+    if (accradius1 > 0.) then
+       call error(tag,'accradius1 > 0 when metric = Minkowski')
+       nerr = nerr + 1
+    endif
+    if (accradius1_hard > 0.) then
+       call error(tag,'accradius1_hard > 0 when metric = Minkowski')
+       nerr = nerr + 1
+    endif
  endif
 
 end subroutine read_options_externalforces

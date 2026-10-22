@@ -715,7 +715,7 @@ end subroutine read_headeropts_extern
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_externalforces(db,nerr,iexternalforce)
- use io,                   only:fatal,warn
+ use io,                   only:error,warn
  use extern_corotate,      only:read_options_corotate
  use extern_binary,        only:read_options_externbinary
  use extern_prdrag,        only:read_options_prdrag
@@ -749,7 +749,10 @@ subroutine read_options_externalforces(db,nerr,iexternalforce)
     if (ierr /= 0) eps2_soft = eps_soft*eps_soft
  end select
 
- if (eps_soft < 0.) call fatal(tag,'negative softening parameter',var='eps_soft',val=eps_soft)
+ if (eps_soft < 0.) then
+    call error(tag,'negative softening parameter',var='eps_soft',val=eps_soft)
+    nerr = nerr + 1
+ endif
 
  select case(iexternalforce)
  case(iext_corotate)

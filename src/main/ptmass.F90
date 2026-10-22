@@ -2641,7 +2641,7 @@ end subroutine write_options_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass(db,nerr)
- use io,           only:warning,fatal
+ use io,           only:warning,error
  use subgroup,     only:r_neigh
  use dim,          only:use_sinktree
  use infile_utils, only:inopts,read_inopt
@@ -2671,7 +2671,10 @@ subroutine read_options_ptmass(db,nerr)
 
  if (icreate_sinks==1 .and. r_crit < 2.0*h_acc) call warning(label,'Strongly suggest r_crit >= 2.0*h_acc')
 
- if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
+ if (f_crit_override > 0. .and. f_crit_override < 10. ) then
+    call error(label,'Give star formation a chance! Reset to > 10')
+    nerr = nerr + 1
+ endif
  if (f_crit_override > 0.) l_crit_override = .true.
 
  if (icreate_sinks==1 .and. r_merge_uncond < 2.0*h_acc) call warning(label,'Strongly suggest r_merge_uncond >= 2.0*h_acc')

@@ -1965,7 +1965,7 @@ end subroutine write_options_eos
 subroutine read_options_eos(db,nerr)
  use infile_utils,   only:inopts,read_inopt
  use dim,            only:store_dust_temperature,update_muGamma,compiled_with_mcfost,isothermal,mhd
- use io,             only:fatal
+ use io,             only:error
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
@@ -1982,8 +1982,10 @@ subroutine read_options_eos(db,nerr)
     update_muGamma = .true.
  endif
  if (.not.compiled_with_mcfost) then
-    if (.not.isothermal .and. eos_requires_isothermal(ieos)) &
-       call fatal(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
+    if (.not.isothermal .and. eos_requires_isothermal(ieos)) then
+       call error(label,'storing thermal energy but eos choice requires ISOTHERMAL=yes')
+       nerr = nerr + 1
+    endif
  endif
 
  call read_inopt(gmw,'mu',db,errcount=nerr,min=0.,default=gmw)
