@@ -576,7 +576,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
                 do_radiation,store_dust_temperature,do_nucleation,use_krome,use_apr,inject_parts
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
-                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
+                xyzmh_ptmass_label,vxyz_ptmass_label,vxyz_ptmass,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
                 itemp,iX,iZ,imu,apr_level
  use io,   only:warning,id,master
  use options,        only:alpha,use_dustfrac,use_var_comp
@@ -761,11 +761,15 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
              return
           else
              if (id==master) write(*,"(/,a,/)") 'WARNING! sink particle '//trim(xyzmh_ptmass_label(i))//' not found'
+             xyzmh_ptmass(i,1:nptmass) = 0.
           endif
        endif
     enddo
     if (.not.all(got_sink_vels(1:3))) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle velocities not found'
+       do i=1,3
+          if (.not.got_sink_vels(i)) vxyz_ptmass(i,1:nptmass) = 0.
+       enddo
     endif
     if (id==master .and. i1==1) then
        print "(2(a,i4),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
