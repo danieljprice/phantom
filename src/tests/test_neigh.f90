@@ -14,8 +14,8 @@ module testneigh
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpiutils,
-!   neighkdtree, part, random, testutils, timing, unifdis
+! :Dependencies: boundary, deriv, dim, io, kdtree, kernel, mpidomain,
+!   mpiutils, neighkdtree, part, random, testutils, timing, unifdis
 !
  implicit none
  public :: test_neigh
@@ -46,13 +46,14 @@ subroutine test_neigh(ntests,npass)
  use boundary,    only:xmin,xmax,ymin,ymax,zmin,zmax,dybound,dzbound
  use neighkdtree, only:dcellx,dcelly,dcellz
  use boundary, only:dxbound
+ use deriv,       only:get_density_global
  integer, intent(inout) :: ntests,npass
  real                   :: psep,hzero,totmass,dxboundp,dyboundp,dzboundp
  real                   :: xminp,xmaxp,yminp,ymaxp,zminp,zmaxp
  real                   :: rhozero,hi21,dx,dy,dz,xi,yi,zi,q2,hmin,hmax,hi
  integer                :: i,j,icell,ixyzcachesize,ncellstest,nfailedprev,maxpen
  integer                :: nneigh,nneighexact,nneightry,max1,max2,ncheck1,ncheck2,nwarn
- integer                :: ip
+ integer                :: ip,nactiveneigh
  integer                :: nparttot
  integer(kind=8)        :: nptot
  integer                :: npartincell,ierrmax
@@ -114,7 +115,7 @@ subroutine test_neigh(ntests,npass)
  hmax = 0.2/dxboundp !0.25/dxboundp
 
  if (ind_timesteps) then
-    nneightest = 3
+    nneightest = 4
  else
     nneightest = 2
  endif
@@ -138,9 +139,11 @@ subroutine test_neigh(ntests,npass)
 ! TEST 1: WITH ALL PARTICLES ACTIVE
 ! TEST 2: SOME PARTICLES DEAD OR ACCRETED
 ! TEST 3: WITH ONLY A FRACTION OF PARTICLES ACTIVE
+! TEST 4: AS TEST 3, AFTER A DENSITY PASS, WITH THE FORCE'S
+!         SEARCH FOR NEIGHBOURS WITHIN EITHER SMOOTHING LENGTH
 !----------------------------------------------------
        do i=1,npart
-          if (itest==3) then
+          if (itest==3 .or. itest==4) then
              !--partially active
              if (xyzh(4,i) < (hmin + 0.2*(hmax-hmin))) then
                 iphase(i) = isetphase(igas,iactive=.true.)
@@ -229,7 +232,19 @@ subroutine test_neigh(ntests,npass)
        endif
     endif
 
-    dochecks: if (itest /= 2) then
+    !
+    !--individual timesteps: density, then the force's neighbour search
+    !
+    if (itest==4 .and. nprocs==1) then
+       nactiveneigh = 0
+       do i=1,npart
+          if (iactive(iphase(i))) nactiveneigh = nactiveneigh + 1
+       enddo
+       call get_density_global(1,nactive=nactiveneigh,make_tree=.true.)
+       call check_neighbours_after_density(listneigh,ntests,npass)
+    endif
+
+    dochecks: if (itest == 1 .or. itest == 3) then
 
        ixyzcachesize = 60000*int((radkern/2.0)**3)
        if (.not.allocated(xyzcache)) allocate(xyzcache(3,ixyzcachesize))
@@ -435,5 +450,109 @@ subroutine test_neigh(ntests,npass)
  if (id==master) write(*,"(/,a,/)") '<-- NEIGHBOUR TEST COMPLETE'
 
 end subroutine test_neigh
+
+!-----------------------------------------------------------------------
+!+
+!  After a density pass with individual timesteps, the force's symmetric
+!  neighbour search (getj) must find, for every active particle i, every
+!  particle j within the kernel radius of either particle (r < radkern*h_i
+!  or r < radkern*h_j).  Checked against a direct count over all particles.
+!+
+!-----------------------------------------------------------------------
+subroutine check_neighbours_after_density(listneigh,ntests,npass)
+ use boundary,    only:dxbound,dybound,dzbound
+ use dim,         only:periodic
+ use kdtree,      only:inodeparts,inoderange
+ use kernel,      only:radkern,radkern2
+ use neighkdtree, only:get_neighbour_list,ncells,leaf_is_active,node
+ use part,        only:npart,xyzh,iphase,iactive
+ use io,          only:id,master
+ use testutils,   only:checkvalbuf_start,checkvalbuf,checkvalbuf_end,update_test_scores
+ integer, intent(inout) :: listneigh(:)
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: maxprint = 5
+ integer :: icell,ip,i,j,k,nneightry,nneigh,nneighexact,nfailed(1),ncheck,maxerr,nprint,nmissed
+ integer, allocatable :: leafof(:)
+ real    :: xyzcache(3,1),rlim
+ real    :: hi,hj,rij2
+
+ rlim = huge(rlim)
+ if (periodic) rlim = 0.5*min(dxbound,dybound,dzbound)  ! one periodic image only
+ nfailed(:) = 0
+ ncheck = 0
+ maxerr = 0
+ nprint = 0
+ ! the leaf of every particle, to report the hmax of a missed neighbour's leaf
+ allocate(leafof(npart))
+ leafof(:) = 0
+ do icell=1,int(ncells)
+    if (leaf_is_active(icell) == 0) cycle
+    do ip = inoderange(1,icell),inoderange(2,icell)
+       leafof(abs(inodeparts(ip))) = icell
+    enddo
+ enddo
+ call checkvalbuf_start('nneigh within h_i or h_j after density (getj)')
+ over_cells: do icell=1,int(ncells)
+    if (leaf_is_active(icell) <= 0) cycle over_cells
+    call get_neighbour_list(icell,listneigh,nneightry,xyzh,xyzcache,0,getj=.true.)
+    over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
+       i = abs(inodeparts(ip))
+       if (.not.iactive(iphase(i))) cycle over_parts
+       hi = xyzh(4,i)
+       nneighexact = 0
+       do j=1,npart
+          if (pair_within(i,j)) nneighexact = nneighexact + 1
+       enddo
+       nneigh = 0
+       do k=1,nneightry
+          if (pair_within(i,listneigh(k))) nneigh = nneigh + 1
+       enddo
+       call checkvalbuf(nneigh,nneighexact,0,'nneigh within h_i or h_j after density (getj)',&
+                        nfailed(1),ncheck,maxerr)
+       if (nneigh /= nneighexact .and. nprint < maxprint .and. id==master) then
+          nprint = nprint + 1
+          print "(a,i8,a,es10.3,2(a,i6),a,es10.3)",' particle ',i,' h = ',hi,': force search finds ',nneigh,&
+                ' neighbours, direct count ',nneighexact,'; its leaf hmax = ',node(leafof(i))%hmax
+          nmissed = 0
+          do j=1,npart
+             if (.not.pair_within(i,j)) cycle
+             if (any(listneigh(1:nneightry)==j)) cycle
+             nmissed = nmissed + 1
+             if (nmissed > maxprint) cycle
+             print "(a,i8,a,l1,a,es10.3,2(a,f6.3),a,es10.3)",'    missed j = ',j,' active = ',iactive(iphase(j)),&
+                   ' h_j = ',hj,' r/h_i = ',sqrt(rij2)/hi,' r/h_j = ',sqrt(rij2)/hj,&
+                   ' hmax of its leaf = ',node(leafof(j))%hmax
+          enddo
+          if (nmissed > maxprint) print "(a,i8,a)",'    ... and ',nmissed-maxprint,' more'
+       endif
+    enddo over_parts
+ enddo over_cells
+ call checkvalbuf_end('nneigh within h_i or h_j after density (getj)',ncheck,nfailed(1),maxerr,0)
+ call update_test_scores(ntests,nfailed,npass)
+ deallocate(leafof)
+
+contains
+
+logical function pair_within(i,j)
+ integer, intent(in) :: i,j
+ real :: dx,dy,dz
+
+ hj = xyzh(4,j)
+ pair_within = .false.
+ if (hj <= 0. .or. radkern*max(hi,hj) >= rlim) return
+ dx = xyzh(1,i) - xyzh(1,j)
+ dy = xyzh(2,i) - xyzh(2,j)
+ dz = xyzh(3,i) - xyzh(3,j)
+ if (periodic) then
+    if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*sign(1.0,dx)
+    if (abs(dy) > 0.5*dybound) dy = dy - dybound*sign(1.0,dy)
+    if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*sign(1.0,dz)
+ endif
+ rij2 = dx*dx + dy*dy + dz*dz
+ pair_within = (rij2 < radkern2*hi*hi .or. rij2 < radkern2*hj*hj)
+
+end function pair_within
+
+end subroutine check_neighbours_after_density
 
 end module testneigh
