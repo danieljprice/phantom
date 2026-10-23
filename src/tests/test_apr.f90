@@ -10,7 +10,7 @@ module testapr
 !
 ! :References:
 !
-! :Owner: Not Committed Yet
+! :Owner: Rebecca Nealon
 !
 ! :Runtime parameters: None
 !
@@ -181,6 +181,10 @@ subroutine test_apr(ntests,npass)
  call checkval(npart,original_npart,0,nfailed(7),'number of particles == original number')
  call update_test_scores(ntests,nfailed(5:7),npass)
 
+ ! nearest neighbour search and refinement by several levels at once
+ call test_nearest_neighbour(ntests,npass)
+ call test_multilevel_split(ntests,npass)
+
  ! split and merge with dust as a mixture and as particles
  if (use_dust) then
     call test_apr_dust(ntests,npass,onefluid=.true.)
@@ -190,6 +194,134 @@ subroutine test_apr(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- APR TEST COMPLETE'
 
 end subroutine test_apr
+
+!--------------------------------------------------------------------------
+!+
+!  check the tree-based nearest neighbour distance used to place split
+!  particles against a brute force search (with periodic boundaries)
+!+
+!--------------------------------------------------------------------------
+subroutine test_nearest_neighbour(ntests,npass)
+ use unifdis,   only:set_unifdis
+ use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
+ use part,      only:npart,npartoftype,hfact,xyzh,vxyzu,init_part,massoftype,igas,&
+                     set_particle_type
+ use dim,       only:periodic
+ use mpidomain, only:i_belong
+ use deriv,     only:get_density_global
+ use apr,       only:get_nearest_neighbour_distance
+ integer, intent(inout) :: ntests,npass
+ integer :: i,j,nlist,nfailed(1)
+ integer, allocatable :: list(:)
+ real,    allocatable :: rtree(:),rbrute(:)
+ real    :: dx(3),r2
+
+ if (id==master) write(*,"(/,a)") '--> checking nearest neighbour distances for splitting'
+ call init_part()
+ npart = 0
+ call set_unifdis('random',id,master,xmin,xmax,ymin,ymax,zmin,zmax,dxbound/12.,&
+                  hfact,npart,xyzh,periodic,verbose=.false.,mask=i_belong)
+ npartoftype(igas) = npart
+ massoftype(igas)  = dxbound*dybound*dzbound/npart
+ do i=1,npart
+    call set_particle_type(i,igas)
+ enddo
+ vxyzu(:,1:npart) = 0.
+ call get_density_global(1)
+
+ ! every other particle, so that the list is not just 1..n
+ nlist = npart/2
+ allocate(list(nlist),rtree(nlist),rbrute(nlist))
+ do i=1,nlist
+    list(i) = 2*i
+ enddo
+ call get_nearest_neighbour_distance(nlist,list,npart,xyzh,vxyzu,rtree)
+ do i=1,nlist
+    rbrute(i) = huge(0.)
+    do j=1,npart
+       if (j == list(i)) cycle
+       dx = xyzh(1:3,list(i)) - xyzh(1:3,j)
+       if (periodic) then
+          dx(1) = dx(1) - dxbound*nint(dx(1)/dxbound)
+          dx(2) = dx(2) - dybound*nint(dx(2)/dybound)
+          dx(3) = dx(3) - dzbound*nint(dx(3)/dzbound)
+       endif
+       r2 = dot_product(dx,dx)
+       rbrute(i) = min(rbrute(i),r2)
+    enddo
+    rbrute(i) = sqrt(rbrute(i))
+ enddo
+ call checkval(nlist,rtree,rbrute,1.e-14,nfailed(1),'nearest neighbour distance (tree vs brute force)')
+ call update_test_scores(ntests,nfailed,npass)
+ deallocate(list,rtree,rbrute)
+
+end subroutine test_nearest_neighbour
+
+!--------------------------------------------------------------------------
+!+
+!  refine by several levels in one call, as happens when restarting with
+!  a larger apr_max; mass and momentum are conserved and each particle at
+!  level l is one of 2**(l-1) children of an original particle
+!+
+!--------------------------------------------------------------------------
+subroutine test_multilevel_split(ntests,npass)
+ use unifdis,   only:set_unifdis
+ use boundary,  only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
+ use part,      only:npart,npartoftype,hfact,xyzh,vxyzu,fxyzu,init_part,massoftype,igas,&
+                     set_particle_type,apr_level,radprop
+ use dim,       only:periodic,maxtypes,maxdusttypes,do_radiation
+ use mpidomain, only:i_belong
+ use mpiutils,  only:reduceall_mpi
+ use random,    only:ran2
+ use apr,       only:init_apr,update_apr
+ use utils_apr, only:apr_max_in,apr_centre
+ integer, intent(inout) :: ntests,npass
+ integer :: i,iseed,ierr,original_npart,nfailed(4)
+ real    :: mtypein(maxtypes),mdustin(maxdusttypes),momin(3),hmean,nbase
+ real    :: mtype(maxtypes),mdust(maxdusttypes),mom(3)
+
+ if (id==master) write(*,"(/,a)") '--> refining by three levels at once'
+ call init_part()
+ npart = 0
+ iseed = -2917
+ call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,dxbound/16.,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
+ original_npart = npart
+ npartoftype(igas) = npart
+ massoftype(igas)  = dxbound*dybound*dzbound/reduceall_mpi('+',npart)
+ do i=1,npart
+    call set_particle_type(i,igas)
+    vxyzu(1:3,i) = (/ran2(iseed),ran2(iseed),ran2(iseed)/)
+ enddo
+ if (do_radiation) radprop(4,:) = 23.0421
+
+ ! same regions as the other tests, but with three additional levels
+ call setup_apr_region_for_test()
+ apr_max_in = 3
+ call init_apr(apr_level,ierr)
+ apr_centre(:,1:2) = 20.
+ call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+ call get_apr_totals(npart,mtypein,mdustin,momin,hmean)
+
+ apr_centre(1:2,1) = 0.25
+ apr_centre(1:2,2) = -0.25
+ apr_centre(3,1:2) = 0.
+ call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+ call get_apr_totals(npart,mtype,mdust,mom,hmean)
+
+ nbase = sum(0.5**(apr_level(1:npart)-1))
+ nfailed(:) = 0
+ call checkval(maxval(apr_level(1:npart)) == 4,.true.,nfailed(1),'particles refined by three levels')
+ call checkval(nint(nbase),original_npart,0,nfailed(2),'number of particles before refinement')
+ call checkval(maxtypes,mtype,mtypein,1.e-13,nfailed(3),'mass of each particle type')
+ call checkval(3,mom,momin,1.e-13,nfailed(4),'linear momentum')
+ call update_test_scores(ntests,nfailed,npass)
+
+ ! restore a single level of refinement for subsequent tests
+ apr_max_in = 1
+ apr_level(1:npart) = 1
+
+end subroutine test_multilevel_split
 
 !--------------------------------------------------------------------------
 !+

@@ -16,11 +16,11 @@ module testptmass
 !
 ! :Dependencies: HIIRegion, apr, boundary, centreofmass, checksetup,
 !   cons2prim, deriv, dim, energies, eos, eos_HIIR, extern_binary,
-!   extern_gr, externalforces, gravwaveutils, io, kdtree, kernel, metric,
-!   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
-!   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
-!   setup_params, spherical, step_lf_global, stretchmap, subgroup,
-!   substepping, table_utils, testutils, timestep, timing, units,
+!   extern_gr, externalforces, gravwaveutils, infile_utils, io, kdtree,
+!   kernel, metric, metric_tools, mpiutils, neighkdtree, options, orbits,
+!   part, physcon, ptmass, ptmass_tree, random, setbinary, setdisc,
+!   setorbit, setup_params, spherical, step_lf_global, stretchmap,
+!   subgroup, substepping, table_utils, testutils, timestep, timing, units,
 !   utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
@@ -157,6 +157,10 @@ subroutine test_ptmass(ntests,npass,string)
  !
  if (do_test_potential .or. testall) call test_sink_potential(ntests,npass)
  !
+ !  Test that sink particle options are written and read back correctly
+ !
+ if (testall) call test_ptmass_options(ntests,npass)
+ !
  !  Test that sink-gas forces conserve momentum (with unequal gas masses if APR)
  !
  if (do_test_sinkgas .or. testall) call test_sinkgas_momentum(ntests,npass)
@@ -196,6 +200,54 @@ subroutine test_ptmass(ntests,npass,string)
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
 end subroutine test_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  check that the sink particle options survive a write/read of the
+!  input file (use_sinktree and use_regnbody are written independently)
+!+
+!-----------------------------------------------------------------------
+subroutine test_ptmass_options(ntests,npass)
+ use dim,          only:use_sinktree
+ use ptmass,       only:write_options_ptmass,read_options_ptmass,use_regnbody
+ use infile_utils, only:open_db_from_file,close_db,inopts
+ use io,           only:id,master
+ use testutils,    only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ type(inopts), allocatable :: db(:)
+ integer :: nfailed(2),ierr,nerr
+ logical :: use_sinktree_in,use_regnbody_in
+ integer, parameter :: iunit = 25
+ character(len=*), parameter :: filename = 'test_ptmass_options.in'
+
+ if (id==master) write(*,"(/,a)") '--> testing write/read of sink particle options'
+ use_sinktree_in = use_sinktree
+ use_regnbody_in = use_regnbody
+
+ ! sink tree on, subgroups off, so the two cannot be confused
+ use_sinktree = .true.
+ use_regnbody = .false.
+ open(unit=iunit,file=filename,status='replace',form='formatted')
+ call write_options_ptmass(iunit)
+ close(iunit)
+
+ use_sinktree = .false.
+ nerr = 0
+ call open_db_from_file(db,filename,iunit,ierr)
+ call read_options_ptmass(db,nerr)
+ call close_db(db)
+ nfailed(:) = 0
+ call checkval(use_sinktree,.true.,nfailed(1),'use_sinktree read back')
+ call checkval(use_regnbody,.false.,nfailed(2),'use_regnbody read back')
+ call update_test_scores(ntests,nfailed,npass)
+
+ ! restore options and remove the file
+ use_sinktree = use_sinktree_in
+ use_regnbody = use_regnbody_in
+ open(unit=iunit,file=filename,status='old',iostat=ierr)
+ close(iunit,status='delete',iostat=ierr)
+
+end subroutine test_ptmass_options
 
 !-----------------------------------------------------------------------
 !+

@@ -124,8 +124,9 @@ module dim
 #else
  logical, parameter :: do_radiation = .false.
 #endif
- ! rhosum (two extra slots for number density and dWtilde/dh)
- integer, parameter :: maxrhosum = 41 + &
+ ! rhosum (two extra slots for number density and dWtilde/dh,
+ ! plus 38 for derivative sums with grad Wtilde used with unequal masses)
+ integer, parameter :: maxrhosum = 79 + &
                                    maxdustlarge - 1 + &
                                    radensumden
 

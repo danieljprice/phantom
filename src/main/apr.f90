@@ -15,8 +15,8 @@ module apr
 ! :Runtime parameters: None
 !
 ! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
-!   mpiforce, neighkdtree, part, physcon, quitdump, relaxem, utils_apr,
-!   vectorutils
+!   kernel, mpiforce, neighkdtree, part, physcon, quitdump, relaxem,
+!   utils_apr, vectorutils
 !
  use dim,  only:gr,use_apr
  use part, only:sync_aprmassoftype
@@ -25,7 +25,7 @@ module apr
 
  implicit none
 
- public :: init_apr,update_apr,sync_aprmassoftype
+ public :: init_apr,update_apr,sync_aprmassoftype,get_nearest_neighbour_distance
  public :: use_apr
 
  private
@@ -78,12 +78,14 @@ subroutine init_apr(apr_level,ierr)
     ! if we are derefining we make sure that
     ! massoftype(igas) is associated with the
     ! largest particle (don't do it twice accidentally!)
-    if (ref_dir == -1) then
-       massoftype(:) = massoftype(:) * 2.**(apr_max -1)
-       top_level = 1
-    else
-       top_level = apr_max
-    endif
+    if (ref_dir == -1) massoftype(:) = massoftype(:) * 2.**(apr_max -1)
+ endif
+
+ ! the most refined level, also when restarting with a different apr_max
+ if (ref_dir == -1) then
+    top_level = 1
+ else
+    top_level = apr_max
  endif
 
  ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
@@ -157,13 +159,13 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
  integer,         intent(inout) :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
- integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
+ integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,apr_last
  integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,iclosest,itype
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:),rho_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:), rneighs(:)
  integer, allocatable :: relaxlist(:),mergelist(:),should_split(:)
  integer, allocatable :: idx_merge(:),should_merge(:),scan_array(:),idx_split(:)
- real :: get_apr_in(3),xi,yi,zi,dx,dy,dz,rmin_local
+ real :: get_apr_in(3)
  logical :: relax_in_loop
 
  ! if this routine doesn't need to be used, just skip it
@@ -272,46 +274,28 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
        ! make the particle list
        idx_len = n_to_split
+       if (npartnew + idx_len > maxp) then
+          call fatal('apr','not enough memory to split particles: restart with a larger --maxp',&
+                     var='npart needed',ival=npartnew + idx_len)
+       endif
        npartnew = npartnew + idx_len ! total number of particles (for now)
        npart = npartnew ! for splitpart
 
        ! exit here if there's nothing more to do
        if (n_to_split == 0) cycle
 
-       !$omp parallel default(none) &
-       !$omp shared(npartold,should_split,idx_split,scan_array,idx_len) &
-       !$omp shared(rneighs,xyzh,adjusted_split) &
-       !$omp private(ii,mm,rmin_local,j,xi,yi,zi,dx,dy,dz)
-       !$omp do
+       !$omp parallel do default(none) &
+       !$omp shared(npartold,should_split,idx_split,scan_array) &
+       !$omp private(ii)
        do ii = 1,npartold
           if (should_split(ii) == 1) then
              idx_split(scan_array(ii) + 1) = ii
           endif
        enddo
-       !$omp enddo
+       !$omp end parallel do
 
-       if (adjusted_split) then
-          !$omp do schedule(dynamic)
-          do ii = 1,idx_len
-             mm = idx_split(ii) ! original particle that should be split
-             xi = xyzh(1,mm)
-             yi = xyzh(2,mm)
-             zi = xyzh(3,mm)
-
-             rmin_local = huge(1.0)
-
-             do j = 1,npartold
-                if (j == mm) cycle
-                dx = xi - xyzh(1,j)
-                dy = yi - xyzh(2,j)
-                dz = zi - xyzh(3,j)
-                rmin_local = min(rmin_local,dx*dx + dy*dy + dz*dz)
-             enddo
-             rneighs(ii) = sqrt(rmin_local)
-          enddo
-          !$omp enddo
-       endif
-       !$omp end parallel
+       ! distance to the nearest neighbour sets how far apart the children are placed
+       if (adjusted_split) call get_nearest_neighbour_distance(idx_len,idx_split,npartold,xyzh,vxyzu,rneighs)
 
        ! each new particle has the same type as its parent
        do ii = 1,idx_len
@@ -474,6 +458,51 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  enddo
 
 end subroutine update_apr
+
+!-----------------------------------------------------------------------
+!+
+!  distance from each listed particle to its nearest neighbour among the
+!  first npart particles, found using the tree (neighbours are within 2h)
+!+
+!-----------------------------------------------------------------------
+subroutine get_nearest_neighbour_distance(nlist,list,npart,xyzh,vxyzu,rneigh)
+ use neighkdtree, only:build_tree,getneigh_pos,leaf_is_active,listneigh
+ use kernel,      only:radkern
+ integer, intent(in)    :: nlist,list(:),npart
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(in)    :: vxyzu(:,:)
+ real,    intent(out)   :: rneigh(:)
+ integer, parameter :: maxcache = 10000
+ real    :: xyzcache(4,maxcache),xi(3),dx(3),r2min
+ integer :: ii,i,j,n,nneigh,npart_tree
+
+ npart_tree = npart
+ call build_tree(npart_tree,npart_tree,xyzh,vxyzu)
+
+ !$omp parallel do default(none) schedule(dynamic) &
+ !$omp shared(nlist,list,xyzh,rneigh,leaf_is_active) &
+ !$omp private(ii,i,j,n,nneigh,xi,dx,r2min,xyzcache)
+ do ii=1,nlist
+    i  = list(ii)
+    xi = xyzh(1:3,i)
+    call getneigh_pos(xi,0.,radkern*xyzh(4,i),listneigh,nneigh,xyzcache,maxcache,leaf_is_active)
+    r2min = huge(r2min)
+    do n=1,nneigh
+       j = listneigh(n)
+       if (j == i) cycle
+       ! cached positions already include any periodic offset
+       if (n <= maxcache) then
+          dx = xi - xyzcache(1:3,n)
+       else
+          dx = xi - xyzh(1:3,j)
+       endif
+       r2min = min(r2min,dot_product(dx,dx))
+    enddo
+    rneigh(ii) = sqrt(r2min)
+ enddo
+ !$omp end parallel do
+
+end subroutine get_nearest_neighbour_distance
 
 !-----------------------------------------------------------------------
 !+

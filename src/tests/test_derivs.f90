@@ -867,7 +867,7 @@ end subroutine test_derivs
 subroutine test_unequal_masses(ntests,npass)
  use dim,       only:use_dust,maxdustsmall
  use part,      only:npart,apr_level,dustevol,dustfrac,ndustsmall,ndustlarge,ndusttypes,&
-                     grainsize,graindens,xyzh
+                     grainsize,graindens,xyzh,divcurlv
  use options,   only:alpha,alphau,use_dustfrac
  use viscosity, only:bulkvisc,shearparam,irealvisc
  use eos,       only:polyk
@@ -876,18 +876,20 @@ subroutine test_unequal_masses(ntests,npass)
  use io,        only:id,master
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: i,j,icase,nfailed(4),ierr
+ integer :: i,j,icase,nfailed(5),ierr
  real    :: dustfracj
  logical :: use_dustfrac_in
  real    :: tol_en
  ! alternating masses on the lattice degrade the SPH estimate of div v,
  ! but using m_i instead of m_j in drho/dt roughly doubles the error
- real, parameter :: tol_divv = 0.25
+ real, parameter :: tol_divv = 0.25, tol_divv_dens = 1.e-7
+ real(kind=4), allocatable :: divv_force(:)
  character(len=20), parameter :: label(4) = &
     (/'hydro             ','shock viscosity   ','physical viscosity','one-fluid dust    '/)
 
  if (id==master) write(*,"(/,a)") '--> testing conservation with unequal masses (derivsapr)'
  use_dustfrac_in = use_dustfrac
+ allocate(divv_force(npart))
  do i=1,npart
     if (mod(i,2)==0) apr_level(i) = 2
  enddo
@@ -930,13 +932,18 @@ subroutine test_unequal_masses(ntests,npass)
     call get_derivs_global()
     nfailed(:) = 0
     ! with physical viscosity, du/dt uses the strain tensor from the density
-    ! calculation, which is consistent with the force only for equal masses
+    ! calculation, which matches the force only to the accuracy of the gradient
     tol_en = 1.e-14
-    if (icase==3) tol_en = 4.e-3
+    if (icase==3) tol_en = 2.e-9
     call check_conservation_unequal(nfailed,trim(label(icase)),tol_en)
     if (icase==1) then
        ! div v = -(1/rho) drho/dt is a sum over neighbour masses
        call checkval(divv_l2err(),0.,tol_divv,nfailed(4),'L2 error in divv (hydro)')
+       ! div v from the density calculation should match that from the force
+       divv_force(1:npart) = divcurlv(1,1:npart)
+       call get_density_global(1)
+       call checkval(npart,divcurlv(1,1:npart),divv_force(1:npart),tol_divv_dens,nfailed(5),&
+                     'divv from density matches force')
     endif
     call update_test_scores(ntests,nfailed,npass)
  enddo
@@ -951,6 +958,7 @@ subroutine test_unequal_masses(ntests,npass)
  endif
  ! later tests use the stored density, so recompute it with equal masses
  call get_density_global(1)
+ deallocate(divv_force)
 
 end subroutine test_unequal_masses
 

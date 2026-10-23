@@ -137,7 +137,8 @@ end subroutine test_get_mass_coord
 subroutine test_polytrope(ntests,npass)
  use io,        only:id,master,iverbose
  use part,      only:npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,apr_level
+ use dim,       only:use_apr
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm,pi
@@ -147,7 +148,7 @@ subroutine test_polytrope(ntests,npass)
  use checksetup, only:check_setup
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
- real :: rhozero,rmserr,ekin,x0(3)
+ real :: rhozero,rmserr,ekin,x0(3),nbase
  integer(kind=8) :: ntot
  integer :: ierr,nfail(1),i,nerror,nwarn
 
@@ -198,7 +199,13 @@ subroutine test_polytrope(ntests,npass)
     call update_test_scores(ntests,nfail,npass)
  enddo
 
- call checkval(npart,2*star%np,0,nfail(1),'np = 2000')
+ if (use_apr) then
+    ! each particle at level l is one of 2**(l-1) children of an original particle
+    nbase = sum(0.5**(apr_level(1:npart)-1))
+    call checkval(nint(nbase),2*star%np,0,nfail(1),'np = 2000 before refinement')
+ else
+    call checkval(npart,2*star%np,0,nfail(1),'np = 2000')
+ endif
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_polytrope

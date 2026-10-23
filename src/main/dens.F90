@@ -95,7 +95,12 @@ module densityforce
        iradfyi          = irhodustiend + 2, &
        iradfzi          = irhodustiend + 3, &
        ini              = iradfzi + 1, &
-       igradhni         = iradfzi + 2
+       igradhni         = iradfzi + 2, &
+       idivvti          = iradfzi + 3, & ! sums with grad Wtilde (no mass) of idivvi:idBzdzi
+       iradfxti         = idivvti + (idBzdzi - idivvi + 1), & ! and of the radiation flux
+       iradfyti         = iradfxti + 1, &
+       iradfzti         = iradfxti + 2, &
+       itilde           = idivvti - idivvi  ! offset from a sum to its grad Wtilde copy
 
  !--kernel related parameters
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
@@ -664,9 +669,12 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  real                        :: projdB,dBx,dBy,dBz,fxi,fyi,fzi,fxj,fyj,fzj
  real                        :: rhoi, rhoj,pmassi,pmassj
  logical                     :: same_type,gas_gas,iamdustj
- real                        :: dradenij
+ real                        :: dradenij,runix_t,runiy_t,runiz_t
+ logical                     :: wtot
 
  rhosum(:) = 0.
+ ! with unequal masses the derivatives need the extra sums over grad Wtilde
+ wtot = use_wtot_sums()
  if (ignoreself) then
     nneighi = 1   ! self
  else
@@ -686,6 +694,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  dvx = 0.
  dvy = 0.
  dvz = 0.
+ dax = 0.
+ day = 0.
+ daz = 0.
  if (nalpha > 1) then
     fxi = xpartveci(ifxi)
     fyi = xpartveci(ifyi)
@@ -906,6 +917,44 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 rhosum(iradfzi) = rhosum(iradfzi) + dradenij*runiz
              endif
 
+             if (wtot) then
+                ! same sums with grad Wtilde and no neighbour mass, combined with the
+                ! sums above using zeta/Omega once these are known (see fold_wtot_sums)
+                runix_t = dx*rij1*grkern_tilde
+                runiy_t = dy*rij1*grkern_tilde
+                runiz_t = dz*rij1*grkern_tilde
+                if (getdv) then
+                   rhosum(idivvi+itilde) = rhosum(idivvi+itilde) + dvx*runix_t + dvy*runiy_t + dvz*runiz_t
+                   if (maxdvdx > 0 .or. curlv .or. nalpha > 1) then
+                      call add_grad_tilde(rhosum,idvxdxi,dvx,runix_t,runiy_t,runiz_t)
+                      call add_grad_tilde(rhosum,idvydxi,dvy,runix_t,runiy_t,runiz_t)
+                      call add_grad_tilde(rhosum,idvzdxi,dvz,runix_t,runiy_t,runiz_t)
+                      if (nalpha > 1 .and. gas_gas) then
+                         call add_grad_tilde(rhosum,idaxdxi,dax,runix_t,runiy_t,runiz_t)
+                         call add_grad_tilde(rhosum,idaydxi,day,runix_t,runiy_t,runiz_t)
+                         call add_grad_tilde(rhosum,idazdxi,daz,runix_t,runiy_t,runiz_t)
+                      endif
+                      rhosum(irxxi+itilde) = rhosum(irxxi+itilde) - dx*runix_t
+                      rhosum(irxyi+itilde) = rhosum(irxyi+itilde) - dx*runiy_t
+                      rhosum(irxzi+itilde) = rhosum(irxzi+itilde) - dx*runiz_t
+                      rhosum(iryyi+itilde) = rhosum(iryyi+itilde) - dy*runiy_t
+                      rhosum(iryzi+itilde) = rhosum(iryzi+itilde) - dy*runiz_t
+                      rhosum(irzzi+itilde) = rhosum(irzzi+itilde) - dz*runiz_t
+                   endif
+                endif
+                if (getdB .and. gas_gas) then
+                   rhosum(idivBi+itilde) = rhosum(idivBi+itilde) + dBx*runix_t + dBy*runiy_t + dBz*runiz_t
+                   call add_grad_tilde(rhosum,idBxdxi,dBx,runix_t,runiy_t,runiz_t)
+                   call add_grad_tilde(rhosum,idBydxi,dBy,runix_t,runiy_t,runiz_t)
+                   call add_grad_tilde(rhosum,idBzdxi,dBz,runix_t,runiy_t,runiz_t)
+                endif
+                if (do_radiation .and. gas_gas .and. .not. implicit_radiation) then
+                   rhosum(iradfxti) = rhosum(iradfxti) + dradenij*runix_t
+                   rhosum(iradfyti) = rhosum(iradfyti) + dradenij*runiy_t
+                   rhosum(iradfzti) = rhosum(iradfzti) + dradenij*runiz_t
+                endif
+             endif
+
           endif
        elseif (use_dust .and. (iamgasi  .and. iamdustj)) then
           iloc = irhodusti + iamtypej - idust
@@ -1056,6 +1105,60 @@ pure subroutine calculate_divcurlB_from_sums(rhosum,termnorm,divcurlBi,ndivcurlB
  endif
 
 end subroutine calculate_divcurlB_from_sums
+
+!----------------------------------------------------------------
+!+
+!  whether derivatives use the corrected kernel gradient
+!  grad W + (zeta/Omega) grad Wtilde / m_j, which differs from the
+!  usual grad W / Omega when neighbouring masses differ (APR) or when
+!  a separate kernel is used for the number density
+!+
+!----------------------------------------------------------------
+pure logical function use_wtot_sums()
+ use dim,     only:use_apr
+ use options, only:two_kernel
+
+ use_wtot_sums = (use_apr .or. two_kernel)
+
+end function use_wtot_sums
+
+!----------------------------------------------------------------
+!+
+!  add the grad Wtilde sums for one vector component
+!+
+!----------------------------------------------------------------
+pure subroutine add_grad_tilde(rhosum,i0,q,rxt,ryt,rzt)
+ real,    intent(inout) :: rhosum(:)
+ integer, intent(in)    :: i0
+ real,    intent(in)    :: q,rxt,ryt,rzt
+
+ rhosum(i0+itilde)   = rhosum(i0+itilde)   + q*rxt
+ rhosum(i0+itilde+1) = rhosum(i0+itilde+1) + q*ryt
+ rhosum(i0+itilde+2) = rhosum(i0+itilde+2) + q*rzt
+
+end subroutine add_grad_tilde
+
+!----------------------------------------------------------------
+!+
+!  fold the grad Wtilde sums into the grad W sums using zeta/Omega,
+!  so that derivatives are normalised by C/(rho h^4) with no 1/Omega
+!  (Wtilde is the number density kernel, equal to W unless two_kernel)
+!+
+!----------------------------------------------------------------
+pure subroutine fold_wtot_sums(rhosum,zeta,gradhi,cnorm_t)
+ real,         intent(inout) :: rhosum(:)
+ real,         intent(in)    :: zeta,cnorm_t
+ real(kind=8), intent(in)    :: gradhi
+ integer :: k
+ real    :: fac_t
+
+ fac_t = real(zeta*gradhi)*cnorm_t/cnormk
+ do k=idivvi,idBzdzi
+    rhosum(k) = rhosum(k) + fac_t*rhosum(k+itilde)
+ enddo
+ rhosum(iradfxi:iradfzi) = rhosum(iradfxi:iradfzi) + fac_t*rhosum(iradfxti:iradfzti)
+
+end subroutine fold_wtot_sums
 
 !----------------------------------------------------------------
 !+
@@ -1613,7 +1716,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity,&
                        igradomega,igradzeta,igradsoft
- use options,     only:use_dustfrac,implicit_radiation
+ use options,     only:use_dustfrac,implicit_radiation,two_kernel
  use viscosity,   only:bulkvisc,shearparam
  use neighkdtree, only:set_hmaxcell
  use kernel,      only:radkern
@@ -1683,6 +1786,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        pmassi = massoftype(iamtypei)
     endif
 
+    zeta = 0.
     if (calculate_density) then
        call finish_rhosum(rhosum,pmassi,hi,.false.,rhoi=rhoi,ni=ni,gradhi=gradhi,&
                           zeta=zeta,gradsofti=gradsofti)
@@ -1704,6 +1808,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        rhomax = max(rhomax,real(rhoi))
     else
        rhoi = rho(lli)
+       if (maxgradh==maxp) zeta = real(gradh(igradzeta,lli))
     endif
 
     if (calculate_divcurlB) then
@@ -1728,7 +1833,18 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !
        igotrmatrix = .false.
 
-       term = cnormk*gradhi*rho1i*hi41
+       if (use_wtot_sums()) then
+          ! grad W + (zeta/Omega) grad Wtilde/m_j, normalised by C/(rho h^4)
+          if (two_kernel) then
+             call fold_wtot_sums(rhosum,zeta,gradhi,cnormk_tilde)
+          else
+             call fold_wtot_sums(rhosum,zeta,gradhi,cnormk)
+          endif
+          term = cnormk*rho1i*hi41
+       else
+          ! equal masses: the same derivative is grad W/Omega
+          term = cnormk*gradhi*rho1i*hi41
+       endif
        if (getdv) then
           ndivcurlv = size(divcurlv,dim=1)
           call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
@@ -1754,8 +1870,8 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !--get strain tensor from summations
        !
        if (maxdvdx==maxp .and. getdv) then
-          if (.not.igotrmatrix) call calculate_rmatrix_from_sums(cell%rhosums(:,i),denom,rmatrix,igotrmatrix)
-          call calculate_strain_from_sums(cell%rhosums(:,i),term,denom,rmatrix,dvdxi,.not.realviscosity)
+          if (.not.igotrmatrix) call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
+          call calculate_strain_from_sums(rhosum,term,denom,rmatrix,dvdxi,.not.realviscosity)
           ! check for negative stresses to prevent tensile instability
           if (realviscosity) call get_max_stress(dvdxi,divcurlvi(1),rho1i,stressmax,shearparam,bulkvisc)
           ! store strain tensor
@@ -1763,7 +1879,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        endif
 
        if (do_radiation .and. iamgasi .and. .not. implicit_radiation) then
-          radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
+          radprop(ifluxx:ifluxz,lli) = rhosum(iradfxi:iradfzi)*term
        endif
     endif
 

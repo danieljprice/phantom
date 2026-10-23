@@ -199,8 +199,10 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  t = 0.
  call allocate_memory(int(min(2*npart,maxp),kind=8))
  call get_derivs_global()
+ ! particles just split by APR are clumped, so their density is too high to
+ ! set u from the entropy: use the u(m) profile until the star has relaxed
  call reset_u_and_get_errors(i1,npart,xyzh,vxyzu,x0,rad,nt,mr,rhotab,&
-                             utherm,entrop,fix_entrop,rmax,rmserr)
+                             utherm,entrop,(fix_entrop .and. .not.use_apr),rmax,rmserr)
  call compute_energies(t)
  !
  ! perform sanity checks

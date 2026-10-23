@@ -2634,7 +2634,7 @@ subroutine write_options_ptmass(iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif
  if (use_sinktree) then
-    call write_inopt(use_regnbody, 'use_sinktree', 'allow ptmasses to be pushed in the kd-tree', iunit)
+    call write_inopt(use_sinktree,'use_sinktree','allow ptmasses to be pushed in the kd-tree',iunit)
  endif
 
 end subroutine write_options_ptmass
