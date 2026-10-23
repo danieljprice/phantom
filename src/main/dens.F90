@@ -909,7 +909,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
           endif
        elseif (use_dust .and. (iamgasi  .and. iamdustj)) then
           iloc = irhodusti + iamtypej - idust
-          rhosum(iloc) = rhosum(iloc) + wabi
+          rhosum(iloc) = rhosum(iloc) + wabi*pmassj
        endif sametype
 
     elseif (n <= isizeneighcache) then
@@ -1718,7 +1718,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           dustfrac(:,lli) = 0.
           if (iamgasi) then
              do l=1,ndustlarge
-                rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31 !TDB fix apr here
+                rhodusti(l) = cnormk*rhosum(irhodusti+l-1)*hi31
                 dustfrac(ndustsmall+l,lli) = rhodusti(l)*rho1i ! dust-to-gas ratio
              enddo
           endif

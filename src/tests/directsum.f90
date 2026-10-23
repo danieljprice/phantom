@@ -49,7 +49,7 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
  use kernel,    only:grkern,kernel_softening,radkern2,cnormk
  use part,      only:igas,iamtype,maxphase,maxp,iphase, &
                      iactive,isdead_or_accreted,massoftype,maxgradh, &
-                     apr_level,aprmassoftype
+                     apr_level,aprmassoftype,sync_aprmassoftype
  use dim,       only:maxvxyzu,maxp,use_apr,igradsoft
  use io,        only:error
  integer,      intent(in)    :: ntot
@@ -69,6 +69,7 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
 !
 ! phi = 0.
  phitot = 0.
+ call sync_aprmassoftype()
 
  iactivei = .true.
  iactivej = .true.
@@ -131,6 +132,10 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
        if (maxphase==maxp) then
           iamtypej = iamtype(iphase(j))
           iactivej = iactive(iphase(j))
+       endif
+       if (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
           pmassj = massoftype(iamtypej)
        endif
        fgravj(:) = 0.
@@ -216,7 +221,7 @@ subroutine directsum_grav_omp(xyzh,gradh,fgrav,phitot,ntot)
  use kernel,    only:grkern,kernel_softening,radkern2,cnormk
  use part,      only:igas,iamtype,maxphase,maxp,iphase, &
                      iactive,isdead_or_accreted,massoftype,maxgradh, &
-                     apr_level,aprmassoftype
+                     apr_level,aprmassoftype,sync_aprmassoftype
  use dim,       only:maxvxyzu,maxp,use_apr,igradsoft
  use io,        only:error
  integer,      intent(in)    :: ntot
@@ -234,6 +239,7 @@ subroutine directsum_grav_omp(xyzh,gradh,fgrav,phitot,ntot)
 !
 !--check that we have everything we need (same as directsum_grav)
 !
+ call sync_aprmassoftype()
  call kernel_softening(0.,0.,potensoft0,fmi)
  if (size(gradh(:,1)) < 3) then
     call error('directsum','cannot do direct sum with ngradh < 3')
@@ -302,10 +308,11 @@ subroutine directsum_grav_omp(xyzh,gradh,fgrav,phitot,ntot)
        hj21  = hj1*hj1
        hj41  = hj21*hj21
        iamtypej = igas
-       pmassj   = massoftype(iamtypej)
-       if (maxphase==maxp) then
-          iamtypej = iamtype(iphase(j))
-          pmassj   = massoftype(iamtypej)
+       if (maxphase==maxp) iamtypej = iamtype(iphase(j))
+       if (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassj = massoftype(iamtypej)
        endif
        dsofti = 0.
        dsoftj = 0.

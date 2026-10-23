@@ -65,7 +65,7 @@ end subroutine test_setstar
 !-----------------------------------------------------------------------
 subroutine test_get_mass_coord(ntests,npass)
  use sortutils,     only:r2func,find_rank
- use part,          only:xyzh,massoftype,igas,iorder=>ll
+ use part,          only:xyzh,massoftype,igas,iorder=>ll,init_part
  use setstar_utils, only:get_mass_coord
  use table_utils,   only:linspace
  use testutils,     only:checkvalbuf,checkvalbuf_end
@@ -75,6 +75,7 @@ subroutine test_get_mass_coord(ntests,npass)
  real    :: massri,errmax,x0(3)
  real, parameter :: tol = 1.e-14
 
+ call init_part()
  i1 = 10  ! start at non-zero offset to check this
  np = 100
  x0 = 0.

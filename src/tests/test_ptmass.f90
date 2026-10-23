@@ -20,7 +20,8 @@ module testptmass
 !   metric_tools, mpiutils, neighkdtree, options, orbits, part, physcon,
 !   ptmass, ptmass_tree, random, setbinary, setdisc, setorbit,
 !   setup_params, spherical, step_lf_global, stretchmap, subgroup,
-!   table_utils, testutils, timestep, timing, units, utils_subgroup
+!   substepping, table_utils, testutils, timestep, timing, units,
+!   utils_subgroup
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -46,7 +47,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr,do_test_orbit
+ logical :: do_test_binary_gr,do_test_orbit,do_test_sinkgas
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -62,6 +63,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_SDAR = .false.
  do_test_binary_gr = .false.
  do_test_orbit = .false.
+ do_test_sinkgas = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -92,6 +94,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_SDAR = .true.
  case('ptmassorbit','ptmassflyby')
     do_test_orbit = .true.
+ case('ptmasssinkgas','sinkgas')
+    do_test_sinkgas = .true.
  case default
     testall = .true.
  end select
@@ -153,6 +157,10 @@ subroutine test_ptmass(ntests,npass,string)
  !
  if (do_test_potential .or. testall) call test_sink_potential(ntests,npass)
  !
+ !  Test that sink-gas forces conserve momentum (with unequal gas masses if APR)
+ !
+ if (do_test_sinkgas .or. testall) call test_sinkgas_momentum(ntests,npass)
+ !
  !  Tests of accrete_particle routine
  !
  if (do_test_accretion .or. testall) then
@@ -188,6 +196,83 @@ subroutine test_ptmass(ntests,npass,string)
  if (id==master) write(*,"(/,a)") '<-- PTMASS TEST COMPLETE'
 
 end subroutine test_ptmass
+
+!-----------------------------------------------------------------------
+!+
+!  check that the sink-gas forces computed during substepping conserve
+!  linear momentum; with APR alternate gas particles are refined so that
+!  the back-reaction on the sink must use the mass of each particle
+!+
+!-----------------------------------------------------------------------
+subroutine test_sinkgas_momentum(ntests,npass)
+ use dim,         only:use_apr,use_sinktree
+ use part,        only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,fext,igas,&
+                       nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,&
+                       dsdt_ptmass,ihacc,ihsoft,apr_level,set_particle_type,get_pmass,&
+                       bin_info,group_info,nmatrix,sync_aprmassoftype,get_ntypes
+ use substepping, only:get_force
+ use random,      only:ran2
+ use io,          only:id,master
+ use mpiutils,    only:reduceall_mpi
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer :: i,iseed,nfailed(1),force_count,ntypes
+ real    :: dtextforce,dmom(3),smom,pmassi
+ real, parameter :: tol = 1.e-15
+
+ ! with sinks in the tree the sink-gas forces are not computed here
+ if (use_sinktree) return
+
+ if (id==master) write(*,"(/,a)") '--> testing momentum conservation in sink-gas forces'
+ call init_part()
+ iseed = -7123
+ npart = 1000
+ do i=1,npart
+    xyzh(1:3,i) = 0.8*(/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.4
+    xyzh(4,i)   = 0.1
+    vxyzu(:,i)  = 0.
+    call set_particle_type(i,igas)
+    if (use_apr .and. mod(i,2)==0) apr_level(i) = 2
+ enddo
+ npartoftype(igas) = npart
+ massoftype(igas)  = 1.e-3
+ call sync_aprmassoftype()
+ ntypes = get_ntypes(npartoftype)
+
+ nptmass = 1
+ xyzmh_ptmass(:,1)     = 0.
+ xyzmh_ptmass(4,1)     = 1.
+ xyzmh_ptmass(ihacc,1) = 0.01
+ xyzmh_ptmass(ihsoft,1) = 0.05
+ vxyz_ptmass(:,1) = 0.
+ fxyz_ptmass = 0.
+ fxyz_ptmass_tree = 0.
+ dsdt_ptmass = 0.
+ fext(:,1:npart) = 0.
+ force_count = 0
+ dtextforce = huge(dtextforce)
+ call get_force(nptmass,npart,1,ntypes,0.,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,&
+                vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,0.01,0.5,force_count,&
+                .false.,bin_info,group_info,nmatrix)
+
+ dmom = 0.
+ smom = 0.
+ do i=1,npart
+    pmassi = get_pmass(i,.false.)
+    dmom = dmom + pmassi*fext(1:3,i)
+    smom = smom + pmassi*sqrt(dot_product(fext(1:3,i),fext(1:3,i)))
+ enddo
+ dmom = reduceall_mpi('+',dmom)
+ smom = reduceall_mpi('+',smom)
+ dmom = dmom + xyzmh_ptmass(4,1)*fxyz_ptmass(1:3,1)
+ call checkval(sqrt(dot_product(dmom,dmom))/smom,0.,tol,nfailed(1),'sink-gas forces conserve momentum')
+ call update_test_scores(ntests,nfailed,npass)
+
+ ! restore equal masses for subsequent tests
+ if (use_apr) apr_level(1:npart) = 1
+ nptmass = 0
+
+end subroutine test_sinkgas_momentum
 
 !-----------------------------------------------------------------------
 !+

@@ -1240,7 +1240,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
  else
     itype = igas
  endif
- pmassi = massoftype(itype)
+ if (use_apr) then
+    pmassi = aprmassoftype(itype,apr_level(itest))
+ else
+    pmassi = massoftype(itype)
+ endif
  pmassj = massoftype(igas)
  pmassk = pmassj
  itypej = igas

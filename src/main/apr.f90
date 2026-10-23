@@ -18,7 +18,8 @@ module apr
 !   mpiforce, neighkdtree, part, physcon, quitdump, relaxem, utils_apr,
 !   vectorutils
 !
- use dim, only:gr,use_apr
+ use dim,  only:gr,use_apr
+ use part, only:sync_aprmassoftype
  use apr_region
  use utils_apr
 
@@ -138,31 +139,14 @@ end subroutine init_apr
 
 !-----------------------------------------------------------------------
 !+
-!  populate aprmassoftype from massoftype (needed during setup before
-!  init_apr has been called, e.g. in check_setup/get_centreofmass)
-!+
-!-----------------------------------------------------------------------
-subroutine sync_aprmassoftype()
- use part, only:massoftype,aprmassoftype
- integer :: i
-
- if (.not.use_apr) return
- do i = 1,apr_max
-    aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
- enddo
-
-end subroutine sync_aprmassoftype
-
-!-----------------------------------------------------------------------
-!+
 !  Subroutine to check if particles need to be split or merged
 !+
 !-----------------------------------------------------------------------
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 !$ use omp_lib
  use dim,        only:maxp,ind_timesteps,maxvxyzu
- use part,       only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                    shuffle_part,iphase,iactive,maxp,npartoftype,rho
+ use part,       only:ntot,isdead_or_accreted,aprmassoftype,iamtype,iamboundary,&
+                    shuffle_part,iphase,iactive,maxp,npartoftype,rho,maxtypes
  use quitdump,   only:quit
  use relaxem,    only:relax_particles
  use utils_apr,  only:find_closest_region,icentre
@@ -174,7 +158,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  integer,         intent(inout) :: npart
  integer(kind=1), intent(inout) :: apr_level(:)
  integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,ll,idx_len,j,apr_last
- integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,iclosest
+ integer :: n_ref,nrelax,nmerge,nkilled,nmerge_total,mm,n_to_split,iclosest,itype
  real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:),rho_ref(:)
  real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:), rneighs(:)
  integer, allocatable :: relaxlist(:),mergelist(:),should_split(:)
@@ -213,7 +197,7 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        if (.not.isdead_or_accreted(xyzh(4,ii))) then ! ignore dead particles
           n_ref = n_ref + 1
           xyzh_ref(1:4,n_ref) = xyzh(1:4,ii)
-          pmass_ref(n_ref) = aprmassoftype(igas,apr_level(ii))
+          pmass_ref(n_ref) = aprmassoftype(iamtype(iphase(ii)),apr_level(ii))
           rho_ref(n_ref) = rho(ii)
           force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
        endif
@@ -254,6 +238,9 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           if (ind_timesteps) then
              if (.not.iactive(iphase(ii))) cycle split_over_active
           endif
+          ! do not refine accreted or boundary particles
+          if (isdead_or_accreted(xyzh(4,ii))) cycle split_over_active
+          if (iamboundary(iamtype(iphase(ii)))) cycle split_over_active
 
           get_apr_in(1:3) = xyzh(1:3,ii)
           ! this is the refinement level it *should* have based
@@ -286,7 +273,6 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
        ! make the particle list
        idx_len = n_to_split
        npartnew = npartnew + idx_len ! total number of particles (for now)
-       npartoftype(igas) = npartoftype(igas) + n_to_split ! add to npartoftype
        npart = npartnew ! for splitpart
 
        ! exit here if there's nothing more to do
@@ -326,6 +312,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
           !$omp enddo
        endif
        !$omp end parallel
+
+       ! each new particle has the same type as its parent
+       do ii = 1,idx_len
+          itype = iamtype(iphase(idx_split(ii)))
+          npartoftype(itype) = npartoftype(itype) + 1
+       enddo
 
        ! if relaxing, make some adjustments here:
        ! just use the first particle that has been marked to split
@@ -378,71 +370,76 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  iclosest = 1
  do jj = 1,apr_max-1
     do ll = 1, ntrack
-       icentre = ll
-       kk = apr_max - jj + 1             ! to go from apr_max -> 2
-       mergelist = -1 ! initialise
-       nmerge = 0
-       nkilled = 0
-       xyzh_merge = 0.
-       vxyzu_merge = 0.
+       ! merge only particles of the same type with each other
+       do itype = 1,maxtypes
+          if (npartoftype(itype) == 0) cycle
+          icentre = ll
+          kk = apr_max - jj + 1             ! to go from apr_max -> 2
+          mergelist = -1 ! initialise
+          nmerge = 0
+          nkilled = 0
+          xyzh_merge = 0.
+          vxyzu_merge = 0.
 
-       should_merge(:) = 0
-       scan_array(:) = 0
-       idx_merge(:) = 0
+          should_merge(:) = 0
+          scan_array(:) = 0
+          idx_merge(:) = 0
 
-       ! identify what should be merged
-       !$omp parallel do default(none) &
-       !$omp shared(npart,apr_level,kk,xyzh,vxyzu,ntrack,ll,should_merge,iphase,apr_centre) &
-       !$omp private(ii,iclosest) &
-       !$omp reduction(+:nmerge)
-       merge_over_active: do ii = 1,npart
-          if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
-             if (ind_timesteps) then
-                if (.not.iactive(iphase(ii))) cycle merge_over_active
+          ! identify what should be merged
+          !$omp parallel do default(none) &
+          !$omp shared(npart,apr_level,kk,xyzh,vxyzu,ntrack,ll,should_merge,iphase,apr_centre,itype) &
+          !$omp private(ii,iclosest) &
+          !$omp reduction(+:nmerge)
+          merge_over_active: do ii = 1,npart
+             if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii))) & ! avoid already dead particles
+                 .and. (iamtype(iphase(ii)) == itype)) then
+                if (ind_timesteps) then
+                   if (.not.iactive(iphase(ii))) cycle merge_over_active
+                endif
+                if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),ntrack,apr_centre,iclosest)
+
+                if ((ntrack == 1) .or. (iclosest == ll)) then
+                   should_merge(ii) = 1
+                   nmerge = nmerge + 1
+                endif
              endif
-             if (ntrack > 1) call find_closest_region(xyzh(1:3,ii),ntrack,apr_centre,iclosest)
+          enddo merge_over_active
+          !$omp end parallel do
 
-             if ((ntrack == 1) .or. (iclosest == ll)) then
-                should_merge(ii) = 1
-                nmerge = nmerge + 1
+          ! create the scan array - this loop should *not* be parallelised
+          scan_array(:) = 0
+          do ii = 2,npart
+             scan_array(ii) = scan_array(ii-1) + should_merge(ii-1)
+          enddo
+
+          !$omp parallel do default(none) &
+          !$omp shared(should_merge,idx_merge,scan_array,xyzh_merge,vxyzu_merge,kk) &
+          !$omp shared(xyzh,vxyzu,npart) &
+          !$omp private(ii,mm) &
+          !$omp reduction(+:npart_regions)
+          do ii = 1,npart
+             if (should_merge(ii) == 1) then
+                mm = scan_array(ii) + 1
+                idx_merge(mm) = ii
+                xyzh_merge(1:4,mm) = xyzh(1:4,ii)
+                vxyzu_merge(1:3,mm) = vxyzu(1:3,ii)
+                npart_regions(kk) = npart_regions(kk) + 1
              endif
+          enddo
+          !$omp end parallel do
+
+          if (apr_verbose) print*,nmerge,'particles selected for merge'
+          ! Now send them to be merged
+          if (nmerge > 1) call merge_with_special_tree(nmerge,idx_merge,xyzh_merge(:,1:nmerge),&
+                                               vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
+                                               nrelax,relaxlist,npartnew)
+          nmerge_total = nmerge_total + nkilled ! actually merged
+          if (apr_verbose) then
+             print*,'merged: ',nkilled,kk
+             print*,'npart: ',npartnew - nkilled
           endif
-       enddo merge_over_active
-       !$omp end parallel do
-
-       ! create the scan array - this loop should *not* be parallelised
-       scan_array(:) = 0
-       do ii = 2,npart
-          scan_array(ii) = scan_array(ii-1) + should_merge(ii-1)
+          npart_regions(kk) = npart_regions(kk) - nkilled
        enddo
-
-       !$omp parallel do default(none) &
-       !$omp shared(should_merge,idx_merge,scan_array,xyzh_merge,vxyzu_merge,kk) &
-       !$omp shared(xyzh,vxyzu,npart) &
-       !$omp private(ii,mm) &
-       !$omp reduction(+:npart_regions)
-       do ii = 1,npart
-          if (should_merge(ii) == 1) then
-             mm = scan_array(ii) + 1
-             idx_merge(mm) = ii
-             xyzh_merge(1:4,mm) = xyzh(1:4,ii)
-             vxyzu_merge(1:3,mm) = vxyzu(1:3,ii)
-             npart_regions(kk) = npart_regions(kk) + 1
-          endif
-       enddo
-       !$omp end parallel do
-
-       if (apr_verbose) print*,nmerge,'particles selected for merge'
-       ! Now send them to be merged
-       if (nmerge > 1) call merge_with_special_tree(nmerge,idx_merge,xyzh_merge(:,1:nmerge),&
-                                            vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
-                                            nrelax,relaxlist,npartnew)
-       nmerge_total = nmerge_total + nkilled ! actually merged
-       if (apr_verbose) then
-          print*,'merged: ',nkilled,kk
-          print*,'npart: ',npartnew - nkilled
-       endif
-       npart_regions(kk) = npart_regions(kk) - nkilled
     enddo
  enddo
  ! update npart as required
@@ -515,7 +512,7 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
  use neighkdtree,   only:build_tree,ncells,leaf_is_active,get_cell_location
  use mpiforce,      only:cellforce
  use kdtree,        only:inodeparts,inoderange
- use part,          only:kill_particle,npartoftype,igas
+ use part,          only:kill_particle,npartoftype
  use part,          only:combine_two_particles
  use dim,           only:ind_timesteps,maxvxyzu
  use get_apr_level, only:get_apr,put_in_smallest_bin
@@ -559,7 +556,8 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
        ! merge by averaging everything
        call combine_two_particles(eldest,tuther)
 
-       xyzh(4,eldest) = (0.5*(xyzh(4,eldest) + xyzh(4,tuther)))*(2.0**(1./3.))
+       ! h has already been averaged; the merged particle has twice the mass
+       xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
        if (ind_timesteps) call put_in_smallest_bin(eldest)
 

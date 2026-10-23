@@ -30,6 +30,7 @@ module dim
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
+ integer :: maxp_requested = 0 ! number of particles memory was requested for
  !
  ! how much memory to allocate, e.g. to allow space for injected particles
  ! this can be changed with the --maxp= option on the command line and
@@ -367,6 +368,7 @@ subroutine update_max_sizes(n,ntot)
  integer,         intent(in) :: n
  integer(kind=8), intent(in), optional :: ntot
 
+ maxp_requested = n
  maxp = n
  if (use_apr) then
     maxp = 8*n
@@ -375,7 +377,7 @@ subroutine update_max_sizes(n,ntot)
 
  maxpsph = maxp
  if (use_sinktree) then
-    maxp = n+maxptmass
+    maxp = maxpsph + maxptmass
  endif
 
  if (use_krome) maxp_krome = maxp

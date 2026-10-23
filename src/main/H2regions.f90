@@ -67,7 +67,6 @@ contains
 !-----------------------------------------------------------------------
 subroutine initialize_H2R
  use io,      only:iprint,iverbose,id,master
- use part,    only:massoftype
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm,c
  use eos,     only:gmw
@@ -80,7 +79,8 @@ subroutine initialize_H2R
  Minmass = (Mmin*solarm)/umass
  mH = gmw*mass_proton_cgs/umass
  mH1 = 1./mH
- DNcoeff = log10(massoftype(1)*ar*mH1**2/utime)
+ ! photons needed to ionise a particle are this times its mass and density
+ DNcoeff = log10(ar*mH1**2/utime)
  HIIupdateflag = .true.
  HIIdt = 0.
 
@@ -207,7 +207,7 @@ end subroutine HII_feedback
 !-----------------------------------------------------------------------
 subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
  use part,       only:massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
-                      irstrom,get_partinfo,iphase,itemp,imu
+                      irstrom,get_partinfo,iphase,itemp,imu,get_pmass
  use neighkdtree,   only:listneigh=>listneigh_global,getneigh_pos,leaf_is_active
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
@@ -271,7 +271,7 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
                 if (isgas) then
                    if (.not. isdead_or_accreted(xyzh(4,j))) then
                       ! ionising photons needed to fully ionise the current particle
-                      DNdot = DNcoeff + log10(rho(j))
+                      DNdot = DNcoeff + log10(get_pmass(j,.true.)*rho(j))
                       if (DNdot < Ndot) then
                          if (eos_vars(imu,j) - muion > epsilon(muion) ) then ! is ionised ?
                             logNdiff = DNdot - Ndot

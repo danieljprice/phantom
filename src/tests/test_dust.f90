@@ -18,10 +18,10 @@ module testdust
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, dust, energies, eos, growth, io,
-!   kernel, mpidomain, mpiutils, options, part, physcon, random, set_dust,
-!   step_lf_global, table_utils, testutils, timestep, unifdis, units,
-!   vectorutils
+! :Dependencies: apr, boundary, deriv, dim, dust, energies, eos, growth,
+!   io, kernel, mpidomain, mpiutils, options, part, physcon, random,
+!   set_dust, step_lf_global, table_utils, testutils, timestep, unifdis,
+!   units, vectorutils
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -166,6 +166,9 @@ subroutine test_dustybox(ntests,npass)
 
  if (index(kernelname,'quintic') /= 0) then
     tol = 1.e-5; tolvg = 2.5e-5; tolfg = 3.3e-4; tolfd = 3.3e-4
+ elseif (index(kernelname,'Wendland') /= 0) then
+    ! larger errors from summing the drag kernel over the lattice
+    tol = 5.e-4; tolvg = 1.4e-2; tolfg = 2.2e-2; tolfd = 2.2e-2
  else
     tol = 1.e-4; tolvg = 1.e-4; tolfg = 3.e-3; tolfd = 3.e-3
  endif
@@ -502,11 +505,11 @@ end subroutine test_dustydiffuse
 !+
 !---------------------------------------------------------------------------------
 subroutine test_drag(ntests,npass)
- use dim,         only:periodic,maxtypes,maxvxyzu,maxdustlarge,use_dustgrowth
+ use dim,         only:periodic,maxtypes,maxvxyzu,maxdustlarge,use_dustgrowth,use_apr
  use part,        only:init_part,hfact,npart,npartoftype,massoftype,igas,&
-                       xyzh,vxyzu,fext,fxyzu,set_particle_type,dustprop,&
-                       idust,iphase,iamtype,ndusttypes,grainsize,graindens
- use options,     only:use_dustfrac
+                       xyzh,vxyzu,set_particle_type,dustprop,&
+                       idust,iphase,iamtype,ndusttypes,ndustlarge,grainsize,graindens,apr_level
+ use options,     only:use_dustfrac,tolh
  use eos,         only:polyk,ieos
  use kernel,      only:hfact_default
  use dust,        only:K_code,idrag,drag_implicit
@@ -516,20 +519,19 @@ subroutine test_drag(ntests,npass)
  use deriv,       only:get_derivs_global
  use mpiutils,    only:reduceall_mpi
  use random,      only:ran2
- use vectorutils, only:cross_product3D
  use units,       only:udist,unit_density
  use mpidomain,   only:i_belong
  use physcon,     only:pi
+ use apr,         only:sync_aprmassoftype
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
- integer :: nx,i,j,nfailed(7),itype,iseed,npart_previous,iu
- real    :: da(3),dl(3),temp(3)
- real    :: psep,time,rhozero,totmass,dekin,deint
+ integer :: nx,i,j,nfailed(1),itype,iseed,npart_previous,iu,ngas
+ real    :: psep,time,rhozero,totmass
+ real    :: tolh_in
+ integer :: neps
+ real, allocatable :: eps_ref(:),eps_new(:)
  character(len=10) :: string
-
- real, parameter :: tol_mom = 1.e-7
- real, parameter :: tol_ang = 5.e-4
- real, parameter :: tol_enj = 1.e-6
+ real, parameter :: tol_eps = 1.e-10
 
  string = '(explicit)'
  if (drag_implicit) string = '(implicit)'
@@ -568,7 +570,8 @@ subroutine test_drag(ntests,npass)
     if (maxvxyzu >= 4) vxyzu(iu,i) = ran2(iseed)
  enddo
 
- ndusttypes = maxdustlarge
+ ndustlarge = maxdustlarge
+ ndusttypes = ndustlarge
  do j=1,ndusttypes
     grainsize(j) = j*1./udist
     graindens(j) = 1./unit_density
@@ -592,17 +595,93 @@ subroutine test_drag(ntests,npass)
     dustprop(1,:) = 4./3.*pi*grainsize(1)**3*graindens(1)
     dustprop(2,:) = graindens(1)
  endif
+ call sync_aprmassoftype()
 !
 ! call derivatives
 !
  idrag=1
  if (idrag==2) K_code = 100.
 
+ call check_drag_conservation(ntests,npass,'')
+
+ if (use_apr) then
+    !
+    ! dust density on gas particles is a sum over dust neighbour masses:
+    ! halving the mass of every dust particle should halve the dust-to-gas ratio
+    !
+    ! converge gas smoothing lengths tightly so that they are identical in both calls
+    tolh_in = tolh
+    tolh = 1.e-12
+    call get_derivs_global(dt=1.)
+    ngas = npartoftype(igas)
+    neps = ndusttypes*ngas
+    allocate(eps_ref(neps),eps_new(neps))
+    call get_dust_to_gas(ngas,eps_ref)
+    eps_ref = 0.5*eps_ref
+    do i=1,npart
+       if (iamtype(iphase(i)) /= igas) apr_level(i) = 2
+    enddo
+    call get_derivs_global(dt=1.)
+    call get_dust_to_gas(ngas,eps_new)
+    call checkval(neps,eps_new,eps_ref,tol_eps,nfailed(1),'dust-to-gas ratio with refined dust')
+    call update_test_scores(ntests,nfailed(1:1),npass)
+    deallocate(eps_ref,eps_new)
+    tolh = tolh_in
+    !
+    ! check conservation when neighbouring gas and dust particles have different masses
+    !
+    do i=1,npart
+       apr_level(i) = int(1 + int(2.*ran2(iseed)),kind=1)
+    enddo
+    call check_drag_conservation(ntests,npass,' (APR, unequal masses)')
+    apr_level(1:npart) = 1
+ endif
+
+end subroutine test_drag
+
+!---------------------------------------------------------------------------------
+!+
+!  dust-to-gas ratio of each large dust species on the first ngas
+!  (gas) particles, as a 1D array
+!+
+!---------------------------------------------------------------------------------
+subroutine get_dust_to_gas(ngas,eps)
+ use part, only:dustfrac,ndustsmall,ndusttypes
+ integer, intent(in)  :: ngas
+ real,    intent(out) :: eps(:)
+ integer :: i,l
+
+ do i=1,ngas
+    do l=1,ndusttypes
+       eps((i-1)*ndusttypes + l) = dustfrac(ndustsmall+l,i)
+    enddo
+ enddo
+
+end subroutine get_dust_to_gas
+
+!---------------------------------------------------------------------------------
+!+
+!  compute derivatives and check that drag conserves momentum,
+!  angular momentum and energy, using the mass of each particle
+!+
+!---------------------------------------------------------------------------------
+subroutine check_drag_conservation(ntests,npass,label)
+ use dim,         only:periodic,maxvxyzu
+ use part,        only:npart,xyzh,vxyzu,fext,fxyzu,get_pmass
+ use deriv,       only:get_derivs_global
+ use mpiutils,    only:reduceall_mpi
+ use vectorutils, only:cross_product3D
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: label
+ integer :: i,nfailed(7)
+ real    :: da(3),dl(3),temp(3),dekin,deint,pmassi
+ real, parameter :: tol_mom = 1.e-7
+ real, parameter :: tol_ang = 5.e-4
+ real, parameter :: tol_enj = 1.e-6
+
  fext = 0.
  fxyzu = 0.
  call get_derivs_global(dt=1.)
- !if (drag_implicit) call get_derivs_global(dt=1.)
-
 !
 ! check that momentum and energy are conserved
 !
@@ -611,15 +690,15 @@ subroutine test_drag(ntests,npass)
  dekin = 0.
  deint = 0.
  do i=1,npart
-    itype = iamtype(iphase(i))
-    da(:) = da(:) + massoftype(itype)*fxyzu(1:3,i)
+    pmassi = get_pmass(i,.false.)
+    da(:) = da(:) + pmassi*fxyzu(1:3,i)
     if (.not.periodic) then !the angular momentum is not conserved for particle systems with periodic boundary conditions
        call cross_product3D(xyzh(1:3,i),fxyzu(1:3,i),temp)
-       dl(:) = dl(:) + massoftype(itype)*temp(:)
+       dl(:) = dl(:) + pmassi*temp(:)
     endif
     if (maxvxyzu >= 4) then
-       dekin  = dekin  + massoftype(itype)*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
-       deint  = deint  + massoftype(itype)*fxyzu(iu,i)
+       dekin  = dekin  + pmassi*dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+       deint  = deint  + pmassi*fxyzu(4,i)
     endif
  enddo
 
@@ -629,19 +708,19 @@ subroutine test_drag(ntests,npass)
  deint = reduceall_mpi('+', deint)
 
  nfailed=0
- call checkval(da(1),0.,tol_mom,nfailed(1),'acceleration from drag conserves momentum(x)')
- call checkval(da(2),0.,tol_mom,nfailed(2),'acceleration from drag conserves momentum(y)')
- call checkval(da(3),0.,tol_mom,nfailed(3),'acceleration from drag conserves momentum(z)')
+ call checkval(da(1),0.,tol_mom,nfailed(1),'acceleration from drag conserves momentum(x)'//label)
+ call checkval(da(2),0.,tol_mom,nfailed(2),'acceleration from drag conserves momentum(y)'//label)
+ call checkval(da(3),0.,tol_mom,nfailed(3),'acceleration from drag conserves momentum(z)'//label)
  if (.not.periodic) then
-    call checkval(dl(1),0.,tol_ang,nfailed(4),'acceleration from drag conserves angular momentum(x)')
-    call checkval(dl(2),0.,tol_ang,nfailed(5),'acceleration from drag conserves angular momentum(y)')
-    call checkval(dl(3),0.,tol_ang,nfailed(6),'acceleration from drag conserves angular momentum(z)')
+    call checkval(dl(1),0.,tol_ang,nfailed(4),'acceleration from drag conserves angular momentum(x)'//label)
+    call checkval(dl(2),0.,tol_ang,nfailed(5),'acceleration from drag conserves angular momentum(y)'//label)
+    call checkval(dl(3),0.,tol_ang,nfailed(6),'acceleration from drag conserves angular momentum(z)'//label)
  endif
- if (maxvxyzu >= 4) call checkval(dekin+deint,0.,tol_enj,nfailed(7),'acceleration from drag conserves energy')
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,tol_enj,nfailed(7),'acceleration from drag conserves energy'//label)
 
  call update_test_scores(ntests,nfailed,npass)
 
-end subroutine test_drag
+end subroutine check_drag_conservation
 
 !---------------------------------------------------------
 !+
