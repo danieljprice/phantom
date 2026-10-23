@@ -19,6 +19,13 @@ on:
   pull_request_target:
     types: [opened, edited, labeled, synchronize]
 
+# a push to the pull request cancels any earlier run for a previous push, even if it is still
+# queued; other events (e.g. editing the description) each get their own group, so that one which
+# will not benchmark cannot cancel one that will
+concurrency:
+  group: benchmark-${{ github.event.pull_request.number }}-${{ github.event.action == 'synchronize' && 'push' || github.run_id }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
