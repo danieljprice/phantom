@@ -581,13 +581,17 @@ end subroutine densityiterate
 
 !----------------------------------------------------------------
 !+
-!  set the stored density from the smoothing length for any particle
-!  whose density has not yet been computed (flagged by rho <= 0)
+!  set the stored density from the smoothing length
 !
 !  the density sums read rho for both the particle and its neighbours
 !  when forming the B field and radiation difference operators, so the
 !  array must already hold a sensible estimate on the first pass,
-!  otherwise these terms are evaluated with meaningless densities
+!  otherwise these terms are evaluated with meaningless densities.
+!
+!  For equal masses rho = m (hfact/h)^3 is exact, so it is always reset.
+!  With APR neighbouring masses differ and this is not the density, so
+!  only particles whose density has not yet been computed (rho <= 0)
+!  are set; the others keep the density from the previous calculation
 !+
 !----------------------------------------------------------------
 subroutine init_rho_from_h(npart,xyzh,apr_level)
@@ -604,8 +608,9 @@ subroutine init_rho_from_h(npart,xyzh,apr_level)
 !$omp shared(npart,xyzh,rho,iphase,apr_level,maxp,maxphase,massoftype,aprmassoftype) &
 !$omp private(i,itype,pmassi)
  do i = 1,npart
-    ! skip particles with a known density, and dead or accreted particles
+    ! skip dead or accreted particles, and with APR any with a known density
     if (isdead_or_accreted(xyzh(4,i))) cycle
+    if (use_apr .and. rho(i) > 0.) cycle
     itype = igas
     if (maxphase==maxp) itype = iamtype(iphase(i))
     if (use_apr) then

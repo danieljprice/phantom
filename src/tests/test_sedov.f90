@@ -50,6 +50,7 @@ subroutine test_sedov(ntests,npass)
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust,mtot
+ use kernel,    only:kernelname
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
@@ -65,7 +66,7 @@ subroutine test_sedov(ntests,npass)
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu,cv_type
  real    :: psep,denszero,enblast,rblast,prblast,gam1
- real    :: totmass,etotend,momtotend
+ real    :: totmass,etotend,momtotend,tol_en
  real    :: temp,cv,cvi,denszero_cgs,enblast_cgs
  character(len=20) :: logfile,evfile,dumpfile
 
@@ -189,7 +190,11 @@ subroutine test_sedov(ntests,npass)
     momtotend = totmom
 
     nfailed(:) = 0
-    call checkval(etotend,etot_in,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
+    ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping,
+    ! slightly larger with Wendland kernels (used with APR)
+    tol_en = 2.0e-4
+    if (index(kernelname,'Wendland') /= 0) tol_en = 2.1e-4
+    call checkval(etotend,etot_in,tol_en,nfailed(1),'total energy')
     call checkval(momtotend,totmom_in,7.e-15,nfailed(2),'linear momentum')
 
     ! delete temporary files

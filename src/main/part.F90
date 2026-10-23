@@ -922,6 +922,8 @@ subroutine init_rho_from_h(i1,i2)
  if (present(i1)) ia = i1
  if (present(i2)) ib = i2
  iamtypei = igas
+ ! massoftype may have just been set by the calling routine
+ call sync_aprmassoftype()
 
  do i=ia,ib
     if (.not. isdead_or_accreted(xyzh(4,i))) then
