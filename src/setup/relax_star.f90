@@ -17,11 +17,10 @@ module relaxstar
 !   - maxits   : *maximum number of relaxation iterations*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: apr, checksetup, damping, deriv, dim,
-!   dump_utils, energies, eos, externalforces, fileutils, infile_utils,
-!   initial, io, io_summary, memory, neighkdtree, options, part, physcon,
-!   ptmass, readwrite_dumps, setstar_utils, step_lf_global, table_utils,
-!   units
+! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
+!   energies, eos, externalforces, fileutils, infile_utils, initial, io,
+!   io_summary, memory, neighkdtree, options, part, physcon, ptmass,
+!   readwrite_dumps, setstar_utils, step_lf_global, table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -597,6 +596,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  use fileutils,  only:getnextfilename
  use io,         only:idump,idisk1,id,nprocs,iprint,iverbose
  use readwrite_dumps, only:read_dump
+ use part, only:variable_mass
  character(len=*), intent(inout) :: filename
  integer,          intent(in)    :: npart
  real,             intent(in)    :: mgas
@@ -607,7 +607,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  character(len=len(filename)) :: restart_file,filetmp
  character(len=lenid) :: fileid
  type(dump_h) :: hdr
- integer :: npartfile,iverboseprev
+ integer :: npartfile,iverboseprev,imassmode
  real :: hfactfile,tfile,mfile
  !
  ! check for the last file in the list relax_00000, relax_00001 etc
@@ -635,6 +635,14 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
     print "(a)",' ERROR: could not read file header'
     return
  else
+    imassmode = 0
+    if (any(hdr%inttags=='variable_mass').or.any(hdr%int4tags=='variable_mass')) &
+       call extract('variable_mass',imassmode,hdr,ierr)
+    if ((imassmode==1).neqv.variable_mass) then
+       print "(a)",' ERROR: particle-mass mode differs from the requested star'
+       ierr = 4
+       return
+    endif
     call extract('nparttot',npartfile,hdr,ierr,default=0)
     if (npartfile /= npart) then
        print "(a,i0,a,i0)",' ERROR: np=',npartfile,' in '//&

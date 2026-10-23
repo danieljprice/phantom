@@ -55,3 +55,61 @@ It is not a new runtime damping mode. Excessively rapid rotation may prevent
 convergence or cause mass shedding. Remove existing ``relax*`` dumps before
 changing the requested spin or stellar profile, then check the released star
 in isolation before using it in a collision.
+
+Density-weighted stellar particles
+----------------------------------
+
+To generate a star from a radial profile with approximately uniform initial
+particle spacing and individually varying masses, select the optional
+density-weighted hexagonal close-packed distribution::
+
+    particle_lattice1 = weighted_hcp
+    hcp_density_exponent1 = 0.
+    np1 = 100000
+    relax = T
+    spin_period1 = 24 hr
+
+Each star can have its own requested particle count. The actual count is the
+number of accepted lattice sites, not necessarily exactly ``npN``. Select
+``weighted_hcp`` for all gas stars in a multiple-star setup. The default
+distribution and existing equal-mass setups are unchanged.
+
+The single-exponent construction follows the parent-star prescription in
+StarSmasher (revision ``140a5553f31c37c2d0d879728296c9a9afa82146``).
+The exponent ``q`` controls number density and mass: ``n`` is proportional
+to ``rho**q`` and particle masses to ``rho**(1-q)``. Thus ``q=0`` gives
+uniformly spaced initial sites and ``q=1`` gives equal masses. Intermediate
+values trade envelope resolution against core resolution. This generates
+new particles from the profile; it does not import another code's dump.
+
+The lattice is an initial condition, not a constraint during evolution.
+Particle masses and count remain fixed, but spacing and smoothing lengths
+change as the gas moves. Runtime smoothing lengths follow particle number
+density; mass density is independently kernel-summed. Pressure work includes
+the corresponding variable-smoothing-length terms. Artificial viscosity and
+conduction use a monotone kernel gradient rather than the pressure correction.
+
+The initial surface prescription uses ``hcp_nnoptN=23``,
+``hcp_surface_factorN=1.3``, ``hcp_hfloorN=0`` and
+``hcp_surface_bufferN=-1`` (the automatic two-initial-smoothing-length cut,
+limited by the 85-percent enclosed-mass radius). A positive surface buffer
+overrides that cut. These are generation controls, not the runtime neighbour
+constraint; ``hfact`` remains independent. Inadequately resolved point cores
+are rejected rather than silently removed.
+
+MESA profile conversion uses the existing Phantom solar units by default.
+For a profile using a different convention, set ``hcp_profile_mass_unitN``
+(grams) and ``hcp_profile_radius_unitN`` (centimetres) explicitly. Importing a
+MESA profile does not select the MESA equation of state.
+
+Continuous masses currently require Newtonian gas-only hydrodynamics,
+``MPI=no``, ``APR=no`` and ``IND_TIMESTEPS=no``; OpenMP is supported.
+MHD, radiation, dust, sinks, injection and gravitational-wave diagnostics
+are not supported in this mode. The existing asynchronous automatic relaxer
+supports both static and rigidly rotating models; there is no additional
+runtime damping mode. Verify each released stellar model in isolation.
+
+Full dumps store masses, smoothing lengths and mass density in full precision
+and support restart. Small dumps retain masses but have reduced precision
+geometry and are not restart files. Legacy dumps without individual masses
+continue to use the existing mass-per-type representation.

@@ -29,6 +29,7 @@ module kdtree
  use part,        only:ll,iphase,treecache,maxphase, &
                        apr_level,aprmassoftype
 
+ use part, only:get_particle_mass
  implicit none
 
  integer, public,  allocatable :: inoderange(:,:)
@@ -696,7 +697,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  use part, only:isdead_or_accreted,ibelong
  use io,   only:fatal,id
  use dim,  only:ind_timesteps,mpi,periodic
- use part, only:isink,massoftype,igas,iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
+ use part, only:isink,igas,iamtype,maxphase,maxp,ihsoft
 !$ use omp_lib, only:omp_get_max_threads
  integer, intent(in)    :: np,irootnode
  integer, intent(out)   :: nproot
@@ -794,7 +795,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
     nlive(ic) = nlive(ic) + nlive(ic-1)
  enddo
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(np,nchunk,xyzh,nlive,inodeparts,treecache,iphase,massoftype,aprmassoftype,apr_level) &
+ !$omp shared(np,nchunk,xyzh,nlive,inodeparts,treecache,iphase) &
  !$omp shared(maxp,maxphase) &
  !$omp private(ic,i,nproot)
  do ic=1,nchunk
@@ -815,15 +816,9 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
           endif
           treecache(1:4,nproot) = xyzh(1:4,i)
           if (maxphase==maxp) then
-             if (use_apr) then
-                treecache(5,nproot) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-             else
-                treecache(5,nproot) = massoftype(iamtype(iphase(i)))
-             endif
-          elseif (use_apr) then
-             treecache(5,nproot) = aprmassoftype(igas,apr_level(i))
+             treecache(5,nproot) = get_particle_mass(i,iamtype(iphase(i)))
           else
-             treecache(5,nproot) = massoftype(igas)
+             treecache(5,nproot) = get_particle_mass(i,igas)
           endif
        endif isnotdead
     enddo
@@ -1674,15 +1669,9 @@ subroutine revtree(node, xyzh, leaf_is_active, ncells)
     treecache(1:4,i) = xyzh(1:4,ipartidx)
     ! compute and store mass
     if (maxphase==maxp) then
-       if (use_apr) then
-          treecache(5,i) = aprmassoftype(iamtype(iphase(ipartidx)),apr_level(ipartidx))
-       else
-          treecache(5,i) = massoftype(iamtype(iphase(ipartidx)))
-       endif
-    elseif (use_apr) then
-       treecache(5,i) = aprmassoftype(igas,apr_level(ipartidx))
+       treecache(5,i) = get_particle_mass(ipartidx,iamtype(iphase(ipartidx)))
     else
-       treecache(5,i) = massoftype(igas)
+       treecache(5,i) = get_particle_mass(ipartidx,igas)
     endif
  enddo
  !$omp enddo
@@ -1963,15 +1952,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        endif
        treecache(1:4,npnode) = xyzh(1:4,i)
        if (maxphase==maxp) then
-          if (use_apr) then
-             treecache(5,npnode) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-          else
-             treecache(5,npnode) = massoftype(iamtype(iphase(i)))
-          endif
-       elseif (use_apr) then
-          treecache(5,npnode) = aprmassoftype(igas,apr_level(i))
+          treecache(5,npnode) = get_particle_mass(i,iamtype(iphase(i)))
        else
-          treecache(5,npnode) = massoftype(igas)
+          treecache(5,npnode) = get_particle_mass(i,igas)
        endif
     enddo
     if (sinktree) then

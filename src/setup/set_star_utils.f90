@@ -17,11 +17,12 @@ module setstar_utils
 ! :Dependencies: dim, eos, eos_piecewise, extern_densprofile, io, kernel,
 !   mpiutils, part, physcon, radiation_utils, readwrite_aton,
 !   readwrite_kepler, readwrite_mesa, rho_profile, setsoftenedcore,
-!   sortutils, spherical, table_utils, unifdis, units
+!   sortutils, spherical, stellar_hcp, table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
  use readwrite_kepler,   only:write_kepler_comp
  use readwrite_aton,     only:read_aton,write_aton
+ use part, only:get_particle_mass
  implicit none
  !
  ! Index of setup options
@@ -272,8 +273,10 @@ end function need_rstar
 !-------------------------------------------------------------------------------
 subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
                             npts,den,r,npart,npartoftype,massoftype,xyzh,&
-                            use_exactN,np,rhozero,npart_total,mask)
- use part,         only:set_particle_type,igas
+                            use_exactN,np,rhozero,npart_total,mask,hcp_density_exponent, &
+                            mass_profile,hcp_nnopt,hcp_surface_factor,hcp_hfloor,hcp_surface_buffer)
+ use part,         only:set_particle_type,igas,variable_mass
+ use io,           only:fatal
  use spherical,    only:set_sphere
  use unifdis,      only:mask_prototype
  use physcon,      only:pi
@@ -287,10 +290,14 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  integer,          intent(inout) :: npart,npartoftype(:)
  real,             intent(inout) :: xyzh(:,:),massoftype(:)
  logical,          intent(in)    :: use_exactN
+ real,             intent(in), optional :: hcp_density_exponent
+ real,             intent(in), optional :: mass_profile(:),hcp_surface_factor,hcp_hfloor,hcp_surface_buffer
+ integer,          intent(in), optional :: hcp_nnopt
  procedure(mask_prototype) :: mask
  integer :: nx,i,ntot,npart_old,n
  integer(kind=8) :: npart_old_total
  real :: vol_sphere,psep
+ real :: exponent
  logical :: mass_is_set
 
  !
@@ -302,7 +309,9 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  npart_old = npart
  n = np
  mass_is_set = .false.
- if (massoftype(igas) > tiny(0.)) then
+ if (variable_mass.and.trim(lattice)/='weighted_hcp') &
+    call fatal('set_star_density','select weighted_hcp for all gas stars')
+ if (massoftype(igas) > tiny(0.) .and. trim(lattice) /= 'weighted_hcp') then
     n = nint(Mstar/massoftype(igas))
     mass_is_set = .true.
     print "(a,i0)",' WARNING: particle mass is already set, using np = ',n
@@ -311,20 +320,28 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  ! place particles in sphere
  !
  vol_sphere  = 4./3.*pi*Rstar**3
- nx          = int(n**(1./3.))
- psep        = vol_sphere**(1./3.)/real(nx)
- ! set_sphere adds the new particles to the total number across all MPI threads
  npart_old_total = reduceall_mpi('+',int(npart_old,kind=8))
- npart_total     = npart_old_total
- call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
-                 rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
-                 exactN=use_exactN,np_requested=n,mask=mask)
+ if (trim(lattice) == 'weighted_hcp') then
+    exponent = 0.
+    if (present(hcp_density_exponent)) exponent = hcp_density_exponent
+    call set_weighted_hcp_sphere(id,master,Rstar,Mstar,hfact,npts,den,r,npart,&
+                                 massoftype,xyzh,n,npart_old,npart_total,mask,exponent, &
+                                 mass_profile,hcp_nnopt,hcp_surface_factor,hcp_hfloor,hcp_surface_buffer)
+ else
+    nx          = int(n**(1./3.))
+    psep        = vol_sphere**(1./3.)/real(nx)
+    ! set_sphere adds the new particles to the total number across all MPI threads
+    npart_total = npart_old_total
+    call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
+                    rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
+                    exactN=use_exactN,np_requested=n,mask=mask)
+ endif
  !
  ! get total particle number across all MPI threads
  ! and use this to set the particle mass
  !
  ntot = int(npart_total - npart_old_total,kind=(kind(ntot)))  ! number of particles in this star
- if (.not.mass_is_set) then
+ if (.not.mass_is_set .and. trim(lattice) /= 'weighted_hcp') then
     massoftype(igas) = Mstar/ntot
  endif
  !
@@ -340,6 +357,76 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  rhozero = Mstar/vol_sphere
 
 end subroutine set_star_density
+
+!-----------------------------------------------------------------------
+!+
+!  Set particles on a density-weighted hexagonal close-packed lattice.
+!  A density exponent of zero gives a constant number-density sphere.
+!  A non-zero density exponent maps sites radially towards dense regions.
+!  Individual masses are proportional to rho(r)**(1-q).
+!+
+!-----------------------------------------------------------------------
+subroutine set_weighted_hcp_sphere(id,master,Rstar,Mstar,hfact,npts,den,r,npart,&
+                                   massoftype,xyzh,np,npart_old,npart_total,mask,density_exponent,&
+                                   mass_profile,hcp_nnopt,hcp_surface_factor,hcp_hfloor,hcp_surface_buffer)
+ use io,          only:fatal
+ use part,        only:igas,particle_mass,variable_mass,rho
+ use dim,         only:use_apr,mpi,ind_timesteps
+ use stellar_hcp, only:generate_stellar_hcp
+ use mpiutils,    only:reduceall_mpi
+ use unifdis,     only:mask_prototype
+ integer, intent(in) :: id,master,npts,np,npart_old
+ integer, intent(inout) :: npart
+ integer(kind=8), intent(out) :: npart_total
+ real, intent(in) :: Rstar,Mstar,hfact,den(npts),r(npts),density_exponent
+ real, intent(inout) :: massoftype(:),xyzh(:,:)
+ real, intent(in), optional :: mass_profile(:),hcp_surface_factor,hcp_hfloor,hcp_surface_buffer
+ integer, intent(in), optional :: hcp_nnopt
+ procedure(mask_prototype) :: mask
+ real, allocatable :: xyz(:,:),hi(:),mi(:),rhoi(:)
+ real :: redge,a1,surface_factor,hfloor
+ integer :: nnopt,i,ierr
+ integer(kind=8) :: nold_global
+
+ if (.not.present(mass_profile)) &
+    call fatal('weighted_hcp','enclosed-mass profile is required')
+ if (use_apr.or.mpi.or.ind_timesteps) &
+    call fatal('weighted_hcp','requires MPI=no, APR=no and IND_TIMESTEPS=no')
+ if (.not.variable_mass .and. npart_old > 0) &
+    call fatal('weighted_hcp','select weighted_hcp for all gas stars')
+ nnopt = 23
+ surface_factor = 1.3
+ hfloor = 0.
+ if (present(hcp_nnopt)) nnopt = hcp_nnopt
+ if (present(hcp_surface_factor)) surface_factor = hcp_surface_factor
+ if (present(hcp_hfloor)) hfloor = hcp_hfloor
+ call generate_stellar_hcp(r,den,mass_profile(1:npts),Rstar,Mstar,np,density_exponent,nnopt, &
+                           surface_factor,hfloor,xyz,hi,mi,rhoi,redge,a1,ierr,surface_buffer=hcp_surface_buffer)
+ if (ierr == 2) call fatal('weighted_hcp','increase resolution: this profile requires a point core')
+ if (ierr /= 0) call fatal('weighted_hcp','invalid stellar profile or HCP construction')
+ variable_mass = .true.
+ do i=1,size(hi)
+    if (.not.mask(int(i,kind=8))) cycle
+    npart = npart + 1
+    if (npart > size(xyzh,2)) call fatal('weighted_hcp','increase --maxp for this setup')
+    xyzh(1:3,npart) = xyz(:,i)
+    xyzh(4,npart) = hi(i)
+    particle_mass(npart) = mi(i)
+    rho(npart) = rhoi(i)
+ enddo
+ nold_global = reduceall_mpi('+',int(npart_old,kind=8))
+ npart_total = nold_global + size(hi,kind=8)
+ massoftype(igas) = Mstar/size(hi)
+ if (id == master) then
+    write(*,"(1x,a,es16.8)") 'weighted HCP support radius = ',redge
+    write(*,"(1x,a,es16.8)") 'weighted HCP lattice spacing = ',a1
+    write(*,"(1x,a,i0,a,i0)") 'weighted HCP particles = ',size(hi),' requested = ',np
+    write(*,"(1x,a,es16.8)") 'weighted HCP density exponent = ',density_exponent
+    write(*,"(1x,a,2es16.8)") 'weighted HCP particle mass range = ',minval(mi),maxval(mi)
+    write(*,"(1x,a,es16.8)") 'weighted HCP total mass = ',sum(mi)
+ endif
+
+end subroutine set_weighted_hcp_sphere
 
 !-----------------------------------------------------------------------
 !+
@@ -413,7 +500,7 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
     if (use_apr) then
        pmassi = aprmassoftype(igas,apr_level(j))
     else
-       pmassi = massoftype(igas)
+       pmassi = get_particle_mass(j,igas)
     endif
     r2 = dot_product(xyzh(1:3,j)-x0,xyzh(1:3,j)-x0)
     !
@@ -445,6 +532,7 @@ subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
            mu,mtab,eos_vars,npin,x0)
  use part,        only:iX,iZ,imu
  use table_utils, only:yinterp
+ use eos,         only:get_mean_molecular_weight
  logical, intent(in)  :: eos_outputs_mu
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
@@ -455,6 +543,7 @@ subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
  real, allocatable :: mass_enclosed_r(:)
  real :: massri,xorigin(3)
  integer :: i,i1
+ logical :: missing_mu
 
  i1 = 0
  if (present(npin)) i1 = npin  ! starting position in particle array
@@ -464,16 +553,25 @@ subroutine set_star_composition(eos_outputs_mu,npart,xyzh,Xfrac,Yfrac,&
 
  ! this does NOT work with MPI
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r,xorigin)
+ ! Profiles without a mu column use zero as a sentinel. The ideal gas
+ ! EOS needs the fully ionized molecular weight from the composition.
+ missing_mu = all(mu == 0.)
 
  !$omp parallel do schedule(guided) default(none) &
- !$omp shared(i1,npart,mass_enclosed_r,eos_outputs_mu) &
+ !$omp shared(i1,npart,mass_enclosed_r,eos_outputs_mu,missing_mu) &
  !$omp shared(Xfrac,Yfrac,mtab,mu,eos_vars) &
  !$omp private(i,massri)
  do i = i1+1,npart
     massri = mass_enclosed_r(i-i1)
     eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
     eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
-    if (.not. eos_outputs_mu) eos_vars(imu,i) = yinterp(mu,mtab,massri)
+    if (.not. eos_outputs_mu) then
+       if (missing_mu) then
+          eos_vars(imu,i) = get_mean_molecular_weight(eos_vars(iX,i),eos_vars(iZ,i))
+       else
+          eos_vars(imu,i) = yinterp(mu,mtab,massri)
+       endif
+    endif
  enddo
  !$omp end parallel do
 
@@ -486,7 +584,8 @@ end subroutine set_star_composition
 !-----------------------------------------------------------------------
 subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
                                   relaxed,use_var_comp,initialtemp,polyk_in,npin,x0)
- use part,            only:rho,itemp,igasP,iX,iZ,imu,iradxi,icv,radprop
+ use part,            only:rho,itemp,igasP,iX,iZ,imu,iradxi,icv,radprop,variable_mass
+ use stellar_hcp,     only:natural_spline,spline_value
  use eos,             only:equationofstate,calc_temp_and_ene,eos_outputs_mu,get_cv,gmw
  use radiation_utils, only:radxi_from_Trad
  use table_utils,     only:yinterp
@@ -505,6 +604,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  integer :: eos_type,cv_type,i,ierr
  real    :: presi,densi,tempi,eni,ri,egasrad,eint,mu
  real    :: rho_cgs,p_cgs,u_gasrec,xorigin(3),dum
+ real    :: pres2(npts)
  logical :: do_radiation_local
  integer :: i1
 
@@ -516,9 +616,11 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
  xorigin = 0.
  if (present(x0)) xorigin = x0
 
+ if (variable_mass) call natural_spline(r(1:npts),pres(1:npts),pres2)
+
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(i1,npart,xyzh,vxyzu,rad,eos_vars,den,pres,temp,r,npts) &
- !$omp shared(relaxed,use_var_comp,ieos,initialtemp,polyk_in,rho) &
+ !$omp shared(relaxed,use_var_comp,ieos,initialtemp,polyk_in,rho,variable_mass,pres2) &
  !$omp shared(xorigin,unit_density,unit_ergg,unit_pressure) &
  !$omp shared(radprop,gmw) &
  !$omp private(i,densi,presi,ri,tempi,eni,rho_cgs,p_cgs) &
@@ -529,6 +631,10 @@ subroutine set_star_thermalenergy(ieos,den,pres,temp,r,npts,npart,xyzh,vxyzu,rad
     if (relaxed .and. rho(i) > tiny(rho)) then
        densi = rho(i)
        presi = eos_vars(igasP,i)  ! retrieve pressure from relax_star calculated with the fake (ieos=2) internal energy
+    elseif (variable_mass) then
+       densi = rho(i)
+       presi = spline_value(r(1:npts),pres(1:npts),pres2,ri)
+       if (.not.(presi > 0.)) presi = yinterp(pres(1:npts),r(1:npts),ri)
     else
        ! interpolate density and pressure from table
        densi = yinterp(den(1:npts),r(1:npts),ri)
@@ -630,7 +736,8 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
        guessene = en(i-1)
        tempi = temp(i-1)
     endif
-    call calc_temp_and_ene(eos_type,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
+    ! For ieos=20, mu is also an output.
+    call calc_temp_and_ene(eos_type,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))
     en(i) = eni
     temp(i) = tempi
  enddo

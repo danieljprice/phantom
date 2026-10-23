@@ -30,7 +30,7 @@ module setstar
 !
 ! :Dependencies: centreofmass, dim, eos, eos_piecewise, extern_densprofile,
 !   infile_utils, io, mpiutils, options, part, physcon, prompting,
-!   relaxstar, setstar_utils, unifdis, units, vectorutils
+!   relaxstar, rho_profile, setstar_utils, unifdis, units, vectorutils
 !
  use setstar_utils, only:ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu
@@ -54,6 +54,11 @@ module setstar
     real :: initialtemp
     character(len=120) :: input_profile,dens_profile,compfile
     character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
+    character(len=30) :: particle_lattice
+    real :: hcp_density_exponent
+    integer :: hcp_nnopt
+    real :: hcp_surface_factor,hcp_hfloor,hcp_surface_buffer
+    real :: hcp_profile_mass_unit,hcp_profile_radius_unit
     character(len=2) :: label ! used to rename relax_star snapshots to relax1, relax2 etc.
  end type star_t
 
@@ -88,6 +93,7 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine set_defaults_star(star)
+ use physcon, only:solarm,solarr
  type(star_t), intent(out) :: star
 
  star%iprofile    = 2
@@ -110,6 +116,14 @@ subroutine set_defaults_star(star)
  star%outputfilename = 'mysoftenedstar.dat'
  star%dens_profile   = 'density.profile'
  star%compfile       = 'kepler.comp'
+ star%particle_lattice = 'closepacked'
+ star%hcp_density_exponent = 0.
+ star%hcp_nnopt = 23
+ star%hcp_surface_factor = 1.3
+ star%hcp_hfloor = 0.
+ star%hcp_surface_buffer = -1.
+ star%hcp_profile_mass_unit = solarm
+ star%hcp_profile_radius_unit = solarr
  star%label          = ''
 
 end subroutine set_defaults_star
@@ -227,10 +241,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
  use relaxstar,          only:relax_star
+ use rho_profile,        only:calc_mass_enc
  use part,               only:ihsoft,igas,imu,set_particle_type,ilum
  use extern_densprofile, only:write_rhotab
  use unifdis,            only:mask_prototype
- use physcon,            only:pi
+ use physcon,            only:pi,solarm,solarr
  use units,              only:umass,udist,utime,unit_density
  use mpiutils,           only:reduceall_mpi
  use options,            only:iexternalforce
@@ -319,12 +334,28 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         star%hsoft_code,star%outputfilename,composition,&
                         comp_label,ncols_compo)
 
+ if (trim(star%particle_lattice) == 'weighted_hcp') then
+    select case(star%iprofile)
+    case(imesa,ikepler,iaton)
+       ! Evolution-code profiles already contain the enclosed mass.
+    case default
+       call calc_mass_enc(npts,r,den,mtab=mtab(1:npts))
+    end select
+ endif
+
+ if (star%iprofile == imesa .and. trim(star%particle_lattice) == 'weighted_hcp') then
+    r = r*star%hcp_profile_radius_unit/solarr
+    star%r_code = r(npts)
+    rmin = r(1)
+    mtab = mtab*star%hcp_profile_mass_unit/solarm
+    mstar = mstar*star%hcp_profile_mass_unit/solarm
+ endif
  star%m_code = mstar + star%mcore_code
  !
  ! set up particles to represent the desired stellar profile
  !
- lattice = 'closepacked'
- if (relax) lattice='random'
+ lattice = trim(star%particle_lattice)
+ if (relax .and. trim(lattice) /= 'weighted_hcp') lattice='random'
  if (star%np < 1 .and. npart_old==0) then
     call fatal('set_star','cannot set up a star with zero particles')
     ierr = ierr_part
@@ -337,7 +368,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  endif
  call set_star_density(lattice,id,master,rmin,star%r_code,mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,&
-                       star%np,rhozero,npart_total,mask)
+                       star%np,rhozero,npart_total,mask,star%hcp_density_exponent, &
+                       mtab,star%hcp_nnopt,star%hcp_surface_factor,star%hcp_hfloor,star%hcp_surface_buffer)
  !
  ! die if stupid things done with GR
  !
@@ -954,8 +986,23 @@ subroutine write_options_star(star,iunit,label)
  if (star%iprofile > 0) call write_inopt(star%spin_period,'spin_period'//trim(c),&
                             'signed spin period about z (0=off, e.g. -24 hr)',iunit)
 
- if (star%iprofile > 0 .and. (len_trim(c)==0 .or. c(1:1)=='1')) then
+ if (star%iprofile > 0 .and. (len_trim(c)==0 .or. c(1:1)=='1' .or. &
+     trim(star%particle_lattice)=='weighted_hcp')) then
     call write_inopt(star%np,'np'//trim(c),'number of particles',iunit)
+ endif
+ if (star%iprofile > 0) then
+    call write_inopt(star%particle_lattice,'particle_lattice'//trim(c),&
+                     'particle lattice: closepacked, random, hcp, weighted_hcp',iunit)
+    if (trim(star%particle_lattice) == 'weighted_hcp') then
+       call write_inopt(star%hcp_density_exponent,'hcp_density_exponent'//trim(c),&
+                        'HCP density exponent: 0=uniform sites, 1=equal masses',iunit)
+       call write_inopt(star%hcp_nnopt,'hcp_nnopt'//trim(c),'HCP neighbour target parameter',iunit)
+       call write_inopt(star%hcp_surface_factor,'hcp_surface_factor'//trim(c),'surface neighbour estimate (1.3 or 1.8)',iunit)
+       call write_inopt(star%hcp_hfloor,'hcp_hfloor'//trim(c),'initial smoothing length floor in code units',iunit)
+       call write_inopt(star%hcp_surface_buffer,'hcp_surface_buffer'//trim(c),'surface buffer in initial h_c (-1=automatic)',iunit)
+       call write_inopt(star%hcp_profile_mass_unit,'hcp_profile_mass_unit'//trim(c),'MESA profile solar mass in grams',iunit)
+       call write_inopt(star%hcp_profile_radius_unit,'hcp_profile_radius_unit'//trim(c),'MESA profile solar radius in cm',iunit)
+    endif
  endif
 
 end subroutine write_options_star
@@ -996,6 +1043,32 @@ subroutine read_options_star(star,db,nerr,label)
  if (star%iprofile > 0 .and. (len_trim(c)==0 .or. c(1:1)=='1')) then
     call read_inopt(star%np,'np'//trim(c),db,errcount=nerr,min=10)
     !call read_inopt(use_exactN,'use_exactN',db,errcount=nerr)
+ endif
+ if (star%iprofile > 0) then
+    call read_inopt(star%particle_lattice,'particle_lattice'//trim(c),db,err=ierr)
+    if (ierr /= 0) star%particle_lattice = 'closepacked'
+    ! Missing HCP options retain their defaults; supplied values must validate.
+    if (any(db%tag=='hcp_density_exponent'//trim(c))) &
+       call read_inopt(star%hcp_density_exponent,'hcp_density_exponent'//trim(c),db,errcount=nerr,min=0.,max=1.)
+    if (trim(star%particle_lattice) == 'weighted_hcp') then
+       if (len_trim(c)>0 .and. trim(c)/='1') call read_inopt(star%np,'np'//trim(c),db,errcount=nerr,min=10)
+       if (any(db%tag=='hcp_nnopt'//trim(c))) &
+          call read_inopt(star%hcp_nnopt,'hcp_nnopt'//trim(c),db,errcount=nerr,min=1)
+       if (any(db%tag=='hcp_surface_factor'//trim(c))) &
+          call read_inopt(star%hcp_surface_factor,'hcp_surface_factor'//trim(c),db,errcount=nerr,min=tiny(0.))
+       if (any(db%tag=='hcp_hfloor'//trim(c))) &
+          call read_inopt(star%hcp_hfloor,'hcp_hfloor'//trim(c),db,errcount=nerr,min=0.)
+       if (any(db%tag=='hcp_surface_buffer'//trim(c))) &
+          call read_inopt(star%hcp_surface_buffer,'hcp_surface_buffer'//trim(c),db,errcount=nerr)
+       if (star%hcp_surface_buffer /= -1. .and. star%hcp_surface_buffer <= 0.) then
+          print "(a)",'ERROR: hcp_surface_buffer'//trim(c)//' must be -1 (automatic) or positive'
+          nerr = nerr + 1
+       endif
+       if (any(db%tag=='hcp_profile_mass_unit'//trim(c))) &
+          call read_inopt(star%hcp_profile_mass_unit,'hcp_profile_mass_unit'//trim(c),db,errcount=nerr,min=tiny(0.))
+       if (any(db%tag=='hcp_profile_radius_unit'//trim(c))) &
+          call read_inopt(star%hcp_profile_radius_unit,'hcp_profile_radius_unit'//trim(c),db,errcount=nerr,min=tiny(0.))
+    endif
  endif
 
  select case(star%iprofile)

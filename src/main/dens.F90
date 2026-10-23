@@ -9,7 +9,8 @@ module densityforce
 ! This module is the "guts" of the code
 !  Calculates density by iteration with smoothing length
 !
-! :References: None
+! :References: Gaburov, Lombardi & Portegies Zwart (2010), MNRAS 402, 105
+!   (number-density smoothing lengths for non-equal particle masses)
 !
 ! :Owner: Daniel Price
 !
@@ -25,6 +26,7 @@ module densityforce
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2,cnormk_tilde,wab0_tilde,gradh0_tilde
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
+ use part,    only:get_particle_mass,variable_mass
 
  implicit none
 
@@ -47,7 +49,8 @@ module densityforce
        iBevolzi = 13, &
        ipsi = 14, &
        irhoi_xpart = 15, &
-       iradxii = 16
+       iradxii = 16, &
+       imassi_xpart = 17
 
  !--indexing for rhosum array
  integer, parameter :: &
@@ -603,11 +606,7 @@ subroutine init_rho_from_h(npart,xyzh,apr_level)
     if (isdead_or_accreted(xyzh(4,i))) cycle
     itype = igas
     if (maxphase==maxp) itype = iamtype(iphase(i))
-    if (use_apr) then
-       pmassi = aprmassoftype(itype,apr_level(i))
-    else
-       pmassi = massoftype(itype)
-    endif
+    pmassi = get_particle_mass(i,itype)
     rho(i) = rhoh(xyzh(4,i),pmassi)
  enddo
 !$omp end parallel do
@@ -780,12 +779,12 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
        ! mass from neighbour cache (filled from treecache); tables only if uncached
        if (ifilledcellcache .and. n <= isizecellcache) then
           pmassj = xyzcache(im,n)
-       elseif (use_apr) then
-          pmassj = aprmassoftype(iamtypej,apr_level(j))
        else
-          pmassj = massoftype(iamtypej)
+          pmassj = get_particle_mass(j,iamtypej)
        endif
-       if (use_apr) then
+       if (variable_mass) then
+          pmassi = xpartveci(imassi_xpart)
+       elseif (use_apr) then
           pmassi = aprmassoftype(iamtypei,apri)
        else
           pmassi = massoftype(iamtypei)
@@ -1445,6 +1444,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
     endif
 
     cell%xpartvec(irhoi_xpart,cell%npcell) = rho(i)
+    cell%xpartvec(imassi_xpart,cell%npcell) = get_particle_mass(i)
     if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
     if (use_apr) then
@@ -1493,7 +1493,9 @@ subroutine finish_cell(cell,cell_converged)
     !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
     apri = cell%apr(i)
-    if (use_apr) then
+    if (variable_mass) then
+       pmassi = cell%xpartvec(imassi_xpart,i)
+    elseif (use_apr) then
        pmassi = aprmassoftype(iamtypei,apri)
     else
        pmassi = massoftype(iamtypei)
@@ -1677,7 +1679,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     endif
 
     apri = cell%apr(i)
-    if (use_apr) then
+    if (variable_mass) then
+       pmassi = cell%xpartvec(imassi_xpart,i)
+    elseif (use_apr) then
        pmassi = aprmassoftype(iamtypei,apri)
     else
        pmassi = massoftype(iamtypei)
@@ -1835,7 +1839,7 @@ subroutine get_density_at_pos(x,rho,itype)
        if (use_apr) then
           pmassj = aprmassoftype(iamtypej,apr_level(j))
        else
-          pmassj = massoftype(iamtypej)
+          pmassj = get_particle_mass(j,iamtypej)
        endif
        if (same_type)  then
           qj = sqrt(q2j)

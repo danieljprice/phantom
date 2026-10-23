@@ -186,7 +186,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doneigh = .true.
  case('kdtree','revtree')
     dokdtree = .true.
- case('step')
+ case('step','mass-atmosphere')
     dostep = .true.
  case('ptmass','fsi','chinchen','coin')
     doptmass = .true.
@@ -206,7 +206,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dorwdump = .true.
  case('setdisc','disc')
     dosetdisc = .true.
- case('setstar','star')
+ case('setstar','star','hcp','weighted_hcp')
     dosetstar = .true.
  case('eos')
     doeos = .true.
@@ -350,7 +350,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of step module
 !
  if (dostep.or.testall) then
-    call test_step(ntests,npass)
+    call test_step(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
@@ -433,7 +433,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of set_star module
 !
  if (dosetstar.or.testall) then
-    call test_setstar(ntests,npass)
+    call test_setstar(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

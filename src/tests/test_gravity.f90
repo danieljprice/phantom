@@ -17,8 +17,8 @@ module testgravity
 ! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
 !   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
 !   part, physcon, ptmass, setdisc, setplummer, setup_params,
-!   sort_particles, sortutils, spherical, table_utils, testapr, testutils,
-!   timing, units
+!   shock_capturing, sort_particles, sortutils, spherical, table_utils,
+!   testapr, testutils, timestep, timing, units, vectorutils
 !
  use io, only:id,master
  implicit none
@@ -69,6 +69,8 @@ subroutine test_gravity(ntests,npass,string)
     !--unit tests of treecode gravity by direct summation
     !
     if (testdirectsum .or. testall) call test_directsum(ntests,npass)
+    if (testdirectsum .or. testall) call test_variable_mass_dynamics(ntests,npass)
+    if (testdirectsum .or. testall) call test_variable_mass_dissipation(ntests,npass)
     !
     !--unit tests of FMM linear and angular momentum conservation
     !
@@ -88,6 +90,327 @@ subroutine test_gravity(ntests,npass,string)
  endif
 
 end subroutine test_gravity
+
+subroutine test_variable_mass_dynamics(ntests,npass)
+ use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,ind_timesteps
+ use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
+               xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type
+ use deriv, only:get_derivs_global,get_density_global
+ use kernel, only:wkern,cnormk,kernel_softening
+ use options, only:ieos,alpha,alphau,tolh
+ use eos, only:gamma,polyk
+ use kdtree, only:tree_accuracy
+ use vectorutils, only:cross_product3D
+ use testutils, only:checkval,update_test_scores
+ real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
+ integer, intent(inout) :: ntests,npass
+ integer :: ix,iy,iz,i,j,k,iside,nfailed(9),ieosprev
+ real :: saved_options(5)
+ real :: q2,rhosum,rhoerr,fsum(3),masssum,treeprev,tolhprev,dedt,fgrav(3,512)
+ real :: torque(3),pair_torque(3)
+ real :: xbase(4,512),entropy(512),forcebase(3,512),energy(2),delta,gradient,error_gradient
+ real :: phi,softforce,q
+ integer, parameter :: probes(3) = [1,219,512]
+
+ if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
+ saved_options = [hfact,gamma,polyk,alpha,alphau]
+ ieosprev = ieos
+ call init_part()
+ npart = 0
+ do ix=1,8
+    do iy=1,8
+       do iz=1,8
+          npart = npart + 1
+          xyzh(:,npart) = [real(ix)*0.1,real(iy)*0.1,real(iz)*0.1,0.12]
+          particle_mass(npart) = 1.e-3*(1. + 0.5*xyzh(1,npart))
+          call set_particle_type(npart,igas)
+       enddo
+    enddo
+ enddo
+ npartoftype = 0
+ npartoftype(igas) = npart
+ variable_mass = .true.
+ masssum = sum(particle_mass(1:npart))
+ massoftype(igas) = masssum/npart
+ hfact = 1.2
+ ieos = 2
+ gamma = 5./3.
+ polyk = 0.
+ alpha = 0.
+ alphau = 0.
+ vxyzu = 0.
+ treeprev = tree_accuracy
+ tolhprev = tolh
+ tree_accuracy = 0.
+ tolh = max(1.e-10,32.*epsilon(1.))
+ call get_derivs_global()
+ fgrav = fxyzu(1:3,1:npart)
+
+ ! Independently sum mass density at the converged smoothing lengths.
+ rhoerr = 0.
+ do i=1,npart
+    rhosum = 0.
+    do j=1,npart
+       q2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)/xyzh(4,i)**2
+       rhosum = rhosum + particle_mass(j)*wkern(q2,sqrt(q2))*cnormk/xyzh(4,i)**3
+    enddo
+    rhoerr = max(rhoerr,abs(rho(i)/rhosum-1.))
+ enddo
+ fsum = 0.
+ torque = 0.
+ do i=1,npart
+    fsum = fsum + particle_mass(i)*fxyzu(1:3,i)
+    call cross_product3D(xyzh(1:3,i),fxyzu(1:3,i),pair_torque)
+    torque = torque + particle_mass(i)*pair_torque
+ enddo
+ nfailed = 0
+ call checkval(rhoerr,0.,max(1.e-9,tol),nfailed(1),'variable-mass kernel density')
+ call checkval(maxval(abs(fsum)),0.,tol,nfailed(2),'variable-mass gravity momentum conservation')
+ call checkval(sum(particle_mass(1:npart)),masssum,tol,nfailed(3),'mass survives tree construction')
+ call checkval(maxval(abs(torque)),0.,tol,nfailed(7),'variable-mass gravity angular momentum conservation')
+
+ ! Add pressure and non-uniform velocity; pair forces must still conserve momentum.
+ do i=1,npart
+    vxyzu(1:3,i) = 0.1*xyzh(1:3,i)
+    if (maxvxyzu >= 4) vxyzu(4,i) = 0.2
+ enddo
+ call get_derivs_global()
+ fsum = 0.
+ dedt = 0.
+ torque = 0.
+ do i=1,npart
+    fsum = fsum + particle_mass(i)*fxyzu(1:3,i)
+    call cross_product3D(xyzh(1:3,i),fxyzu(1:3,i),pair_torque)
+    torque = torque + particle_mass(i)*pair_torque
+    if (maxvxyzu >= 4) dedt = dedt + particle_mass(i)*(fxyzu(4,i) + &
+                             dot_product(vxyzu(1:3,i),fxyzu(1:3,i)-fgrav(:,i)))
+ enddo
+ call checkval(maxval(abs(fsum)),0.,tol,nfailed(4),'variable-mass hydro momentum conservation')
+ call checkval(all(rho(1:npart) > 0.),.true.,nfailed(5),'positive variable-mass density')
+ call checkval(dedt,0.,tol,nfailed(6),'variable-mass hydro energy conservation')
+ call checkval(maxval(abs(torque)),0.,tol,nfailed(8),'variable-mass hydro angular momentum conservation')
+
+ ! Independent variation of U + gravitational energy, re-solving h at each position.
+ vxyzu(1:3,1:npart) = 0.
+ call get_derivs_global()
+ xbase = xyzh(:,1:npart)
+ entropy = vxyzu(4,1:npart)/rho(1:npart)**(gamma-1.)
+ forcebase = fxyzu(1:3,1:npart)
+ delta = 1.e-5
+ error_gradient = 0.
+ do k=1,size(probes)
+    i = probes(k)
+    do iside=1,2
+       xyzh(:,1:npart) = xbase
+       xyzh(1,i) = xbase(1,i) + (2*iside-3)*delta
+       call get_density_global(icall=1)
+       vxyzu(4,1:npart) = entropy*rho(1:npart)**(gamma-1.)
+       call get_derivs_global(icall=2)
+       energy(iside) = sum(particle_mass(1:npart)*vxyzu(4,1:npart))
+       ! Stored poten is real4: sum the softened energy independently in real8.
+       do j=1,npart
+          do ix=1,npart
+             q = sqrt(sum((xyzh(1:3,j)-xyzh(1:3,ix))**2))/xyzh(4,j)
+             call kernel_softening(q*q,q,phi,softforce)
+             energy(iside) = energy(iside) + 0.5*particle_mass(j)*particle_mass(ix)*phi/xyzh(4,j)
+          enddo
+       enddo
+    enddo
+    gradient = -(energy(2)-energy(1))/(2.*delta*particle_mass(i))
+    error_gradient = max(error_gradient,abs(gradient-forcebase(1,i))/max(1.,abs(forcebase(1,i))))
+ enddo
+ call checkval(error_gradient,0.,1.e-5,nfailed(9),'adaptive unequal-mass force is the energy gradient')
+ call update_test_scores(ntests,nfailed,npass)
+ tree_accuracy = treeprev
+ tolh = tolhprev
+ hfact = saved_options(1)
+ gamma = saved_options(2)
+ polyk = saved_options(3)
+ alpha = saved_options(4)
+ alphau = saved_options(5)
+ ieos = ieosprev
+ call init_part()
+
+end subroutine test_variable_mass_dynamics
+
+subroutine test_variable_mass_dissipation(ntests,npass)
+ use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,igradzeta,igradomega,ind_timesteps
+ use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
+               xyzh,vxyzu,fxyzu,hfact,set_particle_type,alphaind,gradh,rho
+ use kernel, only:grkern,cnormk
+ use timestep, only:C_thermal,dtforce
+ use deriv, only:get_derivs_global
+ use options, only:ieos,alpha,alphau,tolh
+ use shock_capturing, only:beta
+ use eos, only:gamma,polyk,ipdv_heating
+ use kdtree, only:tree_accuracy
+ use testutils, only:checkval,update_test_scores
+ real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
+ integer, intent(inout) :: ntests,npass
+ integer :: ix,iy,iz,i,j,ipair,jpair,nfailed(11)
+ real :: radius2,masssum,treeprev,tolhprev,betaprev,alphaprev,auprev
+ real :: fgrav(3,512),mom(3),dedt,du(512),uold(512),rate
+ real :: r2,factor,minfactor,direction(3)
+ real :: q,gi,gj,conductance,maxconductance
+ real :: thermalprev
+ integer :: ipdvprev,ieosprev
+ real :: saved_eos(3)
+
+ if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
+ saved_eos = [hfact,gamma,polyk]
+ ieosprev = ieos
+ call init_part()
+ treeprev = tree_accuracy
+ tolhprev = tolh
+ betaprev = beta
+ alphaprev = alpha
+ auprev = alphau
+ ipdvprev = ipdv_heating
+ thermalprev = C_thermal
+ tree_accuracy = 0.
+ tolh = max(1.e-10,32.*epsilon(1.))
+ npart = 0
+ do ix=1,8
+    do iy=1,8
+       do iz=1,8
+          npart = npart + 1
+          xyzh(:,npart) = [(real(ix)-4.5)*0.1,(real(iy)-4.5)*0.1,(real(iz)-4.5)*0.1,0.12]
+          radius2 = sum(xyzh(1:3,npart)**2)
+          particle_mass(npart) = 1.e-6 + 1.e-3*exp(-radius2/0.02)
+          call set_particle_type(npart,igas)
+       enddo
+    enddo
+ enddo
+ npartoftype = 0
+ npartoftype(igas) = npart
+ variable_mass = .true.
+ masssum = sum(particle_mass(1:npart))
+ massoftype(igas) = masssum/npart
+ hfact = 1.2
+ ieos = 2
+ gamma = 5./3.
+ polyk = 0.
+ alpha = 0.
+ alphau = 0.
+ beta = 0.
+ vxyzu = 0.
+ alphaind = 0.
+ call get_derivs_global()
+ fgrav = fxyzu(1:3,1:npart)
+
+ ! Find a genuinely reversed pair, then approach only that neighbour.
+ minfactor = 1.
+ ipair = 0
+ jpair = 0
+ do i=1,npart
+    do j=1,npart
+       if (i==j) cycle
+       r2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)
+       if (r2 >= 4*xyzh(4,i)**2) cycle
+       factor = 1. + real(gradh(igradzeta,i))*real(gradh(igradomega,i))/particle_mass(j)
+       if (factor < minfactor) then
+          minfactor = factor
+          ipair = i
+          jpair = j
+       endif
+    enddo
+ enddo
+ nfailed = 0
+ call checkval(minfactor < 0.,.true.,nfailed(9),'unequal-mass fixture contains reversed pressure gradient')
+ if (ipair==0) then
+    call update_test_scores(ntests,nfailed,npass)
+    tree_accuracy = treeprev
+    tolh = tolhprev
+    beta = betaprev
+    alpha = alphaprev
+    alphau = auprev
+    ipdv_heating = ipdvprev
+    C_thermal = thermalprev
+    hfact = saved_eos(1)
+    gamma = saved_eos(2)
+    polyk = saved_eos(3)
+    ieos = ieosprev
+    call init_part()
+    return
+ endif
+ direction = xyzh(1:3,ipair)-xyzh(1:3,jpair)
+ direction = direction/sqrt(sum(direction**2))
+
+ ! Zero pressure isolates shock heating and its kinetic-energy counterpart.
+ beta = 2.
+ vxyzu(1:3,jpair) = 0.1*direction
+ call get_derivs_global()
+ mom = 0.
+ dedt = 0.
+ do i=1,npart
+    mom = mom + particle_mass(i)*fxyzu(1:3,i)
+    dedt = dedt + particle_mass(i)*(fxyzu(4,i) + &
+           dot_product(vxyzu(1:3,i),fxyzu(1:3,i)-fgrav(:,i)))
+ enddo
+ call checkval(all(fxyzu(4,1:npart) >= -tol),.true.,nfailed(1),'unequal-mass non-negative shock heating')
+ call checkval(maxval(fxyzu(4,1:npart)) > 0.,.true.,nfailed(2),'unequal-mass shock test is non-trivial')
+ call checkval(maxval(abs(mom)),0.,tol,nfailed(3),'unequal-mass viscous momentum conservation')
+ call checkval(dedt,0.,tol,nfailed(4),'unequal-mass viscous energy conservation')
+
+ ! Find reversed *symmetric* conductivity, not just a one-sided gradient.
+ maxconductance = 0.
+ do i=1,npart
+    do j=i+1,npart
+       r2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)
+       if (r2 >= 4*max(xyzh(4,i),xyzh(4,j))**2) cycle
+       q = sqrt(r2)/xyzh(4,i)
+       gi = grkern(q*q,q)*cnormk/xyzh(4,i)**4
+       q = sqrt(r2)/xyzh(4,j)
+       gj = grkern(q*q,q)*cnormk/xyzh(4,j)**4
+       gi = gi*(1. + real(gradh(igradzeta,i))*real(gradh(igradomega,i))/particle_mass(j))
+       gj = gj*(1. + real(gradh(igradzeta,j))*real(gradh(igradomega,j))/particle_mass(i))
+       conductance = gi/rho(i) + gj/rho(j)
+       if (conductance > maxconductance) then
+          maxconductance = conductance
+          ipair = i
+          jpair = j
+       endif
+    enddo
+ enddo
+ call checkval(maxconductance > 0.,.true.,nfailed(10),'unequal-mass fixture contains anti-diffusive pair')
+ direction = xyzh(1:3,ipair)-xyzh(1:3,jpair)
+ direction = direction/sqrt(sum(direction**2))
+
+ ! Disable pressure work and viscosity to isolate conservative heat exchange.
+ vxyzu(1:3,1:npart) = 0.
+ vxyzu(1:3,jpair) = 0.1*direction
+ beta = 0.
+ alphau = 0.1
+ ipdv_heating = 0
+ vxyzu(4,1:npart) = 0.5
+ vxyzu(4,ipair) = 0.1
+ vxyzu(4,jpair) = 1.
+ uold = vxyzu(4,1:npart)
+ C_thermal = 1.e-8
+ call get_derivs_global()
+ du = fxyzu(4,1:npart)
+ call checkval(sum(particle_mass(1:npart)*du),0.,tol,nfailed(5),'unequal-mass conductive energy conservation')
+ call checkval(all(pack(du,uold==maxval(uold)) <= tol),.true.,nfailed(6),'conduction cools hottest particles')
+ call checkval(all(pack(du,uold==minval(uold)) >= -tol),.true.,nfailed(7),'conduction heats coldest particles')
+ rate = sum(particle_mass(1:npart)*uold*du)
+ call checkval(rate < 0.,.true.,nfailed(8),'conduction reduces internal-energy variance')
+ call checkval(dtforce*maxval(max(-du,0.)/uold) <= C_thermal*(1.+tol),.true.,nfailed(11), &
+               'thermal timestep limits fractional energy loss without clipping du/dt')
+ call update_test_scores(ntests,nfailed,npass)
+ tree_accuracy = treeprev
+ tolh = tolhprev
+ beta = betaprev
+ alpha = alphaprev
+ alphau = auprev
+ ipdv_heating = ipdvprev
+ C_thermal = thermalprev
+ hfact = saved_eos(1)
+ gamma = saved_eos(2)
+ polyk = saved_eos(3)
+ ieos = ieosprev
+ call init_part()
+
+end subroutine test_variable_mass_dissipation
 
 !-----------------------------------------------------------------------
 !+
