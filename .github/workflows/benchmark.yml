@@ -30,31 +30,20 @@ permissions: {}
 
 jobs:
 
-  check:
-    runs-on: ubuntu-latest
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - id: decide
-        env:
-          ACTION: ${{ github.event.action }}
-          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'benchmark') }}
-          NEW_LABEL: ${{ github.event.label.name }}
-          TICKED: ${{ contains(github.event.pull_request.body, '- [x] Run benchmarks') }}
-          WAS_TICKED: ${{ contains(github.event.changes.body.from, '- [x] Run benchmarks') }}
-        run: |
-          case $ACTION in
-             # new pull request or new commits: run if the box is ticked or the label is set
-             opened|synchronize) [[ "$TICKED" == "true" || "$LABELLED" == "true" ]] && run=true ;;
-             labeled)            [[ "$NEW_LABEL" == "benchmark" ]] && run=true ;;
-             # description edited: run only if the box has just been ticked
-             edited)             [[ "$TICKED" == "true" && "$WAS_TICKED" != "true" ]] && run=true ;;
-          esac
-          echo "run=${run:-false}" >> $GITHUB_OUTPUT
-
   benchmark:
-    needs: check
-    if: needs.check.outputs.run == 'true'
+    # whether to run is decided here rather than in a job, so that events which do not benchmark
+    # (e.g. bots editing the description) are skipped without waiting for a runner:
+    #  - new pull request or new commits: run if the box is ticked or the label is set
+    #  - label added: run if it is the benchmark label
+    #  - description edited: run only if the box has just been ticked
+    if: >-
+      ((github.event.action == 'opened' || github.event.action == 'synchronize') &&
+       (contains(github.event.pull_request.body, '- [x] Run benchmarks') ||
+        contains(github.event.pull_request.labels.*.name, 'benchmark'))) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'benchmark') ||
+      (github.event.action == 'edited' &&
+       contains(github.event.pull_request.body, '- [x] Run benchmarks') &&
+       !contains(github.event.changes.body.from, '- [x] Run benchmarks'))
     runs-on: ubuntu-latest
     timeout-minutes: 240
     # only runs that will benchmark are in this group, so an ineligible event cannot cancel one
