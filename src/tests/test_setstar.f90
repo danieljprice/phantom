@@ -62,10 +62,11 @@ end subroutine test_setstar
 
 !-----------------------------------------------------------------------
 !+
-!   Check that shift_star with corotate puts a star on a circular orbit
-!   into rigid rotation with the orbit, i.e. v = omega x r for every
-!   particle, so the star keeps its orbital velocity and spins the same
-!   way as it orbits
+!   Check that shift_star with corotate puts a star into rigid rotation
+!   with its orbit: on a circular orbit v = omega x r for every particle,
+!   so the star spins the same way as it orbits, and on an eccentric orbit
+!   the star keeps its full orbital velocity (including the radial part),
+!   v = v0 + omega x (r - x0)
 !+
 !-----------------------------------------------------------------------
 subroutine test_shift_star_corotate(ntests,npass)
@@ -73,15 +74,16 @@ subroutine test_shift_star_corotate(ntests,npass)
  use vectorutils, only:cross_product3D
  integer, intent(inout) :: ntests,npass
  integer, parameter :: np = 3
- integer :: i,npartoftype(1),nfail(1)
- real    :: xyz(3,np),vxyz(3,np),vexact(3,np),x0(3),v0(3),omega(3)
+ integer :: i,npartoftype(1),nfail(2)
+ real    :: xyz0(3,np),xyz(3,np),vxyz(3,np),vexact(3,np),x0(3),v0(3),omega(3),dv(3)
 
  ! particles at the centre and around it, initially at rest
- xyz(:,1) = (/0.,0.,0./)
- xyz(:,2) = (/0.1,0.,0./)
- xyz(:,3) = (/0.,0.2,-0.1/)
- vxyz = 0.
+ xyz0(:,1) = (/0.,0.,0./)
+ xyz0(:,2) = (/0.1,0.,0./)
+ xyz0(:,3) = (/0.,0.2,-0.1/)
  npartoftype = np
+ xyz  = xyz0
+ vxyz = 0.
 
  ! circular orbit at radius 2 with speed 1, so omega = (0,0,1/2)
  x0 = (/2.,0.,0./)
@@ -92,6 +94,18 @@ subroutine test_shift_star_corotate(ntests,npass)
     call cross_product3D(omega,xyz(:,i),vexact(:,i))
  enddo
  call checkval(3*np,reshape(vxyz,(/3*np/)),reshape(vexact,(/3*np/)),epsilon(0.),nfail(1),'v = omega x r for corotating star')
+
+ ! eccentric orbit: same position and angular momentum, so the same omega, plus a radial velocity
+ xyz  = xyz0
+ vxyz = 0.
+ v0 = (/0.3,1.,0./)
+ call shift_star(np,npartoftype,xyz,vxyz,x0,v0,corotate=.true.)
+ do i=1,np
+    call cross_product3D(omega,xyz(:,i)-x0,dv)
+    vexact(:,i) = v0 + dv
+ enddo
+ call checkval(3*np,reshape(vxyz,(/3*np/)),reshape(vexact,(/3*np/)),epsilon(0.),nfail(2),&
+               'v = v0 + omega x (r - x0) on eccentric orbit')
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_shift_star_corotate

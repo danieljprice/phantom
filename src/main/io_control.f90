@@ -132,7 +132,7 @@ subroutine read_options_iocontrol(db,nerr)
  endif
 
  if (nfulldump==0 .or. nfulldump > 10000) then
-    call error(label,'nfulldump = 0')
+    call error(label,'nfulldump must be between 1 and 10000')
     nerr = nerr + 1
  endif
  if (nfulldump >= 50) call warn(label,'no full dumps for a long time...')

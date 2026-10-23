@@ -21,7 +21,7 @@ module timestep
 !   - overcleanfac  : *factor to increase div B cleaning speed (decreases timestep)*
 !   - psidecayfac   : *div B diffusion parameter*
 !   - ptol          : *tolerance on pmom iterations*
-!   - tolv          : *tolerance on v iterations in timestepping (> 100 to skip)*
+!   - tolv          : *tolerance on v iterations in timestepping (>= 100 to skip)*
 !   - use_divb_proj : *project div B to zero every dtmax*
 !   - xtol          : *tolerance on xyz iterations*
 !
@@ -128,7 +128,7 @@ subroutine write_options_timestep(iunit)
 
  call write_inopt(C_cour,'C_cour','Courant factor',iunit)
  call write_inopt(C_force,'C_force','dt_force factor',iunit)
- call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping (> 100 to skip)',iunit,exp=.true.)
+ call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping (>= 100 to skip)',iunit,exp=.true.)
  if (gr) then
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iunit)
