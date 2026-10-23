@@ -14,9 +14,10 @@ module testsetstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, datafiles, dim, eos, io, mpidomain, options,
-!   part, physcon, radiation_utils, readwrite_mesa, relaxstar, setstar,
-!   setstar_utils, sortutils, table_utils, testutils, units, vectorutils
+! :Dependencies: checksetup, datafiles, dim, eos, infile_utils, io,
+!   mpidomain, options, part, physcon, radiation_utils, readwrite_mesa,
+!   relaxstar, setstar, setstar_utils, sortutils, table_utils, testutils,
+!   units, vectorutils
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -45,6 +46,7 @@ subroutine test_setstar(ntests,npass)
 
  ! test the get_mass_coordinate routine in relax_star
  call test_get_mass_coord(ntests,npass)
+ call test_spin_options(ntests,npass)
 
  ! test that a star moved onto a circular orbit is set corotating
  call test_shift_star_corotate(ntests,npass)
@@ -118,12 +120,13 @@ end subroutine test_shift_star_corotate
 !-----------------------------------------------------------------------
 subroutine test_get_mass_coord(ntests,npass)
  use sortutils,     only:r2func,find_rank
- use part,          only:xyzh,massoftype,igas,iorder=>ll
+ use part,          only:xyzh,massoftype,igas
  use setstar_utils, only:get_mass_coord
  use table_utils,   only:linspace
  use testutils,     only:checkvalbuf,checkvalbuf_end
  integer, intent(inout) :: ntests,npass
  real,    allocatable   :: mass_enclosed_r(:)
+ integer, allocatable :: iorder(:)
  integer :: i,i1,itest,np,nfail(1),ncheck
  real    :: massri,errmax,x0(3)
  real, parameter :: tol = 1.e-14
@@ -182,6 +185,43 @@ end subroutine test_get_mass_coord
 
 !-----------------------------------------------------------------------
 !+
+!   Check signed spin periods and backwards-compatible setup files
+!+
+!-----------------------------------------------------------------------
+subroutine test_spin_options(ntests,npass)
+ use infile_utils, only:inopts
+ use setstar, only:star_t,set_defaults_star,read_options_star
+ use units, only:set_units,in_code_units
+ use physcon, only:solarm,solarr
+ integer, intent(inout) :: ntests,npass
+ type(star_t) :: star
+ type(inopts) :: db(5)
+ integer :: i,nerr,nfailed(2)
+ character(len=20), parameter :: periods(*) = [character(len=20) :: &
+    '24 hr','-24 hr','0 hr','24 rsun','invalid','NaN hr','Inf hr']
+
+ call set_units(dist=solarr,mass=solarm,G=1.d0)
+ db(1:4) = [inopts('iprofile1','2',.false.),inopts('np1','1000',.false.), &
+            inopts('Mstar1','1*msun',.false.),inopts('Rstar1','1*rsun',.false.)]
+ call set_defaults_star(star)
+ nerr = 0
+ call read_options_star(star,db(1:4),nerr,label='1')
+ call checkval(nerr,0,0,nfailed(1),'legacy setup needs no spin period')
+ call checkval(in_code_units(star%spin_period,nerr),0.,0.,nfailed(2),'default star has no spin')
+ call update_test_scores(ntests,nfailed,npass)
+ do i=1,size(periods)
+    call set_defaults_star(star)
+    db(5) = inopts('spin_period1',periods(i),.false.)
+    nerr = 0
+    call read_options_star(star,db,nerr,label='1')
+    call checkval(nerr,merge(0,1,i<=3),0,nfailed(1),'spin period validation: '//trim(periods(i)))
+    call update_test_scores(ntests,nfailed(1:1),npass)
+ enddo
+
+end subroutine test_spin_options
+
+!-----------------------------------------------------------------------
+!+
 !   test that we can successfully relax a polytrope
 !   and that the profile matches the analytic solution
 !+
@@ -195,13 +235,13 @@ subroutine test_polytrope(ntests,npass)
  use physcon,   only:solarr,solarm,pi
  use eos,       only:gamma,X_in,Z_in,polyk
  use setstar,   only:star_t,set_star,set_defaults_star,ipoly
- use units,     only:set_units
+ use units,     only:set_units,in_code_units
  use checksetup, only:check_setup
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
- real :: rhozero,rmserr,ekin,x0(3)
+ real :: rhozero,rmserr,ekin,x0(3),v0(3),omega,velocity_error,jz
  integer(kind=8) :: ntot
- integer :: ierr,nfail(1),i,nerror,nwarn
+ integer :: ierr,nfail(1),i,j,i1,nerror,nwarn
 
  npart = 0
  npartoftype = 0
@@ -216,16 +256,25 @@ subroutine test_polytrope(ntests,npass)
  star%iprofile = ipoly  ! a polytrope
  star%np = 1000
  x0 = 0.
- ! do this test twice, to check the second star relaxes...
- do i=1,2
-    if (i==2) x0 = [3.,0.,0.]
+ v0 = 0.
+ ! Also relax prograde and retrograde stars after an existing star.
+ do i=1,3
+    if (i > 1) then
+       x0 = [3.*(i-1),0.,0.]
+       v0 = [0.2,-0.1,0.3]
+       star%spin_period = '24 hr'
+       if (i==3) star%spin_period = '-24 hr'
+    endif
+    omega = 0.
+    if (i > 1) omega = 2.*pi/in_code_units(star%spin_period,ierr)
+    i1 = npart
 
     call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                npart,npartoftype,massoftype,hfact,&
                xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                relax=.true.,use_var_comp=.false.,write_rho_to_file=.false.,&
                rhozero=rhozero,npart_total=ntot,mask=i_belong,ierr=ierr,&
-               write_files=.false.,density_error=rmserr,energy_error=ekin,x0=x0)
+               write_files=.false.,density_error=rmserr,energy_error=ekin,x0=x0,v0=v0)
 
     call checkval(ierr,0,0,nfail(1),'set_star runs with ierr = 0')
     call update_test_scores(ntests,nfail,npass)
@@ -248,9 +297,22 @@ subroutine test_polytrope(ntests,npass)
 
     call checkval(ekin,0.,1e-7,nfail(1),'ekin/epot < 1.e-7')
     call update_test_scores(ntests,nfail,npass)
+    velocity_error = 0.
+    jz = 0.
+    do j=i1+1,npart
+       velocity_error = max(velocity_error,abs(vxyzu(1,j)-v0(1)+omega*(xyzh(2,j)-x0(2))), &
+                            abs(vxyzu(2,j)-v0(2)-omega*(xyzh(1,j)-x0(1))),abs(vxyzu(3,j)-v0(3)))
+       jz = jz + (xyzh(1,j)-x0(1))*(vxyzu(2,j)-v0(2)) - (xyzh(2,j)-x0(2))*(vxyzu(1,j)-v0(1))
+    enddo
+    call checkval(velocity_error,0.,1.e-12,nfail(1),'physical spin and bulk velocity after relaxation')
+    call update_test_scores(ntests,nfail,npass)
+    if (i > 1) then
+       call checkval(jz*omega > 0.,.true.,nfail(1),'spin angular momentum has requested sign')
+       call update_test_scores(ntests,nfail,npass)
+    endif
  enddo
 
- call checkval(npart,2*star%np,0,nfail(1),'np = 2000')
+ call checkval(npart,3*star%np,0,nfail(1),'np = 3000')
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_polytrope
