@@ -97,7 +97,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:npart_total
  use io,           only:master,fatal
  use eos,          only:polyk2
- use part,         only:Bxyz,igas,idust,set_particle_type
+ use part,         only:Bxyz,igas,idust,set_particle_type,rad,rho,init_rho_from_h
+ use dim,          only:do_radiation
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal
  use set_dust_options, only:dustbinfrac,set_dust_grain_distribution,dtg=>dust_to_gas,&
                             ndustsmallinp,ndustlargeinp,dust_method
  use options,      only:use_dustfrac
@@ -156,6 +158,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! add uniform rotation (in velocity and magnetic field)
  call set_rotating_sphere(npart,xyzh,vxyzu,Bxyz,dens_sphere,cs_sphere,cs_medium,angvel_code,Bzero)
+
+ ! start the radiation field in equilibrium with the gas
+ if (do_radiation) then
+    call init_rho_from_h()
+    call set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad)
+ endif
 
  ! amend .in file as necessary
  call setup_runtime_parameters(fileprefix,t_ff,h_acc_setup)
