@@ -6,25 +6,28 @@
 !--------------------------------------------------------------------------!
 module derivutils
 !
-! None
+! Timing utilities and smoothing-length kernel corrections
 !
-! :References: None
+! :References: Gaburov, Lombardi & Portegies Zwart (2010), MNRAS 402, 105
 !
-! :Owner: Daniel Price
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, kernel, mpiutils, options, timing
+! :Dependencies: io, kernel, mpiutils, options, part, physcon, timing
 !
  use timing, only:timers,itimer_dens,itimer_force,itimer_tree,itimer_balance,itimer_cons2prim,&
                    itimer_radiation,itimer_rad_save,itimer_rad_neighlist,itimer_rad_arrays,itimer_rad_its,&
                    itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store,itimer_HII
+ use kernel, only:radkern
+ use physcon, only:pi
 
  implicit none
 
  private
 
- public :: do_timing,get_grkern_corrected
+ public :: do_timing,get_grkern_corrected,get_count_kernel,cnorm_count
+ real, parameter :: cnorm_count = 241920./(228397.*pi*radkern**3)
 
 contains
 
@@ -97,23 +100,51 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
 
 end subroutine do_timing
 
+! Smooth neighbour count used by StarSmasher's default gflag=1.
+! The taper is the cumulative cubic spline; its inner core is flat.
+pure subroutine get_count_kernel(q,w,g)
+ real, intent(in) :: q
+ real, intent(out) :: w,g
+ real :: x,s
+
+ w = 0.
+ g = 0.
+ x = 8.*(1.-q/radkern)
+ if (x>=2.) then
+    w = 1.
+ elseif (x>=1.) then
+    s = 2.-x
+    w = 1.-s**4*(1.-0.8*s+s*s/6.)
+    g = -8./radkern*x*x*s**3
+ elseif (x>0.) then
+    w = x**3*(4./3.-1.2*x*x+0.5*x**3)
+    g = -32./radkern*x*x*(1.-1.5*x*x+0.75*x**3)
+ endif
+
+end subroutine get_count_kernel
+
 !-------------------------------------------------------------
 !+
 !  Kernel gradient with the smoothing-length correction for h set from
 !  number density: grad W + zeta/(Omega~ m_j) grad W~ (with grad W~ = grad W
-!  unless two_kernel), so that m_j*grkern_corr is the term in d(rho_i)/dr_i.
+!  unless two_kernel or individual masses), so that m_j*grkern_corr is
+!  the term in d(rho_i)/dr_i.
 !  h41 is 1/h^4; zetaomega is zeta_i/Omega~_i; pmassj is the neighbour mass.
 !+
 !-------------------------------------------------------------
 pure subroutine get_grkern_corrected(q2,q,h41,zetaomega,pmassj,grkern_corr,grkern_tilde)
  use kernel,  only:grkern,cnormk,cnormk_tilde,get_kernel_tilde
  use options, only:two_kernel
+ use part,    only:variable_mass
  real, intent(in)  :: q2,q,h41,zetaomega,pmassj
  real, intent(out) :: grkern_corr,grkern_tilde
  real :: wtilde
 
  grkern_corr = grkern(q2,q)*h41*cnormk
- if (two_kernel) then
+ if (variable_mass) then
+    call get_count_kernel(q,wtilde,grkern_tilde)
+    grkern_tilde = grkern_tilde*h41*cnorm_count
+ elseif (two_kernel) then
     call get_kernel_tilde(q2,q,wtilde,grkern_tilde)
     grkern_tilde = grkern_tilde*h41*cnormk_tilde
  else

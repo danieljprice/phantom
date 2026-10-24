@@ -174,10 +174,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'sinktree')  /= 0) dosinktree  = .true.
  if (index(string,'orbits')    /= 0) doorbits    = .true.
  if (index(string,'divb')      /= 0) dodivb      = .true.
+ if (index(string,'mass-atmosphere')==1) dostep = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,docoala,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits,dodivb,doinfile/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits,dodivb,doinfile,dostep/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -186,7 +187,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doneigh = .true.
  case('kdtree','revtree')
     dokdtree = .true.
- case('step','mass-atmosphere')
+ case('step')
     dostep = .true.
  case('ptmass','fsi','chinchen','coin')
     doptmass = .true.

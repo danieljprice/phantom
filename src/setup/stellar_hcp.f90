@@ -16,7 +16,7 @@ module stellar_hcp
 ! :References: Gaburov, Lombardi & Portegies Zwart (2010), MNRAS 402, 105
 !   Single-exponent generator: StarSmasher revision 140a5553f31c37c2d0d879728296c9a9afa82146
 !
-! :Owner: Not Committed Yet
+! :Owner: Francesco Radica
 !
 ! :Runtime parameters: None
 !

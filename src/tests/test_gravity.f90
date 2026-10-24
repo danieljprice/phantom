@@ -14,9 +14,9 @@ module testgravity
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, deriv, dim, directsum, energies, eos, io,
-!   kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree, options,
-!   part, physcon, ptmass, setdisc, setplummer, setup_params,
+! :Dependencies: checksetup, deriv, derivutils, dim, directsum, energies,
+!   eos, io, kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree,
+!   options, part, physcon, ptmass, setdisc, setplummer, setup_params,
 !   shock_capturing, sort_particles, sortutils, spherical, table_utils,
 !   testapr, testutils, timestep, timing, units, vectorutils
 !
@@ -96,7 +96,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
                xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type
  use deriv, only:get_derivs_global,get_density_global
- use kernel, only:wkern,cnormk,kernel_softening
+ use kernel, only:wkern,cnormk,kernel_softening,radkern
  use options, only:ieos,alpha,alphau,tolh
  use eos, only:gamma,polyk
  use kdtree, only:tree_accuracy
@@ -104,12 +104,13 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  use testutils, only:checkval,update_test_scores
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
- integer :: ix,iy,iz,i,j,k,iside,nfailed(9),ieosprev
+ integer :: ix,iy,iz,i,j,k,iside,nfailed(10),ieosprev
  real :: saved_options(5)
  real :: q2,rhosum,rhoerr,fsum(3),masssum,treeprev,tolhprev,dedt,fgrav(3,512)
  real :: torque(3),pair_torque(3)
  real :: xbase(4,512),entropy(512),forcebase(3,512),energy(2),delta,gradient,error_gradient
  real :: phi,softforce,q
+ real :: count_sum,count_error,countnorm
  integer, parameter :: probes(3) = [1,219,512]
 
  if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
@@ -148,13 +149,25 @@ subroutine test_variable_mass_dynamics(ntests,npass)
 
  ! Independently sum mass density at the converged smoothing lengths.
  rhoerr = 0.
+ count_error = 0.
+ countnorm = 241920./(228397.*acos(-1.)*radkern**3)
  do i=1,npart
     rhosum = 0.
+    count_sum = 0.
     do j=1,npart
        q2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)/xyzh(4,i)**2
        rhosum = rhosum + particle_mass(j)*wkern(q2,sqrt(q2))*cnormk/xyzh(4,i)**3
+       q = 8.*(1.-sqrt(q2)/radkern)
+       if (q>=2.) then
+          count_sum = count_sum + 1.
+       elseif (q>=1.) then
+          count_sum = count_sum + 4.*(-1./60.+2./3.*q**3-0.75*q**4+0.3*q**5-q**6/24.)
+       elseif (q>0.) then
+          count_sum = count_sum + 4.*(q**3/3.-0.3*q**5+0.125*q**6)
+       endif
     enddo
     rhoerr = max(rhoerr,abs(rho(i)/rhosum-1.))
+    count_error = max(count_error,abs(countnorm*count_sum/hfact**3-1.))
  enddo
  fsum = 0.
  torque = 0.
@@ -165,6 +178,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  enddo
  nfailed = 0
  call checkval(rhoerr,0.,max(1.e-9,tol),nfailed(1),'variable-mass kernel density')
+ call checkval(count_error,0.,1.e-8,nfailed(10),'independent smooth neighbour-count constraint')
  call checkval(maxval(abs(fsum)),0.,tol,nfailed(2),'variable-mass gravity momentum conservation')
  call checkval(sum(particle_mass(1:npart)),masssum,tol,nfailed(3),'mass survives tree construction')
  call checkval(maxval(abs(torque)),0.,tol,nfailed(7),'variable-mass gravity angular momentum conservation')
@@ -238,6 +252,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
  use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
                xyzh,vxyzu,fxyzu,hfact,set_particle_type,alphaind,gradh,rho
  use kernel, only:grkern,cnormk
+ use derivutils, only:get_grkern_corrected
  use timestep, only:C_thermal,dtforce
  use deriv, only:get_derivs_global
  use options, only:ieos,alpha,alphau,tolh
@@ -251,7 +266,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
  real :: radius2,masssum,treeprev,tolhprev,betaprev,alphaprev,auprev
  real :: fgrav(3,512),mom(3),dedt,du(512),uold(512),rate
  real :: r2,factor,minfactor,direction(3)
- real :: q,gi,gj,conductance,maxconductance
+ real :: q,gi,gj,conductance,maxconductance,gtilde,graw
  real :: thermalprev
  integer :: ipdvprev,ieosprev
  real :: saved_eos(3)
@@ -307,7 +322,12 @@ subroutine test_variable_mass_dissipation(ntests,npass)
        if (i==j) cycle
        r2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)
        if (r2 >= 4*xyzh(4,i)**2) cycle
-       factor = 1. + real(gradh(igradzeta,i))*real(gradh(igradomega,i))/particle_mass(j)
+       q = sqrt(r2)/xyzh(4,i)
+       graw = grkern(q*q,q)*cnormk/xyzh(4,i)**4
+       if (abs(graw)<tiny(graw)) cycle
+       call get_grkern_corrected(q*q,q,xyzh(4,i)**(-4), &
+                                real(gradh(igradzeta,i))*real(gradh(igradomega,i)),particle_mass(j),gi,gtilde)
+       factor = gi/graw
        if (factor < minfactor) then
           minfactor = factor
           ipair = i
@@ -359,11 +379,11 @@ subroutine test_variable_mass_dissipation(ntests,npass)
        r2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)
        if (r2 >= 4*max(xyzh(4,i),xyzh(4,j))**2) cycle
        q = sqrt(r2)/xyzh(4,i)
-       gi = grkern(q*q,q)*cnormk/xyzh(4,i)**4
+       call get_grkern_corrected(q*q,q,xyzh(4,i)**(-4), &
+                                real(gradh(igradzeta,i))*real(gradh(igradomega,i)),particle_mass(j),gi,gtilde)
        q = sqrt(r2)/xyzh(4,j)
-       gj = grkern(q*q,q)*cnormk/xyzh(4,j)**4
-       gi = gi*(1. + real(gradh(igradzeta,i))*real(gradh(igradomega,i))/particle_mass(j))
-       gj = gj*(1. + real(gradh(igradzeta,j))*real(gradh(igradomega,j))/particle_mass(i))
+       call get_grkern_corrected(q*q,q,xyzh(4,j)**(-4), &
+                                real(gradh(igradzeta,j))*real(gradh(igradomega,j)),particle_mass(i),gj,gtilde)
        conductance = gi/rho(i) + gj/rho(j)
        if (conductance > maxconductance) then
           maxconductance = conductance

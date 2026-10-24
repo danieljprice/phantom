@@ -10,7 +10,7 @@ module testsetstar
 !
 ! :References: None
 !
-! :Owner: Not Committed Yet
+! :Owner: Francesco Radica
 !
 ! :Runtime parameters: None
 !
@@ -35,7 +35,7 @@ contains
 subroutine test_setstar(ntests,npass,string)
  use checksetup, only:check_setup
  use io,         only:id,master
- use dim,        only:gravity,do_radiation,mpi,use_apr,ind_timesteps
+ use dim,        only:gravity,do_radiation,mpi,use_apr,ind_timesteps,mhd,use_dust,gr,maxvxyzu
  integer, intent(inout) :: ntests,npass
  character(len=*), intent(in), optional :: string
 
@@ -53,7 +53,8 @@ subroutine test_setstar(ntests,npass,string)
  call test_hcp_surface_buffer(ntests,npass)
  call test_hcp_options(ntests,npass)
  call test_composition_without_mu(ntests,npass)
- if (.not.(do_radiation.or.mpi.or.use_apr.or.ind_timesteps)) call test_analytic_hcp(ntests,npass)
+ if (.not.(do_radiation.or.mpi.or.use_apr.or.ind_timesteps.or.mhd.or.use_dust.or.gr).and.maxvxyzu>=4) &
+    call test_analytic_hcp(ntests,npass)
  if (present(string)) then
     if (string=='hcp'.or.string=='weighted_hcp') return
  endif
@@ -263,7 +264,7 @@ subroutine test_analytic_hcp(ntests,npass)
  use io, only:id,master
  use part, only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,eos_vars,rad,&
                xyzmh_ptmass,vxyz_ptmass,nptmass,particle_mass,variable_mass,hfact,rho
- use setstar, only:star_t,set_defaults_star,set_star,ipoly
+ use setstar, only:star_t,set_defaults_star,set_star,shift_star,ipoly
  use setstar_utils, only:set_star_thermalenergy
  use stellar_hcp, only:natural_spline,spline_value
  use table_utils, only:yinterp
@@ -279,11 +280,13 @@ subroutine test_analytic_hcp(ntests,npass)
  use deriv, only:get_derivs_global
  use energies, only:compute_energies,etot
  use centreofmass, only:get_total_angular_momentum
+ use checksetup, only:check_setup
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
- type(star_t) :: star
+ type(star_t) :: star,companion
  integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(4)
  integer(kind=8) :: ntot
+ integer :: nfirst,nerror,nwarn,nfailed_pair(7)
  real :: rhozero,gammaprev,polykprev,hfactprev
  real, parameter :: rtest(4) = [0.,1./3.,2./3.,1.],ptest(4) = [1.,0.1,0.01,0.001]
  real :: p2test(4),expected(2)
@@ -377,7 +380,40 @@ subroutine test_analytic_hcp(ntests,npass)
  call checkval(sqrt(sum((L-L0)**2)/sum(L0**2)),0.,1.e-6,nfailed_free(4),'released stellar angular momentum drift')
  call update_test_scores(ntests,nfailed_free,npass)
 
+ ! The earlier star is temporarily masked and tagged while its companion relaxes.
+ call init_part()
+ maxits = 4000
+ residual = huge(residual)
+ call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+               rhozero,ntot,i_belong,ierr,itype=1,write_files=.false.,energy_error=residual)
+ nfailed_pair = 0
+ call checkval(residual < tol_ekin,.true.,nfailed_pair(1),'primary in unequal-mass pair relaxes')
+ nfirst = npart
+ masses = particle_mass(1:nfirst)
+ companion = star
+ companion%m = '0.3*msun'
+ companion%r = '0.3*rsun'
+ companion%np = 1000
+ companion%spin_period = '0 hr'
+ residual = huge(residual)
+ call set_star(id,master,companion,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+               rhozero,ntot,i_belong,ierr,itype=2,write_files=.false.,energy_error=residual)
+ call checkval(residual < tol_ekin,.true.,nfailed_pair(2),'companion relaxes with tagged primary masked')
+ call checkval(all(particle_mass(1:nfirst)==masses),.true.,nfailed_pair(3),'companion relaxation preserves primary masses')
+ call checkval(sum(particle_mass(nfirst+1:npart)),0.3,tol,nfailed_pair(4),'companion retains its independent stellar mass')
+ call shift_star(npart,npartoftype,xyzh,vxyzu,x0=[-2.,0.,0.],v0=[0.,0.,0.],itype=1)
+ call shift_star(npart,npartoftype,xyzh,vxyzu,x0=[2.,0.,0.],v0=[0.,0.,0.],itype=2)
+ call check_setup(nerror,nwarn)
+ call checkval(nerror,0,0,nfailed_pair(5),'released unequal-mass pair passes setup checks')
+ call checkval(all(xyzh(4,1:npart)>0.),.true.,nfailed_pair(6),'both stars unmasked after relaxation')
+ call checkval(maxval(abs(vxyzu(1:3,nfirst+1:npart))),0.,tol,nfailed_pair(7),'static companion has no inherited primary spin')
+ call update_test_scores(ntests,nfailed_pair,npass)
+ maxits = maxits_saved
+
  ! Positive, steeply falling pressure samples can produce a negative cubic interpolant.
+ nfailed_pressure = 0
  call natural_spline(rtest,ptest,p2test)
  expected = [spline_value(rtest,ptest,p2test,1./6.),spline_value(rtest,ptest,p2test,0.5)]
  call checkval(expected(1)>0. .and. expected(2)<0.,.true.,nfailed_pressure(1),'pressure spline overshoot fixture')

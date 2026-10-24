@@ -69,6 +69,12 @@ density-weighted hexagonal close-packed distribution::
     relax = T
     spin_period1 = 24 hr
 
+Use ``KERNEL=WendlandC4`` for these stellar models, together with
+``MPI=no`` and ``IND_TIMESTEPS=no``. Retain ``hfact=1.5`` in the runtime
+``.in`` file: too few neighbours can leave unresolved density errors
+where particle masses change sharply. Check convergence with resolution
+and neighbour count before interpreting mixing at such interfaces.
+
 Each star can have its own requested particle count. The actual count is the
 number of accepted lattice sites, not necessarily exactly ``npN``. Select
 ``weighted_hcp`` for all gas stars in a multiple-star setup. The default
@@ -84,10 +90,13 @@ new particles from the profile; it does not import another code's dump.
 
 The lattice is an initial condition, not a constraint during evolution.
 Particle masses and count remain fixed, but spacing and smoothing lengths
-change as the gas moves. Runtime smoothing lengths follow particle number
-density; mass density is independently kernel-summed. Pressure work includes
-the corresponding variable-smoothing-length terms. Artificial viscosity and
-conduction use a monotone kernel gradient rather than the pressure correction.
+change as the gas moves. Runtime smoothing lengths use a separate normalized
+neighbour-count kernel with a flat inner core and a cumulative cubic-spline
+taper, following StarSmasher's default ``gflag=1``. Mass density is independently
+summed with the selected SPH kernel. Pressure work and softened self-gravity
+include the corresponding variable-smoothing-length terms. Artificial
+viscosity and conduction use a monotone kernel gradient rather than the
+pressure correction.
 
 The initial surface prescription uses ``hcp_nnoptN=23``,
 ``hcp_surface_factorN=1.3``, ``hcp_hfloorN=0`` and
@@ -104,8 +113,9 @@ MESA profile does not select the MESA equation of state.
 
 Continuous masses currently require Newtonian gas-only hydrodynamics,
 ``MPI=no``, ``APR=no`` and ``IND_TIMESTEPS=no``; OpenMP is supported.
-MHD, radiation, dust, sinks, injection and gravitational-wave diagnostics
-are not supported in this mode. The existing asynchronous automatic relaxer
+MHD, radiation transport, dust, sinks, injection and gravitational-wave
+diagnostics are not supported in this mode. Radiation pressure in the EOS
+is distinct from radiation transport. The existing asynchronous automatic relaxer
 supports both static and rigidly rotating models; there is no additional
 runtime damping mode. Verify each released stellar model in isolation.
 
@@ -113,3 +123,5 @@ Full dumps store masses, smoothing lengths and mass density in full precision
 and support restart. Small dumps retain masses but have reduced precision
 geometry and are not restart files. Legacy dumps without individual masses
 continue to use the existing mass-per-type representation.
+Do not restart variable-mass dumps with older Phantom binaries that lack
+individual-mass support.

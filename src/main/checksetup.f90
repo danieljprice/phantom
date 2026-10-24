@@ -44,7 +44,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
-                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
+                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop,isdead_or_accreted, &
                 remove_particle_from_npartoftype,gr,eos_vars,itemp,particle_mass,variable_mass
  use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
  use centreofmass,    only:get_centreofmass
@@ -282,6 +282,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check that mass of each type has been set
 !
  do itype=1,maxtypes
+    if (variable_mass) cycle
     if (ieee_is_nan(massoftype(itype))) then
        print*,'WARNING: massoftype = NaN for '//trim(labeltype(itype))//' particles'
        nwarn = nwarn + 1
@@ -317,12 +318,14 @@ subroutine check_setup(nerror,nwarn,restart)
        print*, 'ERROR: variable masses do not support injection, sinks or gravitational-wave diagnostics'
        nerror = nerror + 1
     endif
-    if (sum(npartoftype(2:)) > 0) then
-       print*, 'ERROR: variable masses currently require all SPH particles to be gas'
-       nerror = nerror + 1
-    endif
     do i=1,npart
-       if (isdeadh(xyzh(4,i))) cycle
+       if (isdead_or_accreted(xyzh(4,i))) cycle
+       if (maxphase==maxp) then
+          if (iamtype(iphase(i))/=igas) then
+             print*, 'ERROR: variable masses require live SPH particles to be gas; particle ',i
+             nerror = nerror + 1
+          endif
+       endif
        if (.not.ieee_is_finite(particle_mass(i))) then
           print*, 'ERROR: non-finite particle mass for particle ',i
           nerror = nerror + 1

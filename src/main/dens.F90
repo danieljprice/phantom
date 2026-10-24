@@ -16,9 +16,9 @@ module densityforce
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, io_summary, kdtree, kernel, mpidens,
-!   mpiderivs, mpimemory, mpiutils, neighkdtree, omputils, options, part,
-!   timestep, timing, viscosity
+! :Dependencies: boundary, derivutils, dim, io, io_summary, kdtree, kernel,
+!   mpidens, mpiderivs, mpimemory, mpiutils, neighkdtree, omputils,
+!   options, part, timestep, timing, viscosity
 !
  use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
  use dim,     only:calculate_density,calculate_divcurlB
@@ -27,6 +27,7 @@ module densityforce
  use mpidens, only:celldens,stackdens
  use timing,  only:getused,printused,print_time
  use part,    only:get_particle_mass,variable_mass
+ use derivutils, only:get_count_kernel,cnorm_count
 
  implicit none
 
@@ -743,7 +744,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
        else
           call get_kernel(q2i,qi,wabi,grkerni)
        endif
-       if (two_kernel) then
+       if (variable_mass) then
+          call get_count_kernel(qi,wtilde,grkern_tilde)
+       elseif (two_kernel) then
           call get_kernel_tilde(q2i,qi,wtilde,grkern_tilde)
        else
           wtilde = wabi
@@ -1571,8 +1574,12 @@ pure subroutine finish_rhosum(rhosum,pmassi,hi,iterating,rhoi,ni,gradhi,zeta,gra
  hi31  = hi1*hi21
  hi41  = hi21*hi21
 
- ! number-density kernel is Wtilde when two_kernel, else same as W
- if (two_kernel) then
+ ! Continuous masses use a separate smooth neighbour count.
+ if (variable_mass) then
+    cnormn  = cnorm_count
+    wab0n   = 1.
+    gradh0n = -3.
+ elseif (two_kernel) then
     cnormn  = cnormk_tilde
     wab0n   = wab0_tilde
     gradh0n = gradh0_tilde
@@ -1790,7 +1797,7 @@ subroutine get_density_at_pos(x,rho,itype)
  use kernel,      only:get_kernel,radkern2,cnormk
  use boundary,    only:dxbound,dybound,dzbound
  use dim,         only:periodic,maxphase,maxp,use_apr
- use part,        only:xyzh,iphase,iamtype,ibasetype,apr_level,massoftype,aprmassoftype
+ use part,        only:xyzh,iphase,iamtype,ibasetype,apr_level,aprmassoftype
  real,    intent(in)  :: x(3)
  integer, intent(in)  :: itype
  real,    intent(out) :: rho

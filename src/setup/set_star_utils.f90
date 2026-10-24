@@ -475,7 +475,7 @@ end subroutine set_stellar_core
 !----------------------------------------------------------------
 subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  use dim,       only:use_apr
- use part,      only:igas,apr_level,massoftype,aprmassoftype
+ use part,      only:igas,apr_level,aprmassoftype
  use sortutils, only:sort_by_radius
  integer,           intent(in)  :: i1,npart
  real,              intent(in)  :: xyzh(:,:),x0(3)

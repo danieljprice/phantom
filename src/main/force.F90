@@ -2249,7 +2249,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr,use_dust,ind_timesteps,use_apr,use_sinktree,&
                 igradzeta,igradsoft
- use part,      only:iamgas,maxphase,igas,isink,massoftype,get_partinfo,&
+ use part,      only:iamgas,maxphase,igas,isink,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,aprmassoftype,ihsoft,&
                      xyzmh_ptmass,rho
  use viscosity, only:irealvisc,bulkvisc
@@ -2591,9 +2591,9 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         dustfrac,dustprop,fxyz_drag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                         rad,radprop,dens,metrics,apr_level,dt)
  use io,              only:error,id,master
- use dim,             only:maxvxyzu,use_apr,use_sinktree
+ use dim,             only:maxvxyzu,use_apr
  use options,         only:implicit_radiation
- use part,            only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
+ use part,            only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype
  use viscosity,       only:irealvisc,bulkvisc
  use eos,             only:iresistive_heating
  use shock_capturing, only:beta,alphau,alphaB
@@ -2739,9 +2739,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use eos,            only:ieos,icooling,iopacity_type,ipdv_heating,ishock_heating,correct_entropy_derivative
  use options,        only:alpha,use_dustfrac,implicit_radiation,use_porosity
  use part,           only:iboundary,igas,isink,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
+                          get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idkappa,dust_temp,ndustsmall,imu,&
-                          igamma,aprmassoftype
+                          igamma
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
