@@ -157,21 +157,14 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  ! Independently sum raw mass density, then the generalized volume density.
  rhoerr = 0.
  count_error = 0.
- countnorm = 241920./(228397.*acos(-1.)*radkern**3)
+ countnorm = 9./(4.*acos(-1.)*radkern**3)
  do i=1,npart
     rhosum = 0.
     count_sum = 0.
     do j=1,npart
        q2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)/xyzh(4,i)**2
        rhosum = rhosum + particle_mass(j)*wkern(q2,sqrt(q2))*cnormk/xyzh(4,i)**3
-       q = 8.*(1.-sqrt(q2)/radkern)
-       if (q>=2.) then
-          count_sum = count_sum + 1.
-       elseif (q>=1.) then
-          count_sum = count_sum + 4.*(-1./60.+2./3.*q**3-0.75*q**4+0.3*q**5-q**6/24.)
-       elseif (q>0.) then
-          count_sum = count_sum + 4.*(q**3/3.-0.3*q**5+0.125*q**6)
-       endif
+       count_sum = count_sum + (1.-min(sqrt(q2)/radkern,1.)**3)**2
     enddo
     rho_direct(i) = rhosum
     count_error = max(count_error,abs(countnorm*count_sum/hfact**3-1.))

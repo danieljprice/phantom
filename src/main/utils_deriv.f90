@@ -27,7 +27,7 @@ module derivutils
  private
 
  public :: do_timing,get_grkern_corrected,get_count_kernel,cnorm_count
- real, parameter :: cnorm_count = 241920./(228397.*pi*radkern**3)
+ real, parameter :: cnorm_count = 9./(4.*pi*radkern**3)
 
 contains
 
@@ -100,27 +100,15 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
 
 end subroutine do_timing
 
-! Smooth neighbour count used by StarSmasher's default gflag=1.
-! The taper is the cumulative cubic spline; its inner core is flat.
+! Strictly decreasing polynomial neighbour count, as in StarSmasher gflag=2.
 pure subroutine get_count_kernel(q,w,g)
  real, intent(in) :: q
  real, intent(out) :: w,g
- real :: x,s
+ real :: s
 
- w = 0.
- g = 0.
- x = 8.*(1.-q/radkern)
- if (x>=2.) then
-    w = 1.
- elseif (x>=1.) then
-    s = 2.-x
-    w = 1.-s**4*(1.-0.8*s+s*s/6.)
-    g = -8./radkern*x*x*s**3
- elseif (x>0.) then
-    w = x**3*(4./3.-1.2*x*x+0.5*x**3)
-    g = -32./radkern*x*x*(1.-1.5*x*x+0.75*x**3)
- endif
-
+ s = min(q/radkern,1.)
+ w = (1.-s**3)**2
+ g = -6./radkern*s*s*(1.-s**3)
 end subroutine get_count_kernel
 
 !-------------------------------------------------------------

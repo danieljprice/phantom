@@ -205,6 +205,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
 
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
+ use options,      only:two_kernel
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
                         active_leaves,nactive_leaves
@@ -421,6 +422,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !
  if (maxgradh /= maxp) call fatal('force','need storage of gradh (maxgradh=maxp)')
  if (variable_mass) then
+    if (two_kernel) call fatal('force','generalized volumes require two_kernel=F')
     if (ien_type==ien_entropy .or. ien_type==ien_entropy_s) &
        call fatal('force','generalized volumes require internal-energy evolution')
     call volume_pressure(xyzh,vxyzu,eos_vars(igasP,:))

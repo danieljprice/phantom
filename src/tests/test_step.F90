@@ -16,8 +16,8 @@ module teststep
 !
 ! :Dependencies: boundary, checksetup, damping, deriv, dim, eos,
 !   extern_staticsine, externalforces, io, kernel, mpidomain, mpiutils,
-!   options, part, physcon, ptmass, step_lf_global, testutils, timestep,
-!   timestep_ind, timing, unifdis, units, viscosity
+!   options, part, physcon, ptmass, shock_capturing, step_lf_global, testutils,
+!   timestep, timestep_ind, timing, unifdis, units, viscosity
 !
  implicit none
  public :: test_step
@@ -206,6 +206,10 @@ subroutine test_mass_atmosphere(ntests,npass,string)
 
  if (.not.periodic.or.gravity.or.mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps) then
     if (id==master) print*, 'SKIPPING mass-atmosphere: use PERIODIC=yes, GRAVITY=no and gas-only shared timesteps'
+    return
+ endif
+ if (index(string,'lattice')>0) then
+    call test_mass_lattice(ntests,npass)
     return
  endif
  saved_potential = [amplitude,wavek,phase,inclination]
@@ -452,5 +456,98 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  call init_part()
 
 end subroutine test_mass_atmosphere
+
+subroutine test_mass_lattice(ntests,npass)
+ use part, only:init_part,npart,npartoftype,massoftype,particle_mass,variable_mass, &
+               xyzh,vxyzu,fxyzu,fext,hfact,igas,set_particle_type,alphaind,rho
+ use boundary, only:set_boundary
+ use options, only:ieos,iexternalforce,alpha,alphau,tolh
+ use shock_capturing, only:beta
+ use eos, only:polyk,gamma,init_eos
+ use deriv, only:get_derivs_global
+ use kernel, only:kernelname,hfact_default
+ use testutils, only:checkval,update_test_scores
+ use physcon, only:pi
+ use units, only:set_units
+ integer, intent(inout) :: ntests,npass
+ integer :: ix,iy,iz,i,iside,ilevel,ierr,nfailed(4),eos_saved,external_saved
+ real :: saved(7),base(4,512),mode(3,512),accel(3,512,2),energy(2),energy0,norm,curvature,energy_curve
+ real :: delta,force_curve(2),thermal_curve(2)
+
+ if (kernelname/='Wendland 2/3D C^4') return
+ saved = [hfact,gamma,polyk,alpha,alphau,tolh,beta]
+ eos_saved = ieos
+ external_saved = iexternalforce
+ call init_part()
+ call set_units(1.d0,1.d0,1.d0)
+ call set_boundary(0.,8.,0.,8.,0.,8.)
+ hfact = hfact_default
+ ieos = 1
+ iexternalforce = 0
+ gamma = 1.
+ polyk = 1.
+ alpha = 0.
+ alphau = 0.
+ beta = 0.
+ tolh = 1.e-13
+ call init_eos(ieos,ierr)
+ npart = 0
+ do ix=1,8
+    do iy=1,8
+       do iz=1,8
+          npart = npart+1
+          xyzh(:,npart) = [ix-0.5,iy-0.5,iz-0.5,hfact]
+          particle_mass(npart) = 1.
+          call set_particle_type(npart,igas)
+       enddo
+    enddo
+ enddo
+ npartoftype = 0
+ npartoftype(igas) = npart
+ massoftype(igas) = 1.
+ variable_mass = .true.
+ vxyzu = 0.
+ fext = 0.
+ alphaind = 0.
+ call get_derivs_global()
+ base = xyzh(:,1:npart)
+ energy0 = sum(log(rho(1:npart)))
+ nfailed = 0
+ call checkval(ierr,0,0,nfailed(1),'lattice isothermal EOS initialises')
+ call checkval(maxval(abs(fxyzu(1:3,1:npart))),0.,1.e-9,nfailed(2),'uniform periodic lattice has zero force')
+ do i=1,npart
+    mode(:,i) = cos(0.25*pi*dot_product(base(1:3,i),[1.,1.,2.]))*[1.,-1.,0.]/sqrt(2.)
+ enddo
+ norm = sum(mode**2)
+ ! Remove the leading finite-difference error before comparing energy and force.
+ do ilevel=1,2
+    delta = 1.e-3/ilevel
+    do iside=1,2
+       xyzh(:,1:npart) = base
+       xyzh(1:3,1:npart) = base(1:3,:) + (2*iside-3)*delta*mode
+       call get_derivs_global()
+       accel(:,:,iside) = fxyzu(1:3,1:npart)
+       energy(iside) = sum(log(rho(1:npart)))
+    enddo
+    force_curve(ilevel) = -sum(mode*(accel(:,:,2)-accel(:,:,1)))/(2.*delta*norm)
+    thermal_curve(ilevel) = (sum(energy)-2.*energy0)/(delta**2*norm)
+ enddo
+ curvature = (4.*force_curve(2)-force_curve(1))/3.
+ energy_curve = (4.*thermal_curve(2)-thermal_curve(1))/3.
+ print*, 'Transverse lattice curvature, energy curvature: ',curvature,energy_curve
+ call checkval(energy_curve,curvature,1.e-5,nfailed(3),'periodic force differentiates isothermal energy')
+ call checkval(curvature>=-1.e-7,.true.,nfailed(4),'oblique transverse lattice mode is not unstable')
+ call update_test_scores(ntests,nfailed,npass)
+ hfact = saved(1)
+ gamma = saved(2)
+ polyk = saved(3)
+ alpha = saved(4)
+ alphau = saved(5)
+ tolh = saved(6)
+ beta = saved(7)
+ ieos = eos_saved
+ iexternalforce = external_saved
+ call init_part()
+end subroutine test_mass_lattice
 
 end module teststep

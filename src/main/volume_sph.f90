@@ -7,7 +7,7 @@
 module volume_sph
 !
 ! Generalized volumes X_i=m_i/R_i, R_i=sum_j m_j W_ij(h_i), rho_i=R_i C_i,
-! C_i=sum_j X_j W_ij(h_i). The h constraint uses the smooth neighbour count.
+! C_i=sum_j X_j W_ij(h_i). The h constraint uses a polynomial neighbour count.
 ! Pressure coefficients differentiate the complete discrete thermal energy, including
 ! the dependence of neighbouring X_j on R_j and h_j.
 !

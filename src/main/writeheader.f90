@@ -163,7 +163,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
     if (variable_mass) then
        write(iprint,"(6x,a,f5.2,a,es9.2)") ' h = ',hfact,'*n^(-1/3); htol = ',tolh
-       write(iprint,"(6x,a,/)") ' Number density uses the normalized smooth neighbour-count kernel'
+       write(iprint,"(6x,a,/)") ' Number density uses a normalized polynomial neighbour count'
        write(iprint,"(6x,a,/)") ' Gas density and pressure use conservative generalized volumes'
     else
        write(iprint,50) hfact, massoftype(1), tolh, Nneigh

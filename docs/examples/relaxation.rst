@@ -71,7 +71,8 @@ density-weighted hexagonal close-packed distribution::
 
 Use ``KERNEL=WendlandC4`` for these stellar models, together with
 ``MPI=no`` and ``IND_TIMESTEPS=no``. Retain ``hfact=1.5`` in the runtime
-``.in`` file: too few neighbours can leave unresolved density errors
+``.in`` file and leave ``two_kernel=F``: too few neighbours can leave unresolved
+density errors
 where particle masses change sharply. Check convergence with resolution
 and neighbour count before interpreting mixing at such interfaces.
 
@@ -90,10 +91,12 @@ new particles from the profile; it does not import another code's dump.
 
 The lattice is an initial condition, not a constraint during evolution.
 Particle masses and count remain fixed, but spacing and smoothing lengths
-change as the gas moves. Runtime smoothing lengths use a separate normalized
-neighbour-count kernel with a flat inner core and a cumulative cubic-spline
-taper, following StarSmasher's default ``gflag=1``. Mass density is independently
-estimated from generalized volumes: first sum ``R_i = sum_j m_j W_ij``,
+change as the gas moves. Runtime smoothing lengths use the normalized polynomial
+neighbour count ``G=(1-s**3)**2``, where ``s=r/(2h)``, independently of particle
+masses. This follows StarSmasher's ``gflag=2``, rather than its default flat-core
+``gflag=1`` count, which produced growing oblique lattice modes in this
+variational discretization. Mass density is independently estimated from
+generalized volumes: first sum ``R_i = sum_j m_j W_ij``,
 then ``C_i = sum_j (m_j/R_j) W_ij``, and use ``rho_i = R_i C_i``.
 The volume estimator follows Garcia-Senz et al. (2022, A&A 659, A175);
 the central pressure forces differentiate the complete discrete energy,
@@ -119,7 +122,8 @@ For a profile using a different convention, set ``hcp_profile_mass_unitN``
 MESA profile does not select the MESA equation of state.
 
 Continuous masses currently require Newtonian gas-only hydrodynamics,
-``MPI=no``, ``APR=no`` and ``IND_TIMESTEPS=no``; OpenMP is supported.
+``MPI=no``, ``APR=no``, ``IND_TIMESTEPS=no`` and ``two_kernel=F``;
+OpenMP is supported.
 MHD, radiation transport, dust, sinks, injection and gravitational-wave
 diagnostics are not supported in this mode. Radiation pressure in the EOS
 is distinct from radiation transport. The existing asynchronous automatic relaxer
@@ -135,6 +139,8 @@ geometry and are not restart files. Legacy dumps without individual masses
 continue to use the existing mass-per-type representation.
 Do not restart variable-mass dumps with older Phantom binaries that lack
 individual-mass support.
-The header value ``variable_mass=2`` identifies this volume formulation.
-Earlier experimental ``variable_mass=1`` models must be regenerated, not
-silently resumed with a different density estimator.
+The header value ``variable_mass=3`` identifies this volume and polynomial-count
+formulation.
+Earlier experimental ``variable_mass=1`` and ``variable_mass=2`` models must be
+regenerated, not silently resumed with a different density estimator or h
+constraint.

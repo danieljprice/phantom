@@ -363,9 +363,12 @@ subroutine test_rwdump(ntests,npass)
  call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
  nfailed = 0
  call checkval(ierr,1,0,nfailed(1),'reject earlier experimental mass-density formulation')
- hdr%intvals(1) = 3
+ hdr%intvals(1) = 2
  call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
- call checkval(ierr,1,0,nfailed(2),'reject unknown future individual-mass formulation')
+ call checkval(ierr,1,0,nfailed(2),'reject experimental flat-core count formulation')
+ hdr%intvals(1) = 4
+ call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
+ call checkval(ierr,1,0,nfailed(3),'reject unknown future individual-mass formulation')
  call update_test_scores(ntests,nfailed,npass)
  call free_header(hdr,ierr)
 

@@ -49,7 +49,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
  use centreofmass,    only:get_centreofmass
  use apr,             only:sync_aprmassoftype
- use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid,ireconav
+ use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid,ireconav,two_kernel
  use gravwaveutils,   only:calc_gravitwaves
  use ptmass,          only:icreate_sinks
  use io,              only:id,master
@@ -306,6 +306,10 @@ subroutine check_setup(nerror,nwarn,restart)
  !
  !  check for particles with identical positions
  if (variable_mass) then
+    if (two_kernel) then
+       print*, 'ERROR: variable masses require two_kernel=F'
+       nerror = nerror + 1
+    endif
     if (mpi .or. ind_timesteps) then
        print*, 'ERROR: variable masses require MPI=no and shared timesteps (IND_TIMESTEPS=no)'
        nerror = nerror + 1

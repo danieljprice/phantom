@@ -20,7 +20,7 @@ module readwrite_dumps_common
 !
  use dump_utils, only:lenid
  implicit none
- integer, parameter, private :: individual_mass_version = 2
+ integer, parameter, private :: individual_mass_version = 3
 
 contains
 
