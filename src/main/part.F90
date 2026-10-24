@@ -922,6 +922,8 @@ subroutine init_rho_from_h(i1,i2)
  if (present(i1)) ia = i1
  if (present(i2)) ib = i2
  iamtypei = igas
+ ! massoftype may have just been set by the calling routine
+ call sync_aprmassoftype()
 
  do i=ia,ib
     if (.not. isdead_or_accreted(xyzh(4,i))) then
@@ -1087,6 +1089,22 @@ subroutine recount_npartoftype
  enddo
 
 end subroutine recount_npartoftype
+
+!----------------------------------------------------------------
+!+
+!  set the mass of each particle type at every refinement level
+!  from massoftype (each level halves the mass of the previous one)
+!+
+!----------------------------------------------------------------
+subroutine sync_aprmassoftype
+ integer :: l
+
+ if (.not.use_apr) return
+ do l=1,apr_maxlevel
+    aprmassoftype(:,l) = massoftype(:)/2.**(l-1)
+ enddo
+
+end subroutine sync_aprmassoftype
 
 !----------------------------------------------
 !+

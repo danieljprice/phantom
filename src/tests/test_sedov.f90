@@ -14,10 +14,11 @@ module testsedov
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checkconserved, deriv, dim, energies, eos,
+! :Dependencies: apr, boundary, checkconserved, deriv, dim, energies, eos,
 !   eos_idealplusrad, evolve, evwrite, io, io_summary, mpidomain, mpiutils,
 !   options, part, physcon, radiation_utils, readwrite_dumps,
-!   step_lf_global, testutils, timestep, unifdis, units, viscosity
+!   step_lf_global, testutils, timestep, unifdis, units, utils_apr,
+!   viscosity
 !
  implicit none
 
@@ -30,13 +31,14 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,isothermal,maxalpha,use_dust,periodic,do_radiation,ind_timesteps,disc_viscosity
+ use dim,      only:maxp,isothermal,maxalpha,use_dust,periodic,do_radiation,ind_timesteps,disc_viscosity,&
+                    use_apr
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,hfact,ntot, &
                     alphaind,rad,radprop,ikappa,rho,init_rho_from_h
- use part,     only:iphase,maxphase,igas,isetphase,iradxi
+ use part,     only:iphase,maxphase,igas,isetphase,iradxi,apr_level
  use eos,      only:gamma,polyk,gmw,get_cv
  use eos_idealplusrad, only:get_idealplusrad_temp
  use options,  only:ieos,tolh,alpha,alphau,alphaB,beta
@@ -47,13 +49,16 @@ subroutine test_sedov(ntests,npass)
  use timestep, only:dtcourant,dtforce,dtrad
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
- use energies,  only:etot,totmom,angtot,mdust
+ use energies,  only:etot,totmom,angtot,mdust,mtot
+ use kernel,    only:kernelname
  use evolve,    only:evol
  use viscosity, only:irealvisc
  use io_summary,only:summary_reset
  use mpiutils,  only:reduceall_mpi
  use mpidomain, only:i_belong
- use checkconserved,  only:etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved,  only:etot_in,angtot_in,totmom_in,mdust_in,mtot_in
+ use apr,             only:init_apr
+ use utils_apr,       only:apr_max_in
  use radiation_utils, only:set_radiation_and_gas_temperature_equal,Tgas_from_ugas
  use readwrite_dumps, only:write_fulldump
  use step_lf_global,  only:init_step
@@ -61,7 +66,7 @@ subroutine test_sedov(ntests,npass)
  integer :: nfailed(2)
  integer :: i,itmp,ierr,iu,cv_type
  real    :: psep,denszero,enblast,rblast,prblast,gam1
- real    :: totmass,etotend,momtotend
+ real    :: totmass,etotend,momtotend,tol_en
  real    :: temp,cv,cvi,denszero_cgs,enblast_cgs
  character(len=20) :: logfile,evfile,dumpfile
 
@@ -173,13 +178,23 @@ subroutine test_sedov(ntests,npass)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
+    mtot_in   = mtot
+    if (use_apr) then
+       ! APR with no refinement levels, so that the solution is unchanged
+       apr_max_in = 0
+       call init_apr(apr_level,ierr)
+    endif
     call evol('test.in',logfile,evfile,dumpfile,1)
     call write_evfile(time,dt)
     etotend   = etot
     momtotend = totmom
 
     nfailed(:) = 0
-    call checkval(etotend,etot_in,2.0e-4,nfailed(1),'total energy')  ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping
+    ! the required tolerance is 1.3e-4 (2e-4) for individual (global) timestepping,
+    ! slightly larger with Wendland kernels (used with APR)
+    tol_en = 2.0e-4
+    if (index(kernelname,'Wendland') /= 0) tol_en = 2.1e-4
+    call checkval(etotend,etot_in,tol_en,nfailed(1),'total energy')
     call checkval(momtotend,totmom_in,7.e-15,nfailed(2),'linear momentum')
 
     ! delete temporary files
@@ -193,6 +208,9 @@ subroutine test_sedov(ntests,npass)
     close(unit=itmp,status='delete',iostat=ierr)
 
     open(unit=itmp,file='test.in',status='old',iostat=ierr)
+    close(unit=itmp,status='delete',iostat=ierr)
+
+    open(unit=itmp,file='apr_001.ev',status='old',iostat=ierr)
     close(unit=itmp,status='delete',iostat=ierr)
 
     call update_test_scores(ntests,nfailed,npass)
