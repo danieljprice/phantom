@@ -1000,8 +1000,10 @@ subroutine write_options_star(star,iunit,label)
        call write_inopt(star%hcp_surface_factor,'hcp_surface_factor'//trim(c),'surface neighbour estimate (1.3 or 1.8)',iunit)
        call write_inopt(star%hcp_hfloor,'hcp_hfloor'//trim(c),'initial smoothing length floor in code units',iunit)
        call write_inopt(star%hcp_surface_buffer,'hcp_surface_buffer'//trim(c),'surface buffer in initial h_c (-1=automatic)',iunit)
-       call write_inopt(star%hcp_profile_mass_unit,'hcp_profile_mass_unit'//trim(c),'MESA profile solar mass in grams',iunit)
-       call write_inopt(star%hcp_profile_radius_unit,'hcp_profile_radius_unit'//trim(c),'MESA profile solar radius in cm',iunit)
+       write(string,'(es24.16)') star%hcp_profile_mass_unit
+       call write_inopt(trim(adjustl(string)),'hcp_profile_mass_unit'//trim(c),'MESA profile solar mass in grams',iunit)
+       write(string,'(es24.16)') star%hcp_profile_radius_unit
+       call write_inopt(trim(adjustl(string)),'hcp_profile_radius_unit'//trim(c),'MESA profile solar radius in cm',iunit)
     endif
  endif
 

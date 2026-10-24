@@ -172,14 +172,17 @@ subroutine test_hcp_surface_buffer(ntests,npass)
 end subroutine test_hcp_surface_buffer
 
 subroutine test_hcp_options(ntests,npass)
- use infile_utils, only:inopts
- use setstar, only:star_t,set_defaults_star,read_options_star
+ use infile_utils, only:inopts,open_db_from_file,close_db
+ use setstar, only:star_t,set_defaults_star,read_options_star,write_options_star
  use units, only:set_units
  use physcon, only:solarm,solarr
+ use io, only:id
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star,defaults
  type(inopts) :: db(6)
- integer :: i,nerr,nfailed(22)
+ type(inopts), allocatable :: written(:)
+ integer :: i,nerr,nfailed(25),iu
+ character(len=48) :: filename
  character(len=32), parameter :: tags(*) = [character(len=32) :: &
     'hcp_density_exponent1','hcp_density_exponent1','hcp_density_exponent1', &
     'hcp_nnopt1','hcp_surface_factor1','hcp_hfloor1','hcp_surface_buffer1', &
@@ -222,6 +225,24 @@ subroutine test_hcp_options(ntests,npass)
  call read_options_star(star,db(1:4),nerr,label='1')
  call checkval(nerr,0,0,nfailed(21),'legacy star options need no HCP parameters')
  call checkval(trim(star%particle_lattice)=='closepacked',.true.,nfailed(22),'legacy lattice default is retained')
+
+ ! Profile-unit constants need a round trip, not the default three decimals.
+ star%particle_lattice = 'weighted_hcp'
+ star%hcp_profile_mass_unit = 1.9892e33
+ star%hcp_profile_radius_unit = 6.9598e10
+ write(filename,'("test_hcp_options_",i0,".setup")') id
+ open(newunit=iu,file=trim(filename),status='replace')
+ call write_options_star(star,iu,label='1')
+ close(iu)
+ call open_db_from_file(written,trim(filename),23,nerr)
+ star = defaults
+ if (nerr==0) call read_options_star(star,written,nerr,label='1')
+ call checkval(nerr,0,0,nfailed(23),'written HCP options can be read')
+ call checkval(star%hcp_profile_mass_unit,1.9892e33,0.,nfailed(24),'MESA mass unit survives setup rewrite')
+ call checkval(star%hcp_profile_radius_unit,6.9598e10,0.,nfailed(25),'MESA radius unit survives setup rewrite')
+ call close_db(written)
+ open(newunit=iu,file=trim(filename),status='old')
+ close(iu,status='delete')
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_hcp_options
