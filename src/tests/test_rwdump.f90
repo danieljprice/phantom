@@ -15,8 +15,8 @@ module testrwdump
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, dump_utils, eos, io, memory, mpiutils,
-!   options, part, physcon, readwrite_dumps, testutils, timestep, timing,
-!   units
+!   options, part, physcon, readwrite_dumps, readwrite_dumps_common,
+!   testutils, timestep, timing, units
 !
  implicit none
  public :: test_rwdump
@@ -48,13 +48,15 @@ subroutine test_rwdump(ntests,npass)
  use units,           only:set_units,umass,udist
  use physcon,         only:au,solarm
  use mpiutils,        only:barrier_mpi
- use dump_utils,      only:read_array_from_file
+ use dump_utils,      only:read_array_from_file,dump_h,allocate_header,add_to_iheader,free_header
+ use readwrite_dumps_common, only:unfill_rheader
  use timing,          only:getused,printused
  use options,         only:use_dustfrac
  use timestep,        only:dtmax
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(70)
- integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
+ integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu,ntypesinfile
+ type(dump_h) :: hdr
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
  real    :: xminwas,xmaxwas,yminwas,ymaxwas,zminwas,zmaxwas
@@ -354,6 +356,18 @@ subroutine test_rwdump(ntests,npass)
        close(unit=idisk1,status='delete')
     endif
  enddo over_tests
+
+ ! Reject changed physical formulations before reading or changing any state.
+ hdr = allocate_header()
+ call add_to_iheader(1,'variable_mass',hdr,ierr)
+ call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
+ nfailed = 0
+ call checkval(ierr,1,0,nfailed(1),'reject earlier experimental mass-density formulation')
+ hdr%intvals(1) = 3
+ call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
+ call checkval(ierr,1,0,nfailed(2),'reject unknown future individual-mass formulation')
+ call update_test_scores(ntests,nfailed,npass)
+ call free_header(hdr,ierr)
 
  call deallocate_memory
  call allocate_memory(int(maxp_old,kind=8))

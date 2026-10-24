@@ -20,6 +20,7 @@ module readwrite_dumps_common
 !
  use dump_utils, only:lenid
  implicit none
+ integer, parameter, private :: individual_mass_version = 2
 
 contains
 
@@ -300,7 +301,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
  call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
  call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
- if (variable_mass) call add_to_iheader(1,'variable_mass',hdr,ierr)
+ if (variable_mass) call add_to_iheader(individual_mass_version,'variable_mass',hdr,ierr)
 
  ! int*8
  call add_to_header(nparttot,'nparttot',hdr,ierr)
@@ -429,11 +430,13 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  imassmode = 0
  if (any(hdr%inttags=='variable_mass').or.any(hdr%int4tags=='variable_mass')) &
     call extract('variable_mass',imassmode,hdr,ierr)
- if (imassmode < 0 .or. imassmode > 1) then
+ if (imassmode/=0 .and. imassmode/=individual_mass_version) then
+    if (id==master) write(iprint,'(a,i0,a)') &
+       ' Unsupported individual-mass formulation ',imassmode,': regenerate the stellar models with this version'
     ierr = 1
     return
  endif
- variable_mass = (imassmode == 1)
+ variable_mass = (imassmode == individual_mass_version)
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)

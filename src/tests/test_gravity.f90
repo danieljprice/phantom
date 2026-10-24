@@ -99,22 +99,25 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  use kernel, only:wkern,cnormk,kernel_softening,radkern
  use options, only:ieos,alpha,alphau,tolh
  use eos, only:gamma,polyk
+ use shock_capturing, only:beta
  use kdtree, only:tree_accuracy
  use vectorutils, only:cross_product3D
  use testutils, only:checkval,update_test_scores
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
- integer :: ix,iy,iz,i,j,k,iside,nfailed(10),ieosprev
+ integer :: ix,iy,iz,i,j,k,iside,nfailed(11),ieosprev
  real :: saved_options(5)
- real :: q2,rhosum,rhoerr,fsum(3),masssum,treeprev,tolhprev,dedt,fgrav(3,512)
+ real :: q2,rhosum,rhoerr,fsum(3),masssum,treeprev,tolhprev,dedt,fgrav(3,512),betaprev
  real :: torque(3),pair_torque(3)
  real :: xbase(4,512),entropy(512),forcebase(3,512),energy(2),delta,gradient,error_gradient
+ real :: velocity(3,512),rho_base(512),rho_time(512,2),du(512),expected_du(512)
  real :: phi,softforce,q
- real :: count_sum,count_error,countnorm
+ real :: count_error,count_sum,countnorm,rho_direct(512),volume_sum
  integer, parameter :: probes(3) = [1,219,512]
 
  if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
  saved_options = [hfact,gamma,polyk,alpha,alphau]
+ betaprev = beta
  ieosprev = ieos
  call init_part()
  npart = 0
@@ -142,6 +145,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  polyk = 0.
  alpha = 0.
  alphau = 0.
+ beta = 0.
  vxyzu = 0.
  treeprev = tree_accuracy
  tolhprev = tolh
@@ -150,7 +154,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  call get_derivs_global()
  fgrav = fxyzu(1:3,1:npart)
 
- ! Independently sum mass density at the converged smoothing lengths.
+ ! Independently sum raw mass density, then the generalized volume density.
  rhoerr = 0.
  count_error = 0.
  countnorm = 241920./(228397.*acos(-1.)*radkern**3)
@@ -169,8 +173,16 @@ subroutine test_variable_mass_dynamics(ntests,npass)
           count_sum = count_sum + 4.*(q**3/3.-0.3*q**5+0.125*q**6)
        endif
     enddo
-    rhoerr = max(rhoerr,abs(rho(i)/rhosum-1.))
+    rho_direct(i) = rhosum
     count_error = max(count_error,abs(countnorm*count_sum/hfact**3-1.))
+ enddo
+ do i=1,npart
+    volume_sum = 0.
+    do j=1,npart
+       q2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)/xyzh(4,i)**2
+       volume_sum = volume_sum + particle_mass(j)/rho_direct(j)*wkern(q2,sqrt(q2))*cnormk/xyzh(4,i)**3
+    enddo
+    rhoerr = max(rhoerr,abs(rho(i)/(rho_direct(i)*volume_sum)-1.))
  enddo
  fsum = 0.
  torque = 0.
@@ -206,6 +218,28 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  call checkval(all(rho(1:npart) > 0.),.true.,nfailed(5),'positive variable-mass density')
  call checkval(dedt,0.,tol,nfailed(6),'variable-mass hydro energy conservation')
  call checkval(maxval(abs(torque)),0.,tol,nfailed(8),'variable-mass hydro angular momentum conservation')
+
+ ! Check each particle's work against re-summed density after moving along a
+ ! non-affine velocity field. icall=2 must use the newly supplied velocities.
+ do i=1,npart
+    vxyzu(1:3,i) = 0.02*sin(real(i)*[13.,17.,23.])
+ enddo
+ call get_derivs_global(icall=2)
+ xbase = xyzh(:,1:npart)
+ velocity = vxyzu(1:3,1:npart)
+ rho_base = rho(1:npart)
+ du = fxyzu(4,1:npart)
+ delta = 1.e-4
+ do iside=1,2
+    xyzh(:,1:npart) = xbase
+    xyzh(1:3,1:npart) = xbase(1:3,:) + (2*iside-3)*delta*velocity
+    call get_density_global(icall=1)
+    rho_time(:,iside) = rho(1:npart)
+ enddo
+ expected_du = (gamma-1.)*vxyzu(4,1:npart)/rho_base*(rho_time(:,2)-rho_time(:,1))/(2.*delta)
+ error_gradient = maxval(abs(du-expected_du)/max(1.,abs(expected_du)))
+ call checkval(error_gradient,0.,1.e-5,nfailed(11),'particle pressure work follows the actual density derivative')
+ xyzh(:,1:npart) = xbase
 
  ! Independent variation of U + gravitational energy, re-solving h at each position.
  vxyzu(1:3,1:npart) = 0.
@@ -245,6 +279,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  polyk = saved_options(3)
  alpha = saved_options(4)
  alphau = saved_options(5)
+ beta = betaprev
  ieos = ieosprev
  call init_part()
 
@@ -316,7 +351,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
  call get_derivs_global()
  fgrav = fxyzu(1:3,1:npart)
 
- ! Find a genuinely reversed pair, then approach only that neighbour.
+ ! Stress a reversed count-corrected density gradient, not an AV kernel.
  minfactor = 1.
  ipair = 0
  jpair = 0
@@ -339,7 +374,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
     enddo
  enddo
  nfailed = 0
- call checkval(minfactor < 0.,.true.,nfailed(9),'unequal-mass fixture contains reversed pressure gradient')
+ call checkval(minfactor < 0.,.true.,nfailed(9),'fixture contains reversed count-corrected density gradient')
  if (ipair==0) then
     call update_test_scores(ntests,nfailed,npass)
     tree_accuracy = treeprev
@@ -375,7 +410,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
  call checkval(maxval(abs(mom)),0.,tol,nfailed(3),'unequal-mass viscous momentum conservation')
  call checkval(dedt,0.,tol,nfailed(4),'unequal-mass viscous energy conservation')
 
- ! Find reversed *symmetric* conductivity, not just a one-sided gradient.
+ ! A count-corrected density derivative must not be used for diffusion.
  maxconductance = 0.
  do i=1,npart
     do j=i+1,npart
@@ -395,7 +430,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
        endif
     enddo
  enddo
- call checkval(maxconductance > 0.,.true.,nfailed(10),'unequal-mass fixture contains anti-diffusive pair')
+ call checkval(maxconductance > 0.,.true.,nfailed(10),'count-corrected density gradient would be anti-diffusive')
  direction = xyzh(1:3,ipair)-xyzh(1:3,jpair)
  direction = direction/sqrt(sum(direction**2))
 

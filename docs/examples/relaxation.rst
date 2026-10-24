@@ -93,8 +93,15 @@ Particle masses and count remain fixed, but spacing and smoothing lengths
 change as the gas moves. Runtime smoothing lengths use a separate normalized
 neighbour-count kernel with a flat inner core and a cumulative cubic-spline
 taper, following StarSmasher's default ``gflag=1``. Mass density is independently
-summed with the selected SPH kernel. Pressure work and softened self-gravity
-include the corresponding variable-smoothing-length terms. Artificial
+estimated from generalized volumes: first sum ``R_i = sum_j m_j W_ij``,
+then ``C_i = sum_j (m_j/R_j) W_ij``, and use ``rho_i = R_i C_i``.
+The volume estimator follows Garcia-Senz et al. (2022, A&A 659, A175);
+the central pressure forces differentiate the complete discrete energy,
+including neighbouring volume derivatives and the count-based grad-h terms.
+This is not StarSmasher's hydrodynamic discretization or an ISPH gradient.
+Pressure work uses the derivative of this same density at the current
+velocities, including velocity-only force calls. Softened self-gravity
+retains its count-based variable-smoothing-length terms. Artificial
 viscosity and conduction use a monotone kernel gradient rather than the
 pressure correction.
 
@@ -118,6 +125,9 @@ diagnostics are not supported in this mode. Radiation pressure in the EOS
 is distinct from radiation transport. The existing asynchronous automatic relaxer
 supports both static and rigidly rotating models; there is no additional
 runtime damping mode. Verify each released stellar model in isolation.
+Use internal-energy evolution, not either entropy evolution variable.
+The generalized-volume mode is still undergoing atmosphere and stellar
+qualification; passing one released model does not establish general stability.
 
 Full dumps store masses, smoothing lengths and mass density in full precision
 and support restart. Small dumps retain masses but have reduced precision
@@ -125,3 +135,6 @@ geometry and are not restart files. Legacy dumps without individual masses
 continue to use the existing mass-per-type representation.
 Do not restart variable-mass dumps with older Phantom binaries that lack
 individual-mass support.
+The header value ``variable_mass=2`` identifies this volume formulation.
+Earlier experimental ``variable_mass=1`` models must be regenerated, not
+silently resumed with a different density estimator.

@@ -46,7 +46,7 @@ module forces
 !   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, omputils,
 !   options, part, physcon, ptmass, ptmass_heating, radiation_utils,
 !   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
-!   viscosity
+!   viscosity, volume_sph
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
@@ -56,6 +56,7 @@ module forces
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
  use part, only:get_particle_mass,variable_mass
+ use volume_sph, only:rho0,pressure_a,pressure_b,pressure_count,hdot_count,volume_pressure,volume_work
  implicit none
 
  integer, parameter :: maxcellcache = 1000
@@ -236,6 +237,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use dust,         only:drag_implicit
  use nicil,        only:nimhd_get_jcbcb
+ use part,         only:igasP
+ use eos,          only:ipdv_heating
+ use timestep,     only:C_thermal
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,&
                         init_send_requests
@@ -416,6 +420,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !--check that compiled options are compatible with this routine
 !
  if (maxgradh /= maxp) call fatal('force','need storage of gradh (maxgradh=maxp)')
+ if (variable_mass) then
+    if (ien_type==ien_entropy .or. ien_type==ien_entropy_s) &
+       call fatal('force','generalized volumes require internal-energy evolution')
+    call volume_pressure(xyzh,vxyzu,eos_vars(igasP,:))
+ endif
 
 !$omp parallel default(none) &
 !$omp shared(maxp) &
@@ -744,6 +753,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 #endif
 !$omp end parallel
+
+ if (variable_mass) call volume_work(xyzh,vxyzu,eos_vars(igasP,:),fxyzu, &
+                                    ipdv_heating>0 .and. maxvxyzu>=4,C_thermal,dtforce)
 
  if (mpi) then
     if (use_sinktree) then
@@ -1655,8 +1667,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           !--add av term to pressure
           if (variable_mass) then
-             gradpi = pmassj*(pro2i*grkerni + qrho2i*grkerni_diss)
-             if (usej) gradpj = pmassj*(pro2j*grkernj + qrho2j*grkernj_diss)
+             gradpi = pmassj*(pressure_a(i)+pressure_b(i)/rho0(j)+qrho2i)*grkerni_diss
+             gradpi = gradpi + pressure_count(i)*grkern_tildei
+             if (usej) gradpj = pmassj*((pressure_a(j)+pressure_b(j)/rho0(i)+qrho2j)*grkernj_diss &
+                                       + pressure_count(j)/pmassi*grkern_tildej)
           else
              gradpi = pmassj*(pro2i + qrho2i)*grkerni
              if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
@@ -1787,11 +1801,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
-          if (variable_mass) then
-             fsum(idrhodti) = fsum(idrhodti) + pmassj*projv*grkerni
-          else
-             fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
-          endif
+          if (.not.variable_mass) fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
 
           if (maxvxyzu >= 4 .or. track_lum) then
              !--viscous heating
@@ -3067,6 +3077,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     isgas: if (iamgasi) then
        divvi = -drhodti*rho1i
+       if (variable_mass) divvi = 3.*hdot_count(i)/hi
        divcurlv(1,i) = real(divvi,kind=kind(divcurlv)) ! store divv from forces
 
        if (.not.isothermal .or. track_lum) then
@@ -3096,6 +3107,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fac = 0.
              endif
              pdv_work = fac*pri*rho1i*rho1i*drhodti
+             if (variable_mass) pdv_work = 0. ! added in the generalized-volume work pass
              if (ipdv_heating > 0) fxyz4 = fxyz4 + pdv_work
              if (ishock_heating > 0) then
                 ! warn if entropy derivative is negative, means 2nd law of thermodynamics is violated
