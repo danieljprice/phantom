@@ -57,14 +57,13 @@ subroutine test_step(ntests,npass,string)
  use part,            only:ibin
  use timestep_ind,    only:nbinmax
 #endif
-#endif
- integer, intent(inout) :: ntests,npass
- character(len=*), intent(in), optional :: string
-#ifdef PERIODIC
  real                   :: psep,hzero,totmass,dt,t,dtext,dtnew_dum
  real                   :: rhozero
  integer                :: i,nsteps,nerror,nwarn,ierr
  integer :: nfailed(9)
+#endif
+ integer, intent(inout) :: ntests,npass
+ character(len=*), intent(in), optional :: string
 
  if (present(string)) then
     if (index(string,'mass-atmosphere')==1) then
@@ -73,6 +72,7 @@ subroutine test_step(ntests,npass,string)
     endif
  endif
 
+#ifdef PERIODIC
  if (id==master) write(*,"(/,a,/)") '--> TESTING STEP MODULE / boundary crossing'
 
  call init_part()
