@@ -29,7 +29,7 @@ module setstar
 !   - write_rho_to_file : *write density profile(s) to file*
 !
 ! :Dependencies: centreofmass, dim, eos, eos_piecewise, extern_densprofile,
-!   infile_utils, io, mpiutils, options, part, physcon, prompting,
+!   infile_utils, io, kernel, mpiutils, options, part, physcon, prompting,
 !   relaxstar, rho_profile, setstar_utils, unifdis, units, vectorutils
 !
  use setstar_utils, only:ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
@@ -249,6 +249,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use units,              only:umass,udist,utime,unit_density
  use mpiutils,           only:reduceall_mpi
  use options,            only:iexternalforce
+ use kernel,             only:kernelname
  type(star_t),    intent(inout) :: star
  integer,         intent(in)    :: id,master
  integer,         intent(inout) :: npart,npartoftype(:),nptmass
@@ -293,6 +294,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  nerr = 0
  call get_star_properties_in_code_units(star,star%r_code,mstar,star%rcore_code,star%mcore_code,&
                                         star%hsoft_code,star%lcore_code,star%hacc_code,nerr,omega)
+ if (star%iprofile>0.and.star%particle_lattice=='weighted_hcp'.and.kernelname/='Wendland 2/3D C^4') &
+    call fatal('set_star','individual particle masses require KERNEL=WendlandC4; rebuild with this kernel')
  if (omega /= 0. .and. .not.relax) then
     call error('set_star','non-zero spin_period requires automatic relaxation (relax=T)')
     nerr = nerr + 1

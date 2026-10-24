@@ -305,7 +305,7 @@ subroutine test_analytic_hcp(ntests,npass)
  use energies, only:compute_energies,etot
  use centreofmass, only:get_total_angular_momentum
  use checksetup, only:check_setup
- use kernel, only:hfact_default,radkern
+ use kernel, only:hfact_default,radkern,kernelname
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star,companion
@@ -345,9 +345,27 @@ subroutine test_analytic_hcp(ntests,npass)
  star%r = '1*rsun'
  star%np = 2000
  star%particle_lattice = 'weighted_hcp'
+ if (kernelname/='Wendland 2/3D C^4') star%particle_lattice = 'closepacked'
+ stellar_models: block
  call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
                xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.false.,.false.,.false.,&
                rhozero,ntot,i_belong,ierr,write_files=.false.)
+ if (kernelname/='Wendland 2/3D C^4') then
+    nfailed = 0
+    call checkval(ierr,0,0,nfailed(1),'unsupported individual-mass kernel still allows legacy stellar setup')
+    call checkval(npart>0,.true.,nfailed(2),'legacy stellar setup creates particles')
+    call checkval(variable_mass,.false.,nfailed(3),'legacy stellar setup keeps equal-mass mode')
+    call check_setup(nerror,nwarn)
+    call checkval(nerror,0,0,nfailed(4),'legacy equal-mass setup keeps its kernel')
+    particle_mass(1:npart) = massoftype(1)
+    variable_mass = .true.
+    call check_setup(nerror,nwarn)
+    call checkval(nerror,1,0,nfailed(5),'unsupported kernel blocks individual-mass run')
+    call check_setup(nerror,nwarn,restart=.true.)
+    call checkval(nerror,1,0,nfailed(6),'unsupported kernel blocks individual-mass restart')
+    call update_test_scores(ntests,nfailed,npass)
+    exit stellar_models
+ endif
  nfailed = 0
  call checkval(ierr,0,0,nfailed(1),'analytic weighted HCP setup')
  call checkval(variable_mass,.true.,nfailed(2),'analytic HCP enables individual masses')
@@ -482,6 +500,7 @@ subroutine test_analytic_hcp(ntests,npass)
  call checkval(all(ieee_is_finite(vxyzu(4,1:2))).and.all(vxyzu(4,1:2)>0.),.true.,&
                nfailed_pressure(4),'finite positive thermal energy after pressure fallback')
  call update_test_scores(ntests,nfailed_pressure,npass)
+ end block stellar_models
  call init_part()
  ieos = ieosprev
  gamma = gammaprev

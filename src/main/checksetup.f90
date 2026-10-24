@@ -15,7 +15,7 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, apr, boundary, boundary_dyn, centreofmass, dim,
-!   dust, dust_formation, eos, externalforces, gravwaveutils, inject, io,
+!   dust, dust_formation, eos, externalforces, gravwaveutils, inject, io, kernel,
 !   metric, metric_tools, nicil, options, part, physcon, ptmass,
 !   ptmass_radiation, sortutils, timestep, units, utils_gr
 !
@@ -52,6 +52,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid,ireconav,two_kernel
  use gravwaveutils,   only:calc_gravitwaves
  use ptmass,          only:icreate_sinks
+ use kernel,          only:kernelname
  use io,              only:id,master
  use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star
  use timestep,        only:time
@@ -306,6 +307,10 @@ subroutine check_setup(nerror,nwarn,restart)
  !
  !  check for particles with identical positions
  if (variable_mass) then
+    if (kernelname/='Wendland 2/3D C^4') then
+       print*, 'ERROR: individual particle masses require KERNEL=WendlandC4; rebuild with this kernel'
+       nerror = nerror + 1
+    endif
     if (two_kernel) then
        print*, 'ERROR: variable masses require two_kernel=F'
        nerror = nerror + 1

@@ -28,6 +28,7 @@ jobs:
           - ['testdust', 'dust', '']
           - ['testgr', 'gr ptmass eos', '']
           - ['testgrav', 'gravity ptmass setstar sinktree', '']
+          - ['testgrav', 'gravity ptmass setstar sinktree', '', 'KERNEL=WendlandC4 MPI=no IND_TIMESTEPS=no']
           - ['testgrowth', 'dustgrowth', '']
           - ['testnimhd', 'nimhd', '']
           - ['test2', '', 'nodata']
@@ -39,7 +40,8 @@ jobs:
       test (SYSTEM=${{ matrix.system }},
             DEBUG=${{ matrix.debug }},
             SETUP=${{ matrix.input[0] }},
-            targets=${{ matrix.input[1] }})
+            targets=${{ matrix.input[1] }},
+            flags=${{ matrix.input[3] }})
 
     runs-on: ubuntu-latest
 

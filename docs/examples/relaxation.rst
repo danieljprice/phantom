@@ -76,6 +76,11 @@ density errors
 where particle masses change sharply. Check convergence with resolution
 and neighbour count before interpreting mixing at such interfaces.
 
+Other kernels, including the cubic spline, are rejected for individual-mass
+stellar setup and at run startup or restart. Rebuild with
+``KERNEL=WendlandC4``; the code does not silently substitute a different kernel.
+Existing equal-mass setups retain their original kernel choices.
+
 Each star can have its own requested particle count. The actual count is the
 number of accepted lattice sites, not necessarily exactly ``npN``. Select
 ``weighted_hcp`` for all gas stars in a multiple-star setup. The default
