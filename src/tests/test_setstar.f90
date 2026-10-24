@@ -15,8 +15,8 @@ module testsetstar
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, checksetup, damping, datafiles, deriv, dim,
-!   energies, eos, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, radiation_utils, readwrite_mesa, relaxstar, setstar,
+!   energies, eos, gravwaveutils, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, ptmass, radiation_utils, readwrite_mesa, relaxstar, setstar,
 !   setstar_utils, sortutils, stellar_hcp, step_lf_global, table_utils,
 !   testutils, timestep, units, vectorutils
 !
@@ -290,7 +290,9 @@ subroutine test_analytic_hcp(ntests,npass)
  use stellar_hcp, only:natural_spline,spline_value
  use table_utils, only:yinterp
  use eos, only:gamma,polyk,init_eos
- use options, only:ieos
+ use options, only:ieos,iexternalforce
+ use ptmass, only:icreate_sinks
+ use gravwaveutils, only:calc_gravitwaves
  use mpidomain, only:i_belong
  use units, only:set_units
  use physcon, only:solarr,solarm
@@ -309,7 +311,8 @@ subroutine test_analytic_hcp(ntests,npass)
  type(star_t) :: star,companion
  integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(7),maxpenetrated
  integer(kind=8) :: ntot
- integer :: nfirst,nerror,nwarn,nfailed_pair(7)
+ integer :: nfirst,nerror,nwarn,nfailed_pair(7),sinkcreate_saved,external_saved
+ logical :: gravitwaves_saved
  real :: rhozero,gammaprev,polykprev,hfactprev
  real, parameter :: rtest(4) = [0.,1./3.,2./3.,1.],ptest(4) = [1.,0.1,0.01,0.001]
  real :: p2test(4),expected(2)
@@ -321,6 +324,12 @@ subroutine test_analytic_hcp(ntests,npass)
  gammaprev = gamma
  polykprev = polyk
  hfactprev = hfact
+ sinkcreate_saved = icreate_sinks
+ external_saved = iexternalforce
+ gravitwaves_saved = calc_gravitwaves
+ icreate_sinks = 0
+ iexternalforce = 0
+ calc_gravitwaves = .false.
  call init_part()
  call set_units(dist=solarr,mass=solarm,G=1.d0)
  npart = 0
@@ -354,6 +363,17 @@ subroutine test_analytic_hcp(ntests,npass)
 
  ! Exercise the upstream asynchronous relaxer with fixed unequal masses and spin.
  masses = particle_mass(1:npart)
+ icreate_sinks = 1
+ call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+               rhozero,ntot,i_belong,ierr,write_files=.false.,energy_error=residual)
+ nfailed = 0
+ call checkval(ierr/=0,.true.,nfailed(1),'hard relaxation failure reaches the setup caller')
+ call checkval(residual>tol_ekin,.true.,nfailed(2),'failed relaxation does not report convergence')
+ call checkval(all(xyzh(4,1:size(masses))>0.),.true.,nfailed(3),'failed relaxation unmasks the existing star')
+ call checkval(all(particle_mass(1:size(masses))==masses),.true.,nfailed(4),'failed relaxation preserves the existing masses')
+ call update_test_scores(ntests,nfailed,npass)
+ icreate_sinks = 0
  call init_part()
  maxits_saved = maxits
  maxits = 4000
@@ -467,6 +487,9 @@ subroutine test_analytic_hcp(ntests,npass)
  gamma = gammaprev
  polyk = polykprev
  hfact = hfactprev
+ icreate_sinks = sinkcreate_saved
+ iexternalforce = external_saved
+ calc_gravitwaves = gravitwaves_saved
 
 end subroutine test_analytic_hcp
 

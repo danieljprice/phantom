@@ -114,6 +114,8 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  ! save settings and set a bunch of options
  !
  ierr = 0
+ if (present(density_error)) density_error = huge(1.)
+ if (present(energy_error)) energy_error = huge(1.)
  omega_star = 0.
  if (present(omega)) omega_star = omega
  if (.not.ieee_is_finite(omega_star)) then

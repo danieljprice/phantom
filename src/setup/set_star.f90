@@ -240,7 +240,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
- use relaxstar,          only:relax_star
+ use relaxstar,          only:relax_star,ierr_notconverged
  use rho_profile,        only:calc_mass_enc
  use part,               only:ihsoft,igas,imu,set_particle_type,ilum
  use extern_densprofile, only:write_rhotab
@@ -439,6 +439,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (npart_old > 0) xyzh(4,1:npart_old) = abs(xyzh(4,1:npart_old))
  if (nptmass_old > 0) xyzmh_ptmass(4,1:nptmass_old) = abs(xyzmh_ptmass(4,1:nptmass_old))
+
+ ! Hard failures cannot supply a valid thermal state; retain the iteration-limit warning.
+ if (ierr_relax/=0 .and. ierr_relax/=ierr_notconverged) then
+    ierr = ierr_part
+    return
+ endif
 
  !
  ! set composition (X,Z,mu, if using variable composition)
