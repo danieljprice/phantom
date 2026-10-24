@@ -1378,6 +1378,7 @@ testall: test test2 testcyl testgrav
 
 LASTSYSTEM = ${shell if [ -e .make_lastsystem ]; then cat .make_lastsystem; fi}
 LASTSETUP = ${shell if [ -e .make_lastsetup ]; then cat .make_lastsetup; fi}
+LASTKERNEL = ${shell if [ -e .make_lastkernel ]; then cat .make_lastkernel; fi}
 LASTFPPFLAGS = ${shell if [ -e .make_lastfppflags ]; then cat .make_lastfppflags; fi}
 LASTFFLAGS = ${shell if [ -e .make_lastfflags ]; then cat .make_lastfflags; fi}
 
@@ -1442,4 +1443,4 @@ cleanall: clean
 	cd $(BINDIR); rm -f phantom phantomsetup
 
 cleandist: clean cleanall
-	rm -f .make_lastsystem .make_lastsetup .make_lastfppflags .depends
+	rm -f .make_lastsystem .make_lastsetup .make_lastkernel .make_lastfppflags .depends
