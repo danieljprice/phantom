@@ -14,11 +14,11 @@ module testsetstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, checksetup, datafiles, deriv, dim, energies,
-!   eos, infile_utils, io, mpidomain, options, part, physcon,
-!   radiation_utils, readwrite_mesa, relaxstar, setstar, setstar_utils,
-!   sortutils, stellar_hcp, step_lf_global, table_utils, testutils,
-!   timestep, units, vectorutils
+! :Dependencies: centreofmass, checksetup, damping, datafiles, deriv, dim,
+!   energies, eos, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, radiation_utils, readwrite_mesa, relaxstar, setstar,
+!   setstar_utils, sortutils, stellar_hcp, step_lf_global, table_utils,
+!   testutils, timestep, units, vectorutils
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -277,14 +277,16 @@ subroutine test_analytic_hcp(ntests,npass)
  use units, only:utime
  use step_lf_global, only:init_step,step
  use timestep, only:dtmax,dtcourant,dtforce
+ use damping, only:idamp,damp
  use deriv, only:get_derivs_global
  use energies, only:compute_energies,etot
  use centreofmass, only:get_total_angular_momentum
  use checksetup, only:check_setup
+ use kernel, only:hfact_default,radkern
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star,companion
- integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(4)
+ integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(7),maxpenetrated
  integer(kind=8) :: ntot
  integer :: nfirst,nerror,nwarn,nfailed_pair(7)
  real :: rhozero,gammaprev,polykprev,hfactprev
@@ -292,7 +294,7 @@ subroutine test_analytic_hcp(ntests,npass)
  real :: p2test(4),expected(2)
  real :: residual,omega,velocity_error
  real :: t,dt,dtnew,dtext,energy0,energy_error,radius0,radius_error,L0(3),L(3)
- real, allocatable :: masses(:)
+ real, allocatable :: masses(:),initial_radius(:),initial_support(:)
 
  ieosprev = ieos
  gammaprev = gamma
@@ -306,7 +308,7 @@ subroutine test_analytic_hcp(ntests,npass)
  gamma = 5./3.
  ieos = 2
  call init_eos(ieos,ierr)
- hfact = 1.2
+ hfact = hfact_default
  call set_defaults_star(star)
  star%iprofile = ipoly
  star%m = '1*msun'
@@ -352,12 +354,17 @@ subroutine test_analytic_hcp(ntests,npass)
 
  ! Release without damping, using the production integrator and adaptive steps.
  t = 0.
+ idamp = 0
+ damp = 0.
  dtmax = 0.02
  call init_step(npart,t,dtmax)
  call get_derivs_global()
  call compute_energies(t)
  energy0 = etot
  radius0 = sqrt(sum(masses*sum(xyzh(1:3,1:npart)**2,dim=1)))
+ initial_radius = sqrt(sum(xyzh(1:3,1:npart)**2,dim=1))
+ initial_support = radkern*xyzh(4,1:npart)
+ maxpenetrated = 0
  call get_total_angular_momentum(xyzh,vxyzu,npart,L0)
  energy_error = 0.
  radius_error = 0.
@@ -371,6 +378,7 @@ subroutine test_analytic_hcp(ntests,npass)
     call compute_energies(t)
     energy_error = max(energy_error,abs(etot/energy0-1.))
     radius_error = max(radius_error,abs(sqrt(sum(masses*sum(xyzh(1:3,1:npart)**2,dim=1)))/radius0-1.))
+    maxpenetrated = max(maxpenetrated,count(initial_radius-sqrt(sum(xyzh(1:3,1:npart)**2,dim=1))>initial_support))
  enddo
  call get_total_angular_momentum(xyzh,vxyzu,npart,L)
  nfailed_free = 0
@@ -378,6 +386,9 @@ subroutine test_analytic_hcp(ntests,npass)
  call checkval(energy_error,0.,1.e-3,nfailed_free(2),'released unequal-mass stellar energy drift')
  call checkval(radius_error,0.,0.1,nfailed_free(3),'released unequal-mass stellar RMS radius variation')
  call checkval(sqrt(sum((L-L0)**2)/sum(L0**2)),0.,1.e-6,nfailed_free(4),'released stellar angular momentum drift')
+ call checkval(maxpenetrated,0,0,nfailed_free(5),'no deep inward penetration in released unequal-mass star')
+ call checkval(npart,size(masses),0,nfailed_free(6),'released stellar particle count stays fixed')
+ call checkval(all(particle_mass(1:npart)==masses),.true.,nfailed_free(7),'released stellar particle masses stay fixed')
  call update_test_scores(ntests,nfailed_free,npass)
 
  ! The earlier star is temporarily masked and tagged while its companion relaxes.

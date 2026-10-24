@@ -123,11 +123,14 @@ subroutine test_variable_mass_dynamics(ntests,npass)
        do iz=1,8
           npart = npart + 1
           xyzh(:,npart) = [real(ix)*0.1,real(iy)*0.1,real(iz)*0.1,0.12]
-          particle_mass(npart) = 1.e-3*(1. + 0.5*xyzh(1,npart))
+          xyzh(1:3,npart) = xyzh(1:3,npart) + 0.003*sin(real(npart)*[13.,17.,23.])
+          particle_mass(npart) = exp(log(1000.)*(xyzh(1,npart)-0.1)/0.7)
           call set_particle_type(npart,igas)
        enddo
     enddo
  enddo
+ ! Keep the total mass fixed while stressing grad-h with a strong mass gradient.
+ particle_mass(1:npart) = 0.512*particle_mass(1:npart)/sum(particle_mass(1:npart))
  npartoftype = 0
  npartoftype(igas) = npart
  variable_mass = .true.

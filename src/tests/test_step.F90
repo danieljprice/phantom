@@ -15,8 +15,8 @@ module teststep
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, checksetup, damping, deriv, dim, eos,
-!   extern_staticsine, externalforces, io, mpidomain, mpiutils, options,
-!   part, physcon, ptmass, step_lf_global, testutils, timestep,
+!   extern_staticsine, externalforces, io, kernel, mpidomain, mpiutils,
+!   options, part, physcon, ptmass, step_lf_global, testutils, timestep,
 !   timestep_ind, timing, unifdis, units, viscosity
 !
  implicit none
@@ -192,6 +192,7 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  use io, only:id,master,iverbose
  use units, only:set_units
  use unifdis, only:set_unifdis
+ use kernel, only:hfact_default,radkern
  integer, intent(inout) :: ntests,npass
  character(len=*), intent(in) :: string
  integer :: level,nx,nt,ix,iy,iz,i,ierr,nfailed(8),verbose_saved,nx_coarse,penetrated,maxpenetrated,first_case,last_case
@@ -226,13 +227,17 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  wavek = 2.*acos(-1.)
  phase = 0.
  inclination = 0.
- hfact = 1.5
+ hfact = hfact_default
  alpha = 1.
  alphau = 0.
  tolh = 1.e-8
  first_case = 1
- last_case = 6
- if (index(string,'small')>0) last_case = 1
+ last_case = 7
+ if (index(string,'small')>0.or.index(string,'resolved')>0) last_case = 1
+ if (index(string,'control')>0) then
+    first_case = 6
+    last_case = 7
+ endif
  if (index(string,'interface')>0) then
     first_case = 3
     last_case = 3
@@ -242,10 +247,11 @@ subroutine test_mass_atmosphere(ntests,npass,string)
     nx = 32*min(level,2)
     if (level==3) nx = 32
     if (level==4.or.level==5) nx = 32*(level-3)
+    if (index(string,'resolved')>0) nx = 128
     nt = nx/4
     dx = 1./nx
     amplitude = 0.5*log(1000.)
-    if (level==3.or.level==6) amplitude = 0.
+    if (level==3.or.level>=6) amplitude = 0.
     lengths = [1.,0.25,0.25]
     if (level==4.or.level==5) lengths = [1.,sqrt(3.)/8.,sqrt(2./3.)/4.]
     call set_boundary(0.,lengths(1),0.,lengths(2),0.,lengths(3))
@@ -382,7 +388,7 @@ subroutine test_mass_atmosphere(ntests,npass,string)
        endif
        penetrated = 0
        do i=1,npart
-          support = 2.*hfact*dx
+          support = radkern*hfact*dx
           if (level==3) then
              if (i>nx_coarse*nt*nt) support = support/2.
              if (i<=nx_coarse*nt*nt) then
