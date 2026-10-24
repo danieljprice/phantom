@@ -174,10 +174,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'sinktree')  /= 0) dosinktree  = .true.
  if (index(string,'orbits')    /= 0) doorbits    = .true.
  if (index(string,'divb')      /= 0) dodivb      = .true.
+ if (index(string,'mass-atmosphere')==1) dostep = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,docoala,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits,dodivb,doinfile/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr,dounits,dolum,doorbits,dodivb,doinfile,dostep/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -206,7 +207,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dorwdump = .true.
  case('setdisc','disc')
     dosetdisc = .true.
- case('setstar','star')
+ case('setstar','star','hcp','weighted_hcp')
     dosetstar = .true.
  case('eos')
     doeos = .true.
@@ -350,7 +351,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of step module
 !
  if (dostep.or.testall) then
-    call test_step(ntests,npass)
+    call test_step(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
@@ -433,7 +434,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of set_star module
 !
  if (dosetstar.or.testall) then
-    call test_setstar(ntests,npass)
+    call test_setstar(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

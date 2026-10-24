@@ -78,7 +78,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,&
                             use_porosity,icooling,implicit_radiation,two_kernel
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
-                            labeltype,maxtypes,igas
+                            labeltype,maxtypes,igas,variable_mass
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
  use cooling,          only:cooling_in_step,Tfloor,ufloor
@@ -132,8 +132,13 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        write(iprint,"(/,' Number of particles = ',i12)") ntot
        do i = 1,maxtypes
           if (npartoftypetot(i) > 0) then
-             write(iprint,"(2x,a,i12,a,es14.6)") &
-                   adjustr(labeltype(i))//':',npartoftypetot(i),' particles of mass ',massoftype(i)
+             if (variable_mass) then
+                write(iprint,"(2x,a,i12,a)") &
+                      adjustr(labeltype(i))//':',npartoftypetot(i),' particles with fixed individual masses'
+             else
+                write(iprint,"(2x,a,i12,a,es14.6)") &
+                      adjustr(labeltype(i))//':',npartoftypetot(i),' particles of mass ',massoftype(i)
+             endif
           endif
        enddo
        write(iprint,"(a)") " "
@@ -152,11 +157,17 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     endif
 
     write(iprint,"(/,a)") ' Using '//trim(kernelname)//' kernel'
-    if (two_kernel) write(iprint,"(a)") &
+    if (two_kernel.and..not.variable_mass) write(iprint,"(a)") &
        ' Number density uses alternative h-finding kernel (two_kernel=T)'
 
     Nneigh = nint(4./3.*pi*(radkern*hfact)**3)
-    write(iprint,50) hfact, massoftype(1), tolh, Nneigh
+    if (variable_mass) then
+       write(iprint,"(6x,a,f5.2,a,es9.2)") ' h = ',hfact,'*n^(-1/3); htol = ',tolh
+       write(iprint,"(6x,a,/)") ' Number density uses a normalized polynomial neighbour count'
+       write(iprint,"(6x,a,/)") ' Gas density and pressure use conservative generalized volumes'
+    else
+       write(iprint,50) hfact, massoftype(1), tolh, Nneigh
+    endif
 50  format(6x,' h = ',f5.2,'*[',es9.2,'/rho]^(1/3); htol = ',es9.2,/ &
            6x,' Number of neighbours = ',i4,/)
 

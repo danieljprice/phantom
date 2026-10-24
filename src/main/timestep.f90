@@ -16,6 +16,7 @@ module timestep
 ! :Runtime parameters:
 !   - C_cour        : *Courant factor*
 !   - C_force       : *dt_force factor*
+!   - C_thermal     : *maximum fractional thermal energy loss*
 !   - divb_maxit    : *max iterations for div B projection*
 !   - divb_tol      : *tolerance for div B projection*
 !   - overcleanfac  : *factor to increase div B cleaning speed (decreases timestep)*
@@ -25,11 +26,11 @@ module timestep
 !   - use_divb_proj : *project div B to zero every dtmax*
 !   - xtol          : *tolerance on xyz iterations*
 !
-! :Dependencies: dim, infile_utils, io
+! :Dependencies: dim, infile_utils, io, part
 !
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
+ real    :: C_cour,C_force,C_cool,C_thermal,C_rad,tolv,xtol,ptol
  real    :: rhomaxnow
  integer :: nsteps
  ! div B cleaning, and the optional projection at each synchronisation
@@ -59,6 +60,7 @@ subroutine set_defaults_timestep
  C_cour  = 0.3
  C_force = 0.25
  C_cool  = 0.05
+ C_thermal = 0.05
  C_rad   = 0.8  ! see Biriukov & Price (2019)
  tolv    = 1.e-2
  xtol    = 1.e-7
@@ -124,10 +126,12 @@ end subroutine print_dtlog
 subroutine write_options_timestep(iunit)
  use infile_utils, only:write_inopt
  use dim,          only:gr,mhd,mpi
+ use part,         only:variable_mass
  integer, intent(in) :: iunit
 
  call write_inopt(C_cour,'C_cour','Courant factor',iunit)
  call write_inopt(C_force,'C_force','dt_force factor',iunit)
+ if (variable_mass) call write_inopt(C_thermal,'C_thermal','maximum fractional thermal energy loss',iunit)
  call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping (>= 100 to skip)',iunit,exp=.true.)
  if (gr) then
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
@@ -159,6 +163,7 @@ subroutine read_options_timestep(db,nerr)
 
  call read_inopt(C_cour,'C_cour',db,min=0.,max=1.,errcount=nerr)
  call read_inopt(C_force,'C_force',db,errcount=nerr,default=C_force)
+ call read_inopt(C_thermal,'C_thermal',db,min=epsilon(0.),max=0.5,errcount=nerr,default=C_thermal)
  call read_inopt(tolv,'tolv',db,min=0.,errcount=nerr)
  if (gr) then
     call read_inopt(xtol,'xtol',db,min=0.,max=0.1,errcount=nerr)

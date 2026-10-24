@@ -513,7 +513,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.f90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 ptmass_tree.f90 \
-         utils_deriv.f90 utils_neighcompact.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
+         utils_deriv.f90 volume_sph.f90 utils_neighcompact.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
          krome.F90 memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
@@ -637,7 +637,7 @@ phantomsetup: setup
 
 SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 readwrite_aton.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-            set_star_utils.f90 relax_star.f90 set_star.f90 set_orbit.f90
+            stellar_hcp.f90 set_star_utils.f90 relax_star.f90 set_star.f90 set_orbit.f90
 
 SRCSETUP= utils_omp.f90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
@@ -1378,6 +1378,7 @@ testall: test test2 testcyl testgrav
 
 LASTSYSTEM = ${shell if [ -e .make_lastsystem ]; then cat .make_lastsystem; fi}
 LASTSETUP = ${shell if [ -e .make_lastsetup ]; then cat .make_lastsetup; fi}
+LASTKERNEL = ${shell if [ -e .make_lastkernel ]; then cat .make_lastkernel; fi}
 LASTFPPFLAGS = ${shell if [ -e .make_lastfppflags ]; then cat .make_lastfppflags; fi}
 LASTFFLAGS = ${shell if [ -e .make_lastfflags ]; then cat .make_lastfflags; fi}
 
@@ -1442,4 +1443,4 @@ cleanall: clean
 	cd $(BINDIR); rm -f phantom phantomsetup
 
 cleandist: clean cleanall
-	rm -f .make_lastsystem .make_lastsetup .make_lastfppflags .depends
+	rm -f .make_lastsystem .make_lastsetup .make_lastkernel .make_lastfppflags .depends

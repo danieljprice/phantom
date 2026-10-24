@@ -17,7 +17,7 @@ module deriv
 ! :Dependencies: HIIRegion, cons2prim, densityforce, derivutils, dim,
 !   externalforces, forces, forcing, growth, io, metric_tools, neighkdtree,
 !   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
-!   timestep, timestep_ind, timing, utils_gr
+!   timestep, timestep_ind, timing, utils_gr, volume_sph
 !
  implicit none
 
@@ -94,6 +94,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
  use HIIRegion,      only:HIIupdateflag,iH2R,HII_feedback
+ use part,           only:variable_mass
+ use volume_sph,     only:volume_density
  integer,         intent(in)    :: icall
  integer,         intent(inout) :: npart
  integer,         intent(in)    :: nactive
@@ -169,7 +171,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 ! calculate density by direct summation
 !
 
- if (icall==1) then
+ if (icall==1 .or. (variable_mass .and. icall==0)) then
     ! coordinate acceleration for the Cullen & Dehnen shock detector in GR
     if (gr .and. nalpha >= 2) call get_coord_accel_all(npart,xyzh,vxyzu,fxyzu,fext,dens,eos_vars,metrics)
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
@@ -182,6 +184,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                            stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
        ! put a similar flag for pressure calculation from dens: call cons2primall/everyhting and densityiterate(3. Import pressure from eos_vars in dens and use it to calculate delta_v
     endif
+    if (variable_mass) call volume_density(npart,xyzh)
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
  endif
@@ -340,6 +343,8 @@ subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
                         Bevol,alphaind,gradh,rad,radprop,dvdx,apr_level
  use densityforce, only:densityiterate
  use neighkdtree,  only:build_tree
+ use part,         only:variable_mass
+ use volume_sph,   only:volume_density
  integer, intent(in) :: icall
  integer, intent(in), optional :: nactive
  logical, intent(in), optional :: zero_fxyzu
@@ -366,6 +371,7 @@ subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
  stressmax = 0.
  call densityiterate(icall,npart,nactivei,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                      fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+ if (variable_mass .and. icall/=3) call volume_density(npart,xyzh)
 
 end subroutine get_density_global
 

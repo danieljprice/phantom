@@ -59,6 +59,11 @@ checksetup:
    endif
 
 checkparams:
+   ifneq ($(SRCKERNEL),$(LASTKERNEL))
+	@echo kernel source changed from ${LASTKERNEL} to ${SRCKERNEL}
+	@${MAKE} clean
+   endif
+	@echo "$(SRCKERNEL)" > .make_lastkernel
 	@echo "Using $(KERNEL) kernel"
    ifeq ($(DEBUG), yes)
 	@echo "Debugging flags are ON"

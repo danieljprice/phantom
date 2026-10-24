@@ -15,7 +15,8 @@ module testrwdump
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, dump_utils, eos, io, memory, mpiutils,
-!   options, part, physcon, readwrite_dumps, testutils, timing, units
+!   options, part, physcon, readwrite_dumps, readwrite_dumps_common,
+!   testutils, timestep, timing, units
 !
  implicit none
  public :: test_rwdump
@@ -36,8 +37,8 @@ subroutine test_rwdump(ntests,npass)
                            nptmass,nsinkproperties,xyzh_label,xyzmh_ptmass_label,&
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
-                           iorig,copy_particle_all,norig
- use dim,             only:maxp,maxdustsmall,mpi
+                           iorig,copy_particle_all,norig,particle_mass,variable_mass,rho,init_part,ibin,dt_in
+ use dim,             only:maxp,maxdustsmall,mpi,ind_timesteps
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -47,15 +48,19 @@ subroutine test_rwdump(ntests,npass)
  use units,           only:set_units,umass,udist
  use physcon,         only:au,solarm
  use mpiutils,        only:barrier_mpi
- use dump_utils,      only:read_array_from_file
+ use dump_utils,      only:read_array_from_file,dump_h,allocate_header,add_to_iheader,free_header
+ use readwrite_dumps_common, only:unfill_rheader
  use timing,          only:getused,printused
  use options,         only:use_dustfrac
+ use timestep,        only:dtmax
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(67)
- integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu
+ integer :: nfailed(70)
+ integer :: i,j,ierr,itest,ngas,ndust,ntot,maxp_old,iu,ntypesinfile
+ type(dump_h) :: hdr
  real    :: tfile,hfactfile,time,tol,toldp
  real    :: alphawas,Bextxwas,Bextywas,Bextzwas,polykwas
  real    :: xminwas,xmaxwas,yminwas,ymaxwas,zminwas,zmaxwas
+ real    :: dtmaxwas
  logical :: test_speed
  real(kind=4) :: t1
  real, allocatable :: tmparray(:)
@@ -65,8 +70,15 @@ subroutine test_rwdump(ntests,npass)
 
  ! This test will reallocate memory, so reset at the end
  maxp_old = maxp
+ dtmaxwas = dtmax
 
- over_tests: do itest = 1,2
+ over_tests: do itest = 1,4
+
+    ! Previous reads reallocate the arrays without initialising time bins.
+    call init_part()
+    dtmax = 8.
+    if (ind_timesteps) ibin = 3
+    variable_mass = (itest >= 3)
 
     if (test_speed) then
        ntot = maxp
@@ -80,6 +92,8 @@ subroutine test_rwdump(ntests,npass)
     npartoftype(igas) = ngas
     npartoftype(idust) = ndust
     do i=1,npart
+       particle_mass(i) = real(i)*0.25
+       rho(i) = 12.
        if (i <= npartoftype(1)) then
           call set_particle_type(i,igas)
        else
@@ -161,7 +175,7 @@ subroutine test_rwdump(ntests,npass)
 !--write to file
 !
     if (test_speed) call getused(t1)
-    if (itest==2) then
+    if (mod(itest,2)==0) then
        call write_smalldump(time,'test.dump')
     else
        call write_fulldump(time,'test.dump')
@@ -171,6 +185,9 @@ subroutine test_rwdump(ntests,npass)
 !--scrub variables
 !
     massoftype(:) = 0.
+    particle_mass = 0.
+    rho = 0.
+    variable_mass = .false.
     npartoftype(:) = 0
     xyzh  = 0.
     vxyzu = 0.
@@ -197,7 +214,7 @@ subroutine test_rwdump(ntests,npass)
 !--read from same file
 !
     if (test_speed) call getused(t1)
-    if (itest==2) then
+    if (mod(itest,2)==0) then
        if (id==master) write(*,"(/,a)") '--> checking read_dump'
        nfailed = 0
        call deallocate_memory
@@ -244,10 +261,15 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bexty,Bextywas,tiny(Bexty),nfailed(19),'Bexty')
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
-    if (itest==1) then  ! iorig is not dumped to small dumps
+    if (mod(itest,2)==1) then  ! iorig is not dumped to small dumps
        call checkval(iorig(2),    int(ngas   ,kind=8), 0,nfailed(65),'iorig(2)')
        call checkval(iorig(ngas), int(npart+1,kind=8), 0,nfailed(66),'iorig(ngas)')
        call checkval(iorig(npart),int(npart  ,kind=8), 0,nfailed(67),'iorig(N)')
+    endif
+    call checkval(variable_mass,itest >= 3,nfailed(68),'variable-mass header flag')
+    if (variable_mass) then
+       call checkval(particle_mass(2),real(ngas)*0.25,toldp,nfailed(69),'individual mass round trip')
+       call checkval(npart,rho,12.,toldp,nfailed(70),'mass density round trip')
     endif
 
     call update_test_scores(ntests,nfailed,npass)
@@ -260,7 +282,7 @@ subroutine test_rwdump(ntests,npass)
     do j=1,4
        call checkval(npart,xyzh(j,:),real(j),tiny(xyzh),nfailed(j),xyzh_label(j))
     enddo
-    if (itest /= 2) then
+    if (mod(itest,2)==1) then
        do j=1,maxvxyzu
           call checkval(npart,vxyzu(j,:),real(4+j),tiny(vxyzu),nfailed(5+j),vxyzu_label(j))
        enddo
@@ -272,6 +294,9 @@ subroutine test_rwdump(ntests,npass)
           call checkval(npart,Bxyz(2,:),11.,tol,nfailed(11),'By')
           call checkval(npart,Bxyz(3,:),12.,tol,nfailed(12),'Bz')
           call checkval(npart,Bevol(4,:),13.,tol,nfailed(13),'psi')
+       endif
+       if (ind_timesteps) then
+          call checkval(npart,dt_in,1.,tol,nfailed(14),'individual timestep round trip')
        endif
        if (gravity) then
           call checkval(npart,poten,15.,tol,nfailed(15),'poten')
@@ -293,7 +318,7 @@ subroutine test_rwdump(ntests,npass)
     do j=1,nsinkproperties
        call checkval(nptmass,xyzmh_ptmass(j,:),real(100+j),tiny(xyzmh_ptmass),nfailed(j),xyzmh_ptmass_label(j))
     enddo
-    if (itest /= 2) then
+    if (mod(itest,2)==1) then
        do j=1,3
           call checkval(nptmass,vxyz_ptmass(j,:),real(200+j),tiny(vxyz_ptmass),&
                         nfailed(nsinkproperties+j),vxyz_ptmass_label(j))
@@ -332,8 +357,25 @@ subroutine test_rwdump(ntests,npass)
     endif
  enddo over_tests
 
+ ! Reject changed physical formulations before reading or changing any state.
+ hdr = allocate_header()
+ call add_to_iheader(1,'variable_mass',hdr,ierr)
+ call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
+ nfailed = 0
+ call checkval(ierr,1,0,nfailed(1),'reject earlier experimental mass-density formulation')
+ hdr%intvals(1) = 2
+ call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
+ call checkval(ierr,1,0,nfailed(2),'reject experimental flat-core count formulation')
+ hdr%intvals(1) = 4
+ call unfill_rheader(hdr,.true.,ntypesinfile,nptmass,tfile,hfactfile,alphawas,iprint,ierr)
+ call checkval(ierr,1,0,nfailed(3),'reject unknown future individual-mass formulation')
+ call update_test_scores(ntests,nfailed,npass)
+ call free_header(hdr,ierr)
+
  call deallocate_memory
  call allocate_memory(int(maxp_old,kind=8))
+ dtmax = dtmaxwas
+ variable_mass = .false.
  if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
 
 end subroutine test_rwdump
