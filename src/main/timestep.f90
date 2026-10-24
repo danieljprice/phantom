@@ -21,7 +21,7 @@ module timestep
 !   - overcleanfac  : *factor to increase div B cleaning speed (decreases timestep)*
 !   - psidecayfac   : *div B diffusion parameter*
 !   - ptol          : *tolerance on pmom iterations*
-!   - tolv          : *tolerance on v iterations in timestepping*
+!   - tolv          : *tolerance on v iterations in timestepping (>= 100 to skip)*
 !   - use_divb_proj : *project div B to zero every dtmax*
 !   - xtol          : *tolerance on xyz iterations*
 !
@@ -128,7 +128,7 @@ subroutine write_options_timestep(iunit)
 
  call write_inopt(C_cour,'C_cour','Courant factor',iunit)
  call write_inopt(C_force,'C_force','dt_force factor',iunit)
- call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping',iunit,exp=.true.)
+ call write_inopt(tolv,'tolv','tolerance on v iterations in timestepping (>= 100 to skip)',iunit,exp=.true.)
  if (gr) then
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iunit)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iunit)
@@ -153,13 +153,13 @@ end subroutine write_options_timestep
 subroutine read_options_timestep(db,nerr)
  use infile_utils, only:inopts,read_inopt
  use dim,          only:gr,mhd,mpi
- use io,           only:fatal
+ use io,           only:error
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
  call read_inopt(C_cour,'C_cour',db,min=0.,max=1.,errcount=nerr)
  call read_inopt(C_force,'C_force',db,errcount=nerr,default=C_force)
- call read_inopt(tolv,'tolv',db,min=0.,max=0.1,errcount=nerr)
+ call read_inopt(tolv,'tolv',db,min=0.,errcount=nerr)
  if (gr) then
     call read_inopt(xtol,'xtol',db,min=0.,max=0.1,errcount=nerr)
     call read_inopt(ptol,'ptol',db,min=0.,max=0.1,errcount=nerr)
@@ -170,7 +170,10 @@ subroutine read_options_timestep(db,nerr)
     call read_inopt(use_divb_proj,'use_divb_proj',db,errcount=nerr,default=use_divb_proj)
     call read_inopt(divb_tol,'divb_tol',db,min=0.,max=1.,errcount=nerr,default=divb_tol)
     call read_inopt(divb_maxit,'divb_maxit',db,min=1,max=1000000,errcount=nerr,default=divb_maxit)
-    if (use_divb_proj .and. mpi) call fatal('read_options','use_divb_proj is not supported with MPI')
+    if (use_divb_proj .and. mpi) then
+       call error('read_options','use_divb_proj is not supported with MPI')
+       nerr = nerr + 1
+    endif
  endif
 
 end subroutine read_options_timestep

@@ -463,7 +463,6 @@ subroutine check_neighbours_after_density(listneigh,ntests,npass)
  use boundary,    only:dxbound,dybound,dzbound
  use dim,         only:periodic
  use kdtree,      only:inodeparts,inoderange
- use kernel,      only:radkern,radkern2
  use neighkdtree, only:get_neighbour_list,ncells,leaf_is_active,node
  use part,        only:npart,xyzh,iphase,iactive
  use io,          only:id,master
@@ -501,11 +500,11 @@ subroutine check_neighbours_after_density(listneigh,ntests,npass)
        hi = xyzh(4,i)
        nneighexact = 0
        do j=1,npart
-          if (pair_within(i,j)) nneighexact = nneighexact + 1
+          if (pair_within(i,j,hi,rlim,hj,rij2)) nneighexact = nneighexact + 1
        enddo
        nneigh = 0
        do k=1,nneightry
-          if (pair_within(i,listneigh(k))) nneigh = nneigh + 1
+          if (pair_within(i,listneigh(k),hi,rlim,hj,rij2)) nneigh = nneigh + 1
        enddo
        call checkvalbuf(nneigh,nneighexact,0,'nneigh within h_i or h_j after density (getj)',&
                         nfailed(1),ncheck,maxerr)
@@ -515,7 +514,7 @@ subroutine check_neighbours_after_density(listneigh,ntests,npass)
                 ' neighbours, direct count ',nneighexact,'; its leaf hmax = ',node(leafof(i))%hmax
           nmissed = 0
           do j=1,npart
-             if (.not.pair_within(i,j)) cycle
+             if (.not.pair_within(i,j,hi,rlim,hj,rij2)) cycle
              if (any(listneigh(1:nneightry)==j)) cycle
              nmissed = nmissed + 1
              if (nmissed > maxprint) cycle
@@ -531,28 +530,36 @@ subroutine check_neighbours_after_density(listneigh,ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
  deallocate(leafof)
 
-contains
+end subroutine check_neighbours_after_density
 
-logical function pair_within(i,j)
- integer, intent(in) :: i,j
+!-----------------------------------------------------------------------
+!+
+!  whether particles i and j are within the kernel radius of either one
+!  (nearest periodic image, up to a separation rlim), also returning
+!  h_j and the squared separation
+!+
+!-----------------------------------------------------------------------
+logical function pair_within(i,j,hi,rlim,hj,rij2)
+ use boundary, only:mod_boundary
+ use dim,      only:periodic
+ use kernel,   only:radkern,radkern2
+ use part,     only:xyzh
+ integer, intent(in)  :: i,j
+ real,    intent(in)  :: hi,rlim
+ real,    intent(out) :: hj,rij2
  real :: dx,dy,dz
 
  hj = xyzh(4,j)
+ rij2 = 0.
  pair_within = .false.
  if (hj <= 0. .or. radkern*max(hi,hj) >= rlim) return
  dx = xyzh(1,i) - xyzh(1,j)
  dy = xyzh(2,i) - xyzh(2,j)
  dz = xyzh(3,i) - xyzh(3,j)
- if (periodic) then
-    if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*sign(1.0,dx)
-    if (abs(dy) > 0.5*dybound) dy = dy - dybound*sign(1.0,dy)
-    if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*sign(1.0,dz)
- endif
+ if (periodic) call mod_boundary(dx,dy,dz)
  rij2 = dx*dx + dy*dy + dz*dz
  pair_within = (rij2 < radkern2*hi*hi .or. rij2 < radkern2*hj*hj)
 
 end function pair_within
-
-end subroutine check_neighbours_after_density
 
 end module testneigh

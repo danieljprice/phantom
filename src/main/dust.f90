@@ -21,7 +21,7 @@ module dust
 !   - grainsize         : *Grain size in cm*
 !   - icut_backreaction : *cut the drag on the gas phase (0=no, 1=yes)*
 !   - idrag             : *gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)*
-!   - ilimitdustflux    : *limit the dust flux using Ballabio et al. (2018)*
+!   - ilimitdustflux    : *limit the dust flux using Ballabio et al. (2018) (one-fluid only)*
 !   - irecon            : *use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)*
 !
 ! :Dependencies: dim, eos, fileutils, infile_utils, io, options, part,
@@ -315,9 +315,9 @@ subroutine write_options_dust(iunit)
        call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
     endif
  end select
- if (use_dustfrac) then
-    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
- endif
+ ! written whatever the dust method, as it is always read: use_dustfrac is only known once
+ ! the dump has been read, so the input file may be written before it is set (e.g. by phantomsetup)
+ call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018) (one-fluid only)',iunit)
  if (.not.use_dustfrac) then
     call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
     call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme (works only with IND_TIMESTEPS=no)',iunit)

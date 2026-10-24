@@ -114,6 +114,46 @@ not::
          & b,c,d
 
 
+Subroutines and functions at module level
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Put every subroutine and function at the module level, after the ``contains``
+of the module. Do not write helper routines contained inside another subroutine
+or function: they silently share the variables of the routine that contains them,
+which makes them fragile and hard to test or reuse. Pass what the helper needs
+as arguments instead::
+
+   subroutine check_neighbours(...)
+    ...
+    if (pair_within(i,j,hi,rlim,hj,rij2)) n = n + 1
+   end subroutine check_neighbours
+
+   logical function pair_within(i,j,hi,rlim,hj,rij2)
+    ...
+   end function pair_within
+
+not::
+
+   subroutine check_neighbours(...)
+    ...
+    if (pair_within(i,j)) n = n + 1
+   contains
+    logical function pair_within(i,j)
+     ...
+    end function pair_within
+   end subroutine check_neighbours
+
+No new #ifdefs
+~~~~~~~~~~~~~~
+
+Do not add new preprocessor ``#ifdef`` statements: they make the code hard to read
+and make it hard to test all the possible compile-time combinations. Use the
+logical flags from the ``config`` module instead, e.g. ``if (mhd)`` or
+``if (gravity)``, and keep files as ``.f90`` rather than ``.F90`` where possible.
+The only exceptions are linking with external libraries (e.g. MPI) or where
+performance really matters (e.g. ``#ifdef PERIODIC`` in the density and force
+routines). See `issue #55 <https://github.com/danieljprice/phantom/issues/55>`__.
+
 Comments and docstrings
 -----------------------
 To maintain a consistent code documentation, the header-bot enforces standardised headers for each file that can act as a docstring. 

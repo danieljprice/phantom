@@ -1865,6 +1865,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  parent = 0
  iself = irootnode
  leaf_is_active = 0
+ npnode = 0 ! set for each level below the root at the end of the previous level
 
  ! root is level 0
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
