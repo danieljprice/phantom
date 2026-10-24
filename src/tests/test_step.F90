@@ -237,7 +237,7 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  tolh = 1.e-8
  first_case = 1
  last_case = 7
- if (index(string,'small')>0.or.index(string,'resolved')>0) last_case = 1
+ if (index(string,'small')>0.or.index(string,'resolved')>0.or.index(string,'convergence')>0) last_case = 1
  if (index(string,'control')>0) then
     first_case = 6
     last_case = 7
@@ -251,7 +251,9 @@ subroutine test_mass_atmosphere(ntests,npass,string)
     nx = 32*min(level,2)
     if (level==3) nx = 32
     if (level==4.or.level==5) nx = 32*(level-3)
+    if (index(string,'convergence')>0) nx = 64
     if (index(string,'resolved')>0) nx = 128
+    if (index(string,'convergence')>0) hfact = hfact_default + 0.3*log(real(nx)/32.)/log(2.)
     nt = nx/4
     dx = 1./nx
     amplitude = 0.5*log(1000.)
@@ -452,6 +454,7 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  wavek = saved_potential(2)
  phase = saved_potential(3)
  inclination = saved_potential(4)
+ hfact = hfact_default
  iverbose = verbose_saved
  call init_part()
 

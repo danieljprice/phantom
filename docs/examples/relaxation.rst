@@ -133,6 +133,19 @@ Use internal-energy evolution, not either entropy evolution variable.
 The generalized-volume mode is still undergoing atmosphere and stellar
 qualification; passing one released model does not establish general stability.
 
+For a coupled resolution and neighbour-count check, build the gas-only periodic
+test configuration and run::
+
+    make SETUP=test2 KERNEL=WendlandC4 PERIODIC=yes GRAVITY=no \
+      MPI=no IND_TIMESTEPS=no ISOTHERMAL=no phantomtest
+    bin/phantomtest mass-atmosphere-small mass-atmosphere-convergence mass-atmosphere-convergence-resolved
+
+These targets use 2048, 16384 and 131072 particles with ``hfact`` of 1.5, 1.8
+and 2.1 respectively, retaining the same equilibrium and free-evolution checks.
+Append ``-isothermal`` to each target for the isothermal sequence. Compare the
+reported density errors across the sequence; a passing threshold alone does
+not establish convergence.
+
 Full dumps store masses, smoothing lengths and mass density in full precision
 and support restart. Small dumps retain masses but have reduced precision
 geometry and are not restart files. Legacy dumps without individual masses
