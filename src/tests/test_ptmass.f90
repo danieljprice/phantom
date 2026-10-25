@@ -212,6 +212,7 @@ subroutine test_ptmass_options(ntests,npass)
  use ptmass,       only:write_options_ptmass,read_options_ptmass,use_regnbody
  use infile_utils, only:open_db_from_file,close_db,inopts
  use io,           only:id,master
+ use mpiutils,     only:barrier_mpi
  use testutils,    only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
  type(inopts), allocatable :: db(:)
@@ -227,9 +228,13 @@ subroutine test_ptmass_options(ntests,npass)
  ! sink tree on, subgroups off, so the two cannot be confused
  use_sinktree = .true.
  use_regnbody = .false.
- open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_options_ptmass(iunit)
- close(iunit)
+ ! only one MPI task writes the file, and all wait for it before reading
+ if (id==master) then
+    open(unit=iunit,file=filename,status='replace',form='formatted')
+    call write_options_ptmass(iunit)
+    close(iunit)
+ endif
+ call barrier_mpi()
 
  use_sinktree = .false.
  nerr = 0
@@ -244,8 +249,11 @@ subroutine test_ptmass_options(ntests,npass)
  ! restore options and remove the file
  use_sinktree = use_sinktree_in
  use_regnbody = use_regnbody_in
- open(unit=iunit,file=filename,status='old',iostat=ierr)
- close(iunit,status='delete',iostat=ierr)
+ call barrier_mpi()
+ if (id==master) then
+    open(unit=iunit,file=filename,status='old',iostat=ierr)
+    close(iunit,status='delete',iostat=ierr)
+ endif
 
 end subroutine test_ptmass_options
 
