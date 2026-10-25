@@ -629,6 +629,7 @@ subroutine shift_stars(nstar,star,x0,v0,&
 
  nptmass_in = nptmass
  ncores = 0
+ ierr = 0
  do i=1,nstar
     if (star(i)%iprofile > 0) then
        call shift_star(npart,npartoftype,xyzh,vxyzu,x0=x0(1:3,i),&
@@ -942,6 +943,7 @@ subroutine write_options_star(star,iunit,label)
          'specific internal energy (units of GM/R)',iunit)
  case(0)
     call write_inopt(star%hacc,'hacc'//trim(c),'accretion radius for sink (=0.0 for softened potential)',iunit)
+    ierr = 0
     call check_and_convert(star%hacc,'hacc','length',hacc,ierr)
     call check_and_convert(star%hsoft,'hsoft','length',hsoft,ierr)
     if (hacc < tiny(hacc) .or. hsoft > 0.) then
