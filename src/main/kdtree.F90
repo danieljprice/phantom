@@ -1879,6 +1879,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  minlevel = maxdepth - 1
  maxlevel = 0
+ npnode = 0  ! set at the end of each level, used from level 1 onwards
 
  levels: do level = 0, globallevel
     groupsize = 2**(globallevel - level)
