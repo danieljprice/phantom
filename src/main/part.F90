@@ -1097,10 +1097,12 @@ end subroutine recount_npartoftype
 !+
 !----------------------------------------------------------------
 subroutine sync_aprmassoftype
- integer :: l
+ integer :: l,nlevels
 
- if (.not.use_apr) return
- do l=1,apr_maxlevel
+ ! loop bound is a variable because apr_maxlevel=0 without APR and
+ ! gfortran warns of a zero-trip loop for constant bounds, even inside an if
+ nlevels = apr_maxlevel
+ do l=1,nlevels
     aprmassoftype(:,l) = massoftype(:)/2.**(l-1)
  enddo
 

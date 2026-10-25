@@ -702,6 +702,10 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  dax = 0.
  day = 0.
  daz = 0.
+ dBx = 0.
+ dBy = 0.
+ dBz = 0.
+ dradenij = 0.
  if (nalpha > 1) then
     fxi = xpartveci(ifxi)
     fyi = xpartveci(ifyi)

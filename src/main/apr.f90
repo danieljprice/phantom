@@ -468,11 +468,13 @@ end subroutine update_apr
 subroutine get_nearest_neighbour_distance(nlist,list,npart,xyzh,vxyzu,rneigh)
  use neighkdtree, only:build_tree,getneigh_pos,leaf_is_active,listneigh
  use kernel,      only:radkern
+ use boundary,    only:mod_boundary
+ use dim,         only:periodic
  integer, intent(in)    :: nlist,list(:),npart
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
  real,    intent(out)   :: rneigh(:)
- integer, parameter :: maxcache = 10000
+ integer, parameter :: maxcache = 1000
  real    :: xyzcache(4,maxcache),xi(3),dx(3),r2min
  integer :: ii,i,j,n,nneigh,npart_tree
 
@@ -495,6 +497,7 @@ subroutine get_nearest_neighbour_distance(nlist,list,npart,xyzh,vxyzu,rneigh)
           dx = xi - xyzcache(1:3,n)
        else
           dx = xi - xyzh(1:3,j)
+          if (periodic) call mod_boundary(dx(1),dx(2),dx(3))
        endif
        r2min = min(r2min,dot_product(dx,dx))
     enddo
