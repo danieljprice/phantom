@@ -865,9 +865,9 @@ end subroutine test_derivs
 !+
 !-----------------------------------------------------------------------
 subroutine test_unequal_masses(ntests,npass)
- use dim,       only:use_dust,maxdustsmall
+ use dim,       only:use_dust,maxdustsmall,maxalpha,maxp
  use part,      only:npart,apr_level,dustevol,dustfrac,ndustsmall,ndustlarge,ndusttypes,&
-                     grainsize,graindens,xyzh,divcurlv
+                     grainsize,graindens,xyzh,divcurlv,alphaind
  use options,   only:alpha,alphau,use_dustfrac
  use viscosity, only:bulkvisc,shearparam,irealvisc
  use eos,       only:polyk
@@ -906,6 +906,7 @@ subroutine test_unequal_masses(ntests,npass)
     case(2)
        alpha  = 0.753
        alphau = 0.5
+       if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
     case(3)
        irealvisc  = 1
        shearparam = 6.66

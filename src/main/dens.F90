@@ -191,8 +191,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call reset_cell_counters(cell_counters)
  endif
 
- call init_rho_from_h(npart,xyzh,apr_level)
-
  if (iverbose >= 3 .and. id==master) &
     write(iprint,*) ' cell cache =',isizecellcache,' neigh cache = ',isizeneighcache,' icall = ',icall
 
@@ -229,6 +227,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        calculate_divcurlB = .false.
     endif
  endif
+
+ ! initial guess for rho from h, but keep the summed density on the divcurlB-only pass
+ if (calculate_density) call init_rho_from_h(npart,xyzh,apr_level)
 
  ! number of cells that only have neighbours on this MPI task
  nlocal = 0
