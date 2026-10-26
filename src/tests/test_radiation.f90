@@ -405,9 +405,9 @@ subroutine test_radiation_diffusion(ntests,npass)
  D0  = c_code*(1./3)/kappa_code/rho0
  if (write_output) print "(/,a,3(es10.3,a))", ' exact solution: ',xi0,'*(1 + 0.1*sin(x*',l0,')*exp(',-l0*l0*D0,'*t))'
  do while(t < tmax)
-    t = t + dt
     dtext = dt
-    call step(npart,nactive,t,dt,dtext,dtnew)
+    call step(npart,nactive,t,dt,dtext,dtnew)  ! step from t to t+dt
+    t = t + dt
     dt = dtnew
     if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
 
