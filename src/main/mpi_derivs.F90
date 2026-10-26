@@ -103,7 +103,11 @@ module mpiderivs
  ! receive buffers and requests, shared by all threads: (slot, source task)
  type(celldens),  allocatable :: recvbuf_dens(:,:)
  type(cellforce), allocatable :: recvbuf_force(:,:)
- integer,         allocatable :: recvreq(:,:)
+ ! requests are stored contiguously in recvreq_all, so that MPI_TESTSOME is passed a 1D
+ ! array as its interface requires; recvreq is the (slot, source task) view of the same storage
+ integer,         allocatable, target :: recvreq_all(:)
+ integer,         pointer, contiguous :: recvreq(:,:) => null()
+ integer,         allocatable :: recvstatus(:,:) ! statuses returned by MPI_TESTSOME
  ! send buffers for each thread: (buffer, thread), and for each buffer the
  ! requests of the sends in progress: (request, buffer, thread) and their number
  type(celldens),  allocatable :: sendbuf_dens(:,:)
@@ -141,7 +145,9 @@ subroutine deallocate_cell_comms_arrays
  if (allocated(countsent)) deallocate(countsent)
  if (allocated(recvbuf_dens)) deallocate(recvbuf_dens)
  if (allocated(recvbuf_force)) deallocate(recvbuf_force)
- if (allocated(recvreq)) deallocate(recvreq)
+ recvreq => null()
+ if (allocated(recvreq_all)) deallocate(recvreq_all)
+ if (allocated(recvstatus)) deallocate(recvstatus)
  if (allocated(sendbuf_dens)) deallocate(sendbuf_dens)
  if (allocated(sendbuf_force)) deallocate(sendbuf_force)
  if (allocated(sendreq)) deallocate(sendreq)
@@ -175,7 +181,13 @@ end function null_request
 subroutine allocate_exchange_requests
  use omputils, only:omp_num_threads
 
- if (.not.allocated(recvreq)) allocate(recvreq(nrecvslots,nprocs))
+ if (.not.allocated(recvreq_all)) then
+    allocate(recvreq_all(nrecvslots*nprocs))
+    recvreq(1:nrecvslots,1:nprocs) => recvreq_all
+#ifdef MPI
+    allocate(recvstatus(MPI_STATUS_SIZE,nrecvslots*nprocs))
+#endif
+ endif
  if (allocated(sendreq)) then
     if (size(sendreq,3) /= omp_num_threads) deallocate(sendreq,nsendreq,lastbuf,thread_complete)
  endif
@@ -360,7 +372,7 @@ subroutine recv_celldens(target_stack,counters)
  mpierr = 0
  if (claim_polling()) then
     !$omp critical (mpi_cell_exchange)
-    call MPI_TESTSOME(nrecvslots*nprocs,recvreq,nout,indices,MPI_STATUSES_IGNORE,mpierr)
+    call MPI_TESTSOME(nrecvslots*nprocs,recvreq_all,nout,indices,recvstatus,mpierr)
     !$omp end critical (mpi_cell_exchange)
  endif
  call release_polling
@@ -610,7 +622,7 @@ subroutine recv_cellforce(target_stack,counters)
  mpierr = 0
  if (claim_polling()) then
     !$omp critical (mpi_cell_exchange)
-    call MPI_TESTSOME(nrecvslots*nprocs,recvreq,nout,indices,MPI_STATUSES_IGNORE,mpierr)
+    call MPI_TESTSOME(nrecvslots*nprocs,recvreq_all,nout,indices,recvstatus,mpierr)
     !$omp end critical (mpi_cell_exchange)
  endif
  call release_polling
