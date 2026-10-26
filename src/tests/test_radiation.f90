@@ -88,7 +88,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use apr,        only:sync_aprmassoftype
  use part,       only:init_part,npart,rho,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,drad,&
-                      npartoftype,rad,radprop,maxvxyzu,luminosity,init_rho_from_h
+                      npartoftype,rad,radprop,maxvxyzu,luminosity,init_rho_from_h,itlastrad
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk,iopacity_type
@@ -192,7 +192,9 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        if (use_implicit) then
           if (i >1) dt = min(0.05*maxt/utime, 10.d0**(log_start + (i - 1) * step) - t)
           if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
-          call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+          ! integrate all particles from t to t+dt (also with individual timesteps)
+          radprop(itlastrad,1:npart) = t
+          call do_radiation_implicit(dt,t+dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
        else
           if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
@@ -284,8 +286,8 @@ subroutine test_implicit_matches_explicit(ntests,npass)
        allocate(flux_explicit(3,npart))
        flux_explicit = radprop(ifluxx:ifluxz,1:npart)
     else
-       radprop = 0.
-       call do_radiation_implicit(1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+       radprop = 0.  ! also sets the time of the last update to zero
+       call do_radiation_implicit(1.e-24,1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     endif
  enddo
 
