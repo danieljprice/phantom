@@ -587,7 +587,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (mpi) then
     call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
-         irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+         thread_complete,cell_counters,ncomplete_mpi)
     call reset_cell_counters(cell_counters)
  endif
 
@@ -639,7 +639,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif igot_remote
 
  if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
-          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+          thread_complete,cell_counters,ncomplete_mpi)
 
  iam_waiting: if (mpi .and. stack_waiting%n > 0) then
     !$omp do schedule(runtime)
@@ -757,8 +757,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ! are dead/inactive, e.g. after sink creation or if all
  ! have moved to a higher ibin; the following step on the
  ! higher ibin will yeild non-zero and modify nbinmax
- ! appropriately
- if (ncheckbin==0) then
+ ! appropriately. With MPI this must be a global check, otherwise
+ ! a task with no active particles would stop nbinmax decreasing
+ if (reduceall_mpi('+',ncheckbin)==0) then
     nbinmaxnew    = nbinmax
  endif
 #endif

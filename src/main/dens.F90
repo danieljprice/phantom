@@ -128,7 +128,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,        only:mhd,get_partinfo,iactive,&
                        iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,    only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
- use mpimemory,   only:reserve_stack,swap_stacks,reset_stacks,write_cell
+ use mpimemory,   only:reserve_stack,swap_stacks,reset_stacks,write_cell,get_cell
  use mpimemory,   only:stack_remote  => dens_stack_1
  use mpimemory,   only:stack_waiting => dens_stack_2
  use mpimemory,   only:stack_redo    => dens_stack_3
@@ -399,7 +399,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  if (mpi) then
     call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
-         irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+         thread_complete,cell_counters,ncomplete_mpi)
  endif
 
  !$omp single
@@ -433,7 +433,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     igot_remote: if (stack_remote%n > 0) then
        !$omp do schedule(runtime)
        over_remote: do i = 1,stack_remote%n
-          cell = stack_remote%cells(i)
+          cell = get_cell(stack_remote,i)
 
           ! icell is unused (-1 here)
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
@@ -466,14 +466,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif igot_remote
 
     if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
-             irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+             thread_complete,cell_counters,ncomplete_mpi)
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
     iam_waiting: if (mpi .and. stack_waiting%n > 0) then
        !$omp do schedule(runtime)
        over_waiting: do i = 1, stack_waiting%n
-          cell = stack_waiting%cells(i)
+          cell = get_cell(stack_waiting,i)
 
           if (calculate_density) then
              call finish_cell(cell,converged)
@@ -522,7 +522,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif iam_waiting
 
     if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
-             irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+             thread_complete,cell_counters,ncomplete_mpi)
 
     !$omp single
     if (reduceall_mpi('max',stack_redo%n) > 0) then

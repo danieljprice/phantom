@@ -9,6 +9,11 @@ module mpiderivs
 ! This module handles the MPI exchange of information during the
 !   density and force routines
 !
+! All MPI calls here are made inside the critical section mpi_cell_exchange,
+! so that only one openMP thread at a time is inside the MPI library.
+! Concurrent calls from many threads (allowed by MPI_THREAD_MULTIPLE)
+! were found to lose messages and crash inside Open MPI.
+!
 ! :References: None
 !
 ! :Owner: Conrad Chan
@@ -48,6 +53,10 @@ module mpiderivs
   module procedure recv_while_wait_force,recv_while_wait_dens
  end interface recv_while_wait
 
+ interface post_recv
+  module procedure post_recv_dens,post_recv_force
+ end interface post_recv
+
  public :: allocate_cell_comms_arrays
  public :: deallocate_cell_comms_arrays
 
@@ -73,7 +82,11 @@ module mpiderivs
 
  private
 
- integer, allocatable :: countrequest(:)
+ integer, allocatable :: countrequest(:)     ! receives of the number of cells sent by each task
+ integer, allocatable :: countsendrequest(:) ! sends of the number of cells sent to each task
+ integer, allocatable :: countsent(:)        ! send buffer for the number of cells sent to each task
+ integer :: dtype_dens  = -1                 ! MPI datatypes for celldens and cellforce,
+ integer :: dtype_force = -1                 ! created once and reused
 
 contains
 
@@ -83,6 +96,9 @@ subroutine allocate_cell_comms_arrays
  if (mpi) then
     call allocate_array('cell_counters', cell_counters, nprocs, 3)
     call allocate_array('countrequest',  countrequest,  nprocs)
+    call allocate_array('countsendrequest', countsendrequest, nprocs)
+    call allocate_array('countsent', countsent, nprocs)
+    call init_send_requests(countsendrequest)
  else
     ! dummy cell counters that are required to prevent runtime errors
     ! in dens and force
@@ -93,6 +109,8 @@ end subroutine allocate_cell_comms_arrays
 subroutine deallocate_cell_comms_arrays
  if (allocated(cell_counters)) deallocate(cell_counters)
  if (allocated(countrequest )) deallocate(countrequest )
+ if (allocated(countsendrequest)) deallocate(countsendrequest)
+ if (allocated(countsent)) deallocate(countsent)
 end subroutine deallocate_cell_comms_arrays
 
 !----------------------------------------------------------------
@@ -101,9 +119,8 @@ end subroutine deallocate_cell_comms_arrays
 !+
 !----------------------------------------------------------------
 subroutine init_celldens_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,dtype)
- use io,       only:fatal
  use mpidens,  only:celldens,get_mpitype_of_celldens
- use omputils, only:omp_thread_num,omp_num_threads
+ use omputils, only:omp_num_threads
 
  type(celldens), intent(inout) :: xbufrecv(nprocs)
  integer,        intent(out)   :: ireq(nprocs)
@@ -111,45 +128,38 @@ subroutine init_celldens_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,dt
  integer,        intent(out)   :: ncomplete_mpi
  integer,        intent(out)   :: dtype
 #ifdef MPI
- integer                           :: iproc, mpierr
+ integer                           :: iproc
+#endif
 
- call get_mpitype_of_celldens(dtype)
+ !$omp single
+ if (dtype_dens == -1) call get_mpitype_of_celldens(dtype_dens)
+ !$omp end single
+ dtype = dtype_dens
+
+#ifdef MPI
 
 !
-!--use persistent communication type for receives
-!  cannot do same for sends as there are different destinations,
-!  unless we make a request for each processor
+!--post a receive for EACH processor, to match the number of sends
+!  (each is re-posted in recv_cells after it completes)
 !
-!  We post a receive for EACH processor, to match the number of sends
-!
-
  do iproc=1,nprocs
-    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype,iproc-1, &
-                       MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
-    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
-!
-!--start the persistent communication channel
-!
-    call MPI_START(ireq(iproc),mpierr)
-    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_START')
+    call post_recv(xbufrecv(iproc),dtype,iproc,ireq(iproc))
  enddo
 
  !$omp masked
  ncomplete_mpi = 0
  !$omp end masked
- thread_complete(omp_thread_num()+1) = .false.
+ call set_thread_complete(thread_complete,.false.)
 #else
  ncomplete_mpi = 0
  ireq = 0
- dtype = 0
 #endif
 
 end subroutine init_celldens_exchange
 
 subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,dtype)
- use io,       only:fatal
  use mpiforce, only:cellforce,get_mpitype_of_cellforce
- use omputils, only:omp_thread_num,omp_num_threads
+ use omputils, only:omp_num_threads
 
  type(cellforce), intent(inout) :: xbufrecv(nprocs)
  integer,         intent(out)   :: ireq(nprocs)
@@ -157,38 +167,78 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,d
  integer,         intent(out)   :: ncomplete_mpi
  integer,         intent(out)   :: dtype
 #ifdef MPI
- integer                           :: iproc, mpierr
+ integer                           :: iproc
+#endif
 
- call get_mpitype_of_cellforce(dtype)
+ !$omp single
+ if (dtype_force == -1) call get_mpitype_of_cellforce(dtype_force)
+ !$omp end single
+ dtype = dtype_force
+
+#ifdef MPI
 
 !
-!--use persistent communication type for receives
-!  cannot do same for sends as there are different destinations,
-!  unless we make a request for each processor
+!--post a receive for EACH processor, to match the number of sends
+!  (each is re-posted in recv_cells after it completes)
 !
-!  We post a receive for EACH processor, to match the number of sends
-
  do iproc=1,nprocs
-    call MPI_RECV_INIT(xbufrecv(iproc),1,dtype,iproc-1, &
-                       MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
-    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
-!
-!--start the persistent communication channel
-!
-    call MPI_START(ireq(iproc),mpierr)
-    if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_START')
+    call post_recv(xbufrecv(iproc),dtype,iproc,ireq(iproc))
  enddo
 
  !$omp masked
  ncomplete_mpi = 0
  !$omp end masked
- thread_complete(omp_thread_num()+1) = .false.
+ call set_thread_complete(thread_complete,.false.)
 #else
  ncomplete_mpi = 0
  ireq = 0
- dtype = 0
 #endif
 end subroutine init_cellforce_exchange
+
+!-----------------------------------------------------------------------
+!+
+!  post a non-blocking receive for a cell from task iproc-1
+!  (non-persistent: persistent receives started concurrently from
+!   several threads are not thread safe in some MPI libraries)
+!+
+!-----------------------------------------------------------------------
+subroutine post_recv_dens(xbuf,dtype,iproc,ireq)
+ use io,      only:fatal
+ use mpidens, only:celldens
+ type(celldens), intent(inout) :: xbuf
+ integer,        intent(in)    :: dtype,iproc
+ integer,        intent(out)   :: ireq
+#ifdef MPI
+ integer :: mpierr
+
+ !$omp critical (mpi_cell_exchange)
+ call MPI_IRECV(xbuf,1,dtype,iproc-1,MPI_ANY_TAG,comm_cellexchange,ireq,mpierr)
+ !$omp end critical (mpi_cell_exchange)
+ if (mpierr /= 0) call fatal('post_recv','error in MPI_IRECV')
+#else
+ ireq = 0
+#endif
+
+end subroutine post_recv_dens
+
+subroutine post_recv_force(xbuf,dtype,iproc,ireq)
+ use io,       only:fatal
+ use mpiforce, only:cellforce
+ type(cellforce), intent(inout) :: xbuf
+ integer,         intent(in)    :: dtype,iproc
+ integer,         intent(out)   :: ireq
+#ifdef MPI
+ integer :: mpierr
+
+ !$omp critical (mpi_cell_exchange)
+ call MPI_IRECV(xbuf,1,dtype,iproc-1,MPI_ANY_TAG,comm_cellexchange,ireq,mpierr)
+ !$omp end critical (mpi_cell_exchange)
+ if (mpierr /= 0) call fatal('post_recv','error in MPI_IRECV')
+#else
+ ireq = 0
+#endif
+
+end subroutine post_recv_force
 
 !-----------------------------------------------------------------------
 !+
@@ -230,6 +280,7 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters,dtype)
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
+ !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
@@ -238,6 +289,7 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters,dtype)
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
+ !$omp end critical (mpi_cell_exchange)
 #else
  xsendbuf = cell
 #endif
@@ -260,6 +312,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters,dtype)
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
+ !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype,newproc,0,comm_cellexchange,irequestsend(newproc+1),mpierr)
@@ -268,6 +321,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters,dtype)
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
+ !$omp end critical (mpi_cell_exchange)
 #else
  xsendbuf = cell
 #endif
@@ -288,9 +342,11 @@ subroutine check_send_finished(irequestsend,idone)
  integer :: mpierr
  integer :: status(MPI_STATUS_SIZE)
 
+ !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
     if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
  enddo
+ !$omp end critical (mpi_cell_exchange)
  !--never test self; always set to true
  idone(id+1) = .true.
 #else
@@ -299,39 +355,33 @@ subroutine check_send_finished(irequestsend,idone)
 
 end subroutine check_send_finished
 
-subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend,thread_complete,counters,ncomplete_mpi)
+subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,thread_complete,counters,ncomplete_mpi)
  use mpidens,  only:stackdens,celldens
  use mpiutils, only:barrier_mpi
- use omputils, only:omp_num_threads,omp_thread_num
+ use omputils, only:omp_num_threads
  type(stackdens), intent(inout) :: stack
  type(celldens),  intent(inout) :: xrecvbuf(nprocs)
- integer,         intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+ integer,         intent(inout) :: irequestrecv(nprocs)
  logical,         intent(inout) :: thread_complete(omp_num_threads)
  integer,         intent(inout) :: counters(nprocs,3)
  integer,         intent(inout) :: ncomplete_mpi
 #ifdef MPI
- integer             :: newproc
- integer             :: mpierr
 
-!--signal to other OMP threads that this thread has finished sending
- thread_complete(omp_thread_num()+1) = .true.
+ !--signal to other OMP threads that this thread has finished sending
+ call set_thread_complete(thread_complete,.true.)
 
  !--continue receiving cells until all OMP threads have finished sending
- do while (.not. all(thread_complete))
+ do while (.not. all_threads_complete(thread_complete))
     call recv_cells(stack,xrecvbuf,irequestrecv,counters)
  enddo
 
  !--signal to other MPI tasks that this task has finished sending
  !$omp masked
- do newproc=0,nprocs-1
-    if (newproc /= id) then
-       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
-    endif
- enddo
+ call send_cell_counts(counters)
  !$omp end masked
 
  !--continue receiving cells until all MPI tasks have finished sending
- do while (ncomplete_mpi < nprocs)
+ do while (.not. all_tasks_complete(ncomplete_mpi))
     call recv_cells(stack,xrecvbuf,irequestrecv,counters)
     !$omp masked
     call check_complete(counters,ncomplete_mpi)
@@ -341,47 +391,42 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend,thread_
  call barrier_mpi
 
  !$omp masked
+ call finish_cell_counts
  ncomplete_mpi = 0
  !$omp end masked
- thread_complete(omp_thread_num()+1) = .false.
+ call set_thread_complete(thread_complete,.false.)
 
 #endif
 
 end subroutine recv_while_wait_dens
 
-subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread_complete,counters,ncomplete_mpi)
+subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,thread_complete,counters,ncomplete_mpi)
  use mpiforce, only:stackforce,cellforce
  use mpiutils, only:barrier_mpi
- use omputils, only:omp_num_threads,omp_thread_num
+ use omputils, only:omp_num_threads
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
- integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+ integer,          intent(inout) :: irequestrecv(nprocs)
  logical,          intent(inout) :: thread_complete(omp_num_threads)
  integer,          intent(inout) :: counters(nprocs,3)
  integer,          intent(inout) :: ncomplete_mpi
 #ifdef MPI
- integer             :: newproc
- integer             :: mpierr
 
  !--signal to other OMP threads that this thread has finished sending
- thread_complete(omp_thread_num()+1) = .true.
+ call set_thread_complete(thread_complete,.true.)
 
  !--continue receiving cells until all OMP threads have finished sending
- do while (.not. all(thread_complete))
+ do while (.not. all_threads_complete(thread_complete))
     call recv_cells(stack,xrecvbuf,irequestrecv,counters)
  enddo
 
  !--signal to other MPI tasks that this task has finished sending
  !$omp masked
- do newproc=0,nprocs-1
-    if (newproc /= id) then
-       call MPI_ISEND(counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
-    endif
- enddo
+ call send_cell_counts(counters)
  !$omp end masked
 
  !--continue receiving cells until all MPI tasks have finished sending
- do while (ncomplete_mpi < nprocs)
+ do while (.not. all_tasks_complete(ncomplete_mpi))
     call recv_cells(stack,xrecvbuf,irequestrecv,counters)
     !$omp masked
     call check_complete(counters,ncomplete_mpi)
@@ -391,13 +436,119 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
  call barrier_mpi
 
  !$omp masked
+ call finish_cell_counts
  ncomplete_mpi = 0
  !$omp end masked
- thread_complete(omp_thread_num()+1) = .false.
+ call set_thread_complete(thread_complete,.false.)
 
 #endif
 
 end subroutine recv_while_wait_force
+
+!-----------------------------------------------------------------------
+!+
+!  set the flag that this OMP thread has finished sending
+!  (flushed, as other threads spin on it)
+!+
+!-----------------------------------------------------------------------
+subroutine set_thread_complete(thread_complete,val)
+ use omputils, only:omp_num_threads,omp_thread_num
+ logical, intent(inout) :: thread_complete(omp_num_threads)
+ logical, intent(in)    :: val
+
+ !$omp flush
+ !$omp atomic write
+ thread_complete(omp_thread_num()+1) = val
+ !$omp flush
+
+end subroutine set_thread_complete
+
+!-----------------------------------------------------------------------
+!+
+!  query whether all OMP threads on this task have finished sending
+!+
+!-----------------------------------------------------------------------
+logical function all_threads_complete(thread_complete)
+ use omputils, only:omp_num_threads
+ logical, intent(in) :: thread_complete(omp_num_threads)
+ logical :: done
+ integer :: i
+
+ all_threads_complete = .true.
+ !$omp flush
+ do i=1,omp_num_threads
+    !$omp atomic read
+    done = thread_complete(i)
+    if (.not.done) then
+       all_threads_complete = .false.
+       return
+    endif
+ enddo
+ !$omp flush
+
+end function all_threads_complete
+
+!-----------------------------------------------------------------------
+!+
+!  query whether all cells sent by all MPI tasks have been received
+!  (ncomplete_mpi is updated by the master thread in check_complete)
+!+
+!-----------------------------------------------------------------------
+logical function all_tasks_complete(ncomplete_mpi)
+ integer, intent(in) :: ncomplete_mpi
+ integer :: ncomplete
+
+ !$omp flush
+ !$omp atomic read
+ ncomplete = ncomplete_mpi
+ all_tasks_complete = (ncomplete >= nprocs)
+ !$omp flush
+
+end function all_tasks_complete
+
+!-----------------------------------------------------------------------
+!+
+!  send the number of cells sent to each task, so the receiver knows
+!  when it has received them all. The values are copied into a separate
+!  buffer, since the counters are reset before the sends complete
+!+
+!-----------------------------------------------------------------------
+subroutine send_cell_counts(counters)
+ use io, only:fatal
+ integer, intent(in) :: counters(nprocs,3)
+#ifdef MPI
+ integer :: newproc,mpierr
+
+ countsent(:) = counters(:,isent)
+ !$omp critical (mpi_cell_exchange)
+ do newproc=0,nprocs-1
+    if (newproc /= id) then
+       call MPI_ISEND(countsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_cellcount,&
+                      countsendrequest(newproc+1),mpierr)
+       if (mpierr /= 0) call fatal('send_cell_counts','error in MPI_ISEND')
+    endif
+ enddo
+ !$omp end critical (mpi_cell_exchange)
+#endif
+
+end subroutine send_cell_counts
+
+!-----------------------------------------------------------------------
+!+
+!  complete the sends of the cell counts (called once all tasks have
+!  received them, so this does not block)
+!+
+!-----------------------------------------------------------------------
+subroutine finish_cell_counts
+#ifdef MPI
+ integer :: mpierr
+
+ !$omp critical (mpi_cell_exchange)
+ call MPI_WAITALL(nprocs,countsendrequest,MPI_STATUSES_IGNORE,mpierr)
+ !$omp end critical (mpi_cell_exchange)
+#endif
+
+end subroutine finish_cell_counts
 
 !------------------------------------------------
 !+
@@ -406,7 +557,7 @@ end subroutine recv_while_wait_force
 !------------------------------------------------
 subroutine recv_celldens(target_stack,xbuf,irequestrecv,counters)
  use io,        only:fatal
- use mpimemory, only:push_onto_stack
+ use mpimemory, only:push_onto_stack,get_cell_ptr
  use mpidens,   only:stackdens,celldens
 
  type(celldens),  intent(inout) :: xbuf(:)  ! just need memory address
@@ -414,6 +565,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv,counters)
  integer,         intent(inout) :: irequestrecv(nprocs)
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
+ type(celldens),  pointer           :: target_cell
  integer                            :: iproc,iwait
  logical                            :: igot
  integer                            :: mpierr
@@ -421,19 +573,22 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv,counters)
 
  ! receive MPI broadcast
  do iproc=1,nprocs
+    !$omp critical (mpi_cell_exchange)
     call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
+    !$omp end critical (mpi_cell_exchange)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
        if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
-          call combine_cells(target_stack%cells(iwait),xbuf(iproc))
+          target_cell => get_cell_ptr(target_stack,iwait)
+          call combine_cells(target_cell,xbuf(iproc))
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
        !$omp atomic
        counters(iproc,irecv) = counters(iproc,irecv) + 1
-       call MPI_START(irequestrecv(iproc),mpierr)
+       call post_recv(xbuf(iproc),dtype_dens,iproc,irequestrecv(iproc))
     endif
  enddo
 #endif
@@ -441,7 +596,7 @@ end subroutine recv_celldens
 
 subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
  use io,        only:fatal
- use mpimemory, only:push_onto_stack
+ use mpimemory, only:push_onto_stack,get_cell_ptr
  use mpiforce,  only:stackforce,cellforce
 
  type(cellforce),  intent(inout) :: xbuf(:)  ! just need memory address
@@ -449,6 +604,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
  integer,          intent(inout) :: irequestrecv(nprocs)
  integer,          intent(inout) :: counters(nprocs,3)
 #ifdef MPI
+ type(cellforce),  pointer          :: target_cell
  integer                            :: iproc,iwait
  logical                            :: igot
  integer                            :: mpierr
@@ -456,19 +612,22 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
 
  ! receive MPI broadcast
  do iproc=1,nprocs
+    !$omp critical (mpi_cell_exchange)
     call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
+    !$omp end critical (mpi_cell_exchange)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
        if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
-          call combine_cells(target_stack%cells(iwait),xbuf(iproc))
+          target_cell => get_cell_ptr(target_stack,iwait)
+          call combine_cells(target_cell,xbuf(iproc))
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
        !$omp atomic
        counters(iproc,irecv) = counters(iproc,irecv) + 1
-       call MPI_START(irequestrecv(iproc),mpierr)
+       call post_recv(xbuf(iproc),dtype_force,iproc,irequestrecv(iproc))
     endif
  enddo
 #endif
@@ -548,7 +707,7 @@ end subroutine combine_cellforce
 !----------------------------------------------------------------
 subroutine finish_celldens_exchange(irequestrecv,xsendbuf,dtype)
  use io,       only:fatal
- use mpidens,  only:celldens,free_mpitype_of_celldens
+ use mpidens,  only:celldens
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_thread_num
  integer,        intent(inout) :: irequestrecv(nprocs)
@@ -560,33 +719,32 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf,dtype)
  integer                            :: status(MPI_STATUS_SIZE)
 
 !
-!--each processor do a dummy send to next processor to clear the last remaining receive
-!  (we know the receive has been posted for this, so use RSEND)
+!--each thread sends a dummy message to every task to clear the last remaining receives
 !
+ !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype,newproc,1,comm_cellexchange,mpierr)
+    call MPI_SEND(xsendbuf,1,dtype,newproc,1,comm_cellexchange,mpierr)
  enddo
+ !$omp end critical (mpi_cell_exchange)
 
 !
 !--sync all threads here
 !
  call barrier_mpi
 
-!--free request handle
+!--complete the outstanding receives (this also frees them)
+ !$omp critical (mpi_cell_exchange)
  do iproc=1,nprocs
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
-    call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
-
-!--free mpi datatype
- call free_mpitype_of_celldens(dtype)
+ !$omp end critical (mpi_cell_exchange)
 
 #endif
 end subroutine finish_celldens_exchange
 
 subroutine finish_cellforce_exchange(irequestrecv,xsendbuf,dtype)
  use io,       only:fatal
- use mpiforce, only:cellforce,free_mpitype_of_cellforce
+ use mpiforce, only:cellforce
  use mpiutils, only:barrier_mpi
  use omputils, only:omp_thread_num
  integer,         intent(inout) :: irequestrecv(nprocs)
@@ -598,26 +756,25 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf,dtype)
  integer                            :: status(MPI_STATUS_SIZE)
 
 !
-!--each processor do a dummy send to next processor to clear the last remaining receive
-!  (we know the receive has been posted for this, so use RSEND)
+!--each thread sends a dummy message to every task to clear the last remaining receives
 !
+ !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype,newproc,0,comm_cellexchange,mpierr)
+    call MPI_SEND(xsendbuf,1,dtype,newproc,0,comm_cellexchange,mpierr)
  enddo
+ !$omp end critical (mpi_cell_exchange)
 
 !
 !--sync all threads here
 !
  call barrier_mpi
 
-!--free request handle
+!--complete the outstanding receives (this also frees them)
+ !$omp critical (mpi_cell_exchange)
  do iproc=1,nprocs
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
-    call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
-
- !--free mpi datatype
- call free_mpitype_of_cellforce(dtype)
+ !$omp end critical (mpi_cell_exchange)
 
 #endif
 end subroutine finish_cellforce_exchange
@@ -631,20 +788,22 @@ end subroutine finish_cellforce_exchange
 subroutine check_complete(counters,ncomplete_mpi)
  use io, only:fatal
  integer, intent(inout) :: counters(nprocs,3)
- integer, intent(out)   :: ncomplete_mpi
+ integer, intent(inout) :: ncomplete_mpi
 #ifdef MPI
- integer :: i
+ integer :: i,ncomplete
  logical :: countreceived
  integer :: mpierr
  integer :: status(MPI_STATUS_SIZE)
 
- ncomplete_mpi = 1 ! self
+ ncomplete = 1 ! self
  do i=1,nprocs
     if (i /= id + 1) then
+       !$omp critical (mpi_cell_exchange)
        call MPI_TEST(countrequest(i),countreceived,status,mpierr)
+       !$omp end critical (mpi_cell_exchange)
        if (countreceived) then
           if (counters(i,irecv) == counters(i,iexpect)) then
-             ncomplete_mpi = ncomplete_mpi + 1
+             ncomplete = ncomplete + 1
           elseif (counters(i,irecv) > counters(i,iexpect)) then
              print*,'on',id,'from',i-1
              print*,'nrecv',counters(i,irecv)
@@ -654,6 +813,10 @@ subroutine check_complete(counters,ncomplete_mpi)
        endif
     endif
  enddo
+ ! other threads spin on this value
+ !$omp atomic write
+ ncomplete_mpi = ncomplete
+ !$omp flush
 #else
  ncomplete_mpi = 1
 #endif
@@ -680,8 +843,10 @@ subroutine reset_cell_counters(counters)
 
  do iproc=1,nprocs
     if (iproc /= id + 1) then
+       !$omp critical (mpi_cell_exchange)
        call MPI_IRECV(counters(iproc,iexpect),1,MPI_INTEGER4,iproc-1, &
        MPI_ANY_TAG,comm_cellcount,countrequest(iproc),mpierr)
+       !$omp end critical (mpi_cell_exchange)
        if (mpierr /= 0) call fatal('reset_cell_counters','error in MPI_IRECV')
     endif
  enddo
