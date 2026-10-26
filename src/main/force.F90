@@ -233,15 +233,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use dust,         only:drag_implicit
  use nicil,        only:nimhd_get_jcbcb
- use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,&
-                        init_send_requests
+ use mpiderivs,    only:send_cell,recv_cells,init_cell_exchange,&
+                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
  use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
- use omputils,     only:omp_thread_num,omp_num_threads
  use eos,          only:iresistive_heating
 
  integer,         intent(in)    :: icall,npart
@@ -297,11 +295,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  integer(kind=1)           :: ibinnow_m1
 
- type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
- integer                   :: mpitype
- logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
- integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
- integer                   :: ncomplete_mpi
+ type(cellforce)           :: cell
+ logical                   :: remote_export(nprocs),do_export
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
 
@@ -447,9 +442,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(icell,i,ia) &
 !$omp private(cell) &
 !$omp private(remote_export) &
-!$omp private(idone) &
 !$omp private(nneigh) &
-!$omp private(mpitype) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
 !$omp shared(apr_level) &
@@ -464,13 +457,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp shared(id) &
 !$omp private(do_export) &
-!$omp private(irequestrecv) &
-!$omp private(irequestsend) &
-!$omp private(xrecvbuf) &
-!$omp private(xsendbuf) &
 !$omp shared(cell_counters) &
-!$omp shared(thread_complete) &
-!$omp shared(ncomplete_mpi) &
 !$omp shared(stack_remote) &
 !$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
@@ -499,14 +486,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
 
- call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
+ call init_cell_exchange(stack_remote)
 
  !$omp single
  call get_timings(t1,tcpu1)
  !$omp end single
 
- !--initialise send requests to null
- call init_send_requests(irequestsend)
 
  !$omp do schedule(runtime)
  over_cells: do ia=1,nactive_leaves
@@ -532,18 +517,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do_export = any(remote_export)
 
     if (mpi) then
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
+       call recv_cells(stack_remote,cell_counters)
        if (do_export) then
-          if (stack_waiting%n > 0) then
-             !--wait for broadcast to complete, continue to receive whilst doing so
-             idone(:) = .false.
-             do while(.not.all(idone))
-                call check_send_finished(irequestsend,idone)
-                call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
-             enddo
-          endif
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send to remote
+          call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
        endif
     endif
 
@@ -577,17 +554,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  enddo over_cells
  !$omp enddo
 
- if (stack_waiting%n > 0) then
-    idone(:) = .false.
-    do while(.not.all(idone))
-       call check_send_finished(irequestsend,idone)
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
-    enddo
- endif
 
  if (mpi) then
-    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
-         thread_complete,cell_counters,ncomplete_mpi)
+    call recv_while_wait(stack_remote,cell_counters)
     call reset_cell_counters(cell_counters)
  endif
 
@@ -615,13 +584,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
-       idone(:) = .false.
-       do while(.not.all(idone))
-          call check_send_finished(irequestsend,idone)
-          call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
-       enddo
 
-       call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell back to owner
+       call send_cell(cell,remote_export,stack_waiting,cell_counters) ! send the cell back to owner
 
     enddo over_remote
     !$omp enddo
@@ -630,16 +594,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     stack_remote%n = 0
     !$omp end single
 
-    idone(:) = .false.
-    do while(.not.all(idone))
-       call check_send_finished(irequestsend,idone)
-       call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
-    enddo
 
  endif igot_remote
 
- if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
-          thread_complete,cell_counters,ncomplete_mpi)
+ if (mpi) call recv_while_wait(stack_waiting,cell_counters)
 
  iam_waiting: if (mpi .and. stack_waiting%n > 0) then
     !$omp do schedule(runtime)
@@ -672,7 +630,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif iam_waiting
 
- call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
+ call finish_cell_exchange(stack_remote)
+
 
 !$omp single
  call get_timings(t2,tcpu2)

@@ -49,32 +49,34 @@ module timing
                                  itimer_dens          = 6,  &
                                  itimer_dens_local    = 7,  &
                                  itimer_dens_remote   = 8,  &
-                                 itimer_force         = 9,  &
-                                 itimer_force_local   = 10, &
-                                 itimer_force_remote  = 11, &
-                                 itimer_radiation     = 12, &
-                                 itimer_rad_save      = 13, &
-                                 itimer_rad_neighlist = 14, &
-                                 itimer_rad_arrays    = 15, &
-                                 itimer_rad_its       = 16, &
-                                 itimer_rad_flux      = 17, &
-                                 itimer_rad_diff      = 18, &
-                                 itimer_rad_update    = 19, &
-                                 itimer_rad_store     = 20, &
-                                 itimer_cons2prim     = 21, &
-                                 itimer_substep       = 22, &
-                                 itimer_sinksink      = 23, &
-                                 itimer_gasf          = 24, &
-                                 itimer_acc           = 25, &
-                                 itimer_sg_id         = 26, &
-                                 itimer_sg_evol       = 27, &
-                                 itimer_kick          = 28, &
-                                 itimer_drift         = 29, &
-                                 itimer_kickdrift     = 30, &
-                                 itimer_HII           = 31, &
-                                 itimer_ev            = 32, &
-                                 itimer_io            = 33
- integer, public, parameter :: ntimers = 33 ! should be equal to the largest itimer index
+                                 itimer_dens_wait     = 9,  &
+                                 itimer_force         = 10, &
+                                 itimer_force_local   = 11, &
+                                 itimer_force_remote  = 12, &
+                                 itimer_force_wait    = 13, &
+                                 itimer_radiation     = 14, &
+                                 itimer_rad_save      = 15, &
+                                 itimer_rad_neighlist = 16, &
+                                 itimer_rad_arrays    = 17, &
+                                 itimer_rad_its       = 18, &
+                                 itimer_rad_flux      = 19, &
+                                 itimer_rad_diff      = 20, &
+                                 itimer_rad_update    = 21, &
+                                 itimer_rad_store     = 22, &
+                                 itimer_cons2prim     = 23, &
+                                 itimer_substep       = 24, &
+                                 itimer_sinksink      = 25, &
+                                 itimer_gasf          = 26, &
+                                 itimer_acc           = 27, &
+                                 itimer_sg_id         = 28, &
+                                 itimer_sg_evol       = 29, &
+                                 itimer_kick          = 30, &
+                                 itimer_drift         = 31, &
+                                 itimer_kickdrift     = 32, &
+                                 itimer_HII           = 33, &
+                                 itimer_ev            = 34, &
+                                 itimer_io            = 35
+ integer, public, parameter :: ntimers = 35 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
  !--running totals are summed in double precision; timers(:)%wall and %cpu hold
  !  copies in single precision, so a small increment is not lost in a large total
@@ -103,9 +105,11 @@ subroutine setup_timers
  call init_timer(itimer_dens        , 'density',     itimer_step  )
  call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
  call init_timer(itimer_dens_remote , 'remote',      itimer_dens  )
+ call init_timer(itimer_dens_wait   , 'mpi_wait',    itimer_dens  )
  call init_timer(itimer_force       , 'force',       itimer_step  )
  call init_timer(itimer_force_local , 'local',       itimer_force )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_force_wait  , 'mpi_wait',    itimer_force )
  call init_timer(itimer_radiation   , 'radiation',   itimer_step  )
  call init_timer(itimer_rad_save    , 'save',        itimer_radiation  )
  call init_timer(itimer_rad_neighlist,'neighlist',   itimer_radiation  )
