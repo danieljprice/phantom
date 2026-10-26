@@ -388,7 +388,7 @@ end subroutine set_stellar_core
 !----------------------------------------------------------------
 subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
  use dim,       only:use_apr
- use part,      only:igas,apr_level,massoftype,aprmassoftype
+ use part,      only:igas,apr_level,massoftype,aprmassoftype,sync_aprmassoftype
  use sortutils, only:sort_by_radius
  integer,           intent(in)  :: i1,npart
  real,              intent(in)  :: xyzh(:,:),x0(3)
@@ -399,6 +399,9 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r,x0)
 
  ! allocate memory
  allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
+
+ ! massoftype may have just been set by the calling routine
+ call sync_aprmassoftype()
 
  ! sort particles by radius
  call sort_by_radius(npart-i1,xyzh(:,i1+1:npart),iorder,x0)

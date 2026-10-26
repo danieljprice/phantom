@@ -231,7 +231,8 @@ end subroutine test_exchange_terms
 !---------------------------------------------------------
 subroutine test_implicit_matches_explicit(ntests,npass)
  use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,&
-                    xyzh_label,init_part,radprop_label
+                    xyzh_label,init_part,radprop_label,apr_level
+ use dim,      only:use_apr
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,  only:tolh
  use physcon,  only:pi
@@ -243,9 +244,16 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  integer, intent(inout) :: ntests,npass
  real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
  real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,tolh_old,pmassi !,exact(9)
- integer :: i,j,itry,nerr_e(9),ierr
+ integer :: i,j,itry,nerr_e(9),ierr,imass,nmass
+ character(len=24) :: label
 
- if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'
+ ! with APR, repeat with neighbouring particles of different mass
+ nmass = 1
+ if (use_apr) nmass = 2
+ do imass=1,nmass
+ label = ''
+ if (imass == 2) label = ' (APR, unequal masses)'
+ if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'//trim(label)
 
  implicit_radiation = .false.
  iverbose = 0
@@ -256,6 +264,11 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  do itry = 1,2
     if (itry == 2) implicit_radiation = .true.
     call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
+    if (imass == 2) then
+       do i=1,npart
+          if (mod(i,2)==0) apr_level(i) = 2
+       enddo
+    endif
 
     ! set some non-zero velocities
     do i=1,npart
@@ -284,9 +297,12 @@ subroutine test_implicit_matches_explicit(ntests,npass)
     call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
  enddo
  call update_test_scores(ntests,nerr_e,npass)
+ deallocate(flux_explicit)
 
  vxyzu(1:3,:) = 0.  ! zero velocities again
  tolh = tolh_old
+ if (use_apr) apr_level(1:npart) = 1
+ enddo
 
 end subroutine test_implicit_matches_explicit
 

@@ -14,9 +14,9 @@ module teststep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, eos, io, mpidomain,
-!   mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
-!   timestep_ind, timing, unifdis, viscosity
+! :Dependencies: boundary, checksetup, deriv, dim, eos, io, kernel,
+!   mpidomain, mpiutils, options, part, physcon, step_lf_global, testutils,
+!   timestep, timestep_ind, timing, unifdis, viscosity
 !
  implicit none
  public :: test_step
@@ -49,6 +49,7 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
+ use kernel,          only:kernelname
  use mpidomain,       only:i_belong
  use checksetup,      only:check_setup
  use deriv,           only:get_derivs_global
@@ -60,7 +61,7 @@ subroutine test_step(ntests,npass)
  integer, intent(inout) :: ntests,npass
 #ifdef PERIODIC
  real                   :: psep,hzero,totmass,dt,t,dtext,dtnew_dum
- real                   :: rhozero
+ real                   :: rhozero,tol_h
  integer                :: i,nsteps,nerror,nwarn,ierr
  integer :: nfailed(9)
 
@@ -83,6 +84,9 @@ subroutine test_step(ntests,npass)
  totmass = rhozero/(dxbound*dybound*dzbound)
  massoftype(igas) = totmass/real(reduceall_mpi('+',npart))
  hzero = hfact*(massoftype(igas)/rhozero)**(1./3.)
+ ! Wendland kernels (used with APR) have larger errors on a cubic lattice
+ tol_h = 3.e-4
+ if (index(kernelname,'Wendland') /= 0) tol_h = 4.e-3
 !
 !--set constant velocity (in all components)
 !
@@ -138,7 +142,7 @@ subroutine test_step(ntests,npass)
     if (id==master) write(*,*) ' t = ',t,' dt = ',dt
     call step(npart,npart,t,dt,dtext,dtnew_dum)
     nfailed(:) = 0
-    call checkval(npart,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)')
+    call checkval(npart,xyzh(4,:),hzero,tol_h,nfailed(1),'h (density)')
     call checkval(npart,fxyzu(1,:),0.,tiny(fxyzu),nfailed(2),'fx')
     call checkval(npart,fxyzu(2,:),0.,tiny(fxyzu),nfailed(3),'fy')
     call checkval(npart,fxyzu(3,:),0.,tiny(fxyzu),nfailed(4),'fz')

@@ -74,7 +74,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testlinalg,   only:test_linalg
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp
+ use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp_requested,gravity
  use memory,       only:deallocate_memory,allocate_memory
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
@@ -248,12 +248,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
 !--apr test
 !
- if (use_apr.and.testall) then
-    write(*,*) '-DAPR not currently compatible with test suite, recompile with APR=no'
-    return
- elseif (use_apr.and.doapr) then
-    call test_apr(ntests,npass)
- endif
+ if (use_apr .and. (doapr .or. testall)) call test_apr(ntests,npass)
 
 !
 !--test kernel module
@@ -507,11 +502,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
-!--test of sink in tree
+!--test of sink in tree (needs self-gravity)
 !
- use_sinktree = dosinktree
+ use_sinktree = dosinktree .and. gravity
  if ((dosinktree.or.testall) .and. use_sinktree) then
-    call allocate_memory(int8(maxp),reallocation=.true.)
+    call allocate_memory(int8(maxp_requested),reallocation=.true.)
     call test_gravity(ntests,npass,string)
     call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults

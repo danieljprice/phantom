@@ -1159,9 +1159,12 @@ ifeq ($(SETUP), testgr)
 endif
 
 ifeq ($(SETUP), testapr)
-#   unit tests for apr
+#   unit tests for apr, including dust as a mixture and as particles
     APR=yes
     MHD=yes
+    DUST=yes
+    MAXDUSTSMALL=3
+    MAXDUSTLARGE=3
     KNOWN_SETUP=yes
     PERIODIC=yes
 endif

@@ -1019,7 +1019,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: gradpj,pro2j,projsxj,projsyj,projszj,sxxj,sxyj,sxzj,syyj,syzj,szzj,dBrhoterm
  real    :: visctermisoj,visctermanisoj,enj,hj,alphaj,pmassj,rho1j
  real    :: rhoj,prj,rhoav1
- real    :: hj1,hj21,q2j,qj,vwavej,divvj
+ real    :: hj1,hj21,q2j,qj,vwavej
  real    :: dvdxi(9),dvdxj(9)
 #ifdef GRAVITY
  real    :: fmi,fmj,dsofti,dsoftj,hsoft1,hsoft21,q2softi
@@ -1203,7 +1203,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  usej      = .false.
  grkernj   = 0.
  alphaj    = alphai
- divvj     = 0.
  dvdxj(:)  = 0.
  rhoj      = 0.
  rho1j     = 0.
@@ -1507,7 +1506,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
 
           if (iamgasj) then
-             divvj = divcurlv(1,j)
              if (use_dustfrac) then
                 dustfracj(:) = dustfrac(:,j)
                 dustfracjsum = sum(dustfracj(:))
@@ -1533,7 +1531,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              call get_stress(prj,spsoundj,rhoj,rho1j,xj,yj,zj,Bxj,Byj,Bzj, &
                         pro2j,vwavej, &
                         sxxj,sxyj,sxzj,syyj,syzj,szzj,visctermisoj,visctermanisoj, &
-                        realviscosity,divvj,bulkvisc,dvdxj,stressmax,radPj)
+                        realviscosity,bulkvisc,dvdxj,stressmax,radPj)
 
              ! shock conductivity / resistivity (mass applied in pair loop)
              autermj  = 0.5*rho1j*alphau
@@ -1772,7 +1770,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
-          fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
+          fsum(idrhodti) = fsum(idrhodti) + pmassj*projv*grkerni
 
           if (maxvxyzu >= 4 .or. track_lum) then
              !--viscous heating
@@ -1940,6 +1938,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
                 if (drag_implicit) then
+                   ! implicit drag, slightly modified version of Loren-Aguilar & Bate 2014, 2015
                    if (ind_timesteps) then
                       call get_drag_terms(tsijtmp,dti,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
                                        runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
@@ -1947,9 +1946,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
                                        runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
                    endif
-                   ! implicit drag, slightly modified version of Loren-Aguilar & Bate 2014, 2015
-                   call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
-                                       runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
                    dragterm = 3.*pmassj*(sdrag1*projvstar - sdrag2*projf_drag)/(rhoi + rhoj)*wdrag
                 else
                    ! explicit drag, with timestep condition
@@ -2121,7 +2117,7 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
                  Bxi,Byi,Bzi, &
                  pro2i,vwavei, &
                  sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso, &
-                 realviscosity,divvi,bulkvisc,dvdx,stressmax, &
+                 realviscosity,bulkvisc,dvdx,stressmax, &
                  radPi)
 
  use dim,             only:maxdvdx,maxp
@@ -2134,7 +2130,7 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
  real,    intent(out) :: sxxi,sxyi,sxzi,syyi,syzi,szzi
  real,    intent(out) :: visctermiso,visctermaniso
  logical, intent(in)  :: realviscosity
- real,    intent(in)  :: divvi,bulkvisc,stressmax
+ real,    intent(in)  :: bulkvisc,stressmax
  real,    intent(in)  :: dvdx(9)
  real,    intent(in)  :: radPi
 
@@ -2170,7 +2166,9 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
        syyi = term*strain(4)
        syzi = term*strain(5)
        szzi = term*strain(6)
-       stressiso = (2./3.*shearvisc - bulkvisc)*divvi*rho1i + stressmax
+       ! div v from the trace of dvdx, which (unlike divcurlv) is not updated during
+       ! the force calculation, so both particles in a pair see the same value
+       stressiso = (2./3.*shearvisc - bulkvisc)*(dvdx(1) + dvdx(5) + dvdx(9))*rho1i + stressmax
     else
        graddivvcoeff = 0.5*(bulkvisc*rhoi + etavisc/3.)   ! 0.5 here is because we
        del2vcoeff    = 0.5*etavisc                   ! average between particle pairs
@@ -2267,7 +2265,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: radRi
  real         :: radPi
 
- real         :: divvi
  real         :: dvdxi(9),curlBi(3),jcbcbi(3),jcbi(3)
  real         :: hi,rhoi,rho1i,pmassi,eni
  real(kind=8) :: hi1
@@ -2335,7 +2332,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (iamgasi) then
-       divvi = real(divcurlv(1,i),kind=kind(divvi))
        if (maxvxyzu >= 4) then
           eni = vxyzu(4,i)
        else
@@ -2389,7 +2385,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   Bxi,Byi,Bzi, &
                   pro2i, &
                   vwavei,sxxi,sxyi,sxzi,syyi,syzi,szzi, &
-                  visctermiso,visctermaniso,realviscosity,divvi,bulkvisc,dvdxi,stressmax, &
+                  visctermiso,visctermaniso,realviscosity,bulkvisc,dvdxi,stressmax, &
                   radPi)
 
        !
@@ -3052,7 +3048,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        fonrmaxi   = fsum(ifonrmaxi)
     endif
 
-    drhodti = pmassi*fsum(idrhodti)
+    drhodti = fsum(idrhodti)
 
     isgas: if (iamgasi) then
        divvi = -drhodti*rho1i
