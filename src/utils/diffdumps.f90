@@ -16,11 +16,13 @@ program diffdumps
 !
 ! :Usage: diffdumps firstdumpfilename seconddumpfilename [tolerance]
 !
-! :Dependencies: dim, io, part, readwrite_dumps, sort_particles, testutils
+! :Dependencies: dim, io, mpiutils, part, readwrite_dumps, sort_particles,
+!   testutils
 !
  use dim,     only:maxp,maxvxyzu,tagline
  use part,    only:xyzh,vxyzu,npart,hfact,iorig
- use io,      only:set_io_unit_numbers,iprint,idisk1,real4
+ use io,      only:set_io_unit_numbers,iprint,idisk1,real4,id,nprocs
+ use mpiutils,        only:init_mpi,finalise_mpi
  use readwrite_dumps, only:read_dump
  use testutils,       only:checkval
  use sort_particles,  only:sort_part_id
@@ -35,6 +37,8 @@ program diffdumps
  logical :: idiff
 
  call set_io_unit_numbers
+ ! sets id and nprocs, which are needed to allocate memory even when built with MPI=yes
+ call init_mpi(id,nprocs)
  iprint = 6
 !
 !--get name of run from the command line
@@ -129,6 +133,7 @@ program diffdumps
     print "(/,a)",' FILES ARE IDENTICAL '
  endif
 
+ call finalise_mpi()
  if (ndiff > 0) then
     call exit(1)
  endif
