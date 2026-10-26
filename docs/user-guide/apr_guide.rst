@@ -116,6 +116,14 @@ particles being updated during the steps e.g.::
 > step 14 / 16 t = 21.78732 dt = 0.072 moved 476 in 0.058 cpu-s < | np = 37900 |
 > step 16 / 16 t = 21.93160 dt = 0.072 moved 37860 in 0.31 cpu-s <
 
+APR with dust
+-------------
+APR can be used with dust either as a mixture (one-fluid, small grains) or as
+particles (two-fluid, large grains), including multiple dust species. All particle
+types inside the refinement region are split, and only particles of the same type
+are merged with each other. The hybrid method (small and large grains together)
+is not yet supported.
+
 Plotting with APR
 --------------------
 APR is natively read by both splash and sarracen. The easiest way to check the method is working exactly

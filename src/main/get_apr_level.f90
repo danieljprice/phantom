@@ -267,7 +267,7 @@ end subroutine split_dir_three
 !+
 !-----------------------------------------------------------------------
 subroutine split_dir_two(i,i_new,sepin)
- use part, only:xyzh,apr_level,copy_particle_all,aprmassoftype,igas, &
+ use part, only:xyzh,apr_level,copy_particle_all,aprmassoftype,iamtype,iphase, &
                 vxyzu
  use vectorutils, only:cross_product3D,rotatevec
  use physcon, only:pi
@@ -280,7 +280,7 @@ subroutine split_dir_two(i,i_new,sepin)
 
  apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
  call copy_particle_all(i,i_new,new_part=.true.)
- pmass = aprmassoftype(igas,apr_level(i))
+ pmass = aprmassoftype(iamtype(iphase(i)),apr_level(i))
 
  uold = vxyzu(4,i)
  hnew = xyzh(4,i)*(0.5**(1./3.))
@@ -308,7 +308,7 @@ end subroutine split_dir_two
 !+
 !-----------------------------------------------------------------------
 subroutine split_dir_gr(i,i_new,sepin)
- use part, only:xyzh,apr_level,copy_particle_all,aprmassoftype,igas,itemp, &
+ use part, only:xyzh,apr_level,copy_particle_all,aprmassoftype,iamtype,iphase,itemp, &
                 vxyzu,pxyzu,dens,eos_vars,igasP,igamma,metrics,metricderivs,fext,rho
  use vectorutils, only:cross_product3D,rotatevec
  use physcon, only:pi
@@ -323,7 +323,7 @@ subroutine split_dir_gr(i,i_new,sepin)
 
  apr_level(i) = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
  call copy_particle_all(i,i_new,new_part=.true.)
- pmass = aprmassoftype(igas,apr_level(i))
+ pmass = aprmassoftype(iamtype(iphase(i)),apr_level(i))
 
  uold = vxyzu(4,i)
  hnew = xyzh(4,i)*(0.5**(1./3.))

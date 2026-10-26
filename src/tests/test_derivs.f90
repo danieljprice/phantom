@@ -82,6 +82,7 @@ subroutine test_derivs(ntests,npass,string)
  integer           :: np,ieosprev
  logical           :: testhydroderivs,testav,testviscderivs,testambipolar,testdustderivs
  logical           :: testmhdderivs,testdensitycontrast,testcullendehnen,testindtimesteps,testtwokernel,testall
+ logical           :: testunequal
  real              :: rhoi,sonrhoi(maxdustsmall),drhodti,depsdti(maxdustsmall),dustfracj
  integer(kind=8)   :: nptot
  real              :: tolh_old,tol_h,tol_fmhd
@@ -99,6 +100,7 @@ subroutine test_derivs(ntests,npass,string)
  testindtimesteps    = .false.
  testcullendehnen    = .false.
  testtwokernel       = .false.
+ testunequal         = .false.
  testall             = .false.
  select case(string)
  case('derivshydro','derivhydro','hydroderivs')
@@ -121,6 +123,8 @@ subroutine test_derivs(ntests,npass,string)
     testindtimesteps = .true.
  case('derivstwokernel','derivs2k','derivstwo')
     testtwokernel = .true.
+ case('derivsapr','derivsunequal')
+    testunequal = .true.
  case default
     testall = .true.
  end select
@@ -459,9 +463,9 @@ subroutine test_derivs(ntests,npass,string)
           !print "(3(a,es17.10))",' dE_kin = ',dekin,' dE_therm = ',deint,' dE_dust = ',dedust
           call checkval(massoftype(1)*(dekin + deint + dedust),0.,6.5e-15,nfailed(1),'energy conservation (dE=0)')
           do i=1,ndustsmall
-             call checkval(massoftype(1)*(dmdust(i)),0.,1.1e-15,nfailed(2),'dust mass conservation')
+             call checkval(massoftype(1)*(dmdust(i)),0.,1.1e-15,nfailed(1+i),'dust mass conservation')
           enddo
-          call update_test_scores(ntests,nfailed(1:1),npass)
+          call update_test_scores(ntests,nfailed(1:1+ndustsmall),npass)
        endif
        !
        ! reset dustfrac to zero for subsequent tests
@@ -473,6 +477,11 @@ subroutine test_derivs(ntests,npass,string)
        if (id==master) write(*,"(/,a)") '--> SKIPPING dust evolution terms (need -DDUST)'
     endif
  endif testdust
+
+ !
+ !--check conservation when neighbouring particles have different masses
+ !
+ if ((testunequal .or. testall) .and. use_apr) call test_unequal_masses(ntests,npass)
 
 !
 !--calculate derivatives with MHD forces ON, zero pressure
@@ -847,6 +856,192 @@ subroutine test_derivs(ntests,npass,string)
  if (id==master) write(*,"(/,a)") '<-- DERIVS TEST COMPLETE'
 
 end subroutine test_derivs
+
+!-----------------------------------------------------------------------
+!+
+!  check that hydro, shock viscosity, physical viscosity and one-fluid
+!  dust terms conserve momentum, energy and dust mass when neighbouring
+!  particles have different masses (alternate particles refined by APR)
+!+
+!-----------------------------------------------------------------------
+subroutine test_unequal_masses(ntests,npass)
+ use dim,       only:use_dust,maxdustsmall,maxalpha,maxp
+ use part,      only:npart,apr_level,dustevol,dustfrac,ndustsmall,ndustlarge,ndusttypes,&
+                     grainsize,graindens,xyzh,divcurlv,alphaind
+ use options,   only:alpha,alphau,use_dustfrac
+ use viscosity, only:bulkvisc,shearparam,irealvisc
+ use eos,       only:polyk
+ use dust,      only:init_drag,idrag,K_code
+ use deriv,     only:get_derivs_global,get_density_global
+ use io,        only:id,master
+ use testutils, only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer :: i,j,icase,nfailed(5),ierr
+ real    :: dustfracj
+ logical :: use_dustfrac_in
+ real    :: tol_en
+ ! alternating masses on the lattice degrade the SPH estimate of div v,
+ ! but using m_i instead of m_j in drho/dt roughly doubles the error
+ real, parameter :: tol_divv = 0.25, tol_divv_dens = 1.e-7
+ real(kind=4), allocatable :: divv_force(:)
+ character(len=20), parameter :: label(4) = &
+    (/'hydro             ','shock viscosity   ','physical viscosity','one-fluid dust    '/)
+
+ if (id==master) write(*,"(/,a)") '--> testing conservation with unequal masses (derivsapr)'
+ use_dustfrac_in = use_dustfrac
+ allocate(divv_force(npart))
+ do i=1,npart
+    if (mod(i,2)==0) apr_level(i) = 2
+ enddo
+
+ do icase=1,4
+    if (icase==4 .and. .not.use_dust) cycle
+    if (id==master) write(*,"(/,a)") '--> '//trim(label(icase))//', unequal masses'
+    if (isothermal) polyk = 3.
+    call reset_mhd_to_zero
+    call reset_dissipation_to_zero
+    call set_velocity_and_energy
+    use_dustfrac = .false.
+    select case(icase)
+    case(2)
+       alpha  = 0.753
+       alphau = 0.5
+       if (maxalpha==maxp) alphaind(1,:) = real(alpha,kind=kind(alphaind))
+    case(3)
+       irealvisc  = 1
+       shearparam = 6.66
+       bulkvisc   = 0.75
+    case(4)
+       ! several dust species with different dust fractions
+       use_dustfrac = .true.
+       ndustsmall = maxdustsmall
+       ndustlarge = 0
+       ndusttypes = ndustsmall
+       idrag  = 2
+       K_code = 10.
+       grainsize = 0.01
+       graindens = 3.
+       call init_drag(ierr)
+       do i=1,npart
+          do j=1,ndustsmall
+             dustfracj = real(dustfrac_func(xyzh(:,i)),kind=kind(dustfracj))*j/real(ndustsmall)
+             dustevol(j,i) = sqrt(dustfracj/(1.-dustfracj))
+          enddo
+       enddo
+    end select
+
+    call get_derivs_global()
+    nfailed(:) = 0
+    ! with physical viscosity, du/dt uses the strain tensor from the density
+    ! calculation, which matches the force only to the accuracy of the gradient
+    tol_en = 1.e-14
+    if (icase==3) tol_en = 2.e-9
+    call check_conservation_unequal(nfailed,trim(label(icase)),tol_en)
+    if (icase==1) then
+       ! div v = -(1/rho) drho/dt is a sum over neighbour masses
+       call checkval(divv_l2err(),0.,tol_divv,nfailed(4),'L2 error in divv (hydro)')
+       ! div v from the density calculation should match that from the force
+       divv_force(1:npart) = divcurlv(1,1:npart)
+       call get_density_global(1)
+       call checkval(npart,divcurlv(1,1:npart),divv_force(1:npart),tol_divv_dens,nfailed(5),&
+                     'divv from density matches force')
+    endif
+    call update_test_scores(ntests,nfailed,npass)
+ enddo
+
+ ! restore equal masses and no dust for subsequent tests
+ apr_level(1:npart) = 1
+ call reset_dissipation_to_zero
+ use_dustfrac = use_dustfrac_in
+ if (use_dust) then
+    dustfrac(:,:) = 0.
+    dustevol(:,:) = 0.
+ endif
+ ! later tests use the stored density, so recompute it with equal masses
+ call get_density_global(1)
+ deallocate(divv_force)
+
+end subroutine test_unequal_masses
+
+!-----------------------------------------------------------------------
+!+
+!  check \sum m dv/dt = 0, \sum m [v.dv/dt + (1 - eps) du/dt - u deps/dt] = 0
+!  (eq. 41 of Price & Laibe 2015) and \sum m deps/dt = 0 for each dust
+!  species, each relative to the sum of the magnitudes of the terms
+!+
+!-----------------------------------------------------------------------
+subroutine check_conservation_unequal(nfailed,label,tol_en)
+ use dim,       only:maxdustsmall
+ use part,      only:npart,fxyzu,vxyzu,dustfrac,ddustevol,ndustsmall,get_pmass
+ use options,   only:use_dustfrac
+ use mpiutils,  only:reduceall_mpi
+ use testutils, only:checkval
+ integer,          intent(inout) :: nfailed(3)
+ character(len=*), intent(in)    :: label
+ real,             intent(in)    :: tol_en
+ integer :: i
+ real    :: pmassi,dmom(3),smom,de,se,eps(maxdustsmall),depsdt(maxdustsmall)
+ real    :: dmdust(maxdustsmall),smdust(maxdustsmall),vdotai,dudti
+ real, parameter :: tol_mom = 1.e-12, tol_dust = 1.e-15
+
+ dmom = 0.; smom = 0.
+ de = 0.; se = 0.
+ dmdust = 0.; smdust = 0.
+ eps = 0.; depsdt = 0.
+ do i=1,npart
+    pmassi = get_pmass(i,.true.)
+    dmom = dmom + pmassi*fxyzu(1:3,i)
+    smom = smom + pmassi*sqrt(dot_product(fxyzu(1:3,i),fxyzu(1:3,i)))
+    if (use_dustfrac) then
+       !--sqrt(epsilon/1-epsilon) method (Ballabio et al. 2018)
+       eps(1:ndustsmall)    = dustfrac(1:ndustsmall,i)
+       depsdt(1:ndustsmall) = 2.*sqrt(eps(1:ndustsmall)*(1.-eps(1:ndustsmall)))*(1.-eps(1:ndustsmall))*&
+                              ddustevol(1:ndustsmall,i)
+       dmdust = dmdust + pmassi*depsdt
+       smdust = smdust + pmassi*abs(depsdt)
+    endif
+    if (.not.isothermal) then
+       vdotai = dot_product(vxyzu(1:3,i),fxyzu(1:3,i))
+       dudti  = (1. - sum(eps))*fxyzu(iu,i)
+       de = de + pmassi*(vdotai + dudti - vxyzu(iu,i)*sum(depsdt))
+       se = se + pmassi*(abs(vdotai) + abs(dudti) + abs(vxyzu(iu,i)*sum(depsdt)))
+    endif
+ enddo
+ dmom = reduceall_mpi('+',dmom)
+ smom = reduceall_mpi('+',smom)
+ de   = reduceall_mpi('+',de)
+ se   = reduceall_mpi('+',se)
+ dmdust = reduceall_mpi('+',dmdust)
+ smdust = reduceall_mpi('+',smdust)
+
+ call checkval(sqrt(dot_product(dmom,dmom))/smom,0.,tol_mom,nfailed(1),'momentum conservation ('//label//')')
+ if (.not.isothermal) call checkval(de/se,0.,tol_en,nfailed(2),'energy conservation ('//label//')')
+ if (use_dustfrac) call checkval(maxval(abs(dmdust(1:ndustsmall))/smdust(1:ndustsmall)),0.,tol_dust,&
+                                 nfailed(3),'dust mass conservation ('//label//')')
+
+end subroutine check_conservation_unequal
+
+!-----------------------------------------------------------------------
+!+
+!  relative L2 error in div v compared to the analytic solution
+!+
+!-----------------------------------------------------------------------
+real function divv_l2err()
+ use part,     only:npart,xyzh,divcurlv
+ use mpiutils, only:reduceall_mpi
+ integer :: i
+ real    :: err2,val2,divvi
+
+ err2 = 0.
+ val2 = 0.
+ do i=1,npart
+    divvi = divvfunc(xyzh(:,i))
+    err2  = err2 + (divcurlv(1,i) - divvi)**2
+    val2  = val2 + divvi**2
+ enddo
+ divv_l2err = sqrt(reduceall_mpi('+',err2)/reduceall_mpi('+',val2))
+
+end function divv_l2err
 
 !----------------------------------------------------
 !+

@@ -286,7 +286,7 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
-                        apr_level
+                        apr_level,sync_aprmassoftype
  use timing,       only:printused,getused
  use io,           only:id,master
  use cons2prim,    only:prim2consall
@@ -313,6 +313,9 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
  endif
 
+ ! masses at each refinement level, in case massoftype has been changed
+ call sync_aprmassoftype()
+
  ! evaluate derivatives
  call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
@@ -337,7 +340,7 @@ end subroutine get_derivs_global
 !--------------------------------------
 subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                        Bevol,alphaind,gradh,rad,radprop,dvdx,apr_level
+                        Bevol,alphaind,gradh,rad,radprop,dvdx,apr_level,sync_aprmassoftype
  use densityforce, only:densityiterate
  use neighkdtree,  only:build_tree
  integer, intent(in) :: icall
@@ -353,6 +356,9 @@ subroutine get_density_global(icall,nactive,zero_fxyzu,make_tree)
 
  do_tree = .true.
  if (present(make_tree)) do_tree = make_tree
+
+ ! masses at each refinement level, in case massoftype has been changed
+ call sync_aprmassoftype()
 
  ! build tree to prepare neighbour finding (if requested)
  if (do_tree) call build_tree(npart,nactivei,xyzh,vxyzu)

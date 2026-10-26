@@ -34,7 +34,8 @@ subroutine test_kdtree(ntests,npass)
  use dim,         only:maxp,periodic,ind_timesteps
  use io,          only:id,master,iverbose
  use neighkdtree, only:leaf_is_active,ncells,node
- use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase,iactive
+ use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase,iactive,&
+                       sync_aprmassoftype,init_part
  use kernel,      only:hfact_default
  use kdtree,      only:maketree,revtree,kdnode,empty_tree
  use unifdis,     only:set_unifdis
@@ -60,12 +61,14 @@ subroutine test_kdtree(ntests,npass)
     !
     ! set up a random particle distribution
     !
+    call init_part()
     psep = 1./100.
     hfact = hfact_default
     npart = 0
     call set_unifdis('random',id,master,-0.5,0.5,-0.5,0.5,-0.5,0.5,&
                      psep,hfact,npart,xyzh,periodic,mask=i_belong)
     massoftype(igas) = 1000./npart
+    call sync_aprmassoftype()
     if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
 
     !

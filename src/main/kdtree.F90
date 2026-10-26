@@ -156,9 +156,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, refineleve
 
  ! construct root node, i.e. find bounds of all particles
  if (sinktree) then
-    call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,xyzmh_ptmass,nptmass)
+    call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,apr_tree,xyzmh_ptmass,nptmass)
  else
-    call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh)
+    call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,apr_tree)
  endif
 
  if (inoderange(1,irootnode)==0 .or. inoderange(2,irootnode)==0 ) then
@@ -689,7 +689,7 @@ end subroutine empty_tree
 ! routine to construct root node
 !+
 !---------------------------------
-subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xyzh,xyzmh_ptmass,nptmass)
+subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xyzh,apr_tree,xyzmh_ptmass,nptmass)
  use boundary, only:cross_boundary
  use mpidomain,only:isperiodic
  use part, only:iphase,iactive
@@ -703,6 +703,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  real,    intent(out)   :: xmini(3), xmaxi(3)
  integer, intent(inout) :: leaf_is_active(:)
  real,    intent(inout) :: xyzh(:,:)
+ logical, intent(in)    :: apr_tree
  real,    intent(inout), optional :: xyzmh_ptmass(:,:)
  integer, intent(in),    optional :: nptmass
  integer :: i,ncross,ic,nchunk,nl
@@ -795,7 +796,7 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
  enddo
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(np,nchunk,xyzh,nlive,inodeparts,treecache,iphase,massoftype,aprmassoftype,apr_level) &
- !$omp shared(maxp,maxphase) &
+ !$omp shared(maxp,maxphase,apr_tree) &
  !$omp private(ic,i,nproot)
  do ic=1,nchunk
     nproot = nlive(ic-1)
@@ -809,12 +810,17 @@ subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xy
              else
                 inodeparts(nproot) = -i ! -ve if inactive
              endif
-             if (use_apr) inodeparts(nproot) = abs(inodeparts(nproot))
+             ! particles in the tree used for merging are not indexed by their
+             ! position in the global arrays, so iphase does not apply to them
+             if (apr_tree) inodeparts(nproot) = abs(inodeparts(nproot))
           else
              inodeparts(nproot) = i
           endif
           treecache(1:4,nproot) = xyzh(1:4,i)
-          if (maxphase==maxp) then
+          if (apr_tree) then
+             ! particles being merged all have the same type and level
+             treecache(5,nproot) = 1.
+          elseif (maxphase==maxp) then
              if (use_apr) then
                 treecache(5,nproot) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
              else
@@ -1519,13 +1525,15 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
     endif
  enddo
 
+ ! all particles may lie on one side of the pivot, in which case i or j
+ ! steps outside the node and there is no distance to record
  if (.not.i_lt_pivot) then
     i = i - 1
-    dpivot(i-imin+1) = xpivot - treecache(iaxis,i)
+    if (i >= imin) dpivot(i-imin+1) = xpivot - treecache(iaxis,i)
  endif
  if (j_lt_pivot) then
     j = j + 1
-    dpivot(j-imin+1) = xpivot - treecache(iaxis,j)
+    if (j <= imax) dpivot(j-imin+1) = xpivot - treecache(iaxis,j)
  endif
 
  min_l = imin
@@ -1872,6 +1880,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  minlevel = maxdepth - 1
  maxlevel = 0
+ npnode = 0  ! set at the end of each level, used from level 1 onwards
 
  levels: do level = 0, globallevel
     groupsize = 2**(globallevel - level)
@@ -1879,9 +1888,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     if (level == 0) then
        if (sinktree) then
           call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,&
-                                   xyzmh_ptmass,nptmass)
+                                   apr_tree,xyzmh_ptmass,nptmass)
        else
-          call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh)
+          call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,apr_tree)
        endif
     else
        npcounter = npnode
