@@ -650,7 +650,7 @@ end subroutine test_shift_star_corotate
 !-----------------------------------------------------------------------
 subroutine test_get_mass_coord(ntests,npass)
  use sortutils,     only:r2func,find_rank
- use part,          only:xyzh,massoftype,igas
+ use part,          only:xyzh,massoftype,igas,init_part
  use setstar_utils, only:get_mass_coord
  use table_utils,   only:linspace
  use testutils,     only:checkvalbuf,checkvalbuf_end
@@ -661,6 +661,7 @@ subroutine test_get_mass_coord(ntests,npass)
  real    :: massri,errmax,x0(3)
  real, parameter :: tol = 1.e-14
 
+ call init_part()
  i1 = 10  ! start at non-zero offset to check this
  np = 100
  x0 = 0.
@@ -759,7 +760,8 @@ end subroutine test_spin_options
 subroutine test_polytrope(ntests,npass)
  use io,        only:id,master,iverbose
  use part,      only:npart,npartoftype,xyzh,vxyzu,eos_vars,rad,massoftype,hfact,&
-                     xyzmh_ptmass,vxyz_ptmass,nptmass
+                     xyzmh_ptmass,vxyz_ptmass,nptmass,apr_level
+ use dim,       only:use_apr
  use mpidomain, only:i_belong
  use options,   only:ieos
  use physcon,   only:solarr,solarm,pi
@@ -769,7 +771,7 @@ subroutine test_polytrope(ntests,npass)
  use checksetup, only:check_setup
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star
- real :: rhozero,rmserr,ekin,x0(3),v0(3),omega,velocity_error,jz
+ real :: rhozero,rmserr,ekin,x0(3),v0(3),omega,velocity_error,jz,nbase
  integer(kind=8) :: ntot
  integer :: ierr,nfail(1),i,j,i1,nerror,nwarn
 
@@ -842,7 +844,13 @@ subroutine test_polytrope(ntests,npass)
     endif
  enddo
 
- call checkval(npart,3*star%np,0,nfail(1),'np = 3000')
+ if (use_apr) then
+    ! each particle at level l is one of 2**(l-1) children of an original particle
+    nbase = sum(0.5**(apr_level(1:npart)-1))
+    call checkval(nint(nbase),3*star%np,0,nfail(1),'np = 3000 before refinement')
+ else
+    call checkval(npart,3*star%np,0,nfail(1),'np = 3000')
+ endif
  call update_test_scores(ntests,nfail,npass)
 
 end subroutine test_polytrope

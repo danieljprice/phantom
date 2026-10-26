@@ -34,7 +34,7 @@ jobs:
           - ['test2', '', 'nodata']
           - ['test2', 'mass-atmosphere-small mass-atmosphere-lattice', 'nodata', 'PERIODIC=yes GRAVITY=no KERNEL=WendlandC4']
           - ['testcyl', '', '']
-          - ['testapr', 'apr derivs ptmass divb', '']
+          - ['testapr', '', '']
 
     name: |
       test (SYSTEM=${{ matrix.system }},

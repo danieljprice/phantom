@@ -38,7 +38,7 @@ subroutine test_rwdump(ntests,npass)
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
                            iorig,copy_particle_all,norig,particle_mass,variable_mass,rho,init_part,ibin,dt_in
- use dim,             only:maxp,maxdustsmall,mpi,ind_timesteps
+ use dim,             only:maxp,maxp_requested,maxdustsmall,mpi,ind_timesteps
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -69,7 +69,7 @@ subroutine test_rwdump(ntests,npass)
  test_speed = .false.
 
  ! This test will reallocate memory, so reset at the end
- maxp_old = maxp
+ maxp_old = maxp_requested
  dtmaxwas = dtmax
 
  over_tests: do itest = 1,4

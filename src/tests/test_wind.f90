@@ -135,7 +135,8 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
  use part,       only:npart,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,init_part,&
-                      npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss,iwalpha,rho
+                      npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss,iwalpha,rho,&
+                      sync_aprmassoftype
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
  use wind,       only:trvurho_1D,rfill_domain_au
@@ -234,6 +235,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  nfailed = 0; ncheck = 0; errmax = 0.
  istepfrac  = 0
  call init_inject(nerror)
+ call sync_aprmassoftype() ! init_inject sets the particle mass
 
  npart_old = npart
  ! the tests below work for both trans-sonic wind and radiation-driven wind

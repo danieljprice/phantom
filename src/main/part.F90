@@ -941,6 +941,8 @@ subroutine init_rho_from_h(i1,i2)
  if (present(i1)) ia = i1
  if (present(i2)) ib = i2
  iamtypei = igas
+ ! massoftype may have just been set by the calling routine
+ call sync_aprmassoftype()
 
  do i=ia,ib
     if (.not. isdead_or_accreted(xyzh(4,i))) then
@@ -1102,6 +1104,24 @@ subroutine recount_npartoftype
  enddo
 
 end subroutine recount_npartoftype
+
+!----------------------------------------------------------------
+!+
+!  set the mass of each particle type at every refinement level
+!  from massoftype (each level halves the mass of the previous one)
+!+
+!----------------------------------------------------------------
+subroutine sync_aprmassoftype
+ integer :: l,nlevels
+
+ ! loop bound is a variable because apr_maxlevel=0 without APR and
+ ! gfortran warns of a zero-trip loop for constant bounds, even inside an if
+ nlevels = apr_maxlevel
+ do l=1,nlevels
+    aprmassoftype(:,l) = massoftype(:)/2.**(l-1)
+ enddo
+
+end subroutine sync_aprmassoftype
 
 !----------------------------------------------
 !+
