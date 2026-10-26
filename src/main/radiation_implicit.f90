@@ -393,6 +393,10 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
        EU0(2,i) = vxyzu(4,i)
        EU0(3,i) = get_cv(cv_type,rhoi,vxyzu(4,i))
        EU0(4,i) = get_kappa(iopacity_type,vxyzu(4,i),EU0(3,i),rhoi)
+       !--flux limiter and Eddington factor from the last update, kept for particles
+       !  masked out of the solve; compute_flux overwrites them for the others
+       EU0(5,i) = radprop(ilambda,i)
+       EU0(6,i) = radprop(iedd,i)
        !
        !--Diffuse ISM: Set dust temperature and opacity
        !

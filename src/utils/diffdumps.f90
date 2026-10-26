@@ -37,11 +37,9 @@ program diffdumps
  logical :: idiff
 
  call set_io_unit_numbers
- ! sets id and nprocs, which are needed to allocate memory even when built with MPI=yes
- call init_mpi(id,nprocs)
  iprint = 6
 !
-!--get name of run from the command line
+!--get name of run from the command line (checked before MPI is initialised)
 !
  nargs = command_argument_count()
  if (nargs < 2) then
@@ -49,6 +47,8 @@ program diffdumps
     print "(a)",' Usage: diffdumps firstdumpfilename seconddumpfilename [tolerance]'
     stop
  endif
+ ! sets id and nprocs, which are needed to allocate memory even when built with MPI=yes
+ call init_mpi(id,nprocs)
  call get_command_argument(1,dumpfile)
  call get_command_argument(2,dumpfile2)
  if (nargs >= 3) then
@@ -64,16 +64,28 @@ program diffdumps
 !--read particle setup from first dumpfile
 !
  call read_dump(trim(dumpfile),time,hfact,idisk1,iprint,0,1,ierr)
- if (ierr /= 0) stop 'error reading first dumpfile'
+ if (ierr /= 0) then
+    call finalise_mpi()
+    stop 'error reading first dumpfile'
+ endif
 
  allocate (iorig2(maxp),stat=ierr)
- if (ierr /= 0) stop 'error allocating memory to store iorig'
+ if (ierr /= 0) then
+    call finalise_mpi()
+    stop 'error allocating memory to store iorig'
+ endif
 
  allocate (xyzh2(4,maxp),stat=ierr)
- if (ierr /= 0) stop 'error allocating memory to store positions'
+ if (ierr /= 0) then
+    call finalise_mpi()
+    stop 'error allocating memory to store positions'
+ endif
 
  allocate (vxyzu2(maxvxyzu,maxp),stat=ierr)
- if (ierr /= 0) stop 'error allocating memory to store velocities'
+ if (ierr /= 0) then
+    call finalise_mpi()
+    stop 'error allocating memory to store velocities'
+ endif
 
 !  Sort first dump by ID
  call sort_part_id
@@ -85,7 +97,10 @@ program diffdumps
 !--read particle setup from second dumpfile
 !
  call read_dump(trim(dumpfile2),time2,hfact2,idisk1+1,iprint,0,1,ierr)
- if (ierr /= 0) stop 'error reading second dumpfile'
+ if (ierr /= 0) then
+    call finalise_mpi()
+    stop 'error reading second dumpfile'
+ endif
 
 !  Sort second dump by ID
  call sort_part_id
