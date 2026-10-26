@@ -135,6 +135,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
+ if (ierr /= 0) call fatal('setup','could not set up stars')
 
  add_spin = .false.
  xyzmh_ptmass_in(:,:) = 0.

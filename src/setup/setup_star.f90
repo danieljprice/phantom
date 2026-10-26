@@ -123,6 +123,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,X_in,Z_in,&
                 relax_star_in_setup,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
+ if (ierr /= 0) call fatal('setup','could not set up star')
  !
  ! put the star at the origin with zero velocity,
  ! or replace with sink particle

@@ -640,7 +640,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
     imassmode = 0
     if (any(hdr%inttags=='variable_mass').or.any(hdr%int4tags=='variable_mass')) &
        call extract('variable_mass',imassmode,hdr,ierr)
-    if ((imassmode==1).neqv.variable_mass) then
+    if ((imassmode/=0).neqv.variable_mass) then
        print "(a)",' ERROR: particle-mass mode differs from the requested star'
        ierr = 4
        return

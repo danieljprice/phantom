@@ -58,7 +58,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setdisc,        only:set_disc
  use part,           only:igas,nsinkproperties,eos_vars,rad,xyzmh_ptmass,vxyz_ptmass,nptmass,gr
- use io,             only:master
+ use io,             only:master,fatal
  use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,alphau
  use eos,            only:ipdv_heating,ishock_heating
@@ -173,6 +173,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                   X_in,Z_in,relax,use_var_comp,write_profile,&
                   rhozero,npart_total,i_belong,ierr)
+    if (ierr /= 0) call fatal('setup','could not set up stars')
     do i=1,nstars
        nptmass_in = 0
        ! place stars in orbit

@@ -27,7 +27,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,          only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,hfact
- use io,            only:id,master
+ use io,            only:id,master,fatal
  use mpidomain,     only:i_belong
  use moddump_utils, only:get_moddump_options
  integer, intent(inout) :: npart
@@ -57,6 +57,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                 rhozero,npart_total,i_belong,ierr)
+ if (ierr /= 0) call fatal('moddump','could not set up stars')
  !
  !--place stars into orbit, or keep as sink particles if iprofile=0
  !

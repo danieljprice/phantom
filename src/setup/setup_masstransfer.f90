@@ -162,6 +162,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                    massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                    X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                    rhozero,npart_total,i_belong,ierr)
+    if (ierr /= 0) call fatal('setup','could not set up stars')
     x0(1:3,1) = xyzmh_ptmass_in(1:3,2)
     v0(1:3,1) = vxyz_ptmass_in(1:3,2)
     call shift_stars(nstar,star,x0,v0,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass)

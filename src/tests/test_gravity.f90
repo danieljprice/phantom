@@ -96,7 +96,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
                xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type
  use deriv, only:get_derivs_global,get_density_global
- use kernel, only:wkern,cnormk,kernel_softening,radkern
+ use kernel, only:kernelname,wkern,cnormk,kernel_softening,radkern
  use options, only:ieos,alpha,alphau,tolh
  use eos, only:gamma,polyk
  use shock_capturing, only:beta
@@ -116,6 +116,7 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  integer, parameter :: probes(3) = [1,219,512]
 
  if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
+ if (kernelname/='Wendland 2/3D C^4') return
  saved_options = [hfact,gamma,polyk,alpha,alphau]
  betaprev = beta
  ieosprev = ieos
@@ -282,7 +283,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
  use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,igradzeta,igradomega,ind_timesteps
  use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
                xyzh,vxyzu,fxyzu,hfact,set_particle_type,alphaind,gradh,rho
- use kernel, only:grkern,cnormk
+ use kernel, only:kernelname,grkern,cnormk
  use derivutils, only:get_grkern_corrected
  use timestep, only:C_thermal,dtforce
  use deriv, only:get_derivs_global
@@ -303,6 +304,7 @@ subroutine test_variable_mass_dissipation(ntests,npass)
  real :: saved_eos(3)
 
  if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
+ if (kernelname/='Wendland 2/3D C^4') return
  saved_eos = [hfact,gamma,polyk]
  ieosprev = ieos
  call init_part()

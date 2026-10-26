@@ -174,6 +174,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                 X_in,Z_in,relax,use_var_comp,write_profile,&
                 rhozero,npart_total,i_belong,ierr)
+ if (ierr /= 0) call fatal('setup','could not set up stars')
 
  do i=1,nstar
     rstars(i) = in_code_units(star(i)%r,ierr,unit_type='length')

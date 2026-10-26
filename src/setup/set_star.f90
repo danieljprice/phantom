@@ -560,7 +560,7 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
  integer,         intent(out)   :: ierr
  real,            intent(in), optional :: x0(:,:),v0(:,:)
  procedure(mask_prototype)    :: mask
- integer  :: i
+ integer  :: i,ierr_eos
  real     :: xstar(3),vstar(3)
 
  ! initialise piecewise polytropic equation of state if piecewise polytrope used
@@ -583,10 +583,16 @@ subroutine set_stars(id,master,nstars,star,xyzh,vxyzu,eos_vars,rad,&
                      massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,gamma,&
                      X_in,Z_in,relax,use_var_comp,write_rho_to_file,&
                      rhozero,npart_total,mask,ierr,itype=i,x0=xstar,v0=vstar)
+       if (ierr /= 0 .and. ierr /= ierr_sink_profile) then
+          call error('set_stars','failed to set up star '//trim(star(i)%label))
+          exit
+       endif
+       ierr = 0
     endif
  enddo
 
- call finish_eos(ieos,ierr)
+ call finish_eos(ieos,ierr_eos)
+ if (ierr == 0) ierr = ierr_eos
 
 end subroutine set_stars
 

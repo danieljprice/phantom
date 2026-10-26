@@ -15,8 +15,8 @@ module testsetstar
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, checksetup, damping, datafiles, deriv, dim,
-!   energies, eos, gravwaveutils, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, ptmass, radiation_utils, readwrite_mesa, relaxstar, setstar,
+!   energies, eos, extern_binary, externalforces, gravwaveutils, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, ptmass, radiation_utils, readwrite_dumps, readwrite_mesa, relaxstar, setstar,
 !   setstar_utils, sortutils, stellar_hcp, step_lf_global, table_utils,
 !   testutils, timestep, units, vectorutils
 !
@@ -285,13 +285,13 @@ subroutine test_analytic_hcp(ntests,npass)
  use io, only:id,master
  use part, only:init_part,npart,npartoftype,massoftype,xyzh,vxyzu,eos_vars,rad,&
                xyzmh_ptmass,vxyz_ptmass,nptmass,particle_mass,variable_mass,hfact,rho
- use setstar, only:star_t,set_defaults_star,set_star,shift_star,ipoly
+ use setstar, only:star_t,set_defaults_star,set_star,set_stars,shift_star,ipoly,ierr_part
  use setstar_utils, only:set_star_thermalenergy
  use stellar_hcp, only:natural_spline,spline_value
  use table_utils, only:yinterp
  use eos, only:gamma,polyk,init_eos
  use options, only:ieos,iexternalforce
- use ptmass, only:icreate_sinks
+ use ptmass, only:icreate_sinks,use_fourthorder
  use gravwaveutils, only:calc_gravitwaves
  use mpidomain, only:i_belong
  use units, only:set_units
@@ -306,19 +306,25 @@ subroutine test_analytic_hcp(ntests,npass)
  use centreofmass, only:get_total_angular_momentum
  use checksetup, only:check_setup
  use kernel, only:hfact_default,radkern,kernelname
+ use externalforces, only:iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton, &
+                         iext_binary,iext_corot_binary,iext_staticsine
+ use extern_binary, only:accradius1,accradius2
+ use readwrite_dumps, only:write_fulldump
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
- type(star_t) :: star,companion
+ type(star_t) :: star,companion,stars(2)
  integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(7),maxpenetrated
  integer(kind=8) :: ntot
- integer :: nfirst,nerror,nwarn,nfailed_pair(7),sinkcreate_saved,external_saved
- logical :: gravitwaves_saved
+ integer :: nfirst,nerror,nwarn,nfailed_pair(7),sinkcreate_saved,external_saved,i,iu,nfailed_accretion(10)
+ integer, parameter :: accretors(*) = [iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec, &
+                                     iext_gnewton,iext_binary,iext_corot_binary]
+ logical :: gravitwaves_saved,fourthorder_saved
  real :: rhozero,gammaprev,polykprev,hfactprev
  real, parameter :: rtest(4) = [0.,1./3.,2./3.,1.],ptest(4) = [1.,0.1,0.01,0.001]
  real :: p2test(4),expected(2)
- real :: residual,omega,velocity_error
+ real :: residual,omega,velocity_error,accretion_saved(2)
  real :: t,dt,dtnew,dtext,energy0,energy_error,radius0,radius_error,L0(3),L(3)
- real, allocatable :: masses(:),initial_radius(:),initial_support(:)
+ real, allocatable :: masses(:),initial_radius(:),initial_support(:),restart_xyz(:,:)
 
  ieosprev = ieos
  gammaprev = gamma
@@ -379,6 +385,34 @@ subroutine test_analytic_hcp(ntests,npass)
  endif
  call update_test_scores(ntests,nfailed,npass)
 
+ ! Reject every accreting external potential, but retain non-accreting forces.
+ accretion_saved = [accradius1,accradius2]
+ fourthorder_saved = use_fourthorder
+ accradius1 = 0.01
+ accradius2 = 0.
+ nfailed_accretion = 0
+ do i=1,size(accretors)
+    iexternalforce = accretors(i)
+    call check_setup(nerror,nwarn,restart=.true.)
+    call checkval(nerror,1,0,nfailed_accretion(i),'individual masses reject external-force accretion')
+ enddo
+ accradius1 = 0.
+ accradius2 = 0.01
+ call check_setup(nerror,nwarn,restart=.true.)
+ call checkval(nerror,1,0,nfailed_accretion(8),'individual masses reject secondary external accretor')
+ accradius2 = 0.
+ call check_setup(nerror,nwarn,restart=.true.)
+ call checkval(nerror,0,0,nfailed_accretion(9),'external binary without accretion is accepted')
+ iexternalforce = iext_staticsine
+ accradius1 = 0.01
+ call check_setup(nerror,nwarn,restart=.true.)
+ call checkval(nerror,0,0,nfailed_accretion(10),'non-accreting external force ignores unused accretion radius')
+ accradius1 = accretion_saved(1)
+ accradius2 = accretion_saved(2)
+ use_fourthorder = fourthorder_saved
+ iexternalforce = 0
+ call update_test_scores(ntests,nfailed_accretion,npass)
+
  ! Exercise the upstream asynchronous relaxer with fixed unequal masses and spin.
  masses = particle_mass(1:npart)
  icreate_sinks = 1
@@ -391,7 +425,30 @@ subroutine test_analytic_hcp(ntests,npass)
  call checkval(all(xyzh(4,1:size(masses))>0.),.true.,nfailed(3),'failed relaxation unmasks the existing star')
  call checkval(all(particle_mass(1:size(masses))==masses),.true.,nfailed(4),'failed relaxation preserves the existing masses')
  call update_test_scores(ntests,nfailed,npass)
+ call init_part()
+ stars = star
+ stars(1)%label = 'er'
+ stars(2)%m_code = -1.
+ call set_stars(id,master,2,stars,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+                xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+                rhozero,ntot,i_belong,ierr)
+ nfailed = 0
+ call checkval(ierr,ierr_part,0,nfailed(1),'multiple-star setup preserves hard relaxation failure')
+ call checkval(stars(2)%m_code,-1.,0.,nfailed(2),'failed primary prevents companion setup')
+ call init_part()
+ call set_stars(id,master,1,stars,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+                xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+                rhozero,ntot,i_belong,ierr)
+ call checkval(ierr,ierr_part,0,nfailed(3),'EOS cleanup preserves single-star relaxation failure')
  icreate_sinks = 0
+ call init_part()
+ stars(1)%iprofile = 0
+ call set_stars(id,master,1,stars,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+                xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.false.,.false.,.false.,&
+                rhozero,ntot,i_belong,ierr)
+ call checkval(ierr,0,0,nfailed(4),'sink-profile setup is not a hard error')
+ call checkval(npart,0,0,nfailed(5),'sink-profile setup creates no gas particles')
+ call update_test_scores(ntests,nfailed(1:5),npass)
  call init_part()
  maxits_saved = maxits
  maxits = 4000
@@ -449,6 +506,29 @@ subroutine test_analytic_hcp(ntests,npass)
  call checkval(npart,size(masses),0,nfailed_free(6),'released stellar particle count stays fixed')
  call checkval(all(particle_mass(1:npart)==masses),.true.,nfailed_free(7),'released stellar particle masses stay fixed')
  call update_test_scores(ntests,nfailed_free,npass)
+
+ ! A rotated dump distinguishes a true relaxation restart from regeneration.
+ restart_xyz = xyzh(1:3,1:npart)
+ restart_xyz(1,:) = -xyzh(2,1:npart)
+ restart_xyz(2,:) = xyzh(1,1:npart)
+ xyzh(1:3,1:npart) = restart_xyz
+ call write_fulldump(0.,'relaxtr_00000')
+ call init_part()
+ star%label = 'tr'
+ maxits = 0
+ call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+               rhozero,ntot,i_belong,ierr,write_files=.false.)
+ nfailed = 0
+ call checkval(ierr,0,0,nfailed(1),'current individual-mass relaxation dump can restart')
+ call checkval(npart,size(masses),0,nfailed(2),'relaxation restart preserves particle count')
+ call checkval(maxval(abs(xyzh(1:3,1:npart)-restart_xyz)),0.,tol,nfailed(3),'restart reads dump geometry')
+ call checkval(all(particle_mass(1:npart)==masses),.true.,nfailed(4),'relaxation restart preserves individual masses')
+ call update_test_scores(ntests,nfailed(1:4),npass)
+ open(newunit=iu,file='relaxtr_00000',status='old')
+ close(iu,status='delete')
+ star%label = ''
+ maxits = maxits_saved
 
  ! The earlier star is temporarily masked and tagged while its companion relaxes.
  call init_part()

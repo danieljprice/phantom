@@ -192,7 +192,7 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  use io, only:id,master,iverbose
  use units, only:set_units
  use unifdis, only:set_unifdis
- use kernel, only:hfact_default,radkern
+ use kernel, only:kernelname,hfact_default,radkern
  integer, intent(inout) :: ntests,npass
  character(len=*), intent(in) :: string
  integer :: level,nx,nt,ix,iy,iz,i,ierr,nfailed(8),verbose_saved,nx_coarse,penetrated,maxpenetrated,first_case,last_case
@@ -204,8 +204,10 @@ subroutine test_mass_atmosphere(ntests,npass,string)
  logical :: equilibrated
  real, parameter :: max_relax_time = 30.
 
- if (.not.periodic.or.gravity.or.mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps) then
-    if (id==master) print*, 'SKIPPING mass-atmosphere: use PERIODIC=yes, GRAVITY=no and gas-only shared timesteps'
+ if (.not.periodic .or. gravity .or. mpi .or. use_apr .or. use_dust .or. mhd .or. gr .or. &
+     do_radiation .or. ind_timesteps .or. kernelname/='Wendland 2/3D C^4') then
+    if (id==master) print*, 'ERROR: mass-atmosphere requires PERIODIC=yes, GRAVITY=no, WendlandC4 and gas-only shared timesteps'
+    ntests = ntests + 1
     return
  endif
  if (index(string,'lattice')>0) then
@@ -477,7 +479,10 @@ subroutine test_mass_lattice(ntests,npass)
  real :: saved(7),base(4,512),mode(3,512),accel(3,512,2),energy(2),energy0,norm,curvature,energy_curve
  real :: delta,force_curve(2),thermal_curve(2)
 
- if (kernelname/='Wendland 2/3D C^4') return
+ if (kernelname/='Wendland 2/3D C^4') then
+    ntests = ntests + 1
+    return
+ endif
  saved = [hfact,gamma,polyk,alpha,alphau,tolh,beta]
  eos_saved = ieos
  external_saved = iexternalforce

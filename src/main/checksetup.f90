@@ -15,7 +15,7 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: HIIRegion, apr, boundary, boundary_dyn, centreofmass, dim,
-!   dust, dust_formation, eos, externalforces, gravwaveutils, inject, io, kernel,
+!   dust, dust_formation, eos, extern_binary, externalforces, gravwaveutils, inject, io, kernel,
 !   metric, metric_tools, nicil, options, part, physcon, ptmass,
 !   ptmass_radiation, sortutils, timestep, units, utils_gr
 !
@@ -54,7 +54,9 @@ subroutine check_setup(nerror,nwarn,restart)
  use ptmass,          only:icreate_sinks
  use kernel,          only:kernelname
  use io,              only:id,master
- use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star
+ use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star, &
+                          iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_binary,iext_corot_binary
+ use extern_binary,   only:accradius2
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code,set_units
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
@@ -70,7 +72,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
  real         :: hi,hmin,hmax
- logical      :: accreted,dorestart,fix_units
+ logical      :: accreted,dorestart,fix_units,external_accretion
  character(len=3) :: string
 !
 !--check that setup is sensible
@@ -323,8 +325,15 @@ subroutine check_setup(nerror,nwarn,restart)
        print*, 'ERROR: continuous particle masses currently support Newtonian gas hydrodynamics without APR'
        nerror = nerror + 1
     endif
-    if (inject_parts .or. icreate_sinks > 0 .or. nptmass > 0 .or. calc_gravitwaves) then
-       print*, 'ERROR: variable masses do not support injection, sinks or gravitational-wave diagnostics'
+    external_accretion = .false.
+    select case(iexternalforce)
+    case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+       external_accretion = accradius1 /= 0.
+    case(iext_binary,iext_corot_binary)
+       external_accretion = accradius1 /= 0. .or. accradius2 /= 0.
+    end select
+    if (inject_parts .or. icreate_sinks > 0 .or. nptmass > 0 .or. calc_gravitwaves .or. external_accretion) then
+       print*, 'ERROR: variable masses do not support injection, sinks, gravitational-wave diagnostics or external-force accretion'
        nerror = nerror + 1
     endif
     do i=1,npart
