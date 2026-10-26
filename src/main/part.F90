@@ -313,9 +313,10 @@ module part
                        ilambda = 9, &
                        iedd   = 10, &
                        icv    = 11, &
-                       maxradprop = 11
+                       itlastrad = 12, & ! time of the last implicit radiation update
+                       maxradprop = 12
  character(len=*), parameter :: radprop_label(maxradprop) = &
-    (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    '/)
+    (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    ','tlast '/)
 !
 !--lightcurves, store du/dt for each particle
 !
@@ -407,7 +408,7 @@ module part
 !--size of the buffer required for transferring particle
 !  information between MPI threads
 !
- integer, parameter :: ipartbufsize = 137
+ integer, parameter :: ipartbufsize = 138
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart

@@ -22,7 +22,8 @@ module radiation_implicit
 !   neighcompact, part, physcon, quartic, radiation_utils, timing, units
 !
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
- use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu
+ use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu,&
+                            itlastrad
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
  use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
  use neighcompact,    only:get_compacted_neighbour_list
@@ -55,12 +56,13 @@ contains
 !  main subroutine
 !+
 !---------------------------------------------------------
-subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+subroutine do_radiation_implicit(dt,time,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  use io,         only:fatal,warning
  use timing,     only:get_timings
  use derivutils, only:do_timing
+ use dim,        only:ind_timesteps
  integer, intent(in)    :: npart
- real,    intent(in)    :: dt,xyzh(:,:)
+ real,    intent(in)    :: dt,time,xyzh(:,:)
  real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
  integer, intent(out)   :: ierr
  integer              :: nsubsteps,i,nit
@@ -70,6 +72,12 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  real, allocatable    :: origEU(:,:),EU0(:,:)
 
  ierr = 0
+
+ !--with individual timesteps, nothing to do if every active particle has
+ !  already been updated to this time (e.g. in the corrector call to derivs)
+ if (ind_timesteps) then
+    if (.not.any_active_to_update(npart,time,xyzh,radprop)) return
+ endif
 
  allocate(origEU(2,npart),EU0(6,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','could not allocate memory to origEU and EU0')
@@ -84,7 +92,7 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     moresweep = .false.
     dtsub = dt/nsubsteps
     over_substeps: do i = 1,nsubsteps
-       call do_radiation_onestep(dtsub,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,&
+       call do_radiation_onestep(dtsub,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,&
                                  rad_errorE,rad_errorU,moresweep,ierr)
        if (failed .or. moresweep) then
           ierr = ierr_failed_to_converge
@@ -108,6 +116,31 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  deallocate(origEU,EU0)
 
 end subroutine do_radiation_implicit
+
+!---------------------------------------------------------
+!+
+!  whether any active particle has not yet been updated
+!  to the current time (individual timesteps only)
+!+
+!---------------------------------------------------------
+logical function any_active_to_update(npart,time,xyzh,radprop)
+ use part, only:iphase,iactive,isdead_or_accreted
+ integer, intent(in) :: npart
+ real,    intent(in) :: time,xyzh(:,:),radprop(:,:)
+ integer :: i
+ logical :: found
+
+ found = .false.
+ !$omp parallel do default(none) shared(npart,time,xyzh,radprop,iphase) private(i) reduction(.or.:found)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i)) .and. iactive(iphase(i))) then
+       if (time > radprop(itlastrad,i)) found = .true.
+    endif
+ enddo
+ !$omp end parallel do
+ any_active_to_update = found
+
+end function any_active_to_update
 
 !---------------------------------------------------------
 !+
@@ -145,7 +178,7 @@ end subroutine save_radiation_energies
 !  perform single iteration
 !+
 !---------------------------------------------------------
-subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,maxerrE2,maxerrU2,moresweep,ierr)
+subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,maxerrE2,maxerrU2,moresweep,ierr)
  use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
  use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
@@ -155,7 +188,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
  use radiation_utils, only:implicit_radiation_store_drad
- real,    intent(in)    :: dt,xyzh(:,:),origEU(:,:)
+ real,    intent(in)    :: dt,time,xyzh(:,:),origEU(:,:)
  integer, intent(in)    :: npart
  real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out)   :: failed,moresweep
@@ -193,13 +226,13 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radneighlist',tlast,tcpulast,start=.true.)
 
  !$omp parallel default(none) &
- !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
+ !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,time,its_global) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask,rho) &
  !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
  !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,its)
- call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
-                  xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
+ call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,&
+                  xyzh,vxyzu,ivar,ijvar,rad,radprop,vari,varij,varij2,EU0)
 
  !$omp single
  call do_timing('radarrays',tlast,tcpulast)
@@ -214,6 +247,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  converged = .false.
  its = 0
  !$omp end single
+ call mask_updated_particles(ncompactlocal,ivar,vari,mask)
 
  iterations: do while (.not. converged)
 
@@ -278,17 +312,38 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  nit = its
  call do_timing('radits',tlast,tcpulast)
- call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu)
+ call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu,time)
  call do_timing('radstore',tlast,tcpulast)
 
 end subroutine do_radiation_onestep
 
 !---------------------------------------------------------
 !+
+!  exclude from the solve the particles with nothing to
+!  integrate (already updated to the current time)
+!+
+!---------------------------------------------------------
+subroutine mask_updated_particles(ncompactlocal,ivar,vari,mask)
+ integer, intent(in)    :: ncompactlocal,ivar(:,:)
+ real,    intent(in)    :: vari(:,:)
+ logical, intent(inout) :: mask(:)
+ integer :: n
+
+ !$omp do
+ do n = 1,ncompactlocal
+    if (vari(1,n) <= 0.) mask(ivar(3,n)) = .false.
+ enddo
+ !$omp enddo
+
+end subroutine mask_updated_particles
+
+!---------------------------------------------------------
+!+
 !  fill arrays
 !+
 !---------------------------------------------------------
-subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
+subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxyzu,ivar,ijvar,rad,radprop,&
+                       vari,varij,varij2,EU0)
  use dim,             only:periodic,ind_timesteps,igradomega,igradzeta
  use boundary,        only:mod_boundary
  use part,            only:dust_temp,nucleation,gradh,rho
@@ -296,7 +351,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  use derivutils,      only:get_grkern_corrected
  integer, intent(in)  :: ncompact,ncompactlocal,icompactmax,npart
  integer, intent(in)  :: ivar(:,:),ijvar(:)
- real,    intent(in)  :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
+ real,    intent(in)  :: dt,time,xyzh(:,:),vxyzu(:,:),rad(:,:),radprop(:,:)
  real,    intent(out) :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
@@ -314,8 +369,14 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dust_kappai,dust_cooling,heatingISRi,dust_gas)
 
  do n = 1,ncompact
-    dti = dt
     i = ivar(3,n)
+    !--with individual timesteps, each particle is integrated over the time
+    !  since its own last update (zero if already updated to this time)
+    if (ind_timesteps) then
+       dti = time - radprop(itlastrad,i)
+    else
+       dti = dt
+    endif
 
     if (.true.) then
        pmi = get_pmass(i,.true.)
@@ -368,6 +429,10 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
              EU0(2,j) = vxyzu(4,j)
              EU0(3,j) = get_cv(cv_type,rhoj,vxyzu(4,j))
              EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
+             !--flux limiter and Eddington factor from the neighbour's last update;
+             !  these are recomputed in compute_flux for particles being updated
+             EU0(5,j) = radprop(ilambda,j)
+             EU0(6,j) = radprop(iedd,j)
           endif
 
           hj21 = 1./(hj*hj)
@@ -1183,14 +1248,14 @@ end subroutine turn_heating_cooling_off
 !  store results of radiation implicit solve into arrays
 !+
 !---------------------------------------------------------
-subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu)
+subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu,time)
  integer, intent(in)  :: ncompactlocal,npart,ivar(:,:)
- real,    intent(in)  :: EU0(6,npart)
+ real,    intent(in)  :: EU0(6,npart),time
  real,    intent(out) :: rad(:,:),radprop(:,:),vxyzu(:,:)
  integer :: i,n
 
  !$omp parallel do default(none) &
- !$omp shared(ncompactlocal,ivar,vxyzu,EU0,rad,radprop) &
+ !$omp shared(ncompactlocal,ivar,vxyzu,EU0,rad,radprop,time) &
  !$omp private(n,i)
  do n = 1,ncompactlocal
     i = ivar(3,n)
@@ -1200,6 +1265,7 @@ subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyz
     radprop(ikappa,i) = EU0(4,i)
     radprop(ilambda,i) = EU0(5,i)
     radprop(iedd,i) = EU0(6,i)
+    radprop(itlastrad,i) = time
  enddo
 !$omp end parallel do
 
