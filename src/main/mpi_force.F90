@@ -89,6 +89,7 @@ module mpiforce
     integer                   :: chunksize = 0
     integer                   :: maxlength = 0   ! number of cells that can be stored without growing
     integer                   :: n = 0
+    integer                   :: ipad = 0        ! pads the type to a multiple of 8 bytes (ifort error #6380)
  end type stackforce
 
 contains

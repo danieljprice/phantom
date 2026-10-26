@@ -77,6 +77,11 @@ module mpiderivs
  public :: recv_while_wait
  public :: reset_cell_counters
  public :: combine_cells ! only to prevent compiler warning
+ ! the following are only called from MPI code, so are public
+ ! only to prevent unused-function warnings in builds without MPI
+ public :: complete_sends,claim_polling,release_polling,set_thread_complete
+ public :: send_cell_counts,finish_cell_counts,check_complete
+ public :: all_threads_complete,all_tasks_complete,irecvslot
  public :: print_cell_exchange_stats
 
  !
@@ -754,10 +759,12 @@ end subroutine finish_cellforce_exchange
 subroutine set_thread_complete(val)
  use omputils, only:omp_thread_num
  logical, intent(in) :: val
+ integer :: ith
 
+ ith = omp_thread_num() + 1 ! not inside the atomic: ifort -qopenmp has an internal error on it
  !$omp flush
  !$omp atomic write
- thread_complete(omp_thread_num()+1) = val
+ thread_complete(ith) = val
  !$omp flush
 
 end subroutine set_thread_complete
