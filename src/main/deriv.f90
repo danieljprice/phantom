@@ -207,7 +207,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  ! implicit radiation update
  !
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
-    call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+    call do_radiation_implicit(dt,time,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0 .and. ierr /= ierr_failed_to_converge) call fatal('radiation','Failed in radiation')
     call do_timing('radiation',tlast,tcpulast)
  endif
@@ -286,9 +286,10 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                         Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                         dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr,&
-                        apr_level,sync_aprmassoftype
+                        apr_level,sync_aprmassoftype,itlastrad
  use timing,       only:printused,getused
  use io,           only:id,master
+ use dim,          only:do_radiation
  use cons2prim,    only:prim2consall
  use metric_tools, only:init_metric
  real(kind=4), intent(out), optional :: tused
@@ -315,6 +316,9 @@ subroutine get_derivs_global(tused,dt_new,dt,icall)
 
  ! masses at each refinement level, in case massoftype has been changed
  call sync_aprmassoftype()
+
+ ! implicit radiation integrates each particle from its last update: make that one dt ago
+ if (do_radiation .and. dti > 0.) radprop(itlastrad,1:npart) = time - dti
 
  ! evaluate derivatives
  call derivs(icalli,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&

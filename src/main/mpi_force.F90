@@ -74,13 +74,22 @@ module mpiforce
     integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
  end type cellforce
 
+ type chunkforce
+    sequence
+    type(cellforce), pointer  :: cells(:) => null()
+ end type chunkforce
+
+ !
+ ! stack of cells, stored in chunks of chunksize cells that are allocated as required,
+ ! so the stack can grow from inside a parallel region without moving existing cells
+ !
  type stackforce
     sequence
-    type(cellforce), pointer  :: cells(:)
-    integer                   :: maxlength = 0
+    type(chunkforce), pointer :: chunks(:) => null()
+    integer                   :: chunksize = 0
+    integer                   :: maxlength = 0   ! number of cells that can be stored without growing
     integer                   :: n = 0
-    integer                   :: number
-    integer                   :: ibuffer   ! to avoid ifort error
+    integer                   :: ipad = 0        ! pads the type to a multiple of 8 bytes (ifort error #6380)
  end type stackforce
 
 contains

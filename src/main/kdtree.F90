@@ -1877,6 +1877,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  ! root is level 0
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
+ if (2**globallevel /= nprocs) call fatal('maketreeglobal','number of MPI tasks must be a power of 2')
 
  minlevel = maxdepth - 1
  maxlevel = 0

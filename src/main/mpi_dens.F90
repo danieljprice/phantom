@@ -72,13 +72,22 @@ module mpidens
     integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
+ type chunkdens
+    sequence
+    type(celldens), pointer   :: cells(:) => null()
+ end type chunkdens
+
+ !
+ ! stack of cells, stored in chunks of chunksize cells that are allocated as required,
+ ! so the stack can grow from inside a parallel region without moving existing cells
+ !
  type stackdens
     sequence
-    type(celldens), pointer   :: cells(:)
-    integer                   :: maxlength = 0
+    type(chunkdens), pointer  :: chunks(:) => null()
+    integer                   :: chunksize = 0
+    integer                   :: maxlength = 0   ! number of cells that can be stored without growing
     integer                   :: n = 0
-    integer                   :: number
-    integer                   :: idum     ! to avoid ifort warning
+    integer                   :: ipad = 0        ! pads the type to a multiple of 8 bytes (ifort error #6380)
  end type stackdens
 
 contains
