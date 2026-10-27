@@ -14,7 +14,7 @@ module testgravity
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, deriv, derivutils, dim, directsum, energies,
+! :Dependencies: checksetup, densityforce, deriv, derivutils, dim, directsum, energies,
 !   eos, io, kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree,
 !   options, part, physcon, ptmass, setdisc, setplummer, setup_params,
 !   shock_capturing, sort_particles, sortutils, spherical, table_utils,
@@ -93,10 +93,12 @@ subroutine test_gravity(ntests,npass,string)
 end subroutine test_gravity
 
 subroutine test_variable_mass_dynamics(ntests,npass)
- use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,ind_timesteps,maxdvdx,maxp,igradzeta,igradomega
+ use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,ind_timesteps,maxdvdx,maxp,igradzeta,igradomega, &
+              maxalpha,curlv
  use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
-               xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type,dvdx,gradh
+               xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type,dvdx,gradh,maxphase
  use deriv, only:get_derivs_global,get_density_global
+ use densityforce, only:get_density_at_pos
  use kernel, only:kernelname,wkern,grkern,cnormk,kernel_softening,radkern
  use options, only:ieos,alpha,alphau,tolh
  use eos, only:gamma,polyk
@@ -116,8 +118,8 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  real :: velocity(3,512),rho_base(512),rho_time(512,2),du(512),expected_du(512)
  real :: phi,softforce,q
  real :: count_error,count_sum,countnorm,rho_direct(512),volume_sum
- integer :: mode,field,a,b,viscprev,nfailed_grad(8)
- real :: exact_grad(3,3),gradient_sum(3,3),dr(3),dv(3),r,gcount,weight,grad_error
+ integer :: mode,field,a,b,viscprev,nfailed_grad(8),phaseprev,nfailed_pos(2)
+ real :: exact_grad(3,3),gradient_sum(3,3),dr(3),dv(3),r,gcount,weight,grad_error,rho_pos,pmassj
  integer, parameter :: probes(3) = [1,219,512]
 
  if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
@@ -197,11 +199,35 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  call checkval(sum(particle_mass(1:npart)),masssum,tol,nfailed(3),'mass survives tree construction')
  call checkval(maxval(abs(torque)),0.,tol,nfailed(7),'variable-mass gravity angular momentum conservation')
 
+ ! Position queries must also work without a particle-type array.
+ phaseprev = maxphase
+ maxphase = 0
+ nfailed_pos = 0
+ do mode=0,1
+    variable_mass = mode==1
+    do k=1,size(probes)
+       i = probes(k)
+       rhosum = 0.
+       do j=1,npart
+          q2 = sum((xyzh(1:3,i)-xyzh(1:3,j))**2)/xyzh(4,j)**2
+          pmassj = massoftype(igas)
+          if (variable_mass) pmassj = particle_mass(j)
+          rhosum = rhosum + pmassj*wkern(q2,sqrt(q2))*cnormk/xyzh(4,j)**3
+       enddo
+       call get_density_at_pos(xyzh(1:3,i),rho_pos,igas)
+       call checkval(rho_pos,rhosum,max(1.e-9,tol),nfailed_pos(mode+1),'single-phase density at position')
+    enddo
+ enddo
+ maxphase = phaseprev
+ variable_mass = .true.
+ call update_test_scores(ntests,nfailed_pos,npass)
+
  ! Test both exact-linear gradients and the SPH gradients used by physical viscosity.
  if (maxdvdx==maxp) then
     viscprev = irealvisc
     nfailed_grad = 0
     do mode=0,1
+       if (mode==0 .and. maxalpha/=maxp .and. .not.curlv) cycle
        irealvisc = mode
        do field=1,4
           exact_grad = 0.

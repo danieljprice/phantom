@@ -1965,6 +1965,7 @@ subroutine get_density_at_pos(x,rho,itype)
        ! Density, gradh and div v are only computed using
        ! neighbours of the same type
        !
+       iamtypej = itype
        if (maxphase==maxp) then
           iamtypej  = iamtype(iphase(j))
           same_type = ((itype == iamtypej) .or. (ibasetype(iamtypej)==itype))
