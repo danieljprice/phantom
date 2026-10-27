@@ -17,7 +17,7 @@ module checksetup
 ! :Dependencies: HIIRegion, apr, boundary, boundary_dyn, centreofmass, dim,
 !   dust, dust_formation, eos, extern_binary, externalforces, gravwaveutils, inject, io, kernel,
 !   metric, metric_tools, nicil, options, part, physcon, ptmass,
-!   ptmass_radiation, sortutils, timestep, units, utils_gr
+!   ptmass_radiation, sortutils, timestep, units, utils_gr, viscosity
 !
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan,ieee_is_finite
  implicit none
@@ -53,9 +53,11 @@ subroutine check_setup(nerror,nwarn,restart)
  use gravwaveutils,   only:calc_gravitwaves
  use ptmass,          only:icreate_sinks
  use kernel,          only:kernelname
+ use viscosity,       only:irealvisc
  use io,              only:id,master
  use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star, &
-                          iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_binary,iext_corot_binary
+                          iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_binary,iext_corot_binary, &
+                          iext_gwinspiral
  use extern_binary,   only:accradius2
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code,set_units
@@ -317,6 +319,10 @@ subroutine check_setup(nerror,nwarn,restart)
        print*, 'ERROR: variable masses require two_kernel=F'
        nerror = nerror + 1
     endif
+    if (irealvisc/=0) then
+       print*, 'ERROR: variable masses require irealvisc=0; physical viscous stresses/work are not supported'
+       nerror = nerror + 1
+    endif
     if (mpi .or. ind_timesteps) then
        print*, 'ERROR: variable masses require MPI=no and shared timesteps (IND_TIMESTEPS=no)'
        nerror = nerror + 1
@@ -332,8 +338,10 @@ subroutine check_setup(nerror,nwarn,restart)
     case(iext_binary,iext_corot_binary)
        external_accretion = accradius1 /= 0. .or. accradius2 /= 0.
     end select
-    if (inject_parts .or. icreate_sinks > 0 .or. nptmass > 0 .or. calc_gravitwaves .or. external_accretion) then
-       print*, 'ERROR: variable masses do not support injection, sinks, gravitational-wave diagnostics or external-force accretion'
+    if (inject_parts .or. icreate_sinks > 0 .or. nptmass > 0 .or. calc_gravitwaves .or. &
+        external_accretion .or. iexternalforce==iext_gwinspiral) then
+       print*, 'ERROR: variable masses do not support injection, sinks, gravitational-wave forces/diagnostics'// &
+               ' or external-force accretion'
        nerror = nerror + 1
     endif
     do i=1,npart

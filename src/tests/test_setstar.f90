@@ -18,7 +18,7 @@ module testsetstar
 !   energies, eos, extern_binary, externalforces, gravwaveutils, infile_utils, io, kernel, mpidomain, options, part,
 !   physcon, ptmass, radiation_utils, readwrite_dumps, readwrite_mesa, relaxstar, setstar,
 !   setstar_utils, sortutils, stellar_hcp, step_lf_global, table_utils,
-!   testutils, timestep, units, vectorutils
+!   testutils, timestep, units, vectorutils, viscosity
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -307,15 +307,16 @@ subroutine test_analytic_hcp(ntests,npass)
  use checksetup, only:check_setup
  use kernel, only:hfact_default,radkern,kernelname
  use externalforces, only:iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton, &
-                         iext_binary,iext_corot_binary,iext_staticsine
+                         iext_binary,iext_corot_binary,iext_staticsine,iext_gwinspiral
  use extern_binary, only:accradius1,accradius2
  use readwrite_dumps, only:write_fulldump
+ use viscosity, only:irealvisc
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
  type(star_t) :: star,companion,stars(2)
- integer :: ierr,nfailed(8),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(7),maxpenetrated
+ integer :: ierr,nfailed(10),ieosprev,nfailed_pressure(4),maxits_saved,nfailed_relax(5),nsteps,nfailed_free(7),maxpenetrated
  integer(kind=8) :: ntot
- integer :: nfirst,nerror,nwarn,nfailed_pair(7),sinkcreate_saved,external_saved,i,iu,nfailed_accretion(10)
+ integer :: nfirst,nerror,nwarn,nfailed_pair(9),sinkcreate_saved,external_saved,i,iu,nfailed_accretion(14),visc_saved
  integer, parameter :: accretors(*) = [iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec, &
                                      iext_gnewton,iext_binary,iext_corot_binary]
  logical :: gravitwaves_saved,fourthorder_saved
@@ -369,12 +370,15 @@ subroutine test_analytic_hcp(ntests,npass)
     call checkval(nerror,1,0,nfailed(5),'unsupported kernel blocks individual-mass run')
     call check_setup(nerror,nwarn,restart=.true.)
     call checkval(nerror,1,0,nfailed(6),'unsupported kernel blocks individual-mass restart')
-    call update_test_scores(ntests,nfailed,npass)
+    call checkval(star%np_actual,npart,0,nfailed(7),'legacy setup records its actual particle count')
+    call update_test_scores(ntests,nfailed(1:7),npass)
     exit stellar_models
  endif
  nfailed = 0
  call checkval(ierr,0,0,nfailed(1),'analytic weighted HCP setup')
  call checkval(variable_mass,.true.,nfailed(2),'analytic HCP enables individual masses')
+ call checkval(star%np,2000,0,nfailed(9),'weighted HCP preserves the requested particle count')
+ call checkval(star%np_actual,npart,0,nfailed(10),'weighted HCP records its actual particle count')
  call checkval(npart > 0,.true.,nfailed(3),'analytic HCP contains particles')
  if (npart > 0) then
     call checkval(sum(particle_mass(1:npart)),1.,tol,nfailed(4),'analytic HCP stellar mass')
@@ -407,10 +411,25 @@ subroutine test_analytic_hcp(ntests,npass)
  accradius1 = 0.01
  call check_setup(nerror,nwarn,restart=.true.)
  call checkval(nerror,0,0,nfailed_accretion(10),'non-accreting external force ignores unused accretion radius')
+ iexternalforce = iext_gwinspiral
+ call check_setup(nerror,nwarn,restart=.true.)
+ call checkval(nerror,1,0,nfailed_accretion(11),'individual masses reject unsupported gravitational-wave inspiral')
  accradius1 = accretion_saved(1)
  accradius2 = accretion_saved(2)
  use_fourthorder = fourthorder_saved
  iexternalforce = 0
+ visc_saved = irealvisc
+ do i=1,2
+    irealvisc = i
+    call check_setup(nerror,nwarn,restart=.true.)
+    call checkval(nerror,1,0,nfailed_accretion(11+i),'individual masses reject unsupported physical viscosity')
+ enddo
+ companion = star
+ call set_star(id,master,companion,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
+               xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.true.,.false.,.false.,&
+               rhozero,ntot,i_belong,ierr,write_files=.false.)
+ call checkval(ierr,ierr_part,0,nfailed_accretion(14),'physical viscosity is rejected before stellar relaxation')
+ irealvisc = visc_saved
  call update_test_scores(ntests,nfailed_accretion,npass)
 
  ! Exercise the upstream asynchronous relaxer with fixed unequal masses and spin.
@@ -443,12 +462,14 @@ subroutine test_analytic_hcp(ntests,npass)
  icreate_sinks = 0
  call init_part()
  stars(1)%iprofile = 0
+ stars(1)%np_actual = 17
  call set_stars(id,master,1,stars,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,massoftype,hfact,&
                 xyzmh_ptmass,vxyz_ptmass,nptmass,2,gamma,0.7,0.02,.false.,.false.,.false.,&
                 rhozero,ntot,i_belong,ierr)
  call checkval(ierr,0,0,nfailed(4),'sink-profile setup is not a hard error')
  call checkval(npart,0,0,nfailed(5),'sink-profile setup creates no gas particles')
- call update_test_scores(ntests,nfailed(1:5),npass)
+ call checkval(stars(1)%np_actual,0,0,nfailed(6),'sink-profile setup resets its actual gas count')
+ call update_test_scores(ntests,nfailed(1:6),npass)
  call init_part()
  maxits_saved = maxits
  maxits = 4000
@@ -522,9 +543,11 @@ subroutine test_analytic_hcp(ntests,npass)
  nfailed = 0
  call checkval(ierr,0,0,nfailed(1),'current individual-mass relaxation dump can restart')
  call checkval(npart,size(masses),0,nfailed(2),'relaxation restart preserves particle count')
+ call checkval(star%np_actual,size(masses),0,nfailed(5),'regeneration retains the actual particle count')
+ call checkval(star%np,2000,0,nfailed(6),'restart keeps the requested resolution')
  call checkval(maxval(abs(xyzh(1:3,1:npart)-restart_xyz)),0.,tol,nfailed(3),'restart reads dump geometry')
  call checkval(all(particle_mass(1:npart)==masses),.true.,nfailed(4),'relaxation restart preserves individual masses')
- call update_test_scores(ntests,nfailed(1:4),npass)
+ call update_test_scores(ntests,nfailed(1:6),npass)
  open(newunit=iu,file='relaxtr_00000',status='old')
  close(iu,status='delete')
  star%label = ''
@@ -558,6 +581,8 @@ subroutine test_analytic_hcp(ntests,npass)
  call check_setup(nerror,nwarn)
  call checkval(nerror,0,0,nfailed_pair(5),'released unequal-mass pair passes setup checks')
  call checkval(all(xyzh(4,1:npart)>0.),.true.,nfailed_pair(6),'both stars unmasked after relaxation')
+ call checkval(star%np_actual,nfirst,0,nfailed_pair(8),'primary count agrees with the particle boundary')
+ call checkval(companion%np_actual,npart-nfirst,0,nfailed_pair(9),'companion has its own actual particle count')
  call checkval(maxval(abs(vxyzu(1:3,nfirst+1:npart))),0.,tol,nfailed_pair(7),'static companion has no inherited primary spin')
  call update_test_scores(ntests,nfailed_pair,npass)
  maxits = maxits_saved

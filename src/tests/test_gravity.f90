@@ -18,7 +18,8 @@ module testgravity
 !   eos, io, kdtree, kernel, mpibalance, mpidomain, mpiutils, neighkdtree,
 !   options, part, physcon, ptmass, setdisc, setplummer, setup_params,
 !   shock_capturing, sort_particles, sortutils, spherical, table_utils,
-!   testapr, testutils, timestep, timing, units, vectorutils
+!   testapr, testutils, timestep, timing, units, vectorutils, viscosity,
+!   volume_sph
 !
  use io, only:id,master
  implicit none
@@ -92,16 +93,18 @@ subroutine test_gravity(ntests,npass,string)
 end subroutine test_gravity
 
 subroutine test_variable_mass_dynamics(ntests,npass)
- use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,ind_timesteps
+ use dim, only:mpi,use_apr,use_dust,mhd,gr,do_radiation,maxvxyzu,ind_timesteps,maxdvdx,maxp,igradzeta,igradomega
  use part, only:init_part,npart,npartoftype,igas,massoftype,particle_mass,variable_mass,&
-               xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type
+               xyzh,vxyzu,fxyzu,rho,hfact,set_particle_type,dvdx,gradh
  use deriv, only:get_derivs_global,get_density_global
- use kernel, only:kernelname,wkern,cnormk,kernel_softening,radkern
+ use kernel, only:kernelname,wkern,grkern,cnormk,kernel_softening,radkern
  use options, only:ieos,alpha,alphau,tolh
  use eos, only:gamma,polyk
  use shock_capturing, only:beta
  use kdtree, only:tree_accuracy
  use vectorutils, only:cross_product3D
+ use viscosity, only:irealvisc
+ use volume_sph, only:rho0
  use testutils, only:checkval,update_test_scores
  real, parameter :: tol = max(1.e-12,64.*epsilon(1.))
  integer, intent(inout) :: ntests,npass
@@ -113,6 +116,8 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  real :: velocity(3,512),rho_base(512),rho_time(512,2),du(512),expected_du(512)
  real :: phi,softforce,q
  real :: count_error,count_sum,countnorm,rho_direct(512),volume_sum
+ integer :: mode,field,a,b,viscprev,nfailed_grad(8)
+ real :: exact_grad(3,3),gradient_sum(3,3),dr(3),dv(3),r,gcount,weight,grad_error
  integer, parameter :: probes(3) = [1,219,512]
 
  if (mpi.or.use_apr.or.use_dust.or.mhd.or.gr.or.do_radiation.or.ind_timesteps.or.maxvxyzu<4) return
@@ -191,6 +196,61 @@ subroutine test_variable_mass_dynamics(ntests,npass)
  call checkval(maxval(abs(fsum)),0.,tol,nfailed(2),'variable-mass gravity momentum conservation')
  call checkval(sum(particle_mass(1:npart)),masssum,tol,nfailed(3),'mass survives tree construction')
  call checkval(maxval(abs(torque)),0.,tol,nfailed(7),'variable-mass gravity angular momentum conservation')
+
+ ! Test both exact-linear gradients and the SPH gradients used by physical viscosity.
+ if (maxdvdx==maxp) then
+    viscprev = irealvisc
+    nfailed_grad = 0
+    do mode=0,1
+       irealvisc = mode
+       do field=1,4
+          exact_grad = 0.
+          select case(field)
+          case(2)
+             exact_grad(1,1) = -0.2
+             exact_grad(2,2) = -0.2
+             exact_grad(3,3) = -0.2
+          case(3)
+             exact_grad(1,2) = -0.2
+             exact_grad(2,1) = 0.2
+          case(4)
+             exact_grad(1,2) = 0.2
+          end select
+          do i=1,npart
+             vxyzu(1:3,i) = [0.3,-0.1,0.2] + matmul(exact_grad,xyzh(1:3,i))
+          enddo
+          call get_density_global(icall=1)
+          grad_error = 0.
+          do i=1,npart
+             gradient_sum = exact_grad
+             if (mode==1) then
+                gradient_sum = 0.
+                do j=1,npart
+                   if (i==j) cycle
+                   dr = xyzh(1:3,i)-xyzh(1:3,j)
+                   dv = vxyzu(1:3,i)-vxyzu(1:3,j)
+                   r = sqrt(sum(dr**2))
+                   q = r/xyzh(4,i)
+                   gcount = -6./radkern*min(q/radkern,1.)**2*(1.-min(q/radkern,1.)**3)
+                   weight = (particle_mass(j)*cnormk*grkern(q*q,q) + &
+                             real(gradh(igradzeta,i))*gradh(igradomega,i)*countnorm*gcount)/(rho0(i)*xyzh(4,i)**4)
+                   do a=1,3
+                      gradient_sum(a,:) = gradient_sum(a,:) - dv(a)*dr/r*weight
+                   enddo
+                enddo
+             endif
+             do a=1,3
+                do b=1,3
+                   grad_error = max(grad_error,abs(dvdx(3*(a-1)+b,i)-gradient_sum(a,b)))
+                enddo
+             enddo
+          enddo
+          call checkval(grad_error,0.,2.e-6,nfailed_grad(4*mode+field),'unequal-mass velocity gradient')
+       enddo
+    enddo
+    irealvisc = viscprev
+    call update_test_scores(ntests,nfailed_grad,npass)
+ endif
 
  ! Add pressure and non-uniform velocity; pair forces must still conserve momentum.
  do i=1,npart

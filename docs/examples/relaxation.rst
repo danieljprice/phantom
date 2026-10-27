@@ -85,6 +85,8 @@ Each star can have its own requested particle count. The actual count is the
 number of accepted lattice sites, not necessarily exactly ``npN``. Select
 ``weighted_hcp`` for all gas stars in a multiple-star setup. The default
 distribution and existing equal-mass setups are unchanged.
+Setup bookkeeping uses the actual count without changing the requested
+``npN``, so regenerating a model retains the same target resolution.
 
 The single-exponent construction follows the parent-star prescription in
 StarSmasher (revision ``140a5553f31c37c2d0d879728296c9a9afa82146``).
@@ -127,11 +129,13 @@ For a profile using a different convention, set ``hcp_profile_mass_unitN``
 MESA profile does not select the MESA equation of state.
 
 Continuous masses currently require Newtonian gas-only hydrodynamics,
-``MPI=no``, ``APR=no``, ``IND_TIMESTEPS=no`` and ``two_kernel=F``;
+``MPI=no``, ``APR=no``, ``IND_TIMESTEPS=no``, ``two_kernel=F`` and ``irealvisc=0``;
 OpenMP is supported.
-MHD, radiation transport, dust, sinks, injection and gravitational-wave
-diagnostics are not supported in this mode. Radiation pressure in the EOS
-is distinct from radiation transport. The existing asynchronous automatic relaxer
+MHD, radiation transport, dust, sinks, injection, gravitational-wave
+diagnostics and inspiral forces are not supported in this mode. Radiation
+pressure in the EOS is distinct from radiation transport. Physical viscous
+stresses and their work are not yet supported; artificial viscosity remains
+available. The existing asynchronous automatic relaxer
 supports both static and rigidly rotating models; there is no additional
 runtime damping mode. Verify each released stellar model in isolation.
 Use internal-energy evolution, not either entropy evolution variable.

@@ -186,8 +186,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
     vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
  elseif (nstar == 2 .and. (gwinspiral .or. iexternalforce==iext_gwinspiral)) then
-    Nstar_gw(1) = star(1)%np
-    Nstar_gw(2) = npart - star(1)%np
+    Nstar_gw(1) = star(1)%np_actual
+    Nstar_gw(2) = star(2)%np_actual
     iexternalforce = iext_gwinspiral
  elseif (nstar >= 1 .and. set_oblateness .and. star(1)%iprofile == 0) then
     ! set J2 for sink particle 1 to be equal to oblateness of Saturn

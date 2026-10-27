@@ -1130,7 +1130,7 @@ pure logical function use_wtot_sums()
  use dim,     only:use_apr
  use options, only:two_kernel
 
- use_wtot_sums = (use_apr .or. two_kernel)
+ use_wtot_sums = (use_apr .or. two_kernel .or. variable_mass)
 
 end function use_wtot_sums
 
@@ -1154,7 +1154,8 @@ end subroutine add_grad_tilde
 !+
 !  fold the grad Wtilde sums into the grad W sums using zeta/Omega,
 !  so that derivatives are normalised by C/(rho h^4) with no 1/Omega
-!  (Wtilde is the number density kernel, equal to W unless two_kernel)
+!  (Wtilde is the number density kernel, equal to W unless two_kernel
+!  or variable_mass uses a separate count kernel)
 !+
 !----------------------------------------------------------------
 pure subroutine fold_wtot_sums(rhosum,zeta,gradhi,cnorm_t)
@@ -1856,7 +1857,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
        if (use_wtot_sums()) then
           ! grad W + (zeta/Omega) grad Wtilde/m_j, normalised by C/(rho h^4)
-          if (two_kernel) then
+          if (variable_mass) then
+             call fold_wtot_sums(rhosum,zeta,gradhi,cnorm_count)
+          elseif (two_kernel) then
              call fold_wtot_sums(rhosum,zeta,gradhi,cnormk_tilde)
           else
              call fold_wtot_sums(rhosum,zeta,gradhi,cnormk)

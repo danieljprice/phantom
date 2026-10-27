@@ -30,7 +30,8 @@ module setstar
 !
 ! :Dependencies: centreofmass, dim, eos, eos_piecewise, extern_densprofile,
 !   infile_utils, io, kernel, mpiutils, options, part, physcon, prompting,
-!   relaxstar, rho_profile, setstar_utils, unifdis, units, vectorutils
+!   relaxstar, rho_profile, setstar_utils, unifdis, units, vectorutils,
+!   viscosity
 !
  use setstar_utils, only:ikepler,imesa,iaton,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk,need_mu
@@ -45,7 +46,7 @@ module setstar
     integer :: isoftcore
     logical :: isinkcore
     integer :: isofteningopt
-    integer :: np
+    integer :: np,np_actual = 0
     character(len=20) :: m,r,rcore,mcore,lcore,hsoft,hacc
     character(len=20) :: spin_period = '0 hr'
     real :: r_code,m_code,rcore_code,mcore_code,hsoft_code,lcore_code,hacc_code
@@ -250,6 +251,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use mpiutils,           only:reduceall_mpi
  use options,            only:iexternalforce
  use kernel,             only:kernelname
+ use viscosity,          only:irealvisc
  type(star_t),    intent(inout) :: star
  integer,         intent(in)    :: id,master
  integer,         intent(inout) :: npart,npartoftype(:),nptmass
@@ -284,6 +286,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ star%np_actual = 0
  nptmass_old = nptmass
  write_dumps = .true.
  ierr = 0
@@ -296,6 +299,10 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                                         star%hsoft_code,star%lcore_code,star%hacc_code,nerr,omega)
  if (star%iprofile>0.and.star%particle_lattice=='weighted_hcp'.and.kernelname/='Wendland 2/3D C^4') &
     call fatal('set_star','individual particle masses require KERNEL=WendlandC4; rebuild with this kernel')
+ if (star%iprofile>0.and.star%particle_lattice=='weighted_hcp'.and.irealvisc/=0) then
+    call error('set_star','individual particle masses require irealvisc=0')
+    nerr = nerr + 1
+ endif
  if (omega /= 0. .and. .not.relax) then
     call error('set_star','non-zero spin_period requires automatic relaxation (relax=T)')
     nerr = nerr + 1
@@ -448,6 +455,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     ierr = ierr_part
     return
  endif
+ star%np_actual = int(reduceall_mpi('+',int(npart-npart_old,kind=8)))
 
  !
  ! set composition (X,Z,mu, if using variable composition)
