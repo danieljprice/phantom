@@ -83,6 +83,7 @@ module mpiderivs
  public :: send_cell_counts,finish_cell_counts,check_complete
  public :: all_threads_complete,all_tasks_complete,irecvslot
  public :: print_cell_exchange_stats
+ public :: record_send_wait
 
  !
  !--the counters are module variables, but must be passed through as arguments
@@ -123,6 +124,8 @@ module mpiderivs
  integer,         allocatable :: sendreq(:,:,:)
  integer,         allocatable :: nsendreq(:,:)
  integer,         allocatable :: lastbuf(:)  ! last send buffer used by each thread
+ ! wall time each thread has spent in send_cell waiting for a send buffer to be free
+ real(kind=4),    allocatable :: tsend_wait(:)
 
  logical, allocatable :: thread_complete(:)  ! whether each thread has finished sending
  integer :: ncomplete_mpi = 0                ! number of tasks whose cells have all been received
@@ -199,15 +202,16 @@ subroutine allocate_exchange_requests
 #endif
  endif
  if (allocated(sendreq)) then
-    if (size(sendreq,3) /= omp_num_threads) deallocate(sendreq,nsendreq,lastbuf,thread_complete)
+    if (size(sendreq,3) /= omp_num_threads) deallocate(sendreq,nsendreq,lastbuf,thread_complete,tsend_wait)
  endif
  if (.not.allocated(sendreq)) then
     allocate(sendreq(nprocs,nsendbufs,omp_num_threads),nsendreq(nsendbufs,omp_num_threads))
-    allocate(lastbuf(omp_num_threads),thread_complete(omp_num_threads))
+    allocate(lastbuf(omp_num_threads),thread_complete(omp_num_threads),tsend_wait(omp_num_threads))
  endif
  sendreq = null_request()
  nsendreq = 0
  lastbuf = 0
+ tsend_wait = 0.
  thread_complete = .false.
  ncomplete_mpi = 0
  if (.not.poll_lock_initialised) then
@@ -302,6 +306,7 @@ end subroutine init_celldens_exchange
 subroutine send_celldens(cell,targets,stack,counters)
  use io,       only:fatal
  use omputils, only:omp_thread_num
+ use timing,   only:get_timings
  use mpidens, only:stackdens,pack_celldens
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
@@ -309,13 +314,19 @@ subroutine send_celldens(cell,targets,stack,counters)
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  integer :: newproc,mpierr,ith,ibuf,n,nbuf
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 
  ith  = omp_thread_num() + 1
  ibuf = mod(lastbuf(ith),nsendbufs) + 1
  lastbuf(ith) = ibuf
 
  !--wait for the previous sends from this buffer, continuing to receive
- call complete_sends(ibuf,ith,stack,counters)
+ if (nsendreq(ibuf,ith) > 0) then
+    call get_timings(t1,tcpu1)
+    call complete_sends(ibuf,ith,stack,counters)
+    call get_timings(t2,tcpu2)
+    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ endif
 
  !--outbound if this task owns the cell, otherwise the results returned to the owner
  call pack_celldens(cell,(cell%owner == id),sendbuf_dens(:,ibuf,ith),nbuf)
@@ -559,6 +570,7 @@ end subroutine init_cellforce_exchange
 subroutine send_cellforce(cell,targets,stack,counters)
  use io,       only:fatal
  use omputils, only:omp_thread_num
+ use timing,   only:get_timings
  use mpiforce, only:stackforce,pack_cellforce
  type(cellforce),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
@@ -566,13 +578,19 @@ subroutine send_cellforce(cell,targets,stack,counters)
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  integer :: newproc,mpierr,ith,ibuf,n,nbuf
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 
  ith  = omp_thread_num() + 1
  ibuf = mod(lastbuf(ith),nsendbufs) + 1
  lastbuf(ith) = ibuf
 
  !--wait for the previous sends from this buffer, continuing to receive
- call complete_sends(ibuf,ith,stack,counters)
+ if (nsendreq(ibuf,ith) > 0) then
+    call get_timings(t1,tcpu1)
+    call complete_sends(ibuf,ith,stack,counters)
+    call get_timings(t2,tcpu2)
+    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ endif
 
  !--outbound if this task owns the cell, otherwise the results returned to the owner
  call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf)
@@ -1029,9 +1047,9 @@ subroutine print_cell_exchange_stats(iunit,nsteps)
  use io,         only:master
  use mpiutils,   only:reduceall_mpi,ncollectives
  use mpimemory,  only:dens_stack_1,dens_stack_2,dens_stack_3,force_stack_1,force_stack_2
- use mpibalance, only:nmigrated,nbalance_calls
+ use mpibalance, only:nmigrated,nbalance_calls,nbalance_skipped
  integer, intent(in) :: iunit,nsteps
- integer(kind=8) :: nsent(3),nrecv(3),ncalls,nrounds,nmoved,nbal,ncoll
+ integer(kind=8) :: nsent(3),nrecv(3),ncalls,nrounds,nmoved,nbal,nskip,ncoll
  real(kind=8)    :: mbrecv(3)
  integer         :: maxstack
 
@@ -1045,6 +1063,7 @@ subroutine print_cell_exchange_stats(iunit,nsteps)
  nrounds = reduceall_mpi('max',ndens_rounds)
  nmoved  = reduceall_mpi('+',nmigrated)
  nbal    = reduceall_mpi('max',nbalance_calls)
+ nskip   = reduceall_mpi('max',nbalance_skipped)
  ncoll   = reduceall_mpi('max',ncollectives)
  if (id==master) then
     write(iunit,"(1x,a,3(1x,i12))")   'MPI cells sent per task     (min,mean,max):',nsent
@@ -1053,8 +1072,8 @@ subroutine print_cell_exchange_stats(iunit,nsteps)
     write(iunit,"(1x,a,i12)")         'MPI largest stack size (cells):',maxstack
     if (ncalls > 0) write(iunit,"(1x,a,f8.2)") 'MPI remote density rounds per call:',real(nrounds)/real(ncalls)
     if (nsteps > 0) write(iunit,"(1x,a,f10.1)") 'MPI collectives per step (max over tasks):',real(ncoll)/real(nsteps)
-    if (nbal > 0)   write(iunit,"(1x,a,f12.1,a,i8,a)") 'MPI particles migrated per balance call:', &
-                                                        real(nmoved)/real(nbal),' (',nbal,' calls)'
+    if (nbal > nskip) write(iunit,"(1x,a,f12.1,a,i8,a,i8,a)") 'MPI particles migrated per balance call:', &
+                      real(nmoved)/real(nbal-nskip),' (',nbal,' calls,',nskip,' skipped)'
     write(iunit,*)
  endif
  ncells_sent = 0
@@ -1065,6 +1084,7 @@ subroutine print_cell_exchange_stats(iunit,nsteps)
  ndens_rounds = 0
  nmigrated = 0
  nbalance_calls = 0
+ nbalance_skipped = 0
  ncollectives = 0
 
 end subroutine print_cell_exchange_stats
@@ -1096,6 +1116,25 @@ pure integer function irecvslot(islot,iproc)
  irecvslot = islot + nrecvslots*(iproc - 1)
 
 end function irecvslot
+
+!----------------------------------------------------------------
+!+
+!  add the time threads spent waiting for send buffers since the
+!  last call to a timer, then reset it (called by one thread).
+!  The wall time recorded is that of the thread that waited longest,
+!  the cpu time is the sum over threads, so cpu/wall is the effective
+!  number of threads waiting.
+!+
+!----------------------------------------------------------------
+subroutine record_send_wait(itimer)
+ use timing, only:increment_timer
+ integer, intent(in) :: itimer
+
+ if (.not.allocated(tsend_wait)) return
+ call increment_timer(itimer,maxval(tsend_wait),sum(tsend_wait))
+ tsend_wait = 0.
+
+end subroutine record_send_wait
 
 !----------------------------------------------------------------
 !+

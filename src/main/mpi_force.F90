@@ -34,7 +34,7 @@ module mpiforce
  ! outbound (to the task with neighbours) the particle data, and on return
  ! (to the owner) the partial sums, both for the npcell particles only
  !
- integer, parameter, public :: maxpack_cellforce = max(8 + minpart*(maxxpartveciforce + 2), &
+ integer, parameter, public :: maxpack_cellforce = max(8 + minpart*(maxxpartveciforce + 3), &
                                                        26 + minpart*(maxfsum + 3))
  ! particle values sent outbound: the metric values at the end of xpartvec only with GR
  integer, parameter :: nxpartvec_pack = maxxpartveciforce - merge(0,maxxpartvecGR,gr)
@@ -294,6 +294,7 @@ subroutine pack_cellforce(cell,outbound,buf,n)
     call put_reals(buf,n,reshape(cell%xpartvec(1:nxpartvec_pack,1:np),(/nxpartvec_pack*np/)))
     call put_reals(buf,n,real(cell%iphase(1:np)))
     call put_reals(buf,n,real(cell%apr(1:np)))
+    call put_reals(buf,n,real(cell%arr_index(1:np)))
  else
     call put_reals(buf,n,reshape(cell%fsums(:,1:np),(/size(cell%fsums,1)*np/)))
     call put_reals(buf,n,cell%fgrav)
@@ -338,7 +339,8 @@ subroutine unpack_cellforce(buf,outbound,cell,n)
     cell%iphase(1:np) = int(tmp(1:np),kind=1)
     call get_reals(buf,n,tmp(1:np))
     cell%apr(1:np) = int(tmp(1:np),kind=1)
-    cell%arr_index(1:np) = 0  ! only meaningful on the owner
+    call get_reals(buf,n,tmp(1:np))
+    cell%arr_index(1:np) = nint(tmp(1:np))  ! the same on every task for sinks only
     cell%ndrag   = 0
     cell%nstokes = 0
     cell%nsuper  = 0

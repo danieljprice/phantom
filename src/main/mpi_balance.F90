@@ -31,8 +31,9 @@ module mpibalance
  public :: deallocate_balance_arrays
  public :: balancedomains
 
- ! particles sent to other tasks and calls to balancedomains, for the MPI statistics
- integer(kind=8), public :: nmigrated = 0, nbalance_calls = 0
+ ! particles sent to other tasks, and calls to balancedomains (in total and skipped
+ ! because no particles needed to move), for the MPI statistics
+ integer(kind=8), public :: nmigrated = 0, nbalance_calls = 0, nbalance_skipped = 0
 
  private
 
@@ -115,7 +116,13 @@ subroutine balancedomains(npart)
  gotpart = .false.
 
  ! Balance is only necessary when there are more than 1 MPI tasks
+ ! and some task has particles to send or dead particles to remove
  if (nprocs > 1) then
+    nbalance_calls = nbalance_calls + 1
+    if (reduceall_mpi('max',nparts_to_move(npart)) == 0) then
+       nbalance_skipped = nbalance_skipped + 1
+       return
+    endif
 
     if (id==master .and. iverbose >= 3) call getused(tstart)
     if (id==master .and. iverbose >= 5) print*,'starting balance',npart
@@ -164,7 +171,6 @@ subroutine balancedomains(npart)
     endif
     call balance_finish(npart)
     nmigrated = nmigrated + sum(nsent(1:nprocs))
-    nbalance_calls = nbalance_calls + 1
     ! ndead = count_dead_particles()
     ! print*,' thread ',id,' before shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead,ideadhead
     call shuffle_part(npart)
@@ -189,6 +195,31 @@ subroutine balancedomains(npart)
  endif
 #endif
 end subroutine balancedomains
+
+#ifdef MPI
+!----------------------------------------------------------------
+!+
+!  number of particles on this task that belong to another task,
+!  plus one if there are dead particles to be removed
+!+
+!----------------------------------------------------------------
+integer function nparts_to_move(npart)
+ use io,   only:id
+ use part, only:ibelong,ideadhead
+ integer, intent(in) :: npart
+ integer :: i,n
+
+ n = 0
+ !$omp parallel do default(none) shared(npart,ibelong,id) private(i) reduction(+:n)
+ do i=1,npart
+    if (ibelong(i) /= id) n = n + 1
+ enddo
+ !$omp end parallel do
+ if (ideadhead /= 0) n = n + 1
+ nparts_to_move = n
+
+end function nparts_to_move
+#endif
 
 #ifdef MPI
 !----------------------------------------------------------------

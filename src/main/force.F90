@@ -233,14 +233,15 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use dust,         only:drag_implicit
  use nicil,        only:nimhd_get_jcbcb
- use mpiderivs,    only:send_cell,recv_cells,init_cell_exchange,&
+ use mpiderivs,    only:send_cell,recv_cells,init_cell_exchange,record_send_wait,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
  use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,&
-                        itimer_force_lcomp,itimer_force_rcomp
+                        itimer_force_lcomp,itimer_force_rcomp,&
+                        itimer_force_lsend,itimer_force_rsend
  use eos,          only:iresistive_heating
 
  integer,         intent(in)    :: icall,npart
@@ -558,7 +559,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp enddo
  !$omp single
  call get_timings(tc2,tcpuc2)
- if (mpi) call increment_timer(itimer_force_lcomp,tc2-t1,tcpuc2-tcpu1)
+ if (mpi) then
+    call increment_timer(itimer_force_lcomp,tc2-t1,tcpuc2-tcpu1)
+    call record_send_wait(itimer_force_lsend)
+ endif
  !$omp end single
 
 
@@ -602,6 +606,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp single
     call get_timings(tc2,tcpuc2)
     call increment_timer(itimer_force_rcomp,tc2-tc1,tcpuc2-tcpuc1)
+    call record_send_wait(itimer_force_rsend)
     !$omp end single
 
     !$omp single
@@ -2635,11 +2640,12 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        gradhi = 0.
        gradsofti = 0.
     endif
-    !--particle index is only known on the owner (used to exclude self and store gradP)
-    if (cell%owner /= id) then
-       i = 0
-    elseif (iamsinki) then
+    !--sink indices are the same on every task (used to flag sink pairs in shortsinktree);
+    !  gas indices are only known on the owner (used to exclude self and store gradP)
+    if (iamsinki) then
        i = cell%arr_index(ip)
+    elseif (cell%owner /= id) then
+       i = 0
     else
        i = inodeparts(cell%arr_index(ip))
     endif

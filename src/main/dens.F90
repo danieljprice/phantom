@@ -138,14 +138,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpimemory,   only:stack_waiting => dens_stack_2
  use mpimemory,   only:stack_redo    => dens_stack_3
  use mpidens,     only:nrhosum_pack
- use mpiderivs,   only:send_cell,recv_cells,init_cell_exchange,&
+ use mpiderivs,   only:send_cell,recv_cells,init_cell_exchange,record_send_wait,&
                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,&
                        ndens_calls,ndens_rounds
  use timestep,    only:rhomaxnow
  use viscosity,   only:irealvisc
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote,&
-                       itimer_dens_lcomp,itimer_dens_rcomp
+                       itimer_dens_lcomp,itimer_dens_rcomp,&
+                       itimer_dens_lsend,itimer_dens_rsend
 
  integer,         intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in)    :: apr_level(:)
@@ -370,7 +371,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  !$omp enddo
  !$omp single
  call get_timings(tc2,tcpuc2)
- if (mpi) call increment_timer(itimer_dens_lcomp,tc2-t1,tcpuc2-tcpu1)
+ if (mpi) then
+    call increment_timer(itimer_dens_lcomp,tc2-t1,tcpuc2-tcpu1)
+    call record_send_wait(itimer_dens_lsend)
+ endif
  !$omp end single
 
 
@@ -429,6 +433,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        !$omp single
        call get_timings(tc2,tcpuc2)
        call increment_timer(itimer_dens_rcomp,tc2-tc1,tcpuc2-tcpuc1)
+       call record_send_wait(itimer_dens_rsend)
        !$omp end single
 
        !$omp single
