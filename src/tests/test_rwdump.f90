@@ -246,7 +246,8 @@ subroutine test_rwdump(ntests,npass)
     endif
     if (itest==1) then  ! iorig is not dumped to small dumps
        call checkval(iorig(2),    int(ngas   ,kind=8), 0,nfailed(65),'iorig(2)')
-       call checkval(iorig(ngas), int(npart+1,kind=8), 0,nfailed(66),'iorig(ngas)')
+       ! new IDs are offset by the task number, so they are unique across tasks
+       call checkval(iorig(ngas), int(npart+1+id,kind=8), 0,nfailed(66),'iorig(ngas)')
        call checkval(iorig(npart),int(npart  ,kind=8), 0,nfailed(67),'iorig(N)')
     endif
 
