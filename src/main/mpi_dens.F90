@@ -26,6 +26,19 @@ module mpidens
  public :: stackdens
  public :: get_mpitype_of_celldens
  public :: free_mpitype_of_celldens
+ public :: pack_celldens,unpack_celldens
+ public :: put_reals,get_reals
+
+ !
+ ! cells are sent as real buffers holding only what the other task needs:
+ ! outbound (to the task with neighbours) the particle data, and on return
+ ! (to the owner) the partial sums, both for the npcell particles only
+ !
+ integer, parameter, public :: maxpack_celldens = max(8 + minpart*(maxxpartvecidens + 3), &
+                                                      5 + minpart*(maxrhosum + 1))
+ ! number of density sums to return, set by densityiterate: the sums at the end
+ ! of rhosum are only accumulated with unequal masses, otherwise they are zero
+ integer, public :: nrhosum_pack = maxrhosum
 
  integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
@@ -253,5 +266,116 @@ subroutine free_mpitype_of_celldens(dtype)
 #endif
 
 end subroutine free_mpitype_of_celldens
+
+!-----------------------------------------------------------------------
+!+
+!  pack a cell into a real buffer: header (npcell, owner, waiting_index),
+!  then either the particle data (outbound) or the density sums (return)
+!+
+!-----------------------------------------------------------------------
+subroutine pack_celldens(cell,outbound,buf,n)
+ type(celldens), intent(in)  :: cell
+ logical,        intent(in)  :: outbound
+ real,           intent(out) :: buf(:)
+ integer,        intent(out) :: n
+ integer :: np
+
+ np = cell%npcell
+ n  = 0
+ call put_reals(buf,n,real((/np,cell%owner,cell%waiting_index/)))
+ if (outbound) then
+    call put_reals(buf,n,(/cell%xpos,cell%xsizei,cell%rcuti/))
+    call put_reals(buf,n,cell%h(1:np))
+    call put_reals(buf,n,reshape(cell%xpartvec(:,1:np),(/size(cell%xpartvec,1)*np/)))
+    call put_reals(buf,n,real(cell%iphase(1:np)))
+    call put_reals(buf,n,real(cell%apr(1:np)))
+ else
+    call put_reals(buf,n,(/real(nrhosum_pack)/))
+    call put_reals(buf,n,reshape(cell%rhosums(1:nrhosum_pack,1:np),(/nrhosum_pack*np/)))
+    call put_reals(buf,n,real(cell%nneigh(1:np)))
+    call put_reals(buf,n,(/real(cell%nneightry)/))
+ endif
+
+end subroutine pack_celldens
+
+!-----------------------------------------------------------------------
+!+
+!  unpack a cell packed by pack_celldens; n returns the number of reals
+!  read. Fields that are not sent are set for a cell computed remotely.
+!+
+!-----------------------------------------------------------------------
+subroutine unpack_celldens(buf,outbound,cell,n)
+ real,           intent(in)    :: buf(:)
+ logical,        intent(in)    :: outbound
+ type(celldens), intent(inout) :: cell
+ integer,        intent(out)   :: n
+ real    :: hdr(3),geom(5),tmp(minpart),one(1)
+ integer :: np,nx
+
+ n = 0
+ call get_reals(buf,n,hdr)
+ np = nint(hdr(1))
+ cell%npcell        = np
+ cell%owner         = nint(hdr(2))
+ cell%waiting_index = nint(hdr(3))
+ if (outbound) then
+    nx = size(cell%xpartvec,1)
+    call get_reals(buf,n,geom)
+    cell%xpos   = geom(1:3)
+    cell%xsizei = geom(4)
+    cell%rcuti  = geom(5)
+    call get_reals(buf,n,cell%h(1:np))
+    cell%xpartvec(:,1:np) = reshape(buf(n+1:n+nx*np),(/nx,np/))
+    n = n + nx*np
+    call get_reals(buf,n,tmp(1:np))
+    cell%iphase(1:np) = int(tmp(1:np),kind=1)
+    call get_reals(buf,n,tmp(1:np))
+    cell%apr(1:np) = int(tmp(1:np),kind=1)
+    cell%arr_index(1:np) = 0  ! only meaningful on the owner
+    cell%nits      = 0
+    cell%nneightry = 0
+ else
+    call get_reals(buf,n,one)
+    nx = nint(one(1))
+    cell%rhosums(1:nx,1:np) = reshape(buf(n+1:n+nx*np),(/nx,np/))
+    cell%rhosums(nx+1:,1:np) = 0.
+    n = n + nx*np
+    call get_reals(buf,n,tmp(1:np))
+    cell%nneigh(1:np) = nint(tmp(1:np))
+    call get_reals(buf,n,one)
+    cell%nneightry = nint(one(1))
+ endif
+
+end subroutine unpack_celldens
+
+!-----------------------------------------------------------------------
+!+
+!  append values to a buffer, advancing the position n
+!+
+!-----------------------------------------------------------------------
+pure subroutine put_reals(buf,n,vals)
+ real,    intent(inout) :: buf(:)
+ integer, intent(inout) :: n
+ real,    intent(in)    :: vals(:)
+
+ buf(n+1:n+size(vals)) = vals
+ n = n + size(vals)
+
+end subroutine put_reals
+
+!-----------------------------------------------------------------------
+!+
+!  read values from a buffer, advancing the position n
+!+
+!-----------------------------------------------------------------------
+pure subroutine get_reals(buf,n,vals)
+ real,    intent(in)    :: buf(:)
+ integer, intent(inout) :: n
+ real,    intent(out)   :: vals(:)
+
+ vals = buf(n+1:n+size(vals))
+ n = n + size(vals)
+
+end subroutine get_reals
 
 end module mpidens

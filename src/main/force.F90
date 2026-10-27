@@ -239,7 +239,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
- use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
+ use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,&
+                        itimer_force_lcomp,itimer_force_rcomp
  use eos,          only:iresistive_heating
 
  integer,         intent(in)    :: icall,npart
@@ -299,6 +300,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  logical                   :: remote_export(nprocs),do_export
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
+ real(kind=4)              :: tc1,tcpuc1,tc2,tcpuc2 ! start and end of the compute loops
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -484,7 +486,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t1) &
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
-!$omp shared(tcpu2)
+!$omp shared(tcpu2) &
+!$omp shared(tc1,tcpuc1,tc2,tcpuc2)
 
  call init_cell_exchange(stack_remote)
 
@@ -553,6 +556,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  enddo over_cells
  !$omp enddo
+ !$omp single
+ call get_timings(tc2,tcpuc2)
+ if (mpi) call increment_timer(itimer_force_lcomp,tc2-t1,tcpuc2-tcpu1)
+ !$omp end single
 
 
  if (mpi) then
@@ -568,6 +575,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp barrier
 
  igot_remote: if (mpi .and. stack_remote%n > 0) then
+    !$omp single
+    call get_timings(tc1,tcpuc1)
+    !$omp end single
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = get_cell(stack_remote,i)
@@ -589,6 +599,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     enddo over_remote
     !$omp enddo
+    !$omp single
+    call get_timings(tc2,tcpuc2)
+    call increment_timer(itimer_force_rcomp,tc2-tc1,tcpuc2-tcpuc1)
+    !$omp end single
 
     !$omp single
     stack_remote%n = 0
@@ -700,6 +714,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 #endif
 !$omp end parallel
+
 
  if (mpi) then
     if (use_sinktree) then
@@ -1187,7 +1202,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravyi = 0.
  fgravzi = 0.
  if (icooling == 9) then
-    gradP_cool(i) = 0.
+    if (ignoreself) gradP_cool(i) = 0.   ! only on the owner of particle i
     gradpx = 0.
     gradpy = 0.
     gradpz = 0.
@@ -2062,7 +2077,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
- if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
+ if (icooling == 9 .and. ignoreself) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
 
 end subroutine compute_forces
 
@@ -2619,9 +2634,16 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        if (hi == 0.) hi1 = 0
        gradhi = 0.
        gradsofti = 0.
+    endif
+    !--particle index is only known on the owner (used to exclude self and store gradP)
+    if (cell%owner /= id) then
+       i = 0
+    elseif (iamsinki) then
        i = cell%arr_index(ip)
     else
        i = inodeparts(cell%arr_index(ip))
+    endif
+    if (.not.iamsinki) then
        if (cell%xpartvec(igradhi1,ip) > 0.) then
           gradhi = cell%xpartvec(igradhi1,ip)
        else

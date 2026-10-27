@@ -14,11 +14,12 @@ module mpitree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, dtypekdtree, io, mpi
+! :Dependencies: allocutils, dim, dtypekdtree, io, mpi, mpiutils
 !
 
 #ifdef MPI
  use mpi
+ use mpiutils,       only:count_collective
 #endif
  use io,             only:id,nprocs
 
@@ -130,7 +131,9 @@ subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
 
  cofmpart = xyzcofm * totmass_node
  call MPI_ALLREDUCE(totmass_node,totmassg,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
+ call count_collective
  call MPI_ALLREDUCE(cofmpart,cofmsum,3,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
+ call count_collective
  cofmsum = cofmsum / totmassg
 #else
  cofmsum = xyzcofm*totmass_node
@@ -161,10 +164,13 @@ function reduce_group_real(x,string,level) result(xg)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MAX,comm_cofm(level+1),mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MIN,comm_cofm(level+1),mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -192,10 +198,13 @@ function reduce_group_int(x,string,level) result(xg)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_SUM,comm_cofm(level+1),mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MAX,comm_cofm(level+1),mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MIN,comm_cofm(level+1),mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -235,6 +244,7 @@ subroutine tree_sync(node_in,n_in,node_synced,n_synced,ifirstingroup,level)
        call MPI_ALLGATHER(node_in,n_in,dtype_kdnode, &
                           node_synced,n_in,dtype_kdnode, &
                           comm_owner(level+1),mpierr)
+       call count_collective
     endif
  endif
 #endif
@@ -260,6 +270,7 @@ subroutine tree_bcast(node, nnode, level)
  call get_mpitype_of_kdnode(dtype_kdnode)
  ! the bcast root is relative to the communicator (i.e. it needs to be 0, not ifirstingroup)
  call MPI_BCAST(node, nnode, dtype_kdnode, 0, comm_cofm(level+1), mpierr)
+ call count_collective
 #endif
 
 end subroutine tree_bcast

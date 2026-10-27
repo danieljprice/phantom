@@ -27,16 +27,16 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, mpi, mpidens, mpiforce, mpimemory,
-!   mpiutils, omputils, timing
+! :Dependencies: allocutils, dim, io, mpi, mpibalance, mpidens, mpiforce,
+!   mpimemory, mpiutils, omputils, timing
 !
 #ifdef MPI
  use mpi
 #endif
  use io,             only:id,nprocs
- use mpiutils,       only:comm_cellexchange,comm_cellcount
- use mpidens,        only:celldens
- use mpiforce,       only:cellforce
+ use mpiutils,       only:comm_cellexchange,comm_cellcount,MPI_DEFAULT_REAL
+ use mpidens,        only:celldens,maxpack_celldens
+ use mpiforce,       only:cellforce,maxpack_cellforce
 
  implicit none
  interface init_cell_exchange
@@ -101,21 +101,25 @@ module mpiderivs
  integer, allocatable :: countrequest(:)     ! receives of the number of cells sent by each task
  integer, allocatable :: countsendrequest(:) ! sends of the number of cells sent to each task
  integer, allocatable :: countsent(:)        ! send buffer for the number of cells sent to each task
- integer :: dtype_dens  = -1                 ! MPI datatypes for celldens and cellforce,
- integer :: dtype_force = -1                 ! created once and reused
- integer(kind=8) :: ncells_sent = 0, ncells_recv = 0 ! cells sent and received since last summary
+ integer(kind=8) :: ncells_sent = 0                  ! cells sent since last summary
+ integer(kind=8) :: ncells_recv_dens = 0, ncells_recv_force = 0 ! cells received since last summary
+ integer(kind=8) :: nreals_recv = 0                  ! reals received since last summary
+
+ ! calls to densityiterate and rounds of remote density iterations since the last summary
+ integer(kind=8), public :: ndens_calls = 0, ndens_rounds = 0
 
  ! receive buffers and requests, shared by all threads: (slot, source task)
- type(celldens),  allocatable :: recvbuf_dens(:,:)
- type(cellforce), allocatable :: recvbuf_force(:,:)
+ ! cells travel packed into real buffers: (value, slot, source task)
+ real,            allocatable :: recvbuf_dens(:,:,:)
+ real,            allocatable :: recvbuf_force(:,:,:)
  ! receive requests in a 1D array, as MPI_TESTSOME requires: request islot from
  ! task iproc is recvreq(irecvslot(islot,iproc))
  integer,         allocatable :: recvreq(:)
  integer,         allocatable :: recvstatus(:,:) ! statuses returned by MPI_TESTSOME
  ! send buffers for each thread: (buffer, thread), and for each buffer the
  ! requests of the sends in progress: (request, buffer, thread) and their number
- type(celldens),  allocatable :: sendbuf_dens(:,:)
- type(cellforce), allocatable :: sendbuf_force(:,:)
+ real,            allocatable :: sendbuf_dens(:,:,:)   ! (value, buffer, thread)
+ real,            allocatable :: sendbuf_force(:,:,:)
  integer,         allocatable :: sendreq(:,:,:)
  integer,         allocatable :: nsendreq(:,:)
  integer,         allocatable :: lastbuf(:)  ! last send buffer used by each thread
@@ -257,26 +261,25 @@ end subroutine release_polling
 !+
 !----------------------------------------------------------------
 subroutine init_celldens_exchange(stack)
- use mpidens, only:stackdens,get_mpitype_of_celldens
+ use mpidens, only:stackdens
  type(stackdens), intent(inout) :: stack
 #ifdef MPI
  integer :: iproc,islot,mpierr
 #endif
 
  !$omp single
- if (dtype_dens == -1) call get_mpitype_of_celldens(dtype_dens)
  call allocate_exchange_requests
- if (.not.allocated(recvbuf_dens)) allocate(recvbuf_dens(nrecvslots,nprocs))
- if (.not.allocated(sendbuf_dens)) allocate(sendbuf_dens(nsendbufs,size(sendreq,3)))
- if (size(sendbuf_dens,2) /= size(sendreq,3)) then
+ if (.not.allocated(recvbuf_dens)) allocate(recvbuf_dens(maxpack_celldens,nrecvslots,nprocs))
+ if (.not.allocated(sendbuf_dens)) allocate(sendbuf_dens(maxpack_celldens,nsendbufs,size(sendreq,3)))
+ if (size(sendbuf_dens,3) /= size(sendreq,3)) then
     deallocate(sendbuf_dens)
-    allocate(sendbuf_dens(nsendbufs,size(sendreq,3)))
+    allocate(sendbuf_dens(maxpack_celldens,nsendbufs,size(sendreq,3)))
  endif
 #ifdef MPI
  !$omp critical (mpi_cell_exchange)
  do iproc=1,nprocs
     do islot=1,nrecvslots
-       call MPI_IRECV(recvbuf_dens(islot,iproc),1,dtype_dens,iproc-1,MPI_ANY_TAG,&
+       call MPI_IRECV(recvbuf_dens(1,islot,iproc),maxpack_celldens,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
                       comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     enddo
  enddo
@@ -295,13 +298,13 @@ end subroutine init_celldens_exchange
 subroutine send_celldens(cell,targets,stack,counters)
  use io,       only:fatal
  use omputils, only:omp_thread_num
- use mpidens, only:stackdens
+ use mpidens, only:stackdens,pack_celldens
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
  type(stackdens), intent(inout) :: stack
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
- integer :: newproc,mpierr,ith,ibuf,n
+ integer :: newproc,mpierr,ith,ibuf,n,nbuf
 
  ith  = omp_thread_num() + 1
  ibuf = mod(lastbuf(ith),nsendbufs) + 1
@@ -310,13 +313,14 @@ subroutine send_celldens(cell,targets,stack,counters)
  !--wait for the previous sends from this buffer, continuing to receive
  call complete_sends(ibuf,ith,stack,counters)
 
- sendbuf_dens(ibuf,ith) = cell
+ !--outbound if this task owns the cell, otherwise the results returned to the owner
+ call pack_celldens(cell,(cell%owner == id),sendbuf_dens(:,ibuf,ith),nbuf)
  n = 0
  !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        n = n + 1
-       call MPI_ISEND(sendbuf_dens(ibuf,ith),1,dtype_dens,newproc,1,comm_cellexchange,&
+       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,1,comm_cellexchange,&
                       sendreq(n,ibuf,ith),mpierr)
        if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
        !$omp atomic
@@ -362,13 +366,15 @@ end subroutine complete_sends_dens
 subroutine recv_celldens(target_stack,counters)
  use io,        only:fatal
  use mpimemory, only:push_onto_stack,get_cell_ptr
- use mpidens, only:stackdens
+ use mpidens, only:stackdens,unpack_celldens
  type(stackdens), intent(inout) :: target_stack
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  type(celldens),  pointer :: target_cell
+ type(celldens)           :: cell
  integer :: indices(nrecvslots*nprocs)
- integer :: nout,k,islot,iproc,mpierr
+ integer :: nout,k,islot,iproc,mpierr,nbuf
+ logical :: returned
 
  nout = 0
  mpierr = 0
@@ -385,16 +391,21 @@ subroutine recv_celldens(target_stack,counters)
  do k=1,nout
     islot = mod(indices(k)-1,nrecvslots) + 1
     iproc = (indices(k)-1)/nrecvslots + 1
-    if (recvbuf_dens(islot,iproc)%owner == id) then
-       target_cell => get_cell_ptr(target_stack,recvbuf_dens(islot,iproc)%waiting_index)
-       call combine_cells(target_cell,recvbuf_dens(islot,iproc))
+    !--results returned for a cell this task owns, or a cell to compute here
+    returned = (nint(recvbuf_dens(2,islot,iproc)) == id)
+    call unpack_celldens(recvbuf_dens(:,islot,iproc),.not.returned,cell,nbuf)
+    if (returned) then
+       target_cell => get_cell_ptr(target_stack,cell%waiting_index)
+       call combine_cells(target_cell,cell)
     else
-       call push_onto_stack(target_stack,recvbuf_dens(islot,iproc))
+       call push_onto_stack(target_stack,cell)
     endif
+    !$omp atomic
+    nreals_recv = nreals_recv + nbuf
     !$omp atomic
     counters(iproc,irecv) = counters(iproc,irecv) + 1
     !$omp critical (mpi_cell_exchange)
-    call MPI_IRECV(recvbuf_dens(islot,iproc),1,dtype_dens,iproc-1,MPI_ANY_TAG,&
+    call MPI_IRECV(recvbuf_dens(1,islot,iproc),maxpack_celldens,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
                    comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     !$omp end critical (mpi_cell_exchange)
  enddo
@@ -456,7 +467,7 @@ subroutine recv_while_wait_dens(stack,counters)
  !$omp masked
  call finish_cell_counts
  ncomplete_mpi = 0
- ncells_recv = ncells_recv + sum(counters(:,irecv))
+ ncells_recv_dens = ncells_recv_dens + sum(counters(:,irecv))
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_dens_wait,t2-t1,tcpu2-tcpu1)
  !$omp end masked
@@ -507,26 +518,25 @@ end subroutine finish_celldens_exchange
 !+
 !----------------------------------------------------------------
 subroutine init_cellforce_exchange(stack)
- use mpiforce, only:stackforce,get_mpitype_of_cellforce
+ use mpiforce, only:stackforce
  type(stackforce), intent(inout) :: stack
 #ifdef MPI
  integer :: iproc,islot,mpierr
 #endif
 
  !$omp single
- if (dtype_force == -1) call get_mpitype_of_cellforce(dtype_force)
  call allocate_exchange_requests
- if (.not.allocated(recvbuf_force)) allocate(recvbuf_force(nrecvslots,nprocs))
- if (.not.allocated(sendbuf_force)) allocate(sendbuf_force(nsendbufs,size(sendreq,3)))
- if (size(sendbuf_force,2) /= size(sendreq,3)) then
+ if (.not.allocated(recvbuf_force)) allocate(recvbuf_force(maxpack_cellforce,nrecvslots,nprocs))
+ if (.not.allocated(sendbuf_force)) allocate(sendbuf_force(maxpack_cellforce,nsendbufs,size(sendreq,3)))
+ if (size(sendbuf_force,3) /= size(sendreq,3)) then
     deallocate(sendbuf_force)
-    allocate(sendbuf_force(nsendbufs,size(sendreq,3)))
+    allocate(sendbuf_force(maxpack_cellforce,nsendbufs,size(sendreq,3)))
  endif
 #ifdef MPI
  !$omp critical (mpi_cell_exchange)
  do iproc=1,nprocs
     do islot=1,nrecvslots
-       call MPI_IRECV(recvbuf_force(islot,iproc),1,dtype_force,iproc-1,MPI_ANY_TAG,&
+       call MPI_IRECV(recvbuf_force(1,islot,iproc),maxpack_cellforce,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
                       comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     enddo
  enddo
@@ -545,13 +555,13 @@ end subroutine init_cellforce_exchange
 subroutine send_cellforce(cell,targets,stack,counters)
  use io,       only:fatal
  use omputils, only:omp_thread_num
- use mpiforce, only:stackforce
+ use mpiforce, only:stackforce,pack_cellforce
  type(cellforce),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
  type(stackforce), intent(inout) :: stack
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
- integer :: newproc,mpierr,ith,ibuf,n
+ integer :: newproc,mpierr,ith,ibuf,n,nbuf
 
  ith  = omp_thread_num() + 1
  ibuf = mod(lastbuf(ith),nsendbufs) + 1
@@ -560,13 +570,14 @@ subroutine send_cellforce(cell,targets,stack,counters)
  !--wait for the previous sends from this buffer, continuing to receive
  call complete_sends(ibuf,ith,stack,counters)
 
- sendbuf_force(ibuf,ith) = cell
+ !--outbound if this task owns the cell, otherwise the results returned to the owner
+ call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf)
  n = 0
  !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        n = n + 1
-       call MPI_ISEND(sendbuf_force(ibuf,ith),1,dtype_force,newproc,0,comm_cellexchange,&
+       call MPI_ISEND(sendbuf_force(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,0,comm_cellexchange,&
                       sendreq(n,ibuf,ith),mpierr)
        if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
        !$omp atomic
@@ -612,13 +623,15 @@ end subroutine complete_sends_force
 subroutine recv_cellforce(target_stack,counters)
  use io,        only:fatal
  use mpimemory, only:push_onto_stack,get_cell_ptr
- use mpiforce, only:stackforce
+ use mpiforce, only:stackforce,unpack_cellforce
  type(stackforce), intent(inout) :: target_stack
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  type(cellforce),  pointer :: target_cell
+ type(cellforce)           :: cell
  integer :: indices(nrecvslots*nprocs)
- integer :: nout,k,islot,iproc,mpierr
+ integer :: nout,k,islot,iproc,mpierr,nbuf
+ logical :: returned
 
  nout = 0
  mpierr = 0
@@ -635,16 +648,21 @@ subroutine recv_cellforce(target_stack,counters)
  do k=1,nout
     islot = mod(indices(k)-1,nrecvslots) + 1
     iproc = (indices(k)-1)/nrecvslots + 1
-    if (recvbuf_force(islot,iproc)%owner == id) then
-       target_cell => get_cell_ptr(target_stack,recvbuf_force(islot,iproc)%waiting_index)
-       call combine_cells(target_cell,recvbuf_force(islot,iproc))
+    !--results returned for a cell this task owns, or a cell to compute here
+    returned = (nint(recvbuf_force(2,islot,iproc)) == id)
+    call unpack_cellforce(recvbuf_force(:,islot,iproc),.not.returned,cell,nbuf)
+    if (returned) then
+       target_cell => get_cell_ptr(target_stack,cell%waiting_index)
+       call combine_cells(target_cell,cell)
     else
-       call push_onto_stack(target_stack,recvbuf_force(islot,iproc))
+       call push_onto_stack(target_stack,cell)
     endif
+    !$omp atomic
+    nreals_recv = nreals_recv + nbuf
     !$omp atomic
     counters(iproc,irecv) = counters(iproc,irecv) + 1
     !$omp critical (mpi_cell_exchange)
-    call MPI_IRECV(recvbuf_force(islot,iproc),1,dtype_force,iproc-1,MPI_ANY_TAG,&
+    call MPI_IRECV(recvbuf_force(1,islot,iproc),maxpack_cellforce,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
                    comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     !$omp end critical (mpi_cell_exchange)
  enddo
@@ -706,7 +724,7 @@ subroutine recv_while_wait_force(stack,counters)
  !$omp masked
  call finish_cell_counts
  ncomplete_mpi = 0
- ncells_recv = ncells_recv + sum(counters(:,irecv))
+ ncells_recv_force = ncells_recv_force + sum(counters(:,irecv))
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_wait,t2-t1,tcpu2-tcpu1)
  !$omp end masked
@@ -1003,26 +1021,47 @@ end subroutine reset_cell_counters
 !  called on all tasks)
 !+
 !----------------------------------------------------------------
-subroutine print_cell_exchange_stats(iunit)
- use io,        only:master
- use mpiutils,  only:reduceall_mpi
- use mpimemory, only:dens_stack_1,dens_stack_2,dens_stack_3,force_stack_1,force_stack_2
- integer, intent(in) :: iunit
- integer(kind=8) :: nsent(3),nrecv(3)
+subroutine print_cell_exchange_stats(iunit,nsteps)
+ use io,         only:master
+ use mpiutils,   only:reduceall_mpi,ncollectives
+ use mpimemory,  only:dens_stack_1,dens_stack_2,dens_stack_3,force_stack_1,force_stack_2
+ use mpibalance, only:nmigrated,nbalance_calls
+ integer, intent(in) :: iunit,nsteps
+ integer(kind=8) :: nsent(3),nrecv(3),ncalls,nrounds,nmoved,nbal,ncoll
+ real(kind=8)    :: mbrecv(3)
  integer         :: maxstack
 
  call get_min_mean_max(ncells_sent,nsent)
- call get_min_mean_max(ncells_recv,nrecv)
+ call get_min_mean_max(ncells_recv_dens+ncells_recv_force,nrecv)
+ call get_min_mean_max_r8(1.e-6_8*nreals_recv*(storage_size(1.)/8),mbrecv)
  maxstack = max(dens_stack_1%maxlength,dens_stack_2%maxlength,dens_stack_3%maxlength,&
                 force_stack_1%maxlength,force_stack_2%maxlength)
  maxstack = int(reduceall_mpi('max',maxstack))
+ ncalls  = reduceall_mpi('max',ndens_calls)
+ nrounds = reduceall_mpi('max',ndens_rounds)
+ nmoved  = reduceall_mpi('+',nmigrated)
+ nbal    = reduceall_mpi('max',nbalance_calls)
+ ncoll   = reduceall_mpi('max',ncollectives)
  if (id==master) then
-    write(iunit,"(1x,a,3(1x,i12))") 'MPI cells sent per task     (min,mean,max):',nsent
-    write(iunit,"(1x,a,3(1x,i12))") 'MPI cells received per task (min,mean,max):',nrecv
-    write(iunit,"(1x,a,i12,/)")     'MPI largest stack size (cells):',maxstack
+    write(iunit,"(1x,a,3(1x,i12))")   'MPI cells sent per task     (min,mean,max):',nsent
+    write(iunit,"(1x,a,3(1x,i12))")   'MPI cells received per task (min,mean,max):',nrecv
+    write(iunit,"(1x,a,3(1x,f12.1))") 'MPI MB received per task    (min,mean,max):',mbrecv
+    write(iunit,"(1x,a,i12)")         'MPI largest stack size (cells):',maxstack
+    if (ncalls > 0) write(iunit,"(1x,a,f8.2)") 'MPI remote density rounds per call:',real(nrounds)/real(ncalls)
+    if (nsteps > 0) write(iunit,"(1x,a,f10.1)") 'MPI collectives per step (max over tasks):',real(ncoll)/real(nsteps)
+    if (nbal > 0)   write(iunit,"(1x,a,f12.1,a,i8,a)") 'MPI particles migrated per balance call:', &
+                                                        real(nmoved)/real(nbal),' (',nbal,' calls)'
+    write(iunit,*)
  endif
  ncells_sent = 0
- ncells_recv = 0
+ ncells_recv_dens = 0
+ ncells_recv_force = 0
+ nreals_recv = 0
+ ndens_calls = 0
+ ndens_rounds = 0
+ nmigrated = 0
+ nbalance_calls = 0
+ ncollectives = 0
 
 end subroutine print_cell_exchange_stats
 
@@ -1053,5 +1092,21 @@ pure integer function irecvslot(islot,iproc)
  irecvslot = islot + nrecvslots*(iproc - 1)
 
 end function irecvslot
+
+!----------------------------------------------------------------
+!+
+!  minimum, mean and maximum of a real value over all tasks
+!+
+!----------------------------------------------------------------
+subroutine get_min_mean_max_r8(val,stats)
+ use mpiutils, only:reduceall_mpi
+ real(kind=8), intent(in)  :: val
+ real(kind=8), intent(out) :: stats(3)
+
+ stats(1) = reduceall_mpi('min',val)
+ stats(2) = reduceall_mpi('+',val)/nprocs
+ stats(3) = reduceall_mpi('max',val)
+
+end subroutine get_min_mean_max_r8
 
 end module mpiderivs

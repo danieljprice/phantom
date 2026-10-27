@@ -63,6 +63,7 @@ module mpiutils
  integer, public :: status(MPI_STATUS_SIZE)
  integer, public :: MPI_DEFAULT_REAL
  integer, public :: comm_cellexchange,comm_cellcount,comm_balance,comm_balancecount
+ integer(kind=8), public :: ncollectives = 0 ! collective MPI calls made, for the MPI statistics
 
 !
 !--generic interface reduce_mpi
@@ -121,10 +122,23 @@ module mpiutils
  public :: reduceloc_mpi
  public :: waitmyturn,endmyturn
  public :: start_threadwrite,end_threadwrite
+ public :: count_collective
 
  private
 
 contains
+!--------------------------------------------------------------------
+!+
+!  count one collective MPI call, for the MPI statistics
+!+
+!--------------------------------------------------------------------
+subroutine count_collective()
+
+ !$omp atomic
+ ncollectives = ncollectives + 1
+
+end subroutine count_collective
+
 !--------------------------------------------------------------------
 !+
 !  initialisation of MPI, including initialisation of extra MPI types
@@ -207,6 +221,7 @@ subroutine waitmyturn(myid)
  integer :: nowgo
 
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
+ call count_collective
 
  nowgo = 0
  if (myid > 0) call MPI_RECV(nowgo,1,MPI_INTEGER,myid-1,99,MPI_COMM_WORLD,status,mpierr)
@@ -233,6 +248,7 @@ subroutine endmyturn(myid)
     call MPI_SEND(nowgo,1,MPI_INTEGER,myid+1,99,MPI_COMM_WORLD,mpierr)
  endif
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
+ call count_collective
 
 #endif
 
@@ -311,6 +327,7 @@ subroutine barrier_mpi()
  !$omp barrier
  !$omp masked
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr_local)
+ call count_collective
  if (mpierr_local /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
  !$omp end masked
  !$omp barrier
@@ -338,10 +355,13 @@ real(kind=8) function reduce_mpi_real(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(xsend,xred,1,MPI_REAL8,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(xsend,xred,1,MPI_REAL8,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(xsend,xred,1,MPI_REAL8,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -373,10 +393,13 @@ real(kind=4) function reduce_mpi_real4(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(xsend,xred,1,MPI_REAL4,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(xsend,xred,1,MPI_REAL4,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(xsend,xred,1,MPI_REAL4,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -409,10 +432,13 @@ function reduce_mpi_real4arr(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -445,10 +471,13 @@ function reduce_mpi_real8arr(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -481,10 +510,13 @@ integer(kind=8) function reduce_mpi_int(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(isend,ired,1,MPI_INTEGER8,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(isend,ired,1,MPI_INTEGER8,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(isend,ired,1,MPI_INTEGER8,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -519,10 +551,13 @@ function reduce_mpi_int_arr(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -554,10 +589,13 @@ integer(kind=8) function reduce_mpi_int8(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(isend,ired,1,MPI_INTEGER8,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(isend,ired,1,MPI_INTEGER8,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(isend,ired,1,MPI_INTEGER8,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -592,10 +630,13 @@ function reduce_mpi_int8_arr(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_REDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_SUM,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_REDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_MAX,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_REDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_MIN,master,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce (mpi)','unknown reduction operation')
  end select
@@ -628,10 +669,13 @@ real(kind=8) function reduceall_mpi_real(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -664,10 +708,13 @@ real(kind=4) function reduceall_mpi_real4(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL4,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL4,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_REAL4,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -701,10 +748,13 @@ function reduceall_mpi_realarr(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -738,10 +788,13 @@ function reduceall_mpi_realarr2(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -775,10 +828,13 @@ function reduceall_mpi_real4arr(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -812,10 +868,13 @@ function reduceall_mpi_real4arr2(string,xproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -850,10 +909,13 @@ function reduceall_mpi_int4arr(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -888,10 +950,13 @@ function reduceall_mpi_int1arr(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER1,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER1,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,size(isend),MPI_INTEGER1,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -923,10 +988,13 @@ integer(kind=8) function reduceall_mpi_int(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -957,10 +1025,13 @@ integer(kind=8) function reduceall_mpi_int8(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -992,10 +1063,13 @@ integer(kind=1) function reduceall_mpi_int1(string,iproc)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -1034,10 +1108,13 @@ subroutine reduce_in_place_mpi_real8arr(string,xproc,n)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL8,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce_in_place (mpi)','unknown reduction operation')
  end select
@@ -1068,10 +1145,13 @@ subroutine reduce_in_place_mpi_real4arr(string,xproc,n)
  select case(trim(string))
  case('+')
     call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL4,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('max')
     call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL4,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xproc,n,MPI_REAL4,MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduce_in_place (mpi)','unknown reduction operation')
  end select
@@ -1102,6 +1182,7 @@ subroutine reduce_in_place_mpi_real8arr2(string,xproc)
  case('+')
 !    call MPI_ALLREDUCE(MPI_IN_PLACE,xproc,size(xproc),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
     call MPI_ALLREDUCE(xsend,xproc,size(xsend),MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
 ! case('max')
 !    call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL8,MPI_MAX,MPI_COMM_WORLD,mpierr)
 ! case('min')
@@ -1136,6 +1217,7 @@ subroutine reduce_in_place_mpi_real4arr2(string,xproc)
  case('+')
 !    call MPI_ALLREDUCE(MPI_IN_PLACE,xproc,size(xproc),MPI_REAL4,MPI_SUM,MPI_COMM_WORLD,mpierr)
     call MPI_ALLREDUCE(xsend,xproc,size(xsend),MPI_REAL4,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call count_collective
 ! case('max')
 !    call MPI_ALLREDUCE(xsend,xred,size(xsend),MPI_REAL4,MPI_MAX,MPI_COMM_WORLD,mpierr)
 ! case('min')
@@ -1167,8 +1249,10 @@ subroutine reduceloc_mpi_real8(string,xproc,loc)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2DOUBLE_PRECISION,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -1199,8 +1283,10 @@ subroutine reduceloc_mpi_real4(string,xproc,loc)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2REAL,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2REAL,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -1231,8 +1317,10 @@ subroutine reduceloc_mpi_int(string,xproc,loc)
  select case(trim(string))
  case('max')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2INTEGER,MPI_MAXLOC,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case('min')
     call MPI_ALLREDUCE(xsend,xred,1,MPI_2INTEGER,MPI_MINLOC,MPI_COMM_WORLD,mpierr)
+    call count_collective
  case default
     call fatal('reduceall (mpi)','unknown reduction operation')
  end select
@@ -1265,6 +1353,7 @@ subroutine bcast_mpi_int1(ival,src)
  endif
 
  call MPI_BCAST(ival,1,MPI_INTEGER1,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1291,6 +1380,7 @@ subroutine bcast_mpi_int(ival,src)
  endif
 
  call MPI_BCAST(ival,1,MPI_INTEGER,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1317,6 +1407,7 @@ subroutine bcast_mpi_logical(lval,src)
  endif
 
  call MPI_BCAST(lval,1,MPI_LOGICAL,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1343,6 +1434,7 @@ subroutine bcast_mpi_int8(ival,src)
  endif
 
  call MPI_BCAST(ival,1,MPI_INTEGER8,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1369,6 +1461,7 @@ subroutine bcast_mpi_real4(rval,src)
  endif
 
  call MPI_BCAST(rval,1,MPI_REAL4,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1395,6 +1488,7 @@ subroutine bcast_mpi_real8(dval,src)
  endif
 
  call MPI_BCAST(dval,1,MPI_REAL8,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1420,6 +1514,7 @@ subroutine bcast_mpi_real8arr(dval,src)
     sendsrc = master
  endif
  call MPI_BCAST(dval,size(dval),MPI_REAL8,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1446,6 +1541,7 @@ subroutine bcast_mpi_real4arr(dval,src)
  endif
 
  call MPI_BCAST(dval,size(dval),MPI_REAL4,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1471,6 +1567,7 @@ subroutine bcast_mpi_real8arr2(dval,src)
     sendsrc = master
  endif
  call MPI_BCAST(dval,size(dval),MPI_REAL8,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1497,6 +1594,7 @@ subroutine bcast_mpi_real4arr2(dval,src)
  endif
 
  call MPI_BCAST(dval,size(dval),MPI_REAL4,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif
@@ -1522,6 +1620,7 @@ subroutine bcast_mpi_intarr2(ival,src)
     sendsrc = master
  endif
  call MPI_BCAST(ival,size(ival),MPI_INTEGER4,sendsrc,MPI_COMM_WORLD,mpierr)
+ call count_collective
  if (mpierr /= 0) call fatal('bcast','error in mpi_bcast')
 
 #endif

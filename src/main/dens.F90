@@ -137,12 +137,15 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpimemory,   only:stack_remote  => dens_stack_1
  use mpimemory,   only:stack_waiting => dens_stack_2
  use mpimemory,   only:stack_redo    => dens_stack_3
+ use mpidens,     only:nrhosum_pack
  use mpiderivs,   only:send_cell,recv_cells,init_cell_exchange,&
-                       finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
+                       finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters,&
+                       ndens_calls,ndens_rounds
  use timestep,    only:rhomaxnow
  use viscosity,   only:irealvisc
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
- use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
+ use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote,&
+                       itimer_dens_lcomp,itimer_dens_rcomp
 
  integer,         intent(in)    :: icall,npart,nactive
  integer(kind=1), intent(in)    :: apr_level(:)
@@ -179,6 +182,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  logical                   :: iterations_finished
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
+ real(kind=4)              :: tc1,tcpuc1,tc2,tcpuc2 ! start and end of the compute loops
 
  if (mpi) then
     call reset_stacks
@@ -229,6 +233,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  nlocal = 0
 
  rhomax = 0.0
+ ! density sums returned from other tasks: the grad Wtilde copies only with unequal masses
+ nrhosum_pack = merge(maxrhosum,igradhni,use_wtot_sums())
 !$omp parallel default(none) &
 !$omp shared(icall) &
 !$omp shared(leaf_is_active,active_leaves,nactive_leaves) &
@@ -263,6 +269,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2) &
+!$omp shared(tc1,tcpuc1,tc2,tcpuc2) &
 !$omp shared(cell_counters) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
@@ -361,6 +368,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
  enddo over_cells
  !$omp enddo
+ !$omp single
+ call get_timings(tc2,tcpuc2)
+ if (mpi) call increment_timer(itimer_dens_lcomp,tc2-t1,tcpuc2-tcpu1)
+ !$omp end single
 
 
  if (mpi) then
@@ -396,6 +407,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !$omp barrier
 
     igot_remote: if (stack_remote%n > 0) then
+       !$omp single
+       call get_timings(tc1,tcpuc1)
+       !$omp end single
        !$omp do schedule(runtime)
        over_remote: do i = 1,stack_remote%n
           cell = get_cell(stack_remote,i)
@@ -412,6 +426,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call send_cell(cell,remote_export,stack_waiting,cell_counters) ! send the cell back to owner
        enddo over_remote
        !$omp enddo
+       !$omp single
+       call get_timings(tc2,tcpuc2)
+       call increment_timer(itimer_dens_rcomp,tc2-tc1,tcpuc2-tcpuc1)
+       !$omp end single
 
        !$omp single
        stack_remote%n = 0
@@ -431,6 +449,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           if (calculate_density) then
              call finish_cell(cell,converged)
              call compute_hmax(cell,redo_neighbours)
+             if (icall == 0) converged = .true.  ! one pass only, as for local cells
           else
              converged = .true.
           endif
@@ -486,6 +505,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  if (mpi) call finish_cell_exchange(stack_remote)
 
  !$omp end parallel
+
+ if (mpi) then
+    ndens_calls  = ndens_calls + 1
+    ndens_rounds = ndens_rounds + n_remote_its
+ endif
 
  if (mpi) call sync_hmax_mpi
 
@@ -1358,7 +1382,12 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  realviscosity = (irealvisc > 0)
 
  over_parts: do i = 1,cell%npcell
-    lli = inodeparts(cell%arr_index(i))
+    !--particle index is only known on the owner (used only to exclude self)
+    if (cell%owner == id) then
+       lli = inodeparts(cell%arr_index(i))
+    else
+       lli = 0
+    endif
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
