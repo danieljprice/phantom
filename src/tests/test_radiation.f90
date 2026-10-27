@@ -19,8 +19,8 @@ module testradiation
 !
 ! :Dependencies: apr, boundary, deriv, dim, eos, io, kernel, mpidomain,
 !   mpiutils, neighkdtree, options, part, physcon, radiation_implicit,
-!   radiation_utils, readwrite_dumps, step_lf_global, testutils, timestep,
-!   unifdis, units
+!   radiation_utils, readwrite_dumps, sortutils, step_lf_global, testutils,
+!   timestep, unifdis, units
 !
  use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa
  use io,        only:id,master
@@ -39,7 +39,7 @@ contains
 subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
- use dim,     only:do_radiation,periodic,mpi
+ use dim,     only:do_radiation,periodic
  use io,      only:iverbose
  use radiation_utils, only:implicit_radiation,tol_rad
  integer, intent(inout) :: ntests,npass
@@ -52,22 +52,20 @@ subroutine test_radiation(ntests,npass)
 
  call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass,use_implicit=.false.)
- if (.not.mpi) call test_exchange_terms(ntests,npass,use_implicit=.true.)
+ call test_exchange_terms(ntests,npass,use_implicit=.true.)
 
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
  else
-    if (.not.mpi) call test_implicit_matches_explicit(ntests,npass)
+    call test_implicit_matches_explicit(ntests,npass)
 
     iverbose = -1
     implicit_radiation = .false.
     call test_radiation_diffusion(ntests,npass)
 
-    if (.not.mpi) then
-       implicit_radiation = .true.
-       tol_rad = 1.e-6
-       call test_radiation_diffusion(ntests,npass)
-    endif
+    implicit_radiation = .true.
+    tol_rad = 1.e-6
+    call test_radiation_diffusion(ntests,npass)
  endif
 
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
@@ -232,8 +230,9 @@ end subroutine test_exchange_terms
 !+
 !---------------------------------------------------------
 subroutine test_implicit_matches_explicit(ntests,npass)
- use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,&
+ use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,iorig,&
                     xyzh_label,init_part,radprop_label,apr_level
+ use sortutils, only:indexx
  use dim,      only:use_apr
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,  only:tolh
@@ -244,9 +243,11 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  use radiation_utils,    only:implicit_radiation
  use radiation_implicit, only:do_radiation_implicit
  integer, intent(inout) :: ntests,npass
- real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
+ real(kind=kind(radprop)), allocatable :: flux_explicit(:,:),flux_implicit(:,:)
+ integer(kind=8), allocatable :: iorig_explicit(:)
+ integer, allocatable :: inow(:),iexpl(:)
  real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,tolh_old,pmassi !,exact(9)
- integer :: i,j,itry,nerr_e(9),ierr,imass,nmass
+ integer :: i,j,n,itry,nerr_e(9),ierr,imass,nmass
  character(len=24) :: label
 
  ! with APR, repeat with neighbouring particles of different mass
@@ -263,43 +264,55 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  tolh_old = tolh
  tolh = 1.e-8
  dtmax = 5.e-22
+ !--set up once, so that both passes see the same particles
+ call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
+ if (imass == 2) then
+    do i=1,npart
+       if (mod(i,2)==0) apr_level(i) = 2
+    enddo
+ endif
+
+ ! set some non-zero velocities
+ do i=1,npart
+    vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
+    vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
+    vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
+ enddo
  do itry = 1,2
     if (itry == 2) implicit_radiation = .true.
-    call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
-    if (imass == 2) then
-       do i=1,npart
-          if (mod(i,2)==0) apr_level(i) = 2
-       enddo
-    endif
-
-    ! set some non-zero velocities
-    do i=1,npart
-       vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
-       vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
-       vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
-    enddo
     call get_derivs_global()
     if (itry==1) then
        call get_derivs_global()  ! twice to get density on neighbours correct
 
-       !--allocate and copy flux
-       allocate(flux_explicit(3,npart))
-       flux_explicit = radprop(ifluxx:ifluxz,1:npart)
+       !--allocate and copy flux, and the particle IDs
+       allocate(flux_explicit(3,npart),iorig_explicit(npart))
+       flux_explicit  = radprop(ifluxx:ifluxz,1:npart)
+       iorig_explicit = iorig(1:npart)
     else
        radprop = 0.  ! also sets the time of the last update to zero
        call do_radiation_implicit(1.e-24,1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     endif
  enddo
 
- ! now check that things match
+ ! now check that things match, matching the particles by their IDs
+ ! since the particles may have been reordered in between
  tol_e = 1.e-15
  nerr_e = 0
  errmax_e = 0.
+ ! (every MPI task makes the same checks, since the checks combine results across tasks)
+ call checkval(npart,size(iorig_explicit),0,nerr_e(4),'number of particles')
+ n = min(npart,size(iorig_explicit))
+ allocate(inow(npart),iexpl(size(iorig_explicit)),flux_implicit(3,n))
+ call indexx(npart,iorig,inow)
+ call indexx(size(iorig_explicit),iorig_explicit,iexpl)
+ call checkval(n,iorig(inow(1:n)),iorig_explicit(iexpl(1:n)),0_8,nerr_e(5),'same particle IDs')
+ flux_explicit = flux_explicit(:,iexpl)
+ flux_implicit = radprop(ifluxx:ifluxz,inow(1:n))
  do j=1,3
-    call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
+    call checkval(n,flux_implicit(j,:),flux_explicit(j,1:n),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
  enddo
  call update_test_scores(ntests,nerr_e,npass)
- deallocate(flux_explicit)
+ deallocate(flux_explicit,iorig_explicit,flux_implicit,inow,iexpl)
 
  vxyzu(1:3,:) = 0.  ! zero velocities again
  tolh = tolh_old
