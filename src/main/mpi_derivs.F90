@@ -126,7 +126,10 @@ module mpiderivs
 
  logical, allocatable :: thread_complete(:)  ! whether each thread has finished sending
  integer :: ncomplete_mpi = 0                ! number of tasks whose cells have all been received
- integer :: npolling = 0                     ! number of threads trying to poll the receives
+ ! lock held by the one thread polling the receives (an OpenMP lock, so that a
+ ! thread can always take it when it is free, however many threads are trying)
+!$ integer(kind=8) :: poll_lock
+ logical :: poll_lock_initialised = .false.
 
 contains
 
@@ -187,6 +190,7 @@ end function null_request
 !-----------------------------------------------------------------------
 subroutine allocate_exchange_requests
  use omputils, only:omp_num_threads
+!$ external :: omp_init_lock
 
  if (.not.allocated(recvreq)) then
     allocate(recvreq(nrecvslots*nprocs))
@@ -206,7 +210,10 @@ subroutine allocate_exchange_requests
  lastbuf = 0
  thread_complete = .false.
  ncomplete_mpi = 0
- npolling = 0
+ if (.not.poll_lock_initialised) then
+!$  call omp_init_lock(poll_lock)
+    poll_lock_initialised = .true.
+ endif
 
 end subroutine allocate_exchange_requests
 
@@ -237,20 +244,17 @@ end function sends_complete
 !+
 !-----------------------------------------------------------------------
 logical function claim_polling()
- integer :: nprev
+!$ logical, external :: omp_test_lock
 
- !$omp atomic capture
- nprev = npolling
- npolling = npolling + 1
- !$omp end atomic
- claim_polling = (nprev == 0)
+ claim_polling = .true.
+!$ claim_polling = omp_test_lock(poll_lock)
 
 end function claim_polling
 
 subroutine release_polling
+!$ external :: omp_unset_lock
 
- !$omp atomic
- npolling = npolling - 1
+!$ call omp_unset_lock(poll_lock)
 
 end subroutine release_polling
 
@@ -382,8 +386,8 @@ subroutine recv_celldens(target_stack,counters)
     !$omp critical (mpi_cell_exchange)
     call MPI_TESTSOME(nrecvslots*nprocs,recvreq,nout,indices,recvstatus,mpierr)
     !$omp end critical (mpi_cell_exchange)
+    call release_polling
  endif
- call release_polling
  if (mpierr /= 0) call fatal('recv_cells','error in MPI_TESTSOME')
  if (nout == MPI_UNDEFINED) nout = 0
 
@@ -639,8 +643,8 @@ subroutine recv_cellforce(target_stack,counters)
     !$omp critical (mpi_cell_exchange)
     call MPI_TESTSOME(nrecvslots*nprocs,recvreq,nout,indices,recvstatus,mpierr)
     !$omp end critical (mpi_cell_exchange)
+    call release_polling
  endif
- call release_polling
  if (mpierr /= 0) call fatal('recv_cells','error in MPI_TESTSOME')
  if (nout == MPI_UNDEFINED) nout = 0
 
