@@ -484,7 +484,7 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
-                    xyzmh_ptmass,vxyz_ptmass
+                    xyzmh_ptmass,vxyz_ptmass,norig
  use dump_utils,   only:get_dump_size,skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                           open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header,&
                           get_blocklimits
@@ -673,6 +673,10 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     if (ierr /= 0) call warning('read_dump','error reading arrays from file')
 
  enddo overblocks
+ !
+ ! the largest particle ID on any task, so that new IDs are unique across tasks
+ !
+ if (mpi) norig = reduceall_mpi('max',norig)
 
  !
  ! check npartoftype- breaks for sphng "type19" sinks

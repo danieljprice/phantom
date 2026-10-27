@@ -19,7 +19,8 @@ module radiation_implicit
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kernel,
-!   neighcompact, part, physcon, quartic, radiation_utils, timing, units
+!   mpiradiation, mpiutils, neighcompact, part, physcon, quartic,
+!   radiation_utils, timing, units
 !
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu,&
@@ -57,10 +58,11 @@ contains
 !+
 !---------------------------------------------------------
 subroutine do_radiation_implicit(dt,time,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
- use io,         only:fatal,warning
+ use io,         only:warning
  use timing,     only:get_timings
  use derivutils, only:do_timing
- use dim,        only:ind_timesteps
+ use dim,        only:ind_timesteps,mpi
+ use mpiradiation, only:setup_remote_neighbours,nremote
  integer, intent(in)    :: npart
  real,    intent(in)    :: dt,time,xyzh(:,:)
  real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
@@ -79,8 +81,12 @@ subroutine do_radiation_implicit(dt,time,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (.not.any_active_to_update(npart,time,xyzh,radprop)) return
  endif
 
- allocate(origEU(2,npart),EU0(6,npart),stat=ierr)
- if (ierr/=0) call fatal('radiation_implicit','could not allocate memory to origEU and EU0')
+ !--under MPI, find the neighbours on other tasks (remote particles,
+ !  stored in EU0 after the local particles)
+ if (mpi) call setup_remote_neighbours(npart,xyzh)
+
+ allocate(origEU(2,npart),EU0(6,npart+nremote))
+ if (mpi) call init_remote_values(npart,rad,vxyzu,radprop,EU0)
 
  call get_timings(tlast,tcpulast)
  call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.false.)
@@ -124,7 +130,9 @@ end subroutine do_radiation_implicit
 !+
 !---------------------------------------------------------
 logical function any_active_to_update(npart,time,xyzh,radprop)
- use part, only:iphase,iactive,isdead_or_accreted
+ use part,     only:iphase,iactive,isdead_or_accreted
+ use dim,      only:mpi
+ use mpiutils, only:reduceall_mpi
  integer, intent(in) :: npart
  real,    intent(in) :: time,xyzh(:,:),radprop(:,:)
  integer :: i
@@ -138,9 +146,55 @@ logical function any_active_to_update(npart,time,xyzh,radprop)
     endif
  enddo
  !$omp end parallel do
+ !--every MPI task takes part in the solve if any task has particles to update
+ if (mpi) found = (reduceall_mpi('max',merge(1,0,found)) > 0)
  any_active_to_update = found
 
 end function any_active_to_update
+
+!---------------------------------------------------------
+!+
+!  load the starting values of the particles sent to other
+!  MPI tasks, then receive those of the remote particles
+!+
+!---------------------------------------------------------
+subroutine init_remote_values(npart,rad,vxyzu,radprop,EU0)
+ use mpiradiation, only:nsendlist,isendlist,nremote,exchange_remote_values
+ integer, intent(in)  :: npart
+ real,    intent(in)    :: rad(:,:),vxyzu(:,:),radprop(:,:)
+ real,    intent(inout) :: EU0(:,:)
+ integer :: k
+
+ do k=1,nsendlist
+    call load_EU0(isendlist(k),rad,vxyzu,radprop,EU0)
+ enddo
+ !--gas energy, specific heat and Eddington factor of remote particles are not used
+ do k=npart+1,npart+nremote
+    EU0(:,k) = 0.
+ enddo
+ call exchange_remote_values(EU0,npart)
+
+end subroutine init_remote_values
+
+!---------------------------------------------------------
+!+
+!  load the starting E, U, cv, opacity, flux limiter and
+!  Eddington factor of particle i
+!+
+!---------------------------------------------------------
+subroutine load_EU0(i,rad,vxyzu,radprop,EU0)
+ integer, intent(in)    :: i
+ real,    intent(in)    :: rad(:,:),vxyzu(:,:),radprop(:,:)
+ real,    intent(inout) :: EU0(:,:)
+
+ EU0(1,i) = rad(iradxi,i)
+ EU0(2,i) = vxyzu(4,i)
+ EU0(3,i) = get_cv(cv_type,rho(i),vxyzu(4,i))
+ EU0(4,i) = get_kappa(iopacity_type,vxyzu(4,i),EU0(3,i),rho(i))
+ EU0(5,i) = radprop(ilambda,i)
+ EU0(6,i) = radprop(iedd,i)
+
+end subroutine load_EU0
 
 !---------------------------------------------------------
 !+
@@ -188,13 +242,18 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
                       varij,varij2,varinew,vari,mask
  use radiation_utils, only:implicit_radiation_store_drad
+ use dim,             only:mpi
+ use io,              only:id,master
+ use mpiutils,        only:reduceall_mpi
+ use mpiradiation,    only:icand_start,icand,xyzh_remote,exchange_remote_values
  real,    intent(in)    :: dt,time,xyzh(:,:),origEU(:,:)
  integer, intent(in)    :: npart
  real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out)   :: failed,moresweep
  integer, intent(out)   :: nit,ierr
- real,    intent(out)   :: maxerrE2,maxerrU2,EU0(6,npart)
+ real,    intent(out)   :: maxerrE2,maxerrU2,EU0(:,:)
  integer              :: its
+ real                 :: errmax(2)
  real                 :: maxerrE2last,maxerrU2last,maxerrE2last2,maxerrU2last2,omega,maxerrE2prev2,maxerrU2prev2
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  character(len=100)   :: warningstr
@@ -214,10 +273,16 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  call allocate_memory_implicit(npart,radkern,hfact,ierr)
 
  !dtimax = dt/imaxstep
- call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
+ if (mpi) then
+    !--include the neighbours on other tasks, numbered after the local particles
+    call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,&
+                                      icand_start=icand_start,icand=icand,xyzh_extra=xyzh_remote,joffset=npart)
+ else
+    call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
+ endif
 
- ! check for errors
- if (ncompact <= 0 .or. ncompactlocal <= 0) then
+ ! check for errors (under MPI, a task may have no particles to update)
+ if ((ncompact <= 0 .or. ncompactlocal <= 0) .and. .not.mpi) then
     call error('radiation_implicit','empty neighbour list - need to call build_tree first?')
     ierr = ierr_neighbourlist_empty
     return
@@ -230,7 +295,7 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask,rho) &
  !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
- !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,its)
+ !$omp shared(maxerrE2last2,maxerrU2last2,maxerrE2prev2,maxerrU2prev2,omega,its,errmax)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,&
                   xyzh,vxyzu,ivar,ijvar,rad,radprop,vari,varij,varij2,EU0)
 
@@ -257,6 +322,9 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     !$omp end single
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
     !$omp single
+    !--E and opacity change in the update and the flux limiter in compute_flux,
+    !  so the remote particles get all three from their owners here
+    if (mpi) call exchange_remote_values(EU0,npart)
     call do_timing('radflux',t1,tcpu1)
     !$omp end single
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
@@ -274,6 +342,12 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     !$omp end single
 
     !$omp single
+    !--every MPI task needs the same errors, to take the same number of sweeps
+    if (mpi) then
+       errmax = reduceall_mpi('max',[maxerrE2,maxerrU2])
+       maxerrE2 = errmax(1)
+       maxerrU2 = errmax(2)
+    endif
     maxerrE2prev2 = 0.
     maxerrU2prev2 = 0.
     if (maxerrE2 > tol_rad) maxerrE2prev2 = abs(maxerrE2-maxerrE2last2)/maxerrE2
@@ -302,7 +376,7 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  !$omp end parallel
 
  if (converged) then
-    if (iverbose >= 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
+    if (iverbose >= 0 .and. id==master) print "(1x,a,i4,a,es10.3,a,es10.3)", &
           trim(label)//': succeeded with ',its_global,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
  else
     write(warningstr,'(a,es10.3,a,es10.3)') 'maximum iterations reached: xi err:',maxerrE2,' uerr:',maxerrU2
@@ -349,11 +423,13 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
  use part,            only:dust_temp,nucleation,gradh,rho
  use units,           only:get_c_code
  use derivutils,      only:get_grkern_corrected
+ use mpiradiation,    only:xyzh_remote,pmass_remote,rho_remote,zetaomega_remote
  integer, intent(in)  :: ncompact,ncompactlocal,icompactmax,npart
  integer, intent(in)  :: ivar(:,:),ijvar(:)
  real,    intent(in)  :: dt,time,xyzh(:,:),vxyzu(:,:),rad(:,:),radprop(:,:)
- real,    intent(out) :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
- integer             :: n,i,j,k,icompact
+ real,    intent(inout) :: EU0(:,:)
+ real,    intent(out) :: vari(:,:),varij(2,icompactmax),varij2(4,icompactmax)
+ integer             :: n,i,j,k,icompact,jh
  real :: pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
          pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,&
          c_code,dWidrlightrhorhom,dWjdrlightrhorhom,&
@@ -362,7 +438,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
 
  c_code = get_c_code()
  !$omp do &
- !$omp private(n,i,j,k,rhoi,icompact,pmi,dti) &
+ !$omp private(n,i,j,k,jh,rhoi,icompact,pmi,dti) &
  !$omp private(dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
  !$omp private(v2i,vi,v2j,vj,dWi,dWj,zetaomegai,zetaomegaj,grkern_tilde) &
  !$omp private(xi,yi,zi,dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom) &
@@ -389,14 +465,9 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
        rhoi = rho(i)
        zetaomegai = real(gradh(igradzeta,i))*real(gradh(igradomega,i))
 
-       EU0(1,i) = rad(iradxi,i)
-       EU0(2,i) = vxyzu(4,i)
-       EU0(3,i) = get_cv(cv_type,rhoi,vxyzu(4,i))
-       EU0(4,i) = get_kappa(iopacity_type,vxyzu(4,i),EU0(3,i),rhoi)
-       !--flux limiter and Eddington factor from the last update, kept for particles
+       !--flux limiter and Eddington factor are from the last update, kept for particles
        !  masked out of the solve; compute_flux overwrites them for the others
-       EU0(5,i) = radprop(ilambda,i)
-       EU0(6,i) = radprop(iedd,i)
+       call load_EU0(i,rad,vxyzu,radprop,EU0)
        !
        !--Diffuse ISM: Set dust temperature and opacity
        !
@@ -412,10 +483,29 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
           !
           !--Calculate other quantities
           !
-          dx = xi - xyzh(1,j)
-          dy = yi - xyzh(2,j)
-          dz = zi - xyzh(3,j)
-          hj = xyzh(4,j)
+          if (j > npart) then
+             !--neighbour on another MPI task (its E, U values are in EU0 already)
+             jh = j - npart
+             dx = xi - xyzh_remote(1,jh)
+             dy = yi - xyzh_remote(2,jh)
+             dz = zi - xyzh_remote(3,jh)
+             hj = xyzh_remote(4,jh)
+             pmj = pmass_remote(jh)
+             rhoj = rho_remote(jh)
+             zetaomegaj = zetaomega_remote(jh)
+          else
+             dx = xi - xyzh(1,j)
+             dy = yi - xyzh(2,j)
+             dz = zi - xyzh(3,j)
+             hj = xyzh(4,j)
+             pmj = get_pmass(j,.true.)
+             rhoj = rho(j)
+             zetaomegaj = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
+             !
+             !--Need to make sure that E and U values are loaded for non-active neighbours
+             !
+             if (ind_timesteps) call load_EU0(j,rad,vxyzu,radprop,EU0)
+          endif
 
           if (periodic) call mod_boundary(dx,dy,dz)
           rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
@@ -423,21 +513,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
           rij1 = 1./rij
           dr = rij
 
-          pmj = get_pmass(j,.true.)
-          rhoj = rho(j)
-          !
-          !--Need to make sure that E and U values are loaded for non-active neighbours
-          !
-          if (ind_timesteps) then
-             EU0(1,j) = rad(iradxi,j)
-             EU0(2,j) = vxyzu(4,j)
-             EU0(3,j) = get_cv(cv_type,rhoj,vxyzu(4,j))
-             EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
-             !--flux limiter and Eddington factor from the neighbour's last update;
-             !  these are recomputed in compute_flux for particles being updated
-             EU0(5,j) = radprop(ilambda,j)
-             EU0(6,j) = radprop(iedd,j)
-          endif
 
           hj21 = 1./(hj*hj)
           hj41 = hj21*hj21
@@ -449,7 +524,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
           vj = rij/hj
 
           ! kernel gradients with the correction for h set from number density
-          zetaomegaj = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
           call get_grkern_corrected(v2i,vi,hi41,zetaomegai,pmj,dWi,grkern_tilde)
           call get_grkern_corrected(v2j,vj,hj41,zetaomegaj,pmi,dWj,grkern_tilde)
 
@@ -491,7 +565,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
  real,    intent(in)    :: varij2(4,icompactmax),vari(2,npart)
  logical, intent(in)    :: mask(npart)
- real,    intent(inout) :: radprop(:,:),EU0(6,npart)
+ real,    intent(inout) :: radprop(:,:),EU0(:,:)
  real,    intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
  integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
@@ -567,7 +641,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  use io,   only:error
  use part, only:dust_temp,nucleation
  integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(6,npart)
+ real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(:,:)
  logical, intent(in)    :: mask(npart)
  integer, intent(out)   :: ierr
  real,    intent(inout) :: varinew(3,npart)
@@ -658,7 +732,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  real(kind=4), intent(in)    :: pdvvisc(:),dvdx(:,:)
  real,         intent(in)    :: eos_vars(:,:)
  real,         intent(inout) :: drad(:,:),fxyzu(:,:),nucleation(:,:),dust_temp(:)
- real,         intent(inout) :: radprop(:,:),EU0(6,npart),omega
+ real,         intent(inout) :: radprop(:,:),EU0(:,:),omega
  real,         intent(out)   :: maxerrE2,maxerrU2
  logical,      intent(in)    :: store_drad
  logical,      intent(out)   :: moresweep
@@ -1254,7 +1328,7 @@ end subroutine turn_heating_cooling_off
 !---------------------------------------------------------
 subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,radprop,vxyzu,time)
  integer, intent(in)  :: ncompactlocal,npart,ivar(:,:)
- real,    intent(in)  :: EU0(6,npart),time
+ real,    intent(in)  :: EU0(:,:),time
  real,    intent(out) :: rad(:,:),radprop(:,:),vxyzu(:,:)
  integer :: i,n
 

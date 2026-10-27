@@ -45,7 +45,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,gr,pxyzu,apr_level
  use part, only:divcurlv,divcurlB,ndivcurlB,ntot,ibin,imu,igamma
- use part, only:iorig,norig,iseed_sink,rho,rhoh,massoftype,aprmassoftype
+ use part, only:iorig,new_iorig,iseed_sink,rho,rhoh,massoftype,aprmassoftype
  use io,   only:fatal
  use eos,  only:gamma,gmw
  use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr,inject_parts
@@ -72,8 +72,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     endif
     npartoftype(itype) = npartoftype(itype) + 1
     ! add particle ID
-    norig                  = norig + 1
-    iorig(particle_number) = norig
+    iorig(particle_number) = new_iorig()
     if (present(isink) .and. inject_parts) iseed_sink(particle_number) = isink
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
