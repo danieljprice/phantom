@@ -333,10 +333,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     cooling_length = 1.0
     T0_value = temperature_coef*gmw*rightstate(ipr)/rightstate(idens)
     cs0 = sqrt(gamma*rightstate(ipr)/rightstate(idens))*unit_velocity  ! in cgs units
-    lambda_shock_cgs = kboltz*T0_value*cs0*mass_proton_cgs/((cooling_length*udist)*rightstate(idens)*unit_density)
+    ! the cooling uses n = rho/m_p while T0 includes the mean molecular weight, so divide by gmw
+    ! to make the cooling length of Creasey et al. (2011) equal to the value set above
+    lambda_shock_cgs = kboltz*T0_value*cs0*mass_proton_cgs/((cooling_length*udist)*gmw*rightstate(idens)*unit_density)
     print*,' Setting T0 in cooling function to ',T0_value,'mu = ',gmw,' u0 = ',rightstate(ipr)/((gamma-1)*rightstate(idens)),&
            ' lambda_shock_cgs = ',lambda_shock_cgs
-    print*,' cooling length = ',(kboltz*T0_value*cs0/(lambda_shock_cgs*rightstate(idens)*unit_density/mass_proton_cgs))/udist
+    print*,' cooling length = ',(kboltz*T0_value*cs0/(lambda_shock_cgs*gmw*rightstate(idens)*unit_density/mass_proton_cgs))/udist
     print*,' max time in code units is ',14.2*cooling_length/(cs0/unit_velocity)
     print*,' ndens0 = ',rightstate(idens)*unit_density/mass_proton_cgs
  endif
