@@ -26,6 +26,10 @@ module mpimemory
   module procedure allocate_stack_dens,allocate_stack_force
  end interface allocate_stack
 
+ interface deallocate_stack
+  module procedure deallocate_stack_dens,deallocate_stack_force
+ end interface deallocate_stack
+
  interface swap_stacks ! force doesn't require a stack swap
   module procedure swap_stacks_dens
  end interface swap_stacks
@@ -38,6 +42,10 @@ module mpimemory
   module procedure get_cell_dens,get_cell_force
  end interface get_cell
 
+ interface get_cell_ptr
+  module procedure get_cell_ptr_dens,get_cell_ptr_force
+ end interface get_cell_ptr
+
  interface write_cell
   module procedure write_cell_dens,write_cell_force
  end interface write_cell
@@ -48,14 +56,13 @@ module mpimemory
 
  public :: allocate_mpi_memory
  public :: deallocate_mpi_memory
- public :: allocate_stack
  public :: swap_stacks
  public :: push_onto_stack
  public :: get_cell
+ public :: get_cell_ptr
  public :: write_cell
  public :: reserve_stack
  public :: reset_stacks
- public :: increase_mpi_memory
 
  ! stacks to be referenced from density and force routines
  type(stackdens),  public :: dens_stack_1
@@ -64,85 +71,35 @@ module mpimemory
  type(stackforce), public :: force_stack_1
  type(stackforce), public :: force_stack_2
 
+ ! number of cells in each chunk of a stack (the initial size of the stack)
  integer, public :: stacksize
 
  private
 
- ! primary chunk of memory requested using alloc
- type(celldens),  allocatable, target :: dens_cells(:,:)
- type(cellforce), allocatable, target :: force_cells(:,:)
+ ! maximum number of chunks per stack
+ integer :: maxchunks = 0
 
 contains
 
+!----------------------------------------------------------------
+!+
+!  allocate the stacks used to exchange cells between MPI tasks
+!+
+!----------------------------------------------------------------
 subroutine allocate_mpi_memory(npart, stacksize_in)
  integer(kind=8), intent(in), optional :: npart
- integer, intent(in), optional :: stacksize_in
- integer :: allocstat
-
- allocstat = 0
+ integer,         intent(in), optional :: stacksize_in
 
  if (present(stacksize_in)) stacksize = stacksize_in
  if (present(npart)) call calculate_stacksize(npart)
 
- if (allocated(dens_cells)) then
-    if (stacksize /= size(dens_cells,1)) then
-       call fatal('stack', 'dens_cells already allocated with a different size')
-    endif
- endif
-
- if (allocated(force_cells)) then
-    if (stacksize /= size(force_cells,1)) then
-       call fatal('stack', 'force_cells already allocated with a different size')
-    endif
- endif
-
- if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize,3), stat=allocstat)
- if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
- call allocate_stack(dens_stack_1, 1)
- call allocate_stack(dens_stack_2, 2)
- call allocate_stack(dens_stack_3, 3)
-
- if (.not. allocated(force_cells)) allocate(force_cells(stacksize,2), stat=allocstat)
- if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
- call allocate_stack(force_stack_1, 1)
- call allocate_stack(force_stack_2, 2)
+ call allocate_stack(dens_stack_1)
+ call allocate_stack(dens_stack_2)
+ call allocate_stack(dens_stack_3)
+ call allocate_stack(force_stack_1)
+ call allocate_stack(force_stack_2)
 
 end subroutine allocate_mpi_memory
-
-subroutine increase_mpi_memory
- use io, only:id
- real, parameter :: factor = 1.5
- integer         :: stacksize_new
- integer         :: allocstat
-
- ! temporary memory for increasing stack sizes
- type(celldens),  allocatable, target :: dens_cells_tmp(:,:)
- type(cellforce), allocatable, target :: force_cells_tmp(:,:)
-
- stacksize_new = int(real(stacksize) * factor)
- write(iprint, *) 'MPI dens stack exceeded on', id, 'increasing size to', stacksize_new
-
- ! Expand density
- call move_alloc(dens_cells, dens_cells_tmp)
- allocate(dens_cells(stacksize_new,3), stat=allocstat)
- if (allocstat /= 0) call fatal('stack', 'error increasing dens stack size')
- dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
- deallocate(dens_cells_tmp)
-
- ! Expand force
- call move_alloc(force_cells, force_cells_tmp)
- allocate(force_cells(stacksize_new,2), stat=allocstat)
- if (allocstat /= 0) call fatal('stack', 'error increasing force stack size')
- force_cells(1:stacksize,:) = force_cells_tmp(:,:)
- deallocate(force_cells_tmp)
-
- stacksize = stacksize_new
- call allocate_stack(force_stack_1, 1)
- call allocate_stack(force_stack_2, 2)
- call allocate_stack(dens_stack_1, dens_stack_1%number)
- call allocate_stack(dens_stack_2, dens_stack_2%number)
- call allocate_stack(dens_stack_3, dens_stack_3%number)
-end subroutine increase_mpi_memory
 
 subroutine calculate_stacksize(npart)
  use dim, only:mpi,minpart
@@ -161,6 +118,10 @@ subroutine calculate_stacksize(npart)
     ! assume that every cell will be exported, with some safety factor
     stacksize = int((npart / minpart / nprocs) * safety)
 
+    ! enough chunks to hold one cell per particle, an upper limit
+    ! on the number of cells that can be imported or exported
+    maxchunks = int(npart / max(stacksize,1)) + 2
+
     if (id == master) then
        write(iprint, *) 'MPI memory stack size = ', stacksize
        write(iprint, *) '  (total number of cells that can be exported by a single task)'
@@ -172,113 +133,245 @@ subroutine calculate_stacksize(npart)
 end subroutine calculate_stacksize
 
 subroutine deallocate_mpi_memory
- if (allocated(dens_cells )) deallocate(dens_cells )
- if (allocated(force_cells)) deallocate(force_cells)
+
+ call deallocate_stack(dens_stack_1)
+ call deallocate_stack(dens_stack_2)
+ call deallocate_stack(dens_stack_3)
+ call deallocate_stack(force_stack_1)
+ call deallocate_stack(force_stack_2)
+
 end subroutine deallocate_mpi_memory
 
-subroutine allocate_stack_dens(stack, i)
+!----------------------------------------------------------------
+!+
+!  allocate the first chunk of a stack, with stacksize cells
+!+
+!----------------------------------------------------------------
+subroutine allocate_stack_dens(stack)
  type(stackdens), intent(inout) :: stack
- integer,         intent(in)    :: i
+ integer :: allocstat
 
- stack%number = i
- stack%cells => dens_cells(1:stacksize,stack%number)
- stack%maxlength = stacksize
+ if (associated(stack%chunks)) then
+    if (max(stacksize,1) /= stack%chunksize) call fatal('stack','dens stack already allocated with a different size')
+    return
+ endif
+ stack%chunksize = max(stacksize,1)
+ stack%maxlength = stack%chunksize
+ allocate(stack%chunks(max(maxchunks,1000)),stat=allocstat)
+ if (allocstat == 0) allocate(stack%chunks(1)%cells(stack%chunksize),stat=allocstat)
+ if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
+ stack%n = 0
 
 end subroutine allocate_stack_dens
 
-subroutine allocate_stack_force(stack, i)
+subroutine allocate_stack_force(stack)
  type(stackforce), intent(inout) :: stack
- integer,          intent(in)    :: i
+ integer :: allocstat
 
- stack%number = i
- stack%cells => force_cells(1:stacksize,stack%number)
- stack%maxlength = stacksize
+ if (associated(stack%chunks)) then
+    if (max(stacksize,1) /= stack%chunksize) call fatal('stack','force stack already allocated with a different size')
+    return
+ endif
+ stack%chunksize = max(stacksize,1)
+ stack%maxlength = stack%chunksize
+ allocate(stack%chunks(max(maxchunks,1000)),stat=allocstat)
+ if (allocstat == 0) allocate(stack%chunks(1)%cells(stack%chunksize),stat=allocstat)
+ if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
+ stack%n = 0
 
 end subroutine allocate_stack_force
+
+subroutine deallocate_stack_dens(stack)
+ type(stackdens), intent(inout) :: stack
+ integer :: k
+
+ if (.not.associated(stack%chunks)) return
+ do k=1,size(stack%chunks)
+    if (associated(stack%chunks(k)%cells)) deallocate(stack%chunks(k)%cells)
+ enddo
+ deallocate(stack%chunks)
+ stack%chunksize = 0
+ stack%maxlength = 0
+ stack%n = 0
+
+end subroutine deallocate_stack_dens
+
+subroutine deallocate_stack_force(stack)
+ type(stackforce), intent(inout) :: stack
+ integer :: k
+
+ if (.not.associated(stack%chunks)) return
+ do k=1,size(stack%chunks)
+    if (associated(stack%chunks(k)%cells)) deallocate(stack%chunks(k)%cells)
+ enddo
+ deallocate(stack%chunks)
+ stack%chunksize = 0
+ stack%maxlength = 0
+ stack%n = 0
+
+end subroutine deallocate_stack_force
+
+!----------------------------------------------------------------
+!+
+!  allocate the chunk that holds cell i, if not already allocated
+!  (threadsafe: called from inside parallel regions)
+!+
+!----------------------------------------------------------------
+subroutine grow_stack_dens(stack,i)
+ use io, only:id
+ type(stackdens), intent(inout) :: stack
+ integer,         intent(in)    :: i
+ integer :: k,allocstat
+
+ k = (i-1)/stack%chunksize + 1
+ if (k > size(stack%chunks)) call fatal('dens','MPI stack exceeded maximum size')
+ allocstat = 0
+ !$omp critical (grow_mpi_stack)
+ if (.not.associated(stack%chunks(k)%cells)) then
+    allocate(stack%chunks(k)%cells(stack%chunksize),stat=allocstat)
+    stack%maxlength = max(stack%maxlength,k*stack%chunksize)
+    write(iprint,*) 'MPI dens stack on',id,'increased to',stack%maxlength,'cells'
+ endif
+ !$omp end critical (grow_mpi_stack)
+ if (allocstat /= 0) call fatal('dens','error increasing MPI stack size')
+
+end subroutine grow_stack_dens
+
+subroutine grow_stack_force(stack,i)
+ use io, only:id
+ type(stackforce), intent(inout) :: stack
+ integer,          intent(in)    :: i
+ integer :: k,allocstat
+
+ k = (i-1)/stack%chunksize + 1
+ if (k > size(stack%chunks)) call fatal('force','MPI stack exceeded maximum size')
+ allocstat = 0
+ !$omp critical (grow_mpi_stack)
+ if (.not.associated(stack%chunks(k)%cells)) then
+    allocate(stack%chunks(k)%cells(stack%chunksize),stat=allocstat)
+    stack%maxlength = max(stack%maxlength,k*stack%chunksize)
+    write(iprint,*) 'MPI force stack on',id,'increased to',stack%maxlength,'cells'
+ endif
+ !$omp end critical (grow_mpi_stack)
+ if (allocstat /= 0) call fatal('force','error increasing MPI stack size')
+
+end subroutine grow_stack_force
 
 subroutine swap_stacks_dens(stack_a, stack_b)
  type(stackdens), intent(inout) :: stack_a
  type(stackdens), intent(inout) :: stack_b
+ type(stackdens) :: temp
 
- integer :: temp_n
- integer :: temp_number
-
- if (stack_a%maxlength /= stack_b%maxlength) call fatal('stack', 'stack swap of unequal size')
-
- ! counters
- temp_n = stack_a%n
- stack_a%n = stack_b%n
- stack_b%n = temp_n
-
- ! addresses
- temp_number = stack_a%number
- stack_a%number = stack_b%number
- stack_b%number = temp_number
-
- ! change pointers
- stack_a%cells => dens_cells(1:stacksize,stack_a%number)
- stack_b%cells => dens_cells(1:stacksize,stack_b%number)
+ temp    = stack_a
+ stack_a = stack_b
+ stack_b = temp
 
 end subroutine swap_stacks_dens
 
 subroutine push_onto_stack_dens(stack,cell)
  type(stackdens), intent(inout) :: stack
  type(celldens),  intent(in)    :: cell
-
+ type(celldens),  pointer       :: p
  integer :: i
 
  call reserve_stack(stack,i)
 
  ! no other thread will write to the same position, so it is threadsafe to write without a critical section
- stack%cells(i) = cell
+ p => get_cell_ptr(stack,i)
+ p = cell
+
 end subroutine push_onto_stack_dens
 
 subroutine push_onto_stack_force(stack,cell)
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(in)    :: cell
-
+ type(cellforce),  pointer       :: p
  integer :: i
 
  call reserve_stack(stack,i)
 
  ! no other thread will write to the same position, so it is threadsafe to write without a critical section
- stack%cells(i) = cell
+ p => get_cell_ptr(stack,i)
+ p = cell
+
 end subroutine push_onto_stack_force
+
+!----------------------------------------------------------------
+!+
+!  pointer to cell i in the stack
+!+
+!----------------------------------------------------------------
+function get_cell_ptr_dens(stack,i) result(p)
+ type(stackdens), intent(in) :: stack
+ integer,         intent(in) :: i
+ type(celldens),  pointer    :: p
+ integer :: k
+
+ k = (i-1)/stack%chunksize
+ p => stack%chunks(k+1)%cells(i - k*stack%chunksize)
+
+end function get_cell_ptr_dens
+
+function get_cell_ptr_force(stack,i) result(p)
+ type(stackforce), intent(in) :: stack
+ integer,          intent(in) :: i
+ type(cellforce),  pointer    :: p
+ integer :: k
+
+ k = (i-1)/stack%chunksize
+ p => stack%chunks(k+1)%cells(i - k*stack%chunksize)
+
+end function get_cell_ptr_force
 
 type(celldens) function get_cell_dens(stack,i)
  type(stackdens), intent(in) :: stack
  integer,         intent(in) :: i
+ type(celldens),  pointer    :: p
 
  if (stack%n < i) call fatal('dens','attempting to read invalid stack address')
- get_cell_dens = stack%cells(i)
+ p => get_cell_ptr(stack,i)
+ get_cell_dens = p
+
 end function get_cell_dens
 
 type(cellforce) function get_cell_force(stack,i)
  type(stackforce), intent(in) :: stack
  integer,          intent(in) :: i
+ type(cellforce),  pointer    :: p
 
  if (stack%n < i) call fatal('force','attempting to read invalid stack address')
- get_cell_force = stack%cells(i)
+ p => get_cell_ptr(stack,i)
+ get_cell_force = p
+
 end function get_cell_force
 
 subroutine write_cell_dens(stack,cell)
  type(stackdens), intent(inout) :: stack
  type(celldens),  intent(inout) :: cell
+ type(celldens),  pointer       :: p
 
- if (cell%waiting_index > stack%maxlength) call fatal('dens','attempting to write to invalid stack address')
- stack%cells(cell%waiting_index) = cell
+ if (cell%waiting_index > stack%n) call fatal('dens','attempting to write to invalid stack address')
+ p => get_cell_ptr(stack,cell%waiting_index)
+ p = cell
 
 end subroutine write_cell_dens
 
 subroutine write_cell_force(stack,cell)
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(inout) :: cell
+ type(cellforce),  pointer       :: p
 
- if (cell%waiting_index > stack%maxlength) call fatal('force','attempting to write to invalid stack address')
- stack%cells(cell%waiting_index) = cell
+ if (cell%waiting_index > stack%n) call fatal('force','attempting to write to invalid stack address')
+ p => get_cell_ptr(stack,cell%waiting_index)
+ p = cell
 
 end subroutine write_cell_force
 
+!----------------------------------------------------------------
+!+
+!  reserve a position on the stack, growing it if required
+!+
+!----------------------------------------------------------------
 subroutine reserve_stack_dens(stack,i)
  type(stackdens), intent(inout) :: stack
  integer,         intent(out)   :: i
@@ -288,7 +381,9 @@ subroutine reserve_stack_dens(stack,i)
  i = stack%n
  !$omp end atomic
 
- if (i > stack%maxlength) call fatal('dens','MPI stack exceeded')
+ ! cells beyond the first chunk always go through the critical section in
+ ! grow_stack, which ensures their chunk is allocated and visible to this thread
+ if (i > stack%chunksize) call grow_stack_dens(stack,i)
 
 end subroutine reserve_stack_dens
 
@@ -301,7 +396,9 @@ subroutine reserve_stack_force(stack,i)
  i = stack%n
  !$omp end atomic
 
- if (i > stack%maxlength) call fatal('force','MPI stack exceeded')
+ ! cells beyond the first chunk always go through the critical section in
+ ! grow_stack, which ensures their chunk is allocated and visible to this thread
+ if (i > stack%chunksize) call grow_stack_force(stack,i)
 
 end subroutine reserve_stack_force
 

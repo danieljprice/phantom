@@ -313,9 +313,10 @@ module part
                        ilambda = 9, &
                        iedd   = 10, &
                        icv    = 11, &
-                       maxradprop = 11
+                       itlastrad = 12, & ! time of the last implicit radiation update
+                       maxradprop = 12
  character(len=*), parameter :: radprop_label(maxradprop) = &
-    (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    '/)
+    (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    ','tlast '/)
 !
 !--lightcurves, store du/dt for each particle
 !
@@ -405,9 +406,12 @@ module part
 !
 !
 !--size of the buffer required for transferring particle
-!  information between MPI threads
+!  information between MPI threads: an upper bound on the values packed by
+!  fill_sendbuf, i.e. 142 for all optional fields that do not depend on the
+!  number of dust species, plus the dust arrays and the chemical abundances
 !
- integer, parameter :: ipartbufsize = 137
+ integer, parameter :: ipartbufsize = 142 + 6*maxdustsmall + 2*maxdusttypes &
+                                    + max(nabundances,krome_nmols)
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -665,6 +669,7 @@ end subroutine deallocate_part
 !+
 !----------------------------------------------------------------
 subroutine init_part
+ use io, only:id,nprocs
  integer :: i
 
  npart = 0
@@ -744,18 +749,33 @@ subroutine init_part
 
  ideadhead = 0
 !
-!--Initialise particle id's
+!--Initialise particle id's, unique across MPI tasks
 !
 !$omp parallel do default(none) &
-!$omp shared(iorig,maxp) &
+!$omp shared(iorig,maxp,id) &
 !$omp private(i)
  do i = 1,maxp
-    iorig(i) = i
+    iorig(i) = i + int(id,kind=8)*maxp
  enddo
 !$omp end parallel do
- norig = maxp
+ norig = int(nprocs,kind=8)*maxp
 
 end subroutine init_part
+
+!----------------------------------------------------------------
+!+
+!  a new particle ID. IDs above norig are given out in turn by the
+!  MPI tasks (task id gives norig+1+id, then norig increases by nprocs),
+!  so no two tasks give out the same ID while every task has the same norig
+!+
+!----------------------------------------------------------------
+integer(kind=8) function new_iorig()
+ use io, only:id,nprocs
+
+ new_iorig = norig + 1 + id
+ norig = norig + nprocs
+
+end function new_iorig
 
 !----------------------------------------------------------------
 !+
@@ -1406,8 +1426,7 @@ subroutine copy_particle(src,dst,new_part)
  if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (new_part) then
-    norig      = norig + 1
-    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
+    iorig(dst) = new_iorig() ! we are creating a new particle; give it a new ID
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
@@ -1521,8 +1540,7 @@ subroutine copy_particle_all(src,dst,new_part)
  endif
 
  if (new_part) then
-    norig      = norig + 1
-    iorig(dst) = norig      ! we are creating a new particle; give it the new ID
+    iorig(dst) = new_iorig() ! we are creating a new particle; give it a new ID
  else
     iorig(dst) = iorig(src) ! we are moving the particle within the list; maintain ID
  endif
@@ -1792,7 +1810,12 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
     endif
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
-    call fill_buffer(xtemp,divcurlv(1,i),nbuf)
+    !--derived quantities are also sent: with individual timesteps an
+    !  inactive particle keeps them until it is next active
+    call fill_buffer(xtemp,divcurlv(:,i),nbuf)
+    if (ndivcurlB > 0) call fill_buffer(xtemp,divcurlB(:,i),nbuf)
+    if (maxdvdx==maxp) call fill_buffer(xtemp,dvdx(:,i),nbuf)
+    if (maxlum==maxp)  call fill_buffer(xtemp,luminosity(i),nbuf)
     if (maxalpha==maxp) then
        call fill_buffer(xtemp,alphaind(:,i),nbuf)
     endif
@@ -1803,6 +1826,8 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
     if (mhd) then
        call fill_buffer(xtemp,Bevol(:,i),nbuf)
        call fill_buffer(xtemp,Bpred(:,i),nbuf)
+       if (maxmhdan==maxp) call fill_buffer(xtemp,dBevol(:,i),nbuf)
+       if (maxmhdni==maxp) call fill_buffer(xtemp,eta_nimhd(:,i),nbuf)
     endif
     if (do_radiation) then
        call fill_buffer(xtemp,rad(:,i),nbuf)
@@ -1817,11 +1842,19 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp, dustfrac(:,i),nbuf)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
+       if (maxdustan==maxp) then
+          call fill_buffer(xtemp, ddustevol(:,i),nbuf)
+          if (maxdusttypes > 0) call fill_buffer(xtemp, tstop(:,i),nbuf)
+       endif
+       call fill_buffer(xtemp, reshape(deltav(:,:,i),(/size(deltav(:,:,i))/)),nbuf)
        if (use_dustgrowth) then
           call fill_buffer(xtemp, dustprop(:,i),nbuf)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
           call fill_buffer(xtemp, Vrel_disp(i),nbuf)
+          call fill_buffer(xtemp, ddustprop(:,i),nbuf)
+          call fill_buffer(xtemp, VrelVf(:,i),nbuf)
+          call fill_buffer(xtemp, filfacpred(i),nbuf)
        endif
        call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
        call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
@@ -1830,6 +1863,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
+    if (use_krome) call fill_buffer(xtemp, T_gas_cool(i),nbuf)
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
@@ -1883,7 +1917,10 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
- divcurlv(1,ipart)      = real(unfill_buf(xbuf,j),kind=kind(divcurlv))
+ divcurlv(:,ipart)      = real(unfill_buf(xbuf,j,size(divcurlv,1)),kind=kind(divcurlv))
+ if (ndivcurlB > 0) divcurlB(:,ipart) = real(unfill_buf(xbuf,j,size(divcurlB,1)),kind=kind(divcurlB))
+ if (maxdvdx==maxp) dvdx(:,ipart) = real(unfill_buf(xbuf,j,size(dvdx,1)),kind=kind(dvdx))
+ if (maxlum==maxp)  luminosity(ipart) = real(unfill_buf(xbuf,j),kind=kind(luminosity))
  if (maxalpha==maxp) then
     alphaind(:,ipart)   = real(unfill_buf(xbuf,j,nalpha),kind(alphaind))
  endif
@@ -1894,6 +1931,8 @@ subroutine unfill_buffer(ipart,xbuf)
  if (mhd) then
     Bevol(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
     Bpred(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
+    if (maxmhdan==maxp) dBevol(:,ipart) = real(unfill_buf(xbuf,j,size(dBevol,1)),kind=kind(dBevol))
+    if (maxmhdni==maxp) eta_nimhd(:,ipart) = unfill_buf(xbuf,j,size(eta_nimhd,1))
  endif
  if (do_radiation) then
     rad(:,ipart)     = real(unfill_buf(xbuf,j,maxirad))
@@ -1908,19 +1947,28 @@ subroutine unfill_buffer(ipart,xbuf)
     dustfrac(:,ipart)   = unfill_buf(xbuf,j,maxdusttypes)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
+    if (maxdustan==maxp) then
+       ddustevol(:,ipart) = unfill_buf(xbuf,j,size(ddustevol,1))
+       if (maxdusttypes > 0) tstop(:,ipart) = unfill_buf(xbuf,j,size(tstop,1))
+    endif
+    deltav(:,:,ipart) = reshape(unfill_buf(xbuf,j,size(deltav(:,:,ipart))),shape(deltav(:,:,ipart)))
     if (use_dustgrowth) then
        dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
        Vrel_disp(ipart)        = unfill_buf(xbuf,j)
+       ddustprop(:,ipart)      = unfill_buf(xbuf,j,size(ddustprop,1))
+       VrelVf(:,ipart)         = unfill_buf(xbuf,j,size(VrelVf,1))
+       filfacpred(ipart)       = unfill_buf(xbuf,j)
     endif
     fxyz_drag(:,ipart)   = unfill_buf(xbuf,j,3)
     fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
-    abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
+    abundance(:,ipart)  = unfill_buf(xbuf,j,size(abundance,1))
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
+ if (use_krome) T_gas_cool(ipart) = unfill_buf(xbuf,j)
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif

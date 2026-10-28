@@ -835,7 +835,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     do i=i1,i2
        iorig(i) = i + noffset
     enddo
-    norig = i2
+    norig = i2 + noffset
     if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
  else
     norig = 0

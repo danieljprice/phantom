@@ -57,9 +57,13 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
  integer :: i
  real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
 
+ ! initial guess for the temperature of the first particle on each thread (-ve, so that the
+ ! eos chooses one); later particles start from the previous particle's temperature
+ tempi = -1.
  !$omp parallel do default (none) schedule(dynamic,nchunk) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,ien_type,eos_vars,gamma,ieos,use_sink,rho) &
- !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
+ !$omp private(i,pri,xyzhi,vxyzui,densi) &
+ !$omp firstprivate(tempi)
  do i=1,npart
 
     if (present(use_sink)) then

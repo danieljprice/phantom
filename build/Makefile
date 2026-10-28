@@ -513,7 +513,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.f90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 ptmass_tree.f90 \
-         utils_deriv.f90 utils_neighcompact.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
+         utils_deriv.f90 utils_neighcompact.f90 utils_implicit.f90 mpi_radiation.F90 radiation_implicit.f90 ${SRCTURB} \
          grids_for_setup.f90\
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
          krome.F90 memory.f90 ${SRCRW_DUMPS} ${SRCINJECT} injection.f90 \
@@ -591,9 +591,9 @@ edit: checksetup
 #----------------------------------------------------
 # these are the sources for anything which uses the readwrite_dumps module
 #
-SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_utils.F90 \
+SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_dens.F90 mpi_force.F90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
-         ${DOMAIN} mpi_dens.F90 mpi_force.F90 boundary.f90 boundary_dynamic.f90 \
+         ${DOMAIN} boundary.f90 boundary_dynamic.f90 \
          mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 neigh_kdtree.F90 ptmass_tree.f90\
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 cubicsolve.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \

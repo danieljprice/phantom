@@ -21,7 +21,7 @@ module neighcompact
 !
  use io, only:fatal
  implicit none
- public :: compact_neigh_counts,get_compacted_neighbour_list
+ public :: compact_neigh_counts,get_compacted_neighbour_list,is_solver_particle
 
  private
 
@@ -55,27 +55,34 @@ end subroutine compact_neigh_counts
 !  If nedges is present, running out of space in ijvar is not fatal:
 !  the list is left incomplete and nedges returns the size required,
 !  so the caller can reallocate and call again.
+!
+!  Optionally, neighbours not in xyzh (e.g. particles on other MPI tasks)
+!  are added from the candidates of each leaf, icand(icand_start(icell):
+!  icand_start(icell+1)-1), with positions xyzh_extra; they are stored in
+!  ijvar as joffset + their index in xyzh_extra.
 !+
 !-----------------------------------------------------------------------
-subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges)
- use dim,         only:periodic,maxphase,maxp,maxpsph
+subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges, &
+                                        icand_start,icand,xyzh_extra,joffset)
+ use dim,         only:periodic,maxpsph
  use neighkdtree, only:ncells,get_neighbour_list,listneigh,leaf_is_active
  use kdtree,      only:inodeparts,inoderange
  use boundary,    only:mod_boundary
- use part,        only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
  use kernel,      only:radkern2
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: ivar(:,:),ijvar(:)
  integer, intent(out) :: ncompact,ncompactlocal
  integer, intent(out), optional :: nedges
+ integer, intent(in),  optional :: icand_start(:),icand(:),joffset
+ real,    intent(in),  optional :: xyzh_extra(:,:)
  integer                    :: icell,nneigh,i,j,k,n,ip,ncompact_private
- integer                    :: icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
+ integer                    :: icompact_private,icompact,icompactmax,nneigh_trial,ncand
  integer, parameter         :: maxcellcache = 10000
  integer, save, allocatable :: neighlist(:)
  real                       :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
  real, save, allocatable    :: xyzcache(:,:)
  !$omp threadprivate(xyzcache,neighlist)
- logical                    :: iactivei,iamdusti,iamgasi,growable
+ logical                    :: growable,extra
 
  if (.not. allocated(neighlist)) then
     !$omp parallel default(none) shared(xyzh)
@@ -88,11 +95,13 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  icompact = 0
  icompactmax = size(ijvar)
  growable = present(nedges)
+ extra = present(icand_start) .and. present(icand) .and. present(xyzh_extra) .and. present(joffset)
  !$omp parallel do default(none) schedule(runtime)&
- !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,leaf_is_active)&
- !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp,maxpsph,growable)&
- !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
+ !$omp shared(ncells,xyzh,inodeparts,inoderange,leaf_is_active)&
+ !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxpsph,growable)&
+ !$omp shared(extra,icand_start,icand,xyzh_extra,joffset)&
+ !$omp private(icell,i,j,k,n,ip,dx,dy,dz,rij2,q2i,q2j)&
+ !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh,ncand)
 
  over_cells: do icell=1,int(ncells)
 
@@ -103,33 +112,25 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
     !--get the neighbour list and fill the cell cache
     !
     call get_neighbour_list(icell,listneigh,nneigh_trial,xyzh,xyzcache,maxcellcache,getj=.true.)
+    !
+    !--a particle can have more neighbours, local plus on other tasks, than
+    !  there are particles on this task, so grow this thread's list if needed
+    !
+    ncand = 0
+    if (extra) ncand = icand_start(icell+1) - icand_start(icell)
+    if (nneigh_trial + ncand > size(neighlist)) then
+       deallocate(neighlist)
+       allocate(neighlist(2*(nneigh_trial + ncand)))
+    endif
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
-       i = inodeparts(ip)
-
-       if (i > maxpsph) cycle over_parts
-
-       if (maxphase==maxp) then
-          call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
-       else
-          iactivei = .true.
-          iamtypei = igas
-          iamdusti = .false.
-          iamgasi  = .true.
-       endif
-
-       ! skip inactive and non-gas particles, but keep boundary particles
-       if ((.not.iactivei .or. .not.iamgasi) .and. .not. iamtypei==iboundary) then
-          cycle over_parts
-       endif
+       i = abs(inodeparts(ip))  ! the tree stores inactive particles as -i
+       if (.not.is_solver_particle(i,xyzh)) cycle over_parts
 
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
        hi = xyzh(4,i)
-       if (isdead_or_accreted(hi)) then
-          cycle over_parts
-       endif
        nneigh = 0
        hi21 = 1./hi**2
 
@@ -164,6 +165,25 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
           endif is_sph_neighbour
 
        enddo loop_over_neigh
+       !
+       !--candidates not in xyzh (e.g. on other MPI tasks)
+       !
+       if (extra) then
+          do k = icand_start(icell),icand_start(icell+1)-1
+             n = icand(k)
+             dx = xi - xyzh_extra(1,n)
+             dy = yi - xyzh_extra(2,n)
+             dz = zi - xyzh_extra(3,n)
+             if (periodic) call mod_boundary(dx,dy,dz)
+             rij2 = dx*dx + dy*dy + dz*dz
+             q2i = rij2*hi21
+             q2j = rij2/xyzh_extra(4,n)**2
+             if (q2i < radkern2 .or. q2j < radkern2) then
+                nneigh = nneigh + 1
+                neighlist(nneigh) = joffset + n
+             endif
+          enddo
+       endif
 
        !$omp critical(listcompact)
        ncompact = ncompact + 1
@@ -193,5 +213,35 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  if (growable) nedges = icompact
 
 end subroutine get_compacted_neighbour_list
+
+!-----------------------------------------------------------------------
+!+
+!  whether particle i is solved for: active gas particles and
+!  boundary particles that are not dead or accreted
+!+
+!-----------------------------------------------------------------------
+logical function is_solver_particle(i,xyzh)
+ use dim,  only:maxphase,maxp,maxpsph
+ use part, only:iphase,igas,iboundary,get_partinfo,isdead_or_accreted
+ integer, intent(in) :: i
+ real,    intent(in) :: xyzh(:,:)
+ logical :: iactivei,iamgasi,iamdusti
+ integer :: iamtypei
+
+ is_solver_particle = .false.
+ !--sinks are stored beyond maxpsph
+ if (i <= 0 .or. i > maxpsph) return
+ if (maxphase==maxp) then
+    call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+ else
+    iactivei = .true.
+    iamtypei = igas
+    iamgasi  = .true.
+ endif
+ !--skip inactive and non-gas particles, but keep boundary particles
+ if ((.not.iactivei .or. .not.iamgasi) .and. .not.iamtypei==iboundary) return
+ is_solver_particle = .not.isdead_or_accreted(xyzh(4,i))
+
+end function is_solver_particle
 
 end module neighcompact

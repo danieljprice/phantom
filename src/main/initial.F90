@@ -259,8 +259,9 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
  use writeheader,      only:write_codeinfo,write_header
  use cpuinfo,          only:print_cpuinfo
  use io,               only:fatal,warning
- use dim,              only:idumpfile,gr
+ use dim,              only:idumpfile,gr,do_radiation
  use metric,           only:update_metric
+ use part,             only:npart,radprop,itlastrad
  character(len=*), intent(inout) :: infile,logfile,evfile,dumpfile
  real,             intent(out)   :: time
  integer,          intent(out)   :: ierr
@@ -288,6 +289,9 @@ subroutine read_infile_and_initial_conditions(infile,logfile,evfile,dumpfile,tim
  ! read particle setup from dumpfile
  call read_dump(trim(dumpfile),time,hfactfile,idisk1,iprint,id,nprocs,ierr)
  if (ierr /= 0) call fatal('initial','error reading dumpfile')
+
+ ! implicit radiation integrates each particle from the time of its last update
+ if (do_radiation) radprop(itlastrad,1:npart) = time
 
  if (gr) call update_metric(time)
 
@@ -627,6 +631,13 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
 
+    ! the sink-sink forces are computed on every MPI task, so are kept
+    ! only on the master task to be counted once in the sum over tasks below
+    if (id /= master) then
+       fxyz_ptmass(:,1:nptmass) = 0.
+       dsdt_ptmass(:,1:nptmass) = 0.
+    endif
+
     ! compute initial sink-gas forces and get timestep
     pmassi = massoftype(igas)
     ntypes = get_ntypes(npartoftype)
@@ -655,13 +666,13 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
 
     ! reduction of sink-gas forces from each MPI thread
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
-
-    if (id==master) write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
+    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
 
     dtextforce = min(dtextforce,dtsinkgas)
     !  Reduce dt over MPI tasks
     dtsinkgas = reduceall_mpi('min',dtsinkgas)
     dtextforce = reduceall_mpi('min',dtextforce)
+    if (id==master) write(iprint,*) 'dt(sink-gas)  = ',dtsinkgas
     if (use_regnbody) then
        do i=1,n_group
           call get_subgroup(group_info,i,sid,eid,gsize)

@@ -164,17 +164,13 @@ subroutine set_active_particles(npart,nactive,nalive,nactivetot,nalivetot,iphase
     if (mod(istepfrac,2**(nbinmax-i))==0) ibinnow = int(i,kind=1)
     i = i + 1
  enddo
- !
- !--Determine activity to determine if stressmax needs to be reset
- !
- if (nactive==nalive) then
-    all_active = .true.
- else
-    all_active = .false.
- endif
-
  nactivetot = reduceall_mpi('+', nactive)
  nalivetot = reduceall_mpi('+', nalive)
+ !
+ !--Determine activity to determine if stressmax needs to be reset
+ !  (must be the same on all MPI tasks, since stressmax is reduced)
+ !
+ all_active = (nactivetot==nalivetot)
 
 end subroutine set_active_particles
 
