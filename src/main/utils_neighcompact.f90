@@ -114,7 +114,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
     call get_neighbour_list(icell,listneigh,nneigh_trial,xyzh,xyzcache,maxcellcache,getj=.true.)
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
-       i = inodeparts(ip)
+       i = abs(inodeparts(ip))  ! the tree stores inactive particles as -i
        if (.not.is_solver_particle(i,xyzh)) cycle over_parts
 
        xi = xyzh(1,i)
@@ -219,7 +219,7 @@ logical function is_solver_particle(i,xyzh)
  integer :: iamtypei
 
  is_solver_particle = .false.
- !--the tree stores inactive particles as -i, and sinks beyond maxpsph
+ !--sinks are stored beyond maxpsph
  if (i <= 0 .or. i > maxpsph) return
  if (maxphase==maxp) then
     call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
