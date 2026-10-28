@@ -174,7 +174,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
  nvfloorp  = 0
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
@@ -483,7 +483,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp reduction(max:errmax) &
 !$omp reduction(+:np,v2mean,p2mean,nwake,nvfloorc) &
 !$omp firstprivate(itype)
-!$omp do
+!$omp do schedule(dynamic,256)
     corrector: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (store_itype) itype = iamtype(iphase(i))

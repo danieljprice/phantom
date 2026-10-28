@@ -59,7 +59,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
  ! initial guess for the temperature of the first particle on each thread (-ve, so that the
  ! eos chooses one); later particles start from the previous particle's temperature
  tempi = -1.
- !$omp parallel do default (none) &
+ !$omp parallel do default (none) schedule(dynamic,256) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,ien_type,eos_vars,gamma,ieos,use_sink,rho) &
  !$omp private(i,pri,xyzhi,vxyzui,densi) &
  !$omp firstprivate(tempi)
@@ -166,7 +166,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphai
  if (.not.done_init_eos) call init_eos(ieos,ierr)
  set_alphaloc = (nalpha >= 2 .and. present(dvdx) .and. present(alphaind))
 
-!$omp parallel do default (none) &
+!$omp parallel do default (none) schedule(dynamic,256) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,rho) &
 !$omp shared(ieos,eos_vars,ien_type,set_alphaloc,dvdx,alphaind) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
@@ -293,7 +293,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  X_i    = X_in
  Z_i    = Z_in
 
-!$omp parallel do default (none) &
+!$omp parallel do default (none) schedule(dynamic,256) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,rho) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(iphase,maxphase,maxp) &

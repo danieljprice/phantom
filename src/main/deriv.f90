@@ -44,7 +44,7 @@ subroutine get_coord_accel_all(npart,xyzh,vxyzu,fxyzu,fext,dens,eos_vars,metrics
  integer :: i
  real    :: enth,dpdt(3)
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,dens,eos_vars,metrics,metricderivs,agr) &
  !$omp private(i,enth,dpdt)
  do i=1,npart
@@ -251,7 +251,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
  if (do_radiation .and. implicit_radiation .and. .not.implicit_radiation_store_drad) then
-    !$omp parallel do default(none) shared(drad,fxyzu,npart) private(i)
+    !$omp parallel do default(none) shared(drad,fxyzu,npart) private(i) schedule(dynamic,256)
     do i=1,npart
        drad(:,i) = 0.
        fxyzu(4,i) = 0.

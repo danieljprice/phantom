@@ -17,7 +17,6 @@ module fileutils
 !
 ! :Dependencies: None
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
 
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,number_of_rows
@@ -329,6 +328,7 @@ end subroutine get_ncolumns
 !
 !---------------------------------------------------------------------------
 integer function ncolumnsline(line)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  character(len=*), intent(in) :: line
  real :: dummyreal(1000)
  integer :: ierr,i

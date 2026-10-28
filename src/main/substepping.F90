@@ -60,7 +60,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  logical :: converged
  real    :: rhoi,pri,tempi,gammai
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol,rho) &
  !$omp shared(pxyzu,metrics,ien_type,eos_vars) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
@@ -246,7 +246,7 @@ subroutine substep_sph(dt,npart,xyzh,vxyzu)
  real,    intent(in)    :: vxyzu(:,:)
  integer :: i
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(npart,xyzh,vxyzu,dt) &
  !$omp private(i)
  do i=1,npart
@@ -466,7 +466,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
 
  ! Drift gas particles
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(npart,xyzh,vxyzu,ckdt) &
  !$omp private(i)
  do i=1,npart
@@ -537,7 +537,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  !
  ! Kick gas particles
  !
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(iphase,ntypes) &
  !$omp shared(npart,fext,xyzh,pxyzu,dkdt) &
@@ -613,7 +613,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  ibin_wakei   = 0
  rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
  dptmass(:,1:nptmass) = 0.
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
@@ -928,7 +928,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,ponsubg)
- !$omp do
+ !$omp do schedule(dynamic,256)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
@@ -1255,7 +1255,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
  !
  ! predictor step for gas particles
  !
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(xyzh,npart,pxyzu,vxyzu,rho) &
  !$omp shared(hdt,dens,eos_vars,ien_type,metrics,metrics_ptmass) &
  !$omp shared(metricderivs,fext,ptol,dt,xtol,fgr,nsubsteps) &

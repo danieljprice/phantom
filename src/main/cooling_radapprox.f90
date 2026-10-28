@@ -18,8 +18,6 @@ module cooling_radapprox
 !
 ! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
-
  implicit none
  real  :: Lstar = 0. ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
@@ -58,6 +56,7 @@ subroutine init_star()
 end subroutine init_star
 
 subroutine radcool_evolve_ui(ui,dt,i,Tfloor,rhoi,uout)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use eos_stamatellos, only:ttherm_store,ueqi_store,getintenerg_opdep
  use io,              only:warning
  use units,           only:unit_density,unit_ergg
@@ -110,6 +109,7 @@ end subroutine radcool_evolve_ui
 !
 ! update tthermi and ueqi for ui update
 subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure

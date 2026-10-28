@@ -198,7 +198,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
 
  if (present(time)) call update_metric(time)
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(dynamic,256) &
  !$omp shared(npart,xyzh,metrics) &
  !$omp private(i)
  do i=1,npart
@@ -207,7 +207,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
  !omp end parallel do
 
  if (present(metricderivs)) then
-    !$omp parallel do default(none) &
+    !$omp parallel do default(none) schedule(dynamic,256) &
     !$omp shared(npart,xyzh,metricderivs) &
     !$omp private(i)
     do i=1,npart

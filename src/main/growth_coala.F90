@@ -31,7 +31,6 @@ module growth_coala
 !   coala_polynomials_legendre, eos, infile_utils, io, part, physcon,
 !   precision, units
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,      only:ndusttypes,grainsize,graindens
  use physcon,   only:pi
 #ifdef COALA
@@ -77,6 +76,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine check_coagflux_array(array,array_name,ierr)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use io, only:error,fatal
  real(wp),         intent(in)    :: array(:)
  character(len=*), intent(in)    :: array_name

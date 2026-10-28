@@ -30,8 +30,6 @@ module cooling_solver
 ! :Dependencies: cooling_functions, infile_utils, io, physcon, timestep,
 !   units
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
-
  use cooling_functions, only:bowen_Cprime,lambda_shock_cgs,T0_value,T1_factor
  implicit none
  character(len=*), parameter :: label = 'cooling_library'
@@ -136,6 +134,7 @@ end subroutine explicit_cooling
 !-----------------------------------------------------------------------
 subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use physcon, only:Rg
  use units,   only:unit_ergg
 
