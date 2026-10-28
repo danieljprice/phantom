@@ -171,7 +171,7 @@ integer function nsolver_particles(icell,xyzh)
 
  nsolver_particles = 0
  do ip=inoderange(1,icell),inoderange(2,icell)
-    if (is_solver_particle(inodeparts(ip),xyzh)) nsolver_particles = nsolver_particles + 1
+    if (is_solver_particle(abs(inodeparts(ip)),xyzh)) nsolver_particles = nsolver_particles + 1
  enddo
 
 end function nsolver_particles
@@ -324,7 +324,7 @@ subroutine build_requests(xyzh,iexport,nleafto,ileafoff,reqsend,nreq)
        ioff  = ioff + nleafhdr
        np = 0
        do ip=inoderange(1,icell),inoderange(2,icell)
-          i = inodeparts(ip)
+          i = abs(inodeparts(ip))  ! the tree stores inactive particles as -i
           if (.not.is_solver_particle(i,xyzh)) cycle
           np = np + 1
           reqsend(ioff+1:ioff+4) = xyzh(1:4,i)

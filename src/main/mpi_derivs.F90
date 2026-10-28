@@ -1059,6 +1059,8 @@ subroutine print_cell_exchange_stats(iunit,nsteps)
  real(kind=8)    :: mbrecv(3)
  integer         :: maxstack
 
+ !--count only the collectives made by the steps, not the reductions below
+ ncoll = ncollectives
  call get_min_mean_max(ncells_sent,nsent)
  call get_min_mean_max(ncells_recv_dens+ncells_recv_force,nrecv)
  call get_min_mean_max_r8(1.e-6_8*nreals_recv*(storage_size(1.)/8),mbrecv)
@@ -1070,7 +1072,7 @@ subroutine print_cell_exchange_stats(iunit,nsteps)
  nmoved  = reduceall_mpi('+',nmigrated)
  nbal    = reduceall_mpi('max',nbalance_calls)
  nskip   = reduceall_mpi('max',nbalance_skipped)
- ncoll   = reduceall_mpi('max',ncollectives)
+ ncoll   = reduceall_mpi('max',ncoll)
  if (id==master) then
     write(iunit,"(1x,a,3(1x,i12))")   'MPI cells sent per task     (min,mean,max):',nsent
     write(iunit,"(1x,a,3(1x,i12))")   'MPI cells received per task (min,mean,max):',nrecv

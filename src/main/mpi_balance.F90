@@ -137,7 +137,7 @@ subroutine balancedomains(npart)
        !--attempt to receive a particle
        !
        if (mod(i,check_interval) == 0) then
-          call recv_part(gotpart)
+          call recv_part(gotpart=gotpart)
           !
           !--if there is a long gap between receiving particles, then decrease
           !  the check frequency. if there is no gap, then increase frequency.
