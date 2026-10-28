@@ -219,7 +219,8 @@ logical function is_solver_particle(i,xyzh)
  integer :: iamtypei
 
  is_solver_particle = .false.
- if (i > maxpsph) return
+ !--the tree stores inactive particles as -i, and sinks beyond maxpsph
+ if (i <= 0 .or. i > maxpsph) return
  if (maxphase==maxp) then
     call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
  else
