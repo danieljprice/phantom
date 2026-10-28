@@ -22,7 +22,6 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, io, mpibalance,
 !   mpidomain, mpitree, mpiutils, part, timing
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph,gravity
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,lenfgrav
@@ -690,6 +689,7 @@ end subroutine empty_tree
 !+
 !---------------------------------
 subroutine construct_root_node(np,nproot,irootnode,xmini,xmaxi,leaf_is_active,xyzh,apr_tree,xyzmh_ptmass,nptmass)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use boundary, only:cross_boundary
  use mpidomain,only:isperiodic
  use part, only:iphase,iactive

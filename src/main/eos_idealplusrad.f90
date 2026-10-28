@@ -18,7 +18,6 @@ module eos_idealplusrad
 !
 ! :Dependencies: physcon
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use physcon,  only:Rg,radconst,kboltz
  implicit none
  real, parameter :: tolerance = 1.e-15
@@ -39,6 +38,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  real,    intent(in)    :: rhoi,eni,mu
  real,    intent(inout) :: tempi
  integer, intent(out)   :: ierr

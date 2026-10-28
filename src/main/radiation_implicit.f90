@@ -21,7 +21,6 @@ module radiation_implicit
 ! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kernel,
 !   neighcompact, part, physcon, quartic, radiation_utils, timing, units
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
  use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
@@ -579,6 +578,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                        radprop,rad,origEU,varinew,EU0,&
                                        pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu, &
                                        mask,store_drad,moresweep,maxerrE2,maxerrU2,omega)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use io,      only:fatal,error
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
