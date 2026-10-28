@@ -237,6 +237,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
  use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
+ use mpimemory,    only:force_pool,get_packed_cell,clear_pool
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,&
@@ -299,6 +300,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  type(cellforce)           :: cell
  logical                   :: remote_export(nprocs),do_export
+ logical                   :: exchange ! whether cells are exchanged with other MPI tasks
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
  real(kind=4)              :: tc1,tcpuc1,tc2,tcpuc2 ! start and end of the compute loops
@@ -398,7 +400,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  rhomax        = 0.
 #endif
 
- if (mpi) then
+ !--the cell exchange is only needed with more than one MPI task
+ exchange = mpi .and. nprocs > 1
+ if (exchange) then
     call reset_stacks
     call reset_cell_counters(cell_counters)
  endif
@@ -460,8 +464,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp shared(id) &
 !$omp private(do_export) &
-!$omp shared(cell_counters) &
-!$omp shared(stack_remote) &
+!$omp shared(cell_counters,exchange) &
+!$omp shared(stack_remote,force_pool) &
 !$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax) &
@@ -490,7 +494,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(tcpu2) &
 !$omp shared(tc1,tcpuc1,tc2,tcpuc2)
 
- call init_cell_exchange(stack_remote)
+ if (exchange) call init_cell_exchange(stack_remote)
 
  !$omp single
  call get_timings(t1,tcpu1)
@@ -520,7 +524,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     cell%owner = id
     do_export = any(remote_export)
 
-    if (mpi) then
+    if (exchange) then
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)
@@ -559,14 +563,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp enddo
  !$omp single
  call get_timings(tc2,tcpuc2)
- if (mpi) then
+ if (exchange) then
     call increment_timer(itimer_force_lcomp,tc2-t1,tcpuc2-tcpu1)
     call record_send_wait(itimer_force_lsend)
  endif
  !$omp end single
 
 
- if (mpi) then
+ if (exchange) then
     call recv_while_wait(stack_remote,cell_counters)
     call reset_cell_counters(cell_counters)
  endif
@@ -578,13 +582,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp end single
  !$omp barrier
 
- igot_remote: if (mpi .and. stack_remote%n > 0) then
+ igot_remote: if (exchange .and. force_pool%n > 0) then
     !$omp single
     call get_timings(tc1,tcpuc1)
     !$omp end single
     !$omp do schedule(dynamic,ncellchunk)
-    over_remote: do i = 1,stack_remote%n
-       cell = get_cell(stack_remote,i)
+    over_remote: do i = 1,force_pool%n
+       call get_packed_cell(force_pool,i,cell)
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                                getj=.true.,f=cell%fgrav,&
@@ -610,15 +614,15 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp end single
 
     !$omp single
-    stack_remote%n = 0
+    call clear_pool(force_pool,release=.false.)
     !$omp end single
 
 
  endif igot_remote
 
- if (mpi) call recv_while_wait(stack_waiting,cell_counters)
+ if (exchange) call recv_while_wait(stack_waiting,cell_counters)
 
- iam_waiting: if (mpi .and. stack_waiting%n > 0) then
+ iam_waiting: if (exchange .and. stack_waiting%n > 0) then
     !$omp do schedule(dynamic,ncellchunk)
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
@@ -649,7 +653,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif iam_waiting
 
- call finish_cell_exchange(stack_remote)
+ if (exchange) call finish_cell_exchange(stack_remote)
 
 
 !$omp single

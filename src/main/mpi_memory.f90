@@ -6,7 +6,10 @@
 !--------------------------------------------------------------------------!
 module mpimemory
 !
-! None
+! Storage of the cells exchanged between MPI tasks during density and force.
+! Cells sent by this task and waiting for results are kept as full cells on
+! stacks; cells received from other tasks are kept packed (as sent) in a
+! pool of reals, and unpacked one at a time when they are computed.
 !
 ! :References: None
 !
@@ -17,8 +20,8 @@ module mpimemory
 ! :Dependencies: dim, io, mpidens, mpiforce
 !
  use io,          only:fatal,iprint
- use mpidens,     only:celldens,stackdens
- use mpiforce,    only:cellforce,stackforce
+ use mpidens,     only:celldens,stackdens,maxpack_celldens
+ use mpiforce,    only:cellforce,stackforce,maxpack_cellforce
 
  implicit none
 
@@ -54,6 +57,10 @@ module mpimemory
   module procedure reserve_stack_dens,reserve_stack_force
  end interface reserve_stack
 
+ interface get_packed_cell
+  module procedure get_packed_celldens,get_packed_cellforce
+ end interface get_packed_cell
+
  public :: allocate_mpi_memory
  public :: deallocate_mpi_memory
  public :: swap_stacks
@@ -63,8 +70,35 @@ module mpimemory
  public :: write_cell
  public :: reserve_stack
  public :: reset_stacks
+ public :: push_packed
+ public :: get_packed_cell
+ public :: clear_pool
+ public :: exchange_memory_mb
+
+ ! chunk of a pool of packed cells
+ type poolchunk
+    real, allocatable :: x(:)
+ end type poolchunk
+
+ ! cells received from other tasks, stored packed one after the other in chunks
+ ! of reals (a cell never spans two chunks); pos(i) is the start of cell i,
+ ! as (chunk - 1)*chunksize + offset
+ type packedpool
+    type(poolchunk), allocatable :: chunks(:)
+    integer(kind=8), allocatable :: pos(:)
+    integer         :: chunksize = 0
+    integer         :: n = 0        ! number of cells in the pool
+    integer         :: maxn = 0     ! largest number of cells held, for the MPI statistics
+    integer         :: ichunk = 1   ! chunk being filled
+    integer         :: maxchunks = 1 ! largest number of chunks used, for the MPI statistics
+    integer         :: fill = 0     ! reals used in that chunk
+ end type packedpool
+
+ ! cells received from other tasks during density and force
+ type(packedpool), public :: dens_pool, force_pool
 
  ! stacks to be referenced from density and force routines
+ ! (stack 1 of each is kept for the generic interfaces, the received cells are in the pools)
  type(stackdens),  public :: dens_stack_1
  type(stackdens),  public :: dens_stack_2
  type(stackdens),  public :: dens_stack_3
@@ -93,11 +127,11 @@ subroutine allocate_mpi_memory(npart, stacksize_in)
  if (present(stacksize_in)) stacksize = stacksize_in
  if (present(npart)) call calculate_stacksize(npart)
 
- call allocate_stack(dens_stack_1)
  call allocate_stack(dens_stack_2)
  call allocate_stack(dens_stack_3)
- call allocate_stack(force_stack_1)
  call allocate_stack(force_stack_2)
+ call allocate_pool(dens_pool,maxpack_celldens)
+ call allocate_pool(force_pool,maxpack_cellforce)
 
 end subroutine allocate_mpi_memory
 
@@ -105,7 +139,7 @@ subroutine calculate_stacksize(npart)
  use dim, only:mpi,minpart
  use io,  only:nprocs,id,master
  integer(kind=8), intent(in) :: npart ! total number of particles on all tasks
- integer, parameter  :: safety = 8
+ integer, parameter  :: safety = 2
 
  ! size of the stack needed for communication,
  ! should be at least the maximum number of cells that need
@@ -115,7 +149,8 @@ subroutine calculate_stacksize(npart)
 
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
-    ! assume that every cell will be exported, with some safety factor
+    ! the stacks hold the cells this task sends, so at most its own cells (leaves hold
+    ! up to minpart particles), with a safety factor; they grow if more are needed
     stacksize = int((npart / minpart / nprocs) * safety)
 
     ! enough chunks to hold one cell per particle, an upper limit
@@ -134,11 +169,11 @@ end subroutine calculate_stacksize
 
 subroutine deallocate_mpi_memory
 
- call deallocate_stack(dens_stack_1)
  call deallocate_stack(dens_stack_2)
  call deallocate_stack(dens_stack_3)
- call deallocate_stack(force_stack_1)
  call deallocate_stack(force_stack_2)
+ call deallocate_pool(dens_pool)
+ call deallocate_pool(force_pool)
 
 end subroutine deallocate_mpi_memory
 
@@ -409,6 +444,156 @@ subroutine reset_stacks
 
  force_stack_1%n=0
  force_stack_2%n=0
+
+ ! release the memory of the pools above their first chunk, so that one
+ ! step with many imported cells does not hold memory for the rest of the run
+ call clear_pool(dens_pool,release=.true.)
+ call clear_pool(force_pool,release=.true.)
 end subroutine reset_stacks
+
+!----------------------------------------------------------------
+!+
+!  largest memory (in MB) used by the stacks and pools so far on this task
+!+
+!----------------------------------------------------------------
+real function exchange_memory_mb()
+ type(celldens)  :: cd
+ type(cellforce) :: cf
+
+ exchange_memory_mb = 1.e-6*(storage_size(cd)/8*real(dens_stack_2%maxlength + dens_stack_3%maxlength) &
+                    + storage_size(cf)/8*real(force_stack_2%maxlength) &
+                    + storage_size(1.)/8*(real(dens_pool%maxchunks)*dens_pool%chunksize &
+                                        + real(force_pool%maxchunks)*force_pool%chunksize))
+
+end function exchange_memory_mb
+
+!----------------------------------------------------------------
+!+
+!  allocate the first chunk of a pool of packed cells, large enough
+!  for a few times the expected number of cells of maxpack reals
+!+
+!----------------------------------------------------------------
+subroutine allocate_pool(pool,maxpack)
+ type(packedpool), intent(inout) :: pool
+ integer,          intent(in)    :: maxpack
+ integer :: allocstat
+ integer, parameter :: maxpoolchunks = 100000
+
+ if (allocated(pool%chunks)) return
+ ! packed cells are typically a quarter of their maximum size
+ pool%chunksize = int(min(max(stacksize,1000)*int(maxpack,kind=8)/4,2_8**30))
+ allocate(pool%chunks(maxpoolchunks),pool%pos(max(stacksize,1000)),stat=allocstat)
+ if (allocstat == 0) allocate(pool%chunks(1)%x(pool%chunksize),stat=allocstat)
+ if (allocstat /= 0) call fatal('pool','memory allocation error')
+ pool%n = 0
+ pool%ichunk = 1
+ pool%fill = 0
+
+end subroutine allocate_pool
+
+subroutine deallocate_pool(pool)
+ type(packedpool), intent(inout) :: pool
+
+ if (allocated(pool%chunks)) deallocate(pool%chunks)
+ if (allocated(pool%pos)) deallocate(pool%pos)
+ pool%n = 0
+
+end subroutine deallocate_pool
+
+!----------------------------------------------------------------
+!+
+!  empty a pool, optionally freeing all but its first chunk
+!+
+!----------------------------------------------------------------
+subroutine clear_pool(pool,release)
+ type(packedpool), intent(inout) :: pool
+ logical,          intent(in)    :: release
+ integer :: k
+
+ pool%n = 0
+ pool%ichunk = 1
+ pool%fill = 0
+ if (release .and. allocated(pool%chunks)) then
+    do k=2,size(pool%chunks)
+       if (allocated(pool%chunks(k)%x)) deallocate(pool%chunks(k)%x)
+    enddo
+ endif
+
+end subroutine clear_pool
+
+!----------------------------------------------------------------
+!+
+!  add a packed cell (buf(1:nbuf), as received) to a pool
+!  (threadsafe: space is reserved in a critical section, then copied)
+!+
+!----------------------------------------------------------------
+subroutine push_packed(pool,buf,nbuf)
+ type(packedpool), intent(inout) :: pool
+ real,             intent(in)    :: buf(:)
+ integer,          intent(in)    :: nbuf
+ integer(kind=8), allocatable :: tmp(:)
+ integer :: i,k,ioff,allocstat
+
+ if (nbuf > pool%chunksize) call fatal('pool','packed cell larger than a chunk')
+ allocstat = 0
+ !$omp critical (packed_pool)
+ if (pool%fill + nbuf > pool%chunksize) then  ! start the next chunk
+    pool%ichunk = pool%ichunk + 1
+    pool%fill = 0
+ endif
+ k = pool%ichunk
+ if (k > size(pool%chunks)) call fatal('pool','MPI pool exceeded maximum size')
+ pool%maxchunks = max(pool%maxchunks,k)
+ if (.not.allocated(pool%chunks(k)%x)) allocate(pool%chunks(k)%x(pool%chunksize),stat=allocstat)
+ ioff = pool%fill
+ pool%fill = pool%fill + nbuf
+ i = pool%n + 1
+ if (i > size(pool%pos)) then
+    allocate(tmp(2*size(pool%pos)))
+    tmp(1:size(pool%pos)) = pool%pos
+    call move_alloc(tmp,pool%pos)
+ endif
+ pool%pos(i) = int(k-1,kind=8)*pool%chunksize + ioff
+ pool%n = i
+ pool%maxn = max(pool%maxn,i)
+ !$omp end critical (packed_pool)
+ if (allocstat /= 0) call fatal('pool','error increasing MPI pool size')
+
+ pool%chunks(k)%x(ioff+1:ioff+nbuf) = buf(1:nbuf)
+
+end subroutine push_packed
+
+!----------------------------------------------------------------
+!+
+!  unpack cell i of a pool of received cells
+!+
+!----------------------------------------------------------------
+subroutine get_packed_celldens(pool,i,cell)
+ use mpidens, only:unpack_celldens
+ type(packedpool), intent(in)    :: pool
+ integer,          intent(in)    :: i
+ type(celldens),   intent(inout) :: cell
+ integer :: k,ioff,nbuf
+
+ if (i > pool%n) call fatal('dens','attempting to read invalid pool address')
+ k    = int(pool%pos(i)/pool%chunksize) + 1
+ ioff = int(pool%pos(i) - int(k-1,kind=8)*pool%chunksize)
+ call unpack_celldens(pool%chunks(k)%x(ioff+1:),.true.,cell,nbuf)
+
+end subroutine get_packed_celldens
+
+subroutine get_packed_cellforce(pool,i,cell)
+ use mpiforce, only:unpack_cellforce
+ type(packedpool), intent(in)    :: pool
+ integer,          intent(in)    :: i
+ type(cellforce),  intent(inout) :: cell
+ integer :: k,ioff,nbuf
+
+ if (i > pool%n) call fatal('force','attempting to read invalid pool address')
+ k    = int(pool%pos(i)/pool%chunksize) + 1
+ ioff = int(pool%pos(i) - int(k-1,kind=8)*pool%chunksize)
+ call unpack_cellforce(pool%chunks(k)%x(ioff+1:),.true.,cell,nbuf)
+
+end subroutine get_packed_cellforce
 
 end module mpimemory
