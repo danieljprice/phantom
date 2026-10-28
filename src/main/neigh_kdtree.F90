@@ -66,6 +66,10 @@ module neighkdtree
  integer,         parameter         :: maxnodecache_local = 512
  integer,         parameter         :: maxneigh_per_node  = 16
  integer,         parameter         :: maxstacksize = 2048
+ ! revise rather than rebuild the tree if fewer than this fraction of particles are active,
+ ! until the particles have had about one step each since the tree was built
+ real,            parameter         :: frac_active_revtree = 0.1
+ integer(kind=8)                    :: nactive_since_build = 0
  integer                            :: globallevel,refinelevels
 
  public :: allocate_neigh, deallocate_neigh
@@ -235,7 +239,7 @@ end subroutine get_distance_from_centre_of_mass
 !-----------------------------------------------------------------------
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use kdtree,       only:maketree,maketreeglobal!,revtree
+ use kdtree,       only:maketree,maketreeglobal,revtree
  use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
  use allocutils,   only:allocate_array
@@ -244,7 +248,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
  logical, intent(in), optional :: for_apr
- logical :: apr_tree
+ logical :: apr_tree,revised
 
  apr_tree = .false.
  if (present(for_apr)) apr_tree = for_apr
@@ -270,13 +274,18 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
     else
-       ! use revtree for small numbers of active particles to avoid tree rebuild overhead
-       ! threshold: use revtree if < 0.1% of total particles
-       !if (npart > 0 .and. nactive < 0.001*npart) then
-       !   call revtree(node,xyzh,leaf_is_active,ncells)
-       !else
-       call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
-       !endif
+       ! with few active particles, revise the last tree for the new positions
+       ! rather than rebuilding it: the nodes are looser, but only the active
+       ! particles have to find their neighbours in it
+       revised = .false.
+       nactive_since_build = nactive_since_build + nactive
+       if (.not.apr_tree .and. nactive < frac_active_revtree*npart .and. nactive_since_build < npart) then
+          call revtree(node,xyzh,npart,leaf_is_active,ncells,revised)
+       endif
+       if (.not.revised) then
+          call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
+          nactive_since_build = 0
+       endif
     endif
  endif
  call list_active_leaves()
