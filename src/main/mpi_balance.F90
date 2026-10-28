@@ -100,7 +100,8 @@ subroutine balancedomains(npart)
  integer, intent(inout) :: npart
 #else
  use io,     only:id,master,iverbose,fatal
- use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot
+ use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot,&
+                   recount_npartoftype
  use timing, only:getused,printused
  use mpiutils, only:barrier_mpi
  integer, intent(inout) :: npart
@@ -174,6 +175,8 @@ subroutine balancedomains(npart)
     ! ndead = count_dead_particles()
     ! print*,' thread ',id,' before shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead,ideadhead
     call shuffle_part(npart)
+    !--count types only once the particles sent away have been removed
+    call recount_npartoftype
     call barrier_mpi()
     ! ndead = count_dead_particles()
     ! print*,' thread ',id,' after shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead
@@ -447,7 +450,6 @@ end subroutine wait_for_send
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
  use io,    only:id,fatal,iverbose
- use part,  only:recount_npartoftype
  integer, intent(out) :: npart
  logical, intent(in), optional :: replace
  integer             :: newproc
@@ -497,11 +499,6 @@ subroutine balance_finish(npart,replace)
 !--double check that all receives are complete and free request handle
  call MPI_WAIT(irequestrecv(1),status,mpierr)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
-
- !
- !--update npartoftype
- !
- call recount_npartoftype
 
 end subroutine balance_finish
 
