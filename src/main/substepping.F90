@@ -27,8 +27,9 @@ module substepping
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos_HIIR, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
-!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
+!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, omputils,
+!   options, part, ptmass, ptmass_radiation, ptmass_tree, subgroup,
+!   timestep, timing
 !
  implicit none
 
@@ -49,6 +50,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
+ use omputils,        only:nchunk
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:),metrics(:,:,:,:)
@@ -60,7 +62,7 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  logical :: converged
  real    :: rhoi,pri,tempi,gammai
 
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol,rho) &
  !$omp shared(pxyzu,metrics,ien_type,eos_vars) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
@@ -240,13 +242,14 @@ end subroutine substep_gr
 !----------------------------------------------------------------
 subroutine substep_sph(dt,npart,xyzh,vxyzu)
  use part, only:isdead_or_accreted
+ use omputils, only:nchunk
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
  integer :: i
 
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(npart,xyzh,vxyzu,dt) &
  !$omp private(i)
  do i=1,npart
@@ -450,6 +453,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
+ use omputils, only:nchunk
  real,    intent(in)    :: dt,cki
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
@@ -466,7 +470,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
 
  ! Drift gas particles
 
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(npart,xyzh,vxyzu,ckdt) &
  !$omp private(i)
  do i=1,npart
@@ -512,6 +516,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  use io,             only:id,master
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:maxp,maxphase,use_apr
+ use omputils,       only:nchunk
  real,    intent(in)    :: dt,dki
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: xyzh(:,:)
@@ -537,7 +542,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  !
  ! Kick gas particles
  !
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(iphase,ntypes) &
  !$omp shared(npart,fext,xyzh,pxyzu,dkdt) &
@@ -578,6 +583,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use timing,         only:get_timings,increment_timer,itimer_acc
  use neighkdtree,    only:listneigh
  use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh,nfastacc
+ use omputils,       only:nchunk
  integer,         intent(in)    :: npart,nptmass,ntypes
  real,            intent(inout) :: xyzh(:,:)
  real,            intent(inout) :: pxyzu(:,:),fext(:,:)
@@ -613,7 +619,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  ibin_wakei   = 0
  rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
  dptmass(:,1:nptmass) = 0.
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
@@ -765,6 +771,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use subgroup,        only:subgroup_search
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
+ use omputils,        only:nchunk
  integer,         intent(in)    :: npart,nsubsteps,ntypes
  integer,         intent(inout) :: force_count,nptmass
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
@@ -928,7 +935,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,ponsubg)
- !$omp do schedule(dynamic,256)
+ !$omp do schedule(dynamic,nchunk)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
@@ -1227,6 +1234,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
  use timestep,       only:ptol,xtol,bignumber,dtf_gr_min
  use metric_tools,   only:pack_metric,pack_metricderivs
  use metric,         only:update_metric
+ use omputils,       only:nchunk
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),pxyzu_ptmass(:,:)
  real,    intent(inout) :: metrics_ptmass(:,:,:,:),metrics(:,:,:,:)
@@ -1255,7 +1263,7 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
  !
  ! predictor step for gas particles
  !
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(xyzh,npart,pxyzu,vxyzu,rho) &
  !$omp shared(hdt,dens,eos_vars,ien_type,metrics,metrics_ptmass) &
  !$omp shared(metricderivs,fext,ptol,dt,xtol,fgr,nsubsteps) &
