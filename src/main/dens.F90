@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree, only:leaf_is_active,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi,&
-                     active_leaves,nactive_leaves
+                     active_leaves,nactive_leaves,ncellchunk
  use part,        only:mhd,get_partinfo,iactive,&
                        iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,    only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
@@ -307,7 +307,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  !--initialise send requests to null
  call init_send_requests(irequestsend)
 
- !$omp do schedule(runtime)
+ !$omp do schedule(dynamic,ncellchunk)
  over_cells: do ia=1,nactive_leaves
     icell = active_leaves(ia)
 
@@ -437,7 +437,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !$omp barrier
 
     igot_remote: if (stack_remote%n > 0) then
-       !$omp do schedule(runtime)
+       !$omp do schedule(dynamic,ncellchunk)
        over_remote: do i = 1,stack_remote%n
           cell = stack_remote%cells(i)
 
@@ -477,7 +477,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !$omp barrier
 
     iam_waiting: if (mpi .and. stack_waiting%n > 0) then
-       !$omp do schedule(runtime)
+       !$omp do schedule(dynamic,ncellchunk)
        over_waiting: do i = 1, stack_waiting%n
           cell = stack_waiting%cells(i)
 

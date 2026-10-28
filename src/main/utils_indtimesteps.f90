@@ -82,7 +82,7 @@ subroutine init_ibin(npart,dtmax)
 !$omp parallel default(none) &
 !$omp shared(npart,dtmax,twoepsilon,dt_in,ibin,ibin_old) &
 !$omp private(i,j,dt_ini,find_bin)
-!$omp do
+!$omp do schedule(dynamic,256)
  do i = 1,npart
     j        = 0
     dt_ini = dt_in(i)
@@ -333,7 +333,7 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ib
 !$omp parallel default(none) &
 !$omp shared(npart,ibin,ibin_wake,ibin_rat) &
 !$omp private(i)
-!$omp do
+!$omp do schedule(dynamic,256)
  do i=1,npart
     ibin(i)      = max(0_1,ibin(i)     -ibin_rat)
     ibin_wake(i) = max(0_1,ibin_wake(i)-ibin_rat)

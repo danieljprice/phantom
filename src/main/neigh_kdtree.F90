@@ -34,6 +34,10 @@ module neighkdtree
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
  integer,      public               :: nactive_leaves = 0
+ ! number of active leaves handed to a thread at a time in the density and force loops:
+ ! cells nearby in the list share neighbours, so small chunks keep them on one thread,
+ ! but with self-gravity the cost per cell varies widely, so the cells are handed out one at a time
+ integer,      parameter, public    :: ncellchunk = merge(1,16,gravity)
  integer,      public , allocatable :: listneigh(:)
  integer,      public , allocatable :: listneigh_global(:)
 !-- dual tree cache arrays

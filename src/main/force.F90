@@ -203,7 +203,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
-                        active_leaves,nactive_leaves
+                        active_leaves,nactive_leaves,ncellchunk
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -508,7 +508,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !--initialise send requests to null
  call init_send_requests(irequestsend)
 
- !$omp do schedule(runtime)
+ !$omp do schedule(dynamic,ncellchunk)
  over_cells: do ia=1,nactive_leaves
     icell = active_leaves(ia)
 
@@ -599,7 +599,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp barrier
 
  igot_remote: if (mpi .and. stack_remote%n > 0) then
-    !$omp do schedule(runtime)
+    !$omp do schedule(dynamic,ncellchunk)
     over_remote: do i = 1,stack_remote%n
        cell = get_cell(stack_remote,i)
 
@@ -642,7 +642,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
  iam_waiting: if (mpi .and. stack_waiting%n > 0) then
-    !$omp do schedule(runtime)
+    !$omp do schedule(dynamic,ncellchunk)
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
 
