@@ -56,9 +56,13 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
  integer :: i
  real    :: pri,tempi,xyzhi(4),vxyzui(4),densi
 
+ ! initial guess for the temperature of the first particle on each thread (-ve, so that the
+ ! eos chooses one); later particles start from the previous particle's temperature
+ tempi = -1.
  !$omp parallel do default (none) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,ien_type,eos_vars,gamma,ieos,use_sink,rho) &
- !$omp private(i,pri,tempi,xyzhi,vxyzui,densi)
+ !$omp private(i,pri,xyzhi,vxyzui,densi) &
+ !$omp firstprivate(tempi)
  do i=1,npart
 
     if (present(use_sink)) then
@@ -72,6 +76,8 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
     else
        if (.not.present(dens)) call fatal('prim2consall','dens array required for gas particles')
        if (.not.isdead_or_accreted(xyzh(4,i))) then
+          ! the particle's own temperature, if known, is the best initial guess
+          if (eos_vars(itemp,i) > 0.) tempi = eos_vars(itemp,i)
           call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
                    dens_i=dens(i),rho_i=rho(i))
 
