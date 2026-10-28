@@ -406,9 +406,12 @@ module part
 !
 !
 !--size of the buffer required for transferring particle
-!  information between MPI threads
+!  information between MPI threads: an upper bound on the values packed by
+!  fill_sendbuf, i.e. 142 for all optional fields that do not depend on the
+!  number of dust species, plus the dust arrays and the chemical abundances
 !
- integer, parameter :: ipartbufsize = 220
+ integer, parameter :: ipartbufsize = 142 + 6*maxdustsmall + 2*maxdusttypes &
+                                    + max(nabundances,krome_nmols)
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -1962,7 +1965,7 @@ subroutine unfill_buffer(ipart,xbuf)
     fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
-    abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
+    abundance(:,ipart)  = unfill_buf(xbuf,j,size(abundance,1))
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
  if (use_krome) T_gas_cool(ipart) = unfill_buf(xbuf,j)
