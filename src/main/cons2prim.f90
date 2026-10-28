@@ -76,8 +76,6 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
     else
        if (.not.present(dens)) call fatal('prim2consall','dens array required for gas particles')
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          ! the particle's own temperature, if known, is the best initial guess
-          if (eos_vars(itemp,i) > 0.) tempi = eos_vars(itemp,i)
           call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),pri,tempi,pxyzu(:,i),ien_type,&
                    dens_i=dens(i),rho_i=rho(i))
 
