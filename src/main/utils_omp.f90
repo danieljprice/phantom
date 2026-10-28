@@ -24,6 +24,12 @@ module omputils
 
  integer :: omp_num_threads
 
+ !--chunk size for dynamic scheduling of loops over all particles:
+ !  large enough to stream through memory efficiently 
+ !  but small enough that threads on cores with unequal clock speeds
+ !  still finish together
+ integer, parameter :: nchunk = 2048
+
 contains
 !----------------------------------------------------------------
 !+

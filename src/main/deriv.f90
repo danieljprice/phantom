@@ -16,8 +16,8 @@ module deriv
 !
 ! :Dependencies: HIIRegion, cons2prim, densityforce, derivutils, dim,
 !   externalforces, forces, forcing, growth, io, metric_tools, neighkdtree,
-!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
-!   timestep, timestep_ind, timing, utils_gr
+!   omputils, options, part, porosity, ptmass, ptmass_radiation,
+!   radiation_implicit, timestep, timestep_ind, timing, utils_gr
 !
  implicit none
 
@@ -38,13 +38,14 @@ contains
 subroutine get_coord_accel_all(npart,xyzh,vxyzu,fxyzu,fext,dens,eos_vars,metrics)
  use part,     only:agr,metricderivs,igasP,isdead_or_accreted
  use utils_gr, only:get_coord_accel
+ use omputils, only:nchunk
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,    intent(in) :: dens(:),eos_vars(:,:),metrics(:,:,:,:)
  integer :: i
  real    :: enth,dpdt(3)
 
- !$omp parallel do default(none) schedule(dynamic,256) &
+ !$omp parallel do default(none) schedule(dynamic,nchunk) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,fext,dens,eos_vars,metrics,metricderivs,agr) &
  !$omp private(i,enth,dpdt)
  do i=1,npart
@@ -94,6 +95,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,need_pressure_on_sinks
  use HIIRegion,      only:HIIupdateflag,iH2R,HII_feedback
+ use omputils,       only:nchunk
  integer,         intent(in)    :: icall
  integer,         intent(inout) :: npart
  integer,         intent(in)    :: nactive
@@ -251,7 +253,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
  if (do_radiation .and. implicit_radiation .and. .not.implicit_radiation_store_drad) then
-    !$omp parallel do default(none) shared(drad,fxyzu,npart) private(i) schedule(dynamic,256)
+    !$omp parallel do default(none) shared(drad,fxyzu,npart) private(i) schedule(dynamic,nchunk)
     do i=1,npart
        drad(:,i) = 0.
        fxyzu(4,i) = 0.
