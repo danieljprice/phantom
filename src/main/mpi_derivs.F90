@@ -21,6 +21,10 @@ module mpiderivs
 ! Concurrent calls from many threads (allowed by MPI_THREAD_MULTIPLE)
 ! were found to lose messages and crash inside Open MPI.
 !
+! Receives name the exact tag, never MPI_ANY_TAG: with a wildcard, UCX
+! searches its whole queue of unexpected messages for every receive
+! posted, which is very slow when many small cells are sent eagerly.
+!
 ! :References: None
 !
 ! :Owner: Conrad Chan
@@ -96,6 +100,7 @@ module mpiderivs
 
  integer, parameter, public :: nrecvslots = 4 ! receives posted for each other task
  integer, parameter, public :: nsendbufs  = 8 ! send buffers for each openMP thread
+ integer, parameter :: itag_dens = 1, itag_force = 0 ! message tags for each cell type
 
  private
 
@@ -167,6 +172,7 @@ subroutine deallocate_cell_comms_arrays
  if (allocated(nsendreq)) deallocate(nsendreq)
  if (allocated(lastbuf)) deallocate(lastbuf)
  if (allocated(thread_complete)) deallocate(thread_complete)
+ if (allocated(tsend_wait)) deallocate(tsend_wait)
 end subroutine deallocate_cell_comms_arrays
 
 !-----------------------------------------------------------------------
@@ -287,7 +293,7 @@ subroutine init_celldens_exchange(stack)
  !$omp critical (mpi_cell_exchange)
  do iproc=1,nprocs
     do islot=1,nrecvslots
-       call MPI_IRECV(recvbuf_dens(1,islot,iproc),maxpack_celldens,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
+       call MPI_IRECV(recvbuf_dens(1,islot,iproc),maxpack_celldens,MPI_DEFAULT_REAL,iproc-1,itag_dens,&
                       comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     enddo
  enddo
@@ -335,7 +341,7 @@ subroutine send_celldens(cell,targets,stack,counters)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        n = n + 1
-       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,1,comm_cellexchange,&
+       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_dens,comm_cellexchange,&
                       sendreq(n,ibuf,ith),mpierr)
        if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
        !$omp atomic
@@ -420,7 +426,7 @@ subroutine recv_celldens(target_stack,counters)
     !$omp atomic
     counters(iproc,irecv) = counters(iproc,irecv) + 1
     !$omp critical (mpi_cell_exchange)
-    call MPI_IRECV(recvbuf_dens(1,islot,iproc),maxpack_celldens,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
+    call MPI_IRECV(recvbuf_dens(1,islot,iproc),maxpack_celldens,MPI_DEFAULT_REAL,iproc-1,itag_dens,&
                    comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     !$omp end critical (mpi_cell_exchange)
  enddo
@@ -551,7 +557,7 @@ subroutine init_cellforce_exchange(stack)
  !$omp critical (mpi_cell_exchange)
  do iproc=1,nprocs
     do islot=1,nrecvslots
-       call MPI_IRECV(recvbuf_force(1,islot,iproc),maxpack_cellforce,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
+       call MPI_IRECV(recvbuf_force(1,islot,iproc),maxpack_cellforce,MPI_DEFAULT_REAL,iproc-1,itag_force,&
                       comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     enddo
  enddo
@@ -599,7 +605,7 @@ subroutine send_cellforce(cell,targets,stack,counters)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        n = n + 1
-       call MPI_ISEND(sendbuf_force(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,0,comm_cellexchange,&
+       call MPI_ISEND(sendbuf_force(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_force,comm_cellexchange,&
                       sendreq(n,ibuf,ith),mpierr)
        if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
        !$omp atomic
@@ -684,7 +690,7 @@ subroutine recv_cellforce(target_stack,counters)
     !$omp atomic
     counters(iproc,irecv) = counters(iproc,irecv) + 1
     !$omp critical (mpi_cell_exchange)
-    call MPI_IRECV(recvbuf_force(1,islot,iproc),maxpack_cellforce,MPI_DEFAULT_REAL,iproc-1,MPI_ANY_TAG,&
+    call MPI_IRECV(recvbuf_force(1,islot,iproc),maxpack_cellforce,MPI_DEFAULT_REAL,iproc-1,itag_force,&
                    comm_cellexchange,recvreq(irecvslot(islot,iproc)),mpierr)
     !$omp end critical (mpi_cell_exchange)
  enddo
