@@ -20,7 +20,7 @@ module mpibalance
  use mpi
  use io,       only:id
  use mpiutils, only:mpierr,status,MPI_DEFAULT_REAL,reduceall_mpi, &
-                    comm_balance,comm_balancecount,count_collective
+                    comm_balance,comm_balancecount
  use part,     only:ipartbufsize
 #endif
  use io,       only:nprocs
@@ -482,7 +482,6 @@ subroutine balance_finish(npart,replace)
  call MPI_WAITALL(nprocs,countsendreq,MPI_STATUSES_IGNORE,mpierr)
 
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
- call count_collective
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -494,7 +493,6 @@ subroutine balance_finish(npart,replace)
     print*,'>> balance: thread ',id,' sent:',sum(nsent(1:nprocs)),' received:',sum(nrecv(1:nprocs)),' npart =',npartnew
  endif
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
- call count_collective
 
 !--double check that all receives are complete and free request handle
  call MPI_WAIT(irequestrecv(1),status,mpierr)

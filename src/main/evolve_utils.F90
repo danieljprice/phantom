@@ -377,7 +377,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
 
  call reduce_timers
  if (id==master) call print_timinginfo(iprint,nsteps,nsteplast)
- if (mpi) call print_cell_exchange_stats(iprint,nsteps-nsteplast)
+ if (mpi) call print_cell_exchange_stats(iprint)
  !--Write out summary to log file
  if (id==master) call summary_printout(iprint,nptmass)
 
