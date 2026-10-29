@@ -28,6 +28,11 @@ module boundary
  public :: mod_boundary
  private
 
+ ! fold a separation, given as components or as a vector, to its nearest periodic image
+ interface mod_boundary
+  module procedure mod_boundary_xyz,mod_boundary_vec
+ end interface mod_boundary
+
 contains
 
 !---------------------------------------------------------------
@@ -165,14 +170,27 @@ end subroutine cross_boundary
 !  Fold a separation vector to its nearest periodic image
 !+
 !----------------------------------------------------------------
-pure subroutine mod_boundary(dx,dy,dz)
+pure subroutine mod_boundary_xyz(dx,dy,dz)
  real, intent(inout) :: dx,dy,dz
 
  if (abs(dx) > hdlx) dx = dx - dxbound*sign(1.0,dx)
  if (abs(dy) > hdly) dy = dy - dybound*sign(1.0,dy)
  if (abs(dz) > hdlz) dz = dz - dzbound*sign(1.0,dz)
 
-end subroutine mod_boundary
+end subroutine mod_boundary_xyz
+
+!----------------------------------------------------------------
+!+
+!  Fold a separation vector to its nearest periodic image
+!  (vector form)
+!+
+!----------------------------------------------------------------
+pure subroutine mod_boundary_vec(dx)
+ real, intent(inout) :: dx(3)
+
+ call mod_boundary_xyz(dx(1),dx(2),dx(3))
+
+end subroutine mod_boundary_vec
 
 !----------------------------------------------------------------
 !+
