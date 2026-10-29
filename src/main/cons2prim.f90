@@ -24,8 +24,8 @@ module cons2prim
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2primsolver, dim, eos, io, nicil, omputils, options,
-!   part, radiation_utils, shock_capturing, utils_gr
+! :Dependencies: cons2primsolver, dim, eos, io, nicil, options, part,
+!   radiation_utils, shock_capturing, utils_gr
 !
  implicit none
 
@@ -266,14 +266,13 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use io,                only:fatal,warning
  use shock_capturing,   only:get_alphaloc_cd
  use options,           only:use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
- use omputils,          only:limits_omp,end_limits_omp,id6
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
  real,         intent(inout) :: vxyzu(:,:)
  real(kind=4), intent(inout) :: alphaind(:,:)
  real,         intent(out)   :: eos_vars(:,:),radprop(:,:),Bxyz(:,:),dustfrac(:,:)
- integer      :: i,i1,i2,iamtypei,ierr
+ integer      :: i,iamtypei,ierr
  integer      :: ierrlist(n_warn)
  real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,uui
  real         :: Bxi,Byi,Bzi,psii,Bi,temperaturei,mui,X_i,Z_i,gammai
@@ -294,19 +293,18 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  X_i    = X_in
  Z_i    = Z_in
 
-!$omp parallel default (none) &
+!$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,rho) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(iphase,maxphase,maxp) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
-!$omp private(i,i1,i2,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
+!$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
 !$omp private(Bxi,Byi,Bzi,psii,Bi,temperaturei,ierr) &
 !$omp private(xi,yi,zi,hi) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,gammai,X_i,Z_i) &
 !$omp reduction(+:ierrlist)
- call limits_omp(1,npart,i1,i2,id6)
- do i=i1,i2
+ do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        !
        !--get pressure (actually pr/dens) and sound speed from equation of state
@@ -418,8 +416,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        endif
     endif
  enddo
- call end_limits_omp(id6)
-!$omp end parallel
+!$omp end parallel do
 
  if (mhd_nonideal) then
     ! look for fatal errors in nicil and kill if necessary

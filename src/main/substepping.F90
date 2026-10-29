@@ -27,9 +27,8 @@ module substepping
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos_HIIR, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, omputils,
-!   options, part, ptmass, ptmass_radiation, ptmass_tree, subgroup,
-!   timestep, timing
+!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
+!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
 !
  implicit none
 
@@ -439,7 +438,6 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
- use omputils, only:limits_omp,end_limits_omp,id2
  real,    intent(in)    :: dt,cki
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
@@ -448,7 +446,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
  real,    intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:),bin_info(:,:)
  integer, intent(in)    :: n_ingroup,n_group
  integer, intent(inout) :: group_info(:,:)
- integer :: i,i1,i2
+ integer :: i
  real    :: ckdt
  real(kind=4) :: t1,t2,tcpu1,tcpu2
 
@@ -456,19 +454,17 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu, &
 
  ! Drift gas particles
 
- !$omp parallel default(none) &
+ !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,ckdt) &
- !$omp private(i,i1,i2)
- call limits_omp(1,npart,i1,i2,id2)
- do i=i1,i2
+ !$omp private(i)
+ do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        xyzh(1,i) = xyzh(1,i) + ckdt*vxyzu(1,i)
        xyzh(2,i) = xyzh(2,i) + ckdt*vxyzu(2,i)
        xyzh(3,i) = xyzh(3,i) + ckdt*vxyzu(3,i)
     endif
  enddo
- call end_limits_omp(id2)
- !$omp end parallel
+ !$omp end parallel do
 
  ! Drift sink particles
  if (nptmass>0) then
@@ -504,13 +500,12 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  use io,             only:id,master
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:maxp,maxphase,use_apr
- use omputils,       only:limits_omp,end_limits_omp,id1
  real,    intent(in)    :: dt,dki
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(inout) :: pxyzu(:,:),fext(:,:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),pxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
- integer         :: i,i1,i2,itype
+ integer         :: i,itype
  real            :: dkdt
 
  itype = igas
@@ -530,14 +525,13 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  !
  ! Kick gas particles
  !
- !$omp parallel default(none) &
+ !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(iphase,ntypes) &
  !$omp shared(npart,fext,xyzh,pxyzu,dkdt) &
  !$omp firstprivate(itype) &
- !$omp private(i,i1,i2)
- call limits_omp(1,npart,i1,i2,id1)
- do i=i1,i2
+ !$omp private(i)
+ do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
           itype = iamtype(iphase(i))
@@ -548,8 +542,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
        pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
     endif
  enddo
- call end_limits_omp(id1)
- !$omp end parallel
+ !$omp end parallel do
 
 end subroutine kick
 
@@ -564,7 +557,6 @@ subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
                      n_group,n_ingroup,group_info,bin_info)
  use part,     only:isdead_or_accreted,iamtype,iamboundary,iphase,igas
  use dim,      only:maxp,maxphase
- use omputils, only:limits_omp,end_limits_omp,id3
  real,    intent(in)    :: dki,cki,dt
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
@@ -573,7 +565,7 @@ subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
  real,    intent(inout) :: gtgrad(:,:),bin_info(:,:)
  integer, intent(in)    :: n_ingroup,n_group
  integer, intent(inout) :: group_info(:,:)
- integer :: i,i1,i2,itype
+ integer :: i,itype
  real    :: dkdt,ckdt
  !
  ! Kick then drift sink particles only
@@ -589,12 +581,11 @@ subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
  itype = igas
  dkdt = dki*dt
  ckdt = cki*dt
- !$omp parallel default(none) &
+ !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase,iphase,ntypes,npart,fext,xyzh,vxyzu,dkdt,ckdt) &
- !$omp private(i,i1,i2) &
+ !$omp private(i) &
  !$omp firstprivate(itype)
- call limits_omp(1,npart,i1,i2,id3)
- do i=i1,i2
+ do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) itype = iamtype(iphase(i))
        if (.not.iamboundary(itype)) then
@@ -607,8 +598,7 @@ subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
        xyzh(3,i) = xyzh(3,i) + ckdt*vxyzu(3,i)
     endif
  enddo
- call end_limits_omp(id3)
- !$omp end parallel
+ !$omp end parallel do
 
 end subroutine kickdrift
 
@@ -632,7 +622,6 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use timing,         only:get_timings,increment_timer,itimer_acc
  use neighkdtree,    only:listneigh
  use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh,nfastacc
- use omputils,       only:limits_omp,end_limits_omp,id5
  integer,         intent(in)    :: npart,nptmass,ntypes
  real,            intent(inout) :: xyzh(:,:)
  real,            intent(inout) :: pxyzu(:,:),fext(:,:)
@@ -646,7 +635,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer(kind=1) :: ibin_wakei
  logical         :: was_accreted,fast_acc
- integer         :: i,i1,i2,itype,nfaili
+ integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive,nboundary,nneigh
  real            :: pmassi,xi,yi,zi,fxi,fyi,fzi,accretedmass
  real            :: rsearch
@@ -668,13 +657,13 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  ibin_wakei   = 0
  rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
  dptmass(:,1:nptmass) = 0.
- !$omp parallel default(none) &
+ !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,xyzh,pxyzu,fext,iphase,ntypes,massoftype,timei,nptmass) &
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
  !$omp shared(iexternalforce,ptmasskdtree) &
  !$omp shared(nbinmax,ibin_wake,fast_acc) &
- !$omp private(i,i1,i2,was_accreted,nfaili,xi,yi,zi,fxi,fyi,fzi,nneigh) &
+ !$omp private(i,was_accreted,nfaili,xi,yi,zi,fxi,fyi,fzi,nneigh) &
  !$omp firstprivate(itype,pmassi,ibin_wakei,rsearch) &
  !$omp reduction(+:accretedmass) &
  !$omp reduction(+:nfail) &
@@ -682,8 +671,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  !$omp reduction(+:nlive) &
  !$omp reduction(+:nboundary) &
  !$omp reduction(+:dptmass)
- call limits_omp(1,npart,i1,i2,id5)
- accreteloop: do i=i1,i2
+ accreteloop: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
           itype = iamtype(iphase(i))
@@ -747,8 +735,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
        nlive = nlive + 1
     endif
  enddo accreteloop
- call end_limits_omp(id5)
- !$omp end parallel
+ !$omp end parallel do
 
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_acc,t2-t1,tcpu2-tcpu1)
@@ -822,7 +809,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use subgroup,        only:subgroup_search
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
- use omputils,        only:limits_omp,end_limits_omp,id4
  integer,         intent(in)    :: npart,nsubsteps,ntypes
  integer,         intent(inout) :: force_count,nptmass
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
@@ -844,7 +830,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real,    allocatable :: ponsubg(:)
  real(kind=4)         :: t1,t2,tcpu1,tcpu2
  integer              :: merge_n
- integer              :: i,i1,i2,itype
+ integer              :: i,itype
  real, save           :: dmdt = 0.
  real                 :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
  real                 :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
@@ -980,14 +966,14 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,C_force) &
  !$omp shared(fgr,do_recompute_gr) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
- !$omp private(i,i1,i2,fonrmaxi,dtphi2i,phii,dtf) &
+ !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
  !$omp private(densi,uui,pri,xyz,vxyz,fext_gr) &
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,ponsubg)
- call limits_omp(1,npart,i1,i2,id4)
- do i=i1,i2
+ !$omp do
+ do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
           itype  = iamtype(iphase(i))
@@ -1091,7 +1077,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        endif
     endif
  enddo
- call end_limits_omp(id4)
+ !$omp enddo
  !$omp end parallel
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
