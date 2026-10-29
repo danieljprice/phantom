@@ -391,7 +391,10 @@ end subroutine complete_sends_dens
 !------------------------------------------------
 subroutine recv_celldens(target_stack,counters)
  use io,        only:fatal
- use mpimemory, only:get_cell_ptr,push_packed,dens_pool
+ use mpimemory, only:get_cell_ptr
+#ifdef MPI
+ use mpimemory, only:push_packed,dens_pool
+#endif
  use mpidens, only:stackdens,unpack_celldens
  type(stackdens), intent(inout) :: target_stack
  integer,         intent(inout) :: counters(nprocs,3)
@@ -663,7 +666,10 @@ end subroutine complete_sends_force
 !------------------------------------------------
 subroutine recv_cellforce(target_stack,counters)
  use io,        only:fatal
- use mpimemory, only:get_cell_ptr,push_packed,force_pool
+ use mpimemory, only:get_cell_ptr
+#ifdef MPI
+ use mpimemory, only:push_packed,force_pool
+#endif
  use mpiforce, only:stackforce,unpack_cellforce
  type(stackforce), intent(inout) :: target_stack
  integer,         intent(inout) :: counters(nprocs,3)

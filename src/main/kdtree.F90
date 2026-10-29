@@ -1691,7 +1691,8 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  logical :: nodeisactive
 
  ok = .false.
- if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic .or. mpi) return
+ ! with more than one MPI task the global tree must also be rebuilt (on one task there is none)
+ if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic .or. (mpi .and. nprocs > 1)) return
  nproot = inoderange(2,irootnode)
  if (inoderange(1,irootnode) /= 1 .or. nproot < 1) return
  !
