@@ -32,7 +32,6 @@ module kdtree
 
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
- type(kdnode),     allocatable :: refinementnode(:)
 !
 !--tree parameters
 !
@@ -51,10 +50,6 @@ module kdtree
  ! scratch space for the parallel partition in build_top_parallel
  real,    allocatable, private :: tcbuf(:,:)
  integer, allocatable, private :: ipbuf(:)
-
-! Index of the last node in the local tree that has been copied to
-! the global tree
- integer, public :: irefine
 
  public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree,kdnode
@@ -79,20 +74,16 @@ module kdtree
 contains
 
 subroutine allocate_kdtree
- use dim, only:mpi
  use allocutils, only:allocate_array
 
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
- if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
 
 end subroutine allocate_kdtree
 
 subroutine deallocate_kdtree
- use dim, only:mpi
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
- if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
  if (allocated(tcbuf)) deallocate(tcbuf,ipbuf)
 
 end subroutine deallocate_kdtree
@@ -1829,8 +1820,8 @@ end subroutine revtree
 !  Routine to build the global level tree
 !+
 !-------------------------------------------------------------------------------
-subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,&
-                          np,cellatid,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
+subroutine maketreeglobal(nodeglobal,node,globallevel,refinelevels,xyzh,&
+                          np,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
  use io,           only:fatal,warning,id,nprocs,master
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
@@ -1842,12 +1833,10 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
  type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
  type(kdnode),    intent(out)   :: node(:)          ! ncellsmax+1
- integer,         intent(out)   :: nodemap(:)       ! ncellsmax+1
  integer,         intent(out)   :: globallevel
  integer,         intent(out)   :: refinelevels
  integer,         intent(inout) :: np
  real,            intent(inout) :: xyzh(:,:)
- integer,         intent(out)   :: cellatid(:)      ! ncellsmax+1
  integer,         intent(out)   :: leaf_is_active(:)  ! ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
  logical,         intent(in)    :: apr_tree
@@ -1863,10 +1852,9 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  integer                           :: nl, nr
  integer                           :: il, ir, iself, parent
  integer                           :: level
- integer                           :: nnodestart, nnodeend,locstart,locend
+ integer                           :: nnodestart, nnodeend
  integer                           :: npcounter
- integer                           :: i, k, offset, roffset, roffset_prev, coffset
- integer                           :: inode
+ integer                           :: i
  integer                           :: npnode
  logical                           :: wassplit,sinktree
  real(kind=4)                      :: t1,t2,tcpu1,tcpu2
@@ -2027,69 +2015,14 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     call maketree(node,xyzh,np,leaf_is_active,ncells,apr_tree,refinelevels)
  endif
 
- ! tree refinement: the top levels of the local trees are copied into the global tree.
- ! Limit the depth so the global tree fits in nodeglobal, which is the size of the local
- ! tree, so that memory per task does not grow with the total number of particles.
- ! A shallower global tree only means coarser cells are used to decide what to export
+ ! tree refinement: the top levels of the local trees are copied into the global tree
+ ! (in neighkdtree). Limit the depth so the global tree fits in nodeglobal, which is the
+ ! size of the local tree, so that memory per task does not grow with the total number of
+ ! particles. A shallower global tree only means coarser cells are used to decide what to export
  do while (refinelevels > 1 .and. 2**(globallevel+refinelevels+1)-1 > size(nodeglobal))
     refinelevels = refinelevels - 1
  enddo
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
- roffset_prev = 1
-
- irefine = 0
- do i = 1,refinelevels
-    offset = 2**(globallevel + i)
-    roffset = 2**i
-
-    nnodestart = offset
-    nnodeend   = 2*nnodestart-1
-
-    if (nnodeend > size(nodeglobal)) call fatal('kdtree', 'global tree refinement has exceeded ncellsmaxglobal')
-
-    locstart   = roffset
-    locend     = 2*locstart-1
-
-    ! index shift the node to the global level
-    do k = roffset,2*roffset-1
-       refinementnode(k) = node(k)
-       coffset = refinementnode(k)%parent - roffset_prev
-
-       refinementnode(k)%parent = 2**(globallevel + i - 1) + id * roffset_prev + coffset
-
-       if (i /= refinelevels) then
-          refinementnode(k)%leftchild  = 2**(globallevel + i + 1) + 2*id*roffset + 2*(k - roffset)
-          refinementnode(k)%rightchild = refinementnode(k)%leftchild + 1
-       else
-          refinementnode(k)%leftchild = 0
-          refinementnode(k)%rightchild = 0
-       endif
-    enddo
-
-    roffset_prev = roffset
-    ! sync, replacing level with globallevel, since all procs will get synced
-    ! and deeper comms do not exist
-    call tree_sync(refinementnode(locstart:locend),roffset, &
-                   nodeglobal(nnodestart:nnodeend),nnodestart-nnodeend, &
-                   id,globallevel)
-
-    ! get the mapping from the local tree to the global tree, for future hmax updates
-    do inode = locstart,locend
-       nodemap(inode) = nnodestart + (id * roffset) + (inode - locstart)
-    enddo
- enddo
-!  The index up to which the local tree is copied to the global tree
- irefine = 2*roffset-1
-
- ! cellatid is zero by default
- cellatid = 0
- do i = 1,nprocs
-    offset = 2**(globallevel+refinelevels)
-    roffset = 2**refinelevels
-    do k = 1,roffset
-       cellatid(offset + (i - 1) * roffset + (k - 1)) = i
-    enddo
- enddo
 
 end subroutine maketreeglobal
 

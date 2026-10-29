@@ -19,17 +19,26 @@ module neighkdtree
 !   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!   kdtree, kernel, mpiutils, part
+!   kdtree, kernel, mpitree, mpiutils, part
 !
  use dim,          only:ncellsmax,ncellsmaxglobal,gravity
  use dtypekdtree,  only:kdnode,lenfgrav
- use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,irefine,tree_accuracy,&
+ use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,tree_accuracy,&
                         ih1,im,irho,izetaomega,isoftomega
  implicit none
 
- integer,               allocatable :: cellatid(:)
+ ! the global tree, replicated on every MPI task: cellatid is owner+1 for its leaves, 0 otherwise.
+ ! Its top levels split the domains of the tasks (the domain of task r is node nprocs+r),
+ ! and below them each task's block of nodes copied from its local tree is stored in task order
+ integer,      public,  allocatable :: cellatid(:)
+ type(kdnode), public,  allocatable :: nodeglobal(:)
+ ! index in the global tree of each node of the local tree copied into it, 0 for the others
  integer,               allocatable :: nodemap(:)
- type(kdnode),          allocatable :: nodeglobal(:)
+ ! the local nodes copied into the global tree, in the order of this task's block
+ integer,               allocatable :: mirror_list(:)
+ integer                            :: nmirror = 0
+ ! the number of nodes in each task's block and the offset of the block
+ integer,               allocatable :: nmirror_task(:),mirror_displ(:)
  type(kdnode), public,  allocatable :: node(:)
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
@@ -105,6 +114,8 @@ subroutine allocate_neigh
  call allocate_array('nodeglobal',     nodeglobal,     nglobal           )
  call allocate_array('node',           node,           ncellsmax+1       )
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
+ nodemap = 0
+ nmirror = 0
  call allocate_kdtree()
  call allocate_array('listneigh_global',listneigh_global,maxp)
  call allocate_array('cachestate', cachestate, ncellsmax+1)
@@ -142,6 +153,8 @@ subroutine deallocate_neigh
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
+ if (allocated(mirror_list)) deallocate(mirror_list)
+ if (allocated(nmirror_task)) deallocate(nmirror_task,mirror_displ)
  if (allocated(cachestate)) deallocate(cachestate)
  if (allocated(fnodecache)) deallocate(fnodecache)
  if (allocated(neighnodecache)) deallocate(neighnodecache)
@@ -264,12 +277,13 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,refinelevels,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,refinelevels,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree)
     endif
+    call graft_local_trees()
  else
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
@@ -510,35 +524,188 @@ end subroutine get_cell_location
 
 !-----------------------------------------------------------------------
 !+
-!  sync the hmax values across all MPI tasks
+!  copy the top levels of the local tree of every task into the global
+!  tree, below the node of its domain
+!+
+!-----------------------------------------------------------------------
+subroutine graft_local_trees()
+ use io,       only:nprocs,id,fatal
+ use mpiutils, only:allgather_mpi,get_displs_mpi
+ use mpitree,  only:allgatherv_nodes
+ type(kdnode), allocatable :: block(:)
+ integer :: ntot,ifirst,itask,ibase,p,g,idomain
+
+ ! forget the nodes copied from the previous tree
+ nodemap(1) = 0
+ if (nmirror > 0) nodemap(mirror_list(1:nmirror)) = 0
+
+ call select_mirrored_nodes(refinelevels)
+ allocate(block(nmirror))
+ call pack_mirrored_nodes(block)
+
+ if (.not.allocated(nmirror_task)) allocate(nmirror_task(nprocs),mirror_displ(nprocs))
+ call allgather_mpi(nmirror,nmirror_task)
+ mirror_displ = get_displs_mpi(nmirror_task)
+ ntot = sum(nmirror_task)
+ ifirst = 2*nprocs     ! first node after the top levels
+ if (ifirst + ntot - 1 > size(nodeglobal)) call fatal('graft_local_trees','global tree exceeds ncellsmaxglobal')
+ call allgatherv_nodes(block,nodeglobal(ifirst:),nmirror_task,mirror_displ)
+
+ ! the blocks are linked within themselves: shift them to their place in the global tree
+ cellatid = 0
+ do itask = 1,nprocs
+    ibase = ifirst - 1 + mirror_displ(itask)
+    idomain = nprocs + itask - 1
+    do p = 1,nmirror_task(itask)
+       g = ibase + p
+       if (nodeglobal(g)%leftchild > 0)  nodeglobal(g)%leftchild  = nodeglobal(g)%leftchild  + ibase
+       if (nodeglobal(g)%rightchild > 0) nodeglobal(g)%rightchild = nodeglobal(g)%rightchild + ibase
+       if (nodeglobal(g)%parent > 0) then
+          nodeglobal(g)%parent = nodeglobal(g)%parent + ibase
+       else
+          nodeglobal(g)%parent = idomain
+       endif
+       if (nodeglobal(g)%leftchild == 0 .and. nodeglobal(g)%rightchild == 0) cellatid(g) = itask
+    enddo
+    ! the children of the domain node come first in the block
+    nodeglobal(idomain)%leftchild = 0
+    nodeglobal(idomain)%rightchild = 0
+    if (nmirror_task(itask) == 0) then
+       cellatid(idomain) = itask
+    else
+       nodeglobal(idomain)%leftchild = ibase + 1
+       if (nmirror_task(itask) > 1) then
+          if (nodeglobal(ibase+2)%parent == idomain) nodeglobal(idomain)%rightchild = ibase + 2
+       endif
+    endif
+ enddo
+
+ ! where the copied local nodes are in the global tree; the local root is the domain node
+ ibase = ifirst - 1 + mirror_displ(id+1)
+ nodemap(irootnode) = nprocs + id
+ do p = 1,nmirror
+    nodemap(mirror_list(p)) = ibase + p
+ enddo
+
+end subroutine graft_local_trees
+
+!-----------------------------------------------------------------------
+!+
+!  choose the nodes of the local tree to copy into the global tree:
+!  all those down to level maxlevel, listed breadth first from the
+!  children of the root
+!+
+!-----------------------------------------------------------------------
+subroutine select_mirrored_nodes(maxlevel)
+ integer, intent(in) :: maxlevel
+ integer :: i,n
+
+ if (.not.allocated(mirror_list)) allocate(mirror_list(2**(maxlevel+1)))
+ if (size(mirror_list) < 2**(maxlevel+1)) then
+    deallocate(mirror_list)
+    allocate(mirror_list(2**(maxlevel+1)))
+ endif
+ nmirror = 0
+ call add_children(irootnode)
+ i = 0
+ do while (i < nmirror)
+    i = i + 1
+    n = mirror_list(i)
+    if (node(n)%level < maxlevel) call add_children(n)
+ enddo
+
+end subroutine select_mirrored_nodes
+
+!-----------------------------------------------------------------------
+!+
+!  add the children of a node to the list of nodes to copy
+!+
+!-----------------------------------------------------------------------
+subroutine add_children(n)
+ integer, intent(in) :: n
+
+ if (node(n)%leftchild > 0) then
+    nmirror = nmirror + 1
+    mirror_list(nmirror) = node(n)%leftchild
+ endif
+ if (node(n)%rightchild > 0) then
+    nmirror = nmirror + 1
+    mirror_list(nmirror) = node(n)%rightchild
+ endif
+
+end subroutine add_children
+
+!-----------------------------------------------------------------------
+!+
+!  copy the chosen local nodes into a block, with the links between
+!  them given as positions in the block (0 for nodes outside it)
+!+
+!-----------------------------------------------------------------------
+subroutine pack_mirrored_nodes(block)
+ type(kdnode), intent(out) :: block(:)
+ integer :: p,n
+
+ ! position in the block, temporarily stored in nodemap
+ do p = 1,nmirror
+    nodemap(mirror_list(p)) = p
+ enddo
+ do p = 1,nmirror
+    n = mirror_list(p)
+    block(p) = node(n)
+    block(p)%leftchild  = position_in_block(node(n)%leftchild)
+    block(p)%rightchild = position_in_block(node(n)%rightchild)
+    block(p)%parent     = position_in_block(node(n)%parent)
+ enddo
+
+end subroutine pack_mirrored_nodes
+
+!-----------------------------------------------------------------------
+!+
+!  position of a local node in the block of copied nodes, 0 if not in it
+!+
+!-----------------------------------------------------------------------
+integer function position_in_block(n)
+ integer, intent(in) :: n
+
+ position_in_block = 0
+ if (n > 0) position_in_block = nodemap(n)
+
+end function position_in_block
+
+!-----------------------------------------------------------------------
+!+
+!  pass the hmax of the copied local nodes to the global tree on all
+!  MPI tasks, then raise the hmax of the domain nodes and the levels
+!  above them to cover their children
 !+
 !-----------------------------------------------------------------------
 subroutine sync_hmax_mpi
- use mpiutils,  only:reduceall_mpi
- use io,        only:nprocs
- integer :: i, n
- real    :: hmax(2**(globallevel+refinelevels+1)-1)
+ use io,       only:nprocs
+ use mpiutils, only:allgatherv_mpi
+ real, allocatable :: hmirror(:),hall(:)
+ integer :: p,k,n,idomain,il,ir
+ real    :: hchild
 
- hmax(:) = 0.0
- ! copy hmax values into contiguous array
- do i = 2,2**(refinelevels+1)-1
-    hmax(nodemap(i)) = node(i)%hmax
+ allocate(hmirror(nmirror),hall(sum(nmirror_task)))
+ do p = 1,nmirror
+    hmirror(p) = node(mirror_list(p))%hmax
+ enddo
+ call allgatherv_mpi(hmirror,hall,nmirror_task,mirror_displ)
+ do k = 1,size(hall)
+    nodeglobal(2*nprocs-1+k)%hmax = hall(k)
  enddo
 
- ! reduce across threads
- hmax = reduceall_mpi('max', hmax)
-
- ! put values back into node
- do i = 2*nprocs,2**(globallevel+refinelevels+1)-1
-    nodeglobal(i)%hmax = hmax(i)
- enddo
-
- ! walk tree up
- do i = 2*nprocs,4*nprocs
-    n = i
+ do idomain = nprocs,2*nprocs-1
+    il = nodeglobal(idomain)%leftchild
+    ir = nodeglobal(idomain)%rightchild
+    if (il == 0) cycle
+    hchild = nodeglobal(il)%hmax
+    if (ir > 0) hchild = max(hchild,nodeglobal(ir)%hmax)
+    n = idomain
+    nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     do while (nodeglobal(n)%parent /= 0)
        n = nodeglobal(n)%parent
-       nodeglobal(n)%hmax = max(nodeglobal(n)%hmax, hmax(i))
+       nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     enddo
  enddo
 
@@ -585,6 +752,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
 #ifdef GRAVITY
  real :: quads(6)
  real :: dr,totmass_node
+ logical :: count_gravity
 #endif
  tree_acc2 = tree_accuracy*tree_accuracy
  if (get_f .and. .not.present(fnode)) then
@@ -667,9 +835,11 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
        ! counted again.
        !
        ! The solution is to not count the parts of the local tree that have been
-       ! added onto the global tree.
-
-       count_gravity: if ( global_walk .or. (n > irefine) ) then
+       ! added onto the global tree (those with nodemap /= 0). In the global
+       ! walk, n indexes the global tree, so nodemap must not be read.
+       count_gravity = global_walk
+       if (.not.global_walk) count_gravity = (nodemap(n) == 0)
+       if_count_gravity: if (count_gravity) then
           !
           !--long range force on node due to distant node, along node centres
           !  along with derivatives in order to perform series expansion
@@ -677,7 +847,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
           dr = 1./sqrt(r2)
           call compute_M2L(dx,dy,dz,dr,totmass_node,quads,fnode)
 
-       endif count_gravity
+       endif if_count_gravity
 #endif
 
     endif if_open_node
