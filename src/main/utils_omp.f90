@@ -145,7 +145,7 @@ subroutine limits_omp(n1,n2,i1,i2,iloop)
        i1 = n1 + int(n*share(it,iloop))
        i2 = n1 - 1 + int(n*share(it+1,iloop))
        if (it == nt-1) i2 = n2
-       nused(it,iloop) = i2 - i1 + 1
+       nused(it,iloop) = nused(it,iloop) + (i2 - i1 + 1)
 !$     tstart(it,iloop) = omp_get_wtime()
        return
     endif
@@ -157,7 +157,7 @@ end subroutine limits_omp
 
 !----------------------------------------------------------------
 !+
-!  record the time this thread took for its share of a tuned loop;
+!  add the time this thread took for its share of a tuned loop;
 !  the last thread to finish then updates the shares
 !+
 !----------------------------------------------------------------
@@ -173,7 +173,7 @@ subroutine end_limits_omp(iloop)
  if (size(share,1) /= nt+1) return
 
  it = omp_thread_num()
-!$ tused(it,iloop) = omp_get_wtime() - tstart(it,iloop)
+!$ tused(it,iloop) = tused(it,iloop) + (omp_get_wtime() - tstart(it,iloop))
 !$omp flush
 !$omp atomic capture
  ndone(iloop) = ndone(iloop) + 1
@@ -190,19 +190,23 @@ end subroutine end_limits_omp
 !----------------------------------------------------------------
 !+
 !  move each thread's share of a loop towards the rate at which
-!  it got through its particles, averaged over many calls
+!  it got through its particles. The times are summed over calls
+!  until the slowest thread has spent tupdate in the loop, so that
+!  jitter in short loops averages out and shares only follow lasting
+!  differences in speed between cores
 !+
 !----------------------------------------------------------------
 subroutine update_shares(iloop,nt)
  integer, intent(in) :: iloop,nt
- real(kind=8), parameter :: tmin = 1.d-5, weight = 0.2
+ real(kind=8), parameter :: tupdate = 1.d-3, weight = 0.2
  real(kind=8) :: rate(0:nt-1),newshare(0:nt-1)
  integer :: it
 
- ! loops too short to time reliably keep their shares
- if (any(tused(0:nt-1,iloop) < tmin)) return
+ if (maxval(tused(0:nt-1,iloop)) < tupdate) return
 
- rate     = max(nused(0:nt-1,iloop),1)/tused(0:nt-1,iloop)
+ rate     = max(nused(0:nt-1,iloop),1)/max(tused(0:nt-1,iloop),1.d-9)
+ tused(0:nt-1,iloop) = 0.
+ nused(0:nt-1,iloop) = 0
  newshare = share(1:nt,iloop) - share(0:nt-1,iloop)
  newshare = (1. - weight)*newshare + weight*rate/sum(rate)
  do it = 1,nt-1
