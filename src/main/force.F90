@@ -41,8 +41,8 @@ module forces
 !
 ! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
 !   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, omputils,
-!   options, part, physcon, ptmass, ptmass_heating, radiation_utils,
+!   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, options,
+!   part, physcon, ptmass, ptmass_heating, radiation_utils,
 !   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
 !   viscosity
 !
@@ -500,7 +500,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  call get_timings(t1,tcpu1)
  !$omp end single
 
-
  !$omp do schedule(dynamic,ncellchunk)
  over_cells: do ia=1,nactive_leaves
     icell = active_leaves(ia)
@@ -569,7 +568,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
  !$omp end single
 
-
  if (exchange) then
     call recv_while_wait(stack_remote,cell_counters)
     call reset_cell_counters(cell_counters)
@@ -602,7 +600,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
-
        call send_cell(cell,remote_export,stack_waiting,cell_counters) ! send the cell back to owner
 
     enddo over_remote
@@ -616,7 +613,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp single
     call clear_pool(force_pool,release=.false.)
     !$omp end single
-
 
  endif igot_remote
 
@@ -655,7 +651,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (exchange) call finish_cell_exchange(stack_remote)
 
-
 !$omp single
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
@@ -665,7 +660,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (icreate_sinks > 0) then
     rhomax_thread = 0.
     ipart_rhomax_thread = 0
-    !$omp do schedule(runtime)
+    !$omp do
     over_parts: do i=1,npart
        hi = xyzh(4,i)
 #ifdef IND_TIMESTEPS
@@ -723,7 +718,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 #endif
 !$omp end parallel
-
 
  if (mpi) then
     if (use_sinktree) then

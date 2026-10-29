@@ -514,7 +514,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
           rij1 = 1./rij
           dr = rij
 
-
           hj21 = 1./(hj*hj)
           hj41 = hj21*hj21
 
@@ -572,7 +571,9 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
  real                :: opacity,radRi,EU01i
 
- !$omp do schedule(runtime)&
+ ! hand out particles in chunks of 64: one at a time (dynamic,1) spends most of the
+ ! loop contending for iterations, while much larger chunks leave threads idle at the end
+ !$omp do schedule(dynamic,64)&
  !$omp private(i,j,k,n,dedx,rhoi,rhoj,icompact)&
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)&
  !$omp private(opacity,radRi,EU01i)
@@ -651,7 +652,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  real                 :: diffusion_numerator,diffusion_denominator
 
  ierr = 0
- !$omp do schedule(runtime)&
+ !$omp do schedule(dynamic,64)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
  !$omp private(dWdrlightrhorhom,icompact)&
  !$omp reduction(max:ierr)
@@ -760,7 +761,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  maxerrU2 = 0.
  !$omp end single
 
- !$omp do schedule(runtime)&
+ !$omp do schedule(dynamic,64)&
  !$omp private(i,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private(dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &

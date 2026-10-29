@@ -24,9 +24,9 @@ module step_lf_global
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
 !   cooling_radapprox, damping, deriv, dim, dynamic_dtmax, eos, extern_gr,
-!   growth, io, io_summary, metric_tools, mpiutils, omputils, options,
-!   part, porosity, ptmass, shock_capturing, substepping, timestep,
-!   timestep_ind, timing, utils_gr
+!   growth, io, io_summary, metric_tools, mpiutils, options, part,
+!   porosity, ptmass, shock_capturing, substepping, timestep, timestep_ind,
+!   timing, utils_gr
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -134,7 +134,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr,substep_sph_gr,substep_sph
  use ptmass,         only:ptmass_kick
- use omputils,       only:nchunk
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -175,7 +174,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
  nvfloorp  = 0
- !$omp parallel do default(none) schedule(dynamic,nchunk) &
+ !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
@@ -484,7 +483,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp reduction(max:errmax) &
 !$omp reduction(+:np,v2mean,p2mean,nwake,nvfloorc) &
 !$omp firstprivate(itype)
-!$omp do schedule(dynamic,nchunk)
+!$omp do
     corrector: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (store_itype) itype = iamtype(iphase(i))

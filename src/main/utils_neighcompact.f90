@@ -96,7 +96,8 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  icompactmax = size(ijvar)
  growable = present(nedges)
  extra = present(icand_start) .and. present(icand) .and. present(xyzh_extra) .and. present(joffset)
- !$omp parallel do default(none) schedule(runtime)&
+ ! chunks of 64 cells: one at a time contends for iterations, larger chunks load balance poorly
+ !$omp parallel do default(none) schedule(dynamic,64)&
  !$omp shared(ncells,xyzh,inodeparts,inoderange,leaf_is_active)&
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxpsph,growable)&
  !$omp shared(extra,icand_start,icand,xyzh_extra,joffset)&

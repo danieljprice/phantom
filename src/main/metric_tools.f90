@@ -19,7 +19,7 @@ module metric_tools
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: inverse4x4, metric, omputils
+! :Dependencies: inverse4x4, metric
 !
  use metric, only:imetric
  implicit none
@@ -189,7 +189,6 @@ end function metric_is_time_dependent
 !-------------------------------------------------------------------------------
 subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
  use metric, only:update_metric
- use omputils, only:nchunk
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: metrics(:,:,:,:)
@@ -199,7 +198,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
 
  if (present(time)) call update_metric(time)
 
- !$omp parallel do default(none) schedule(dynamic,nchunk) &
+ !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics) &
  !$omp private(i)
  do i=1,npart
@@ -208,7 +207,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs,time)
  !omp end parallel do
 
  if (present(metricderivs)) then
-    !$omp parallel do default(none) schedule(dynamic,nchunk) &
+    !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,metricderivs) &
     !$omp private(i)
     do i=1,npart

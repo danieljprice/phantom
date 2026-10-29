@@ -48,7 +48,6 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
  use io,              only:fatal
  use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp,rho
  use eos,  only:gamma,ieos
- use omputils,        only:nchunk
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(out) :: pxyzu(:,:)
@@ -60,7 +59,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens,use_sink)
  ! initial guess for the temperature of the first particle on each thread (-ve, so that the
  ! eos chooses one); later particles start from the previous particle's temperature
  tempi = -1.
- !$omp parallel do default (none) schedule(dynamic,nchunk) &
+ !$omp parallel do default (none) &
  !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,ien_type,eos_vars,gamma,ieos,use_sink,rho) &
  !$omp private(i,pri,xyzhi,vxyzui,densi) &
  !$omp firstprivate(tempi)
@@ -154,7 +153,6 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphai
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
  use dim,             only:nalpha
  use shock_capturing, only:get_alphaloc_cd
- use omputils,        only:nchunk
  integer,      intent(in)    :: npart
  real,         intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,         intent(inout) :: vxyzu(:,:),dens(:)
@@ -168,7 +166,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars,dvdx,alphai
  if (.not.done_init_eos) call init_eos(ieos,ierr)
  set_alphaloc = (nalpha >= 2 .and. present(dvdx) .and. present(alphaind))
 
-!$omp parallel do default (none) schedule(dynamic,nchunk) &
+!$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,rho) &
 !$omp shared(ieos,eos_vars,ien_type,set_alphaloc,dvdx,alphaind) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
@@ -268,14 +266,14 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use io,                only:fatal,warning
  use shock_capturing,   only:get_alphaloc_cd
  use options,           only:use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
- use omputils,          only:nchunk
+ use omputils,          only:limits_omp,end_limits_omp,id6
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
  real,         intent(inout) :: vxyzu(:,:)
  real(kind=4), intent(inout) :: alphaind(:,:)
  real,         intent(out)   :: eos_vars(:,:),radprop(:,:),Bxyz(:,:),dustfrac(:,:)
- integer      :: i,iamtypei,ierr
+ integer      :: i,i1,i2,iamtypei,ierr
  integer      :: ierrlist(n_warn)
  real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,uui
  real         :: Bxi,Byi,Bzi,psii,Bi,temperaturei,mui,X_i,Z_i,gammai
@@ -296,18 +294,19 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  X_i    = X_in
  Z_i    = Z_in
 
-!$omp parallel do default (none) schedule(dynamic,nchunk) &
+!$omp parallel default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,rho) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(iphase,maxphase,maxp) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
-!$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
+!$omp private(i,i1,i2,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
 !$omp private(Bxi,Byi,Bzi,psii,Bi,temperaturei,ierr) &
 !$omp private(xi,yi,zi,hi) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,gammai,X_i,Z_i) &
 !$omp reduction(+:ierrlist)
- do i=1,npart
+ call limits_omp(1,npart,i1,i2,id6)
+ do i=i1,i2
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        !
        !--get pressure (actually pr/dens) and sound speed from equation of state
@@ -419,7 +418,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        endif
     endif
  enddo
-!$omp end parallel do
+ call end_limits_omp(id6)
+!$omp end parallel
 
  if (mhd_nonideal) then
     ! look for fatal errors in nicil and kill if necessary

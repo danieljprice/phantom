@@ -16,7 +16,7 @@ module timestep_ind
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpiutils, omputils, part
+! :Dependencies: dim, io, mpiutils, part
 !
  use dim, only:maxp
  implicit none
@@ -72,7 +72,6 @@ end subroutine reset_time_per_bin
 !----------------------------------------------------------------
 subroutine init_ibin(npart,dtmax)
  use part, only:ibin,ibin_old,dt_in
- use omputils, only:nchunk
  integer, intent(in) :: npart
  real,    intent(in) :: dtmax
  real(kind=4)        :: twoepsilon,dt_ini
@@ -83,7 +82,7 @@ subroutine init_ibin(npart,dtmax)
 !$omp parallel default(none) &
 !$omp shared(npart,dtmax,twoepsilon,dt_in,ibin,ibin_old) &
 !$omp private(i,j,dt_ini,find_bin)
-!$omp do schedule(dynamic,nchunk)
+!$omp do
  do i = 1,npart
     j        = 0
     dt_ini = dt_in(i)
@@ -290,7 +289,6 @@ end subroutine get_newbin
 !+
 !----------------------------------------------------------------
 subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_dts)
- use omputils, only:nchunk
  integer,         intent(in)    :: npart,nbins,dtmax_ifactor
  integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:)
  real,            intent(in)    :: time
@@ -331,7 +329,7 @@ subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ib
 !$omp parallel default(none) &
 !$omp shared(npart,ibin,ibin_wake,ibin_rat) &
 !$omp private(i)
-!$omp do schedule(dynamic,nchunk)
+!$omp do
  do i=1,npart
     ibin(i)      = max(0_1,ibin(i)     -ibin_rat)
     ibin_wake(i) = max(0_1,ibin_wake(i)-ibin_rat)
