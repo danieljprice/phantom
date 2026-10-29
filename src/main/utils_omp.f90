@@ -85,16 +85,21 @@ end function omp_thread_num
 !+
 !  chunk size for a dynamic schedule over n iterations: at most
 !  maxchunk, but small enough to give each thread several chunks
-!  when n is small. Call inside the parallel region
+!  when n is small. Works inside or outside the parallel region
 !+
 !----------------------------------------------------------------
 integer function omp_chunk(n,maxchunk)
  integer, intent(in) :: n,maxchunk
  integer :: nthreads
-!$ integer, external :: omp_get_num_threads
+!$ integer, external :: omp_get_num_threads,omp_get_max_threads
+!$ logical, external :: omp_in_parallel
 
  nthreads = 1
-!$ nthreads = omp_get_num_threads()
+!$ if (omp_in_parallel()) then
+!$    nthreads = omp_get_num_threads()
+!$ else
+!$    nthreads = omp_get_max_threads()
+!$ endif
  omp_chunk = max(1,min(maxchunk,n/(4*nthreads)))
 
 end function omp_chunk

@@ -68,7 +68,7 @@ subroutine grow_neighbour_storage_implicit(nedges,ierr)
 
  ierr = 0
  if (nedges <= icompactmax) return
- icompactmax = int(min(1.2*real(nedges),real(huge(icompactmax))))
+ icompactmax = int(min(int(nedges,kind=8) + nedges/5,int(huge(icompactmax),kind=8)))
  deallocate(ijvar,varij,varij2)
  allocate(ijvar(icompactmax),varij(2,icompactmax),varij2(4,icompactmax),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar, varij, varij2')
