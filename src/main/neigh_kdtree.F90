@@ -87,6 +87,7 @@ module neighkdtree
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
+ public :: get_particle_export
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
  private
@@ -520,6 +521,24 @@ subroutine get_cell_location(inode,xpos,xsizei,rcuti)
  rcuti   = radkern*node(inode)%hmax
 
 end subroutine get_cell_location
+
+!-----------------------------------------------------------------------
+!+
+!  MPI tasks with particles within rcut of a particle at xpos (i.e. the tasks
+!  owning a leaf of the global tree within rcut), for exporting single
+!  particles rather than whole cells
+!+
+!-----------------------------------------------------------------------
+subroutine get_particle_export(xpos,rcut,remote_export)
+ real,    intent(in)  :: xpos(3),rcut
+ logical, intent(out) :: remote_export(:)
+ integer :: listdummy(1),ndummy
+ real    :: cachedummy(1,1)
+
+ call getneigh(nodeglobal,xpos,0.,rcut,listdummy,ndummy,cachedummy,0,cellatid,&
+               .false.,.false.,remote_export=remote_export)
+
+end subroutine get_particle_export
 
 !-----------------------------------------------------------------------
 !+

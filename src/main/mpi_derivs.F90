@@ -314,31 +314,39 @@ end subroutine init_celldens_exchange
 !  thread, receiving cells into stack while waiting for that buffer
 !+
 !-----------------------------------------------------------------------
-subroutine send_celldens(cell,targets,stack,counters)
+subroutine send_celldens(cell,targets,stack,counters,ptargets)
  use io,       only:fatal
  use omputils, only:omp_thread_num
- use timing,   only:get_timings
  use mpidens, only:stackdens,pack_celldens
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
  type(stackdens), intent(inout) :: stack
  integer,         intent(inout) :: counters(nprocs,3)
+ logical,         intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
 #ifdef MPI
  integer :: newproc,mpierr,ith,ibuf,n,nbuf
- real(kind=4) :: t1,t2,tcpu1,tcpu2
 
- ith  = omp_thread_num() + 1
- ibuf = mod(lastbuf(ith),nsendbufs) + 1
- lastbuf(ith) = ibuf
-
- !--wait for the previous sends from this buffer, continuing to receive
- if (nsendreq(ibuf,ith) > 0) then
-    call get_timings(t1,tcpu1)
-    call complete_sends(ibuf,ith,stack,counters)
-    call get_timings(t2,tcpu2)
-    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ ith = omp_thread_num() + 1
+ if (present(ptargets) .and. cell%owner == id) then
+    !--each task gets only the particles it needs, so a buffer for each
+    do newproc=0,nprocs-1
+       if (newproc == id .or. .not.targets(newproc+1)) cycle
+       if (.not.any(ptargets(1:cell%npcell,newproc+1))) cycle
+       call next_sendbuf_dens(ith,ibuf,stack,counters)
+       call pack_celldens(cell,.true.,sendbuf_dens(:,ibuf,ith),nbuf,mask=ptargets(1:cell%npcell,newproc+1))
+       !$omp critical (mpi_cell_exchange)
+       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_dens,comm_cellexchange,&
+                      sendreq(1,ibuf,ith),mpierr)
+       !$omp end critical (mpi_cell_exchange)
+       if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
+       nsendreq(ibuf,ith) = 1
+       !$omp atomic
+       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+    enddo
+    return
  endif
 
+ call next_sendbuf_dens(ith,ibuf,stack,counters)
  !--outbound if this task owns the cell, otherwise the results returned to the owner
  call pack_celldens(cell,(cell%owner == id),sendbuf_dens(:,ibuf,ith),nbuf)
  n = 0
@@ -358,6 +366,32 @@ subroutine send_celldens(cell,targets,stack,counters)
 #endif
 
 end subroutine send_celldens
+
+!-----------------------------------------------------------------------
+!+
+!  the next send buffer of this thread, waiting (and receiving cells into
+!  stack meanwhile) for the previous sends from it to complete
+!+
+!-----------------------------------------------------------------------
+subroutine next_sendbuf_dens(ith,ibuf,stack,counters)
+ use timing,  only:get_timings
+ use mpidens, only:stackdens
+ integer,         intent(in)    :: ith
+ integer,         intent(out)   :: ibuf
+ type(stackdens), intent(inout) :: stack
+ integer,         intent(inout) :: counters(nprocs,3)
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+
+ ibuf = mod(lastbuf(ith),nsendbufs) + 1
+ lastbuf(ith) = ibuf
+ if (nsendreq(ibuf,ith) > 0) then
+    call get_timings(t1,tcpu1)
+    call complete_sends(ibuf,ith,stack,counters)
+    call get_timings(t2,tcpu2)
+    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ endif
+
+end subroutine next_sendbuf_dens
 
 !-----------------------------------------------------------------------
 !+
@@ -939,15 +973,17 @@ subroutine combine_celldens(target_cell,new_cell)
  type(celldens), intent(inout) :: target_cell
  type(celldens), intent(inout) :: new_cell
 
- integer :: k, l
+ integer :: k, l, i
 
+ ! the returned particles may be a subset of the cell: arr_index gives their positions
  do k = 1,new_cell%npcell
+    i = new_cell%arr_index(k)
     do l = 1,maxrhosum
        !$omp atomic
-       target_cell%rhosums(l,k) = target_cell%rhosums(l,k) + new_cell%rhosums(l,k)
+       target_cell%rhosums(l,i) = target_cell%rhosums(l,i) + new_cell%rhosums(l,k)
     enddo
     !$omp atomic
-    target_cell%nneigh(k) = target_cell%nneigh(k) + new_cell%nneigh(k)
+    target_cell%nneigh(i) = target_cell%nneigh(i) + new_cell%nneigh(k)
  enddo
  !$omp atomic
  target_cell%nneightry = target_cell%nneightry + new_cell%nneightry

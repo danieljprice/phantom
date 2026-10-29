@@ -19,7 +19,7 @@ module densityforce
 !   mpiderivs, mpimemory, mpiutils, neighkdtree, omputils, options, part,
 !   timestep, timing, viscosity
 !
- use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge
+ use dim,     only:maxdvdx,maxp,maxrhosum,maxdustlarge,minpart
  use dim,     only:calculate_density,calculate_divcurlB
  use kdtree,  only:inodeparts,inoderange,im
  use kernel,  only:cnormk,wab0,gradh0,dphidh0,radkern2,cnormk_tilde,wab0_tilde,gradh0_tilde
@@ -181,6 +181,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: n_remote_its,nlocal,nconv
  real                      :: ntotal
  logical                   :: remote_export(nprocs),do_export
+ logical                   :: ptargets(minpart,nprocs) ! tasks each particle of a cell is sent to
  logical                   :: iterations_finished
  logical                   :: exchange ! whether cells are exchanged with other MPI tasks
 
@@ -279,7 +280,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
 !$omp private(ntotal) &
-!$omp private(remote_export) &
+!$omp private(remote_export,ptargets) &
 !$omp private(nneigh) &
 !$omp private(cell) &
 !$omp private(converged,nconv) &
@@ -322,12 +323,17 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
+    !--send each task only the particles that have neighbours there
+    if (do_export) then
+       call particle_targets(cell,remote_export,ptargets)
+       do_export = any(remote_export)
+    endif
 
     if (exchange) then
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)  ! make a reservation on the stack
-          call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send the cell to remote
+          call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets)  ! send the cell to remote
        endif
     endif
 
@@ -347,10 +353,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                                       cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                       remote_export=remote_export)
 
+                if (any(remote_export)) call particle_targets(cell,remote_export,ptargets)
                 if (any(remote_export)) then
                    do_export = .true.
                    call reserve_stack(stack_waiting,cell%waiting_index)
-                   call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
+                   call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets)  ! send to remote
                 endif
                 ncalls_neigh = ncalls_neigh + 1
              endif
@@ -475,9 +482,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                     cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti, &
                                     remote_export=remote_export)
+             if (any(remote_export)) call particle_targets(cell,remote_export,ptargets)
 
              call reserve_stack(stack_redo,cell%waiting_index)
-             call send_cell(cell,remote_export,stack_remote,cell_counters) ! send the cell to remote
+             call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets) ! send the cell to remote
              !$omp atomic
              nresend_part = nresend_part + cell%npcell
              !$omp atomic
@@ -1957,5 +1965,34 @@ subroutine get_density_at_pos(x,rho,itype)
  enddo loop_over_neigh
 
 end subroutine get_density_at_pos
+
+!-----------------------------------------------------------------------
+!+
+!  the tasks each particle of an exported cell must be sent to: those with
+!  particles within its own kernel radius (density uses h_i only), a subset
+!  of the tasks found for the whole cell. Tasks that no particle reaches
+!  are removed from remote_export
+!+
+!-----------------------------------------------------------------------
+subroutine particle_targets(cell,remote_export,ptargets)
+ use neighkdtree, only:get_particle_export
+ use kernel,      only:radkern
+ type(celldens), intent(in)    :: cell
+ logical,        intent(inout) :: remote_export(:)
+ logical,        intent(out)   :: ptargets(:,:)
+ logical :: pexport(size(remote_export))
+ integer :: i,j
+
+ ptargets = .false.
+ do i=1,cell%npcell
+    ! a fraction more than the kernel radius, so that rounding can never drop a neighbour
+    call get_particle_export(cell%xpartvec(ixi:izi,i),radkern*cell%h(i)*(1. + 1.e-6),pexport)
+    ptargets(i,:) = pexport .and. remote_export
+ enddo
+ do j=1,size(remote_export)
+    remote_export(j) = any(ptargets(1:cell%npcell,j))
+ enddo
+
+end subroutine particle_targets
 
 end module densityforce
