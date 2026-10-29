@@ -268,7 +268,7 @@ subroutine test_global_tree(ntests,npass)
  use mpidomain,   only:i_belong
  use testutils,   only:update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(6),i,ip,icell,k
+ integer :: nfailed(9),i,ip,icell,k
  real    :: psep,hmaxcell
 
  if (id==master) write(*,"(/,a)") '--> testing global tree'
@@ -305,6 +305,7 @@ subroutine test_global_tree(ntests,npass)
  call sync_hmax_mpi()
  call check_global_hmax(nfailed(4:5))
  call check_exports(.true.,nfailed(6))
+ call check_combined_tree(nfailed(7:9))
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_global_tree
@@ -414,6 +415,92 @@ subroutine check_global_hmax(nfailed)
  call checkval(hmaxleaves >= maxval(xyzh(4,1:npart)),.true.,nfailed(2),'global hmax bounds h on this task')
 
 end subroutine check_global_hmax
+
+!-----------------------------------------------------------------------
+!+
+!   check the combined tree (local tree with the global tree above it):
+!   its links, that walking down from its root reaches every local leaf
+!   and only leaves of other tasks outside this task, and that every task
+!   has exactly the same copy of each domain node as its owner
+!+
+!-----------------------------------------------------------------------
+subroutine check_combined_tree(nfailed)
+ use io,          only:id,nprocs
+ use mpiutils,    only:allgatherv_mpi
+ use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner
+ use kdtree,      only:irootnode
+ use testutils,   only:checkval
+ integer, intent(out) :: nfailed(3)
+ integer, allocatable :: list(:)
+ integer :: n,i,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff,itask
+ real    :: rootdata(6),alldata(6*nprocs)
+
+ allocate(list(ncomb))
+ ! walk from the root of the combined tree
+ call walk_tree_from(irootcomb,list,nlist,nbad)
+ nlocal = 0
+ nbadremote = 0
+ do i=1,nlist
+    n = list(i)
+    if (leaf_is_active(n) == 0) cycle
+    if (n <= ncells) then
+       nlocal = nlocal + 1
+    elseif (remote_leaf_owner(n) < 1 .or. remote_leaf_owner(n) > nprocs .or. remote_leaf_owner(n) == id + 1) then
+       nbadremote = nbadremote + 1
+    endif
+ enddo
+ ! the local leaves reached from the local root
+ call walk_tree_from(irootnode,list,nlist,ndiff)
+ nlocal_root = count(leaf_is_active(list(1:nlist)) /= 0)
+ call checkval(nbad+ndiff+nbadremote,0,0,nfailed(1),'combined tree links and leaf owners')
+ call checkval(nlocal,nlocal_root,0,nfailed(2),'combined tree reaches every local leaf')
+
+ ! the domain node of each task, as the task itself has it (its local root)
+ rootdata = [node(irootnode)%xcen,node(irootnode)%size,node(irootnode)%hmax,node(irootnode)%mass]
+ call allgatherv_mpi(rootdata,alldata)
+ ndiff = 0
+ do itask=0,nprocs-1
+    if (itask == id) cycle
+    n = int(ncells) + nprocs + itask
+    if (any([node(n)%xcen,node(n)%size,node(n)%hmax,node(n)%mass] /= alldata(6*itask+1:6*itask+6))) ndiff = ndiff + 1
+ enddo
+ call checkval(ndiff,0,0,nfailed(3),'domain nodes identical on all tasks')
+
+end subroutine check_combined_tree
+
+!-----------------------------------------------------------------------
+!+
+!   list the nodes below (and including) iroot in node, stopping at
+!   leaves, counting nodes whose children do not point back to them
+!+
+!-----------------------------------------------------------------------
+subroutine walk_tree_from(iroot,list,nlist,nbad)
+ use neighkdtree, only:node,leaf_is_active
+ integer, intent(in)  :: iroot
+ integer, intent(out) :: list(:),nlist,nbad
+ integer :: i,n,ichild(2),k
+
+ nbad = 0
+ nlist = 1
+ list(1) = iroot
+ i = 0
+ do while (i < nlist)
+    i = i + 1
+    n = list(i)
+    if (leaf_is_active(n) /= 0) cycle
+    ichild = [node(n)%leftchild,node(n)%rightchild]
+    do k=1,2
+       if (ichild(k) <= 0) cycle
+       if (node(ichild(k))%parent /= n .or. nlist >= size(list)) then
+          nbad = nbad + 1
+       else
+          nlist = nlist + 1
+          list(nlist) = ichild(k)
+       endif
+    enddo
+ enddo
+
+end subroutine walk_tree_from
 
 !-----------------------------------------------------------------------
 !+

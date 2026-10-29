@@ -39,6 +39,12 @@ module neighkdtree
  integer                            :: nmirror = 0
  ! the number of nodes in each task's block and the offset of the block
  integer,               allocatable :: nmirror_task(:),mirror_displ(:)
+ ! the combined tree: with more than one MPI task, the global tree is appended to the
+ ! local tree (global node g at ncells+g), except for the nodes of this task, which are
+ ! the local nodes themselves, so that each local leaf's branch runs up to the global root
+ integer,      public               :: ncomb = 0        ! last node of the combined tree, 0 if none
+ integer,      public               :: irootcomb = 1    ! root of the combined tree
+ integer,      public,  allocatable :: remote_leaf_owner(:) ! owner+1 of the leaves of other tasks, else 0
  type(kdnode), public,  allocatable :: node(:)
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
@@ -106,25 +112,32 @@ subroutine allocate_neigh
  use io,         only:nprocs
  integer(kind=8) :: nglobal
 
+ integer :: nnodes
+
  ! the top levels, which split the domains of the tasks, then each task's block of nodes
  nglobal = 2*nprocs + int(nprocs,kind=8)*mirror_budget()
+ ! room for the combined tree: the global tree appended after the local tree
+ nnodes = ncellsmax + 1
+ if (nprocs > 1) nnodes = nnodes + int(nglobal)
  call allocate_array('cellatid',       cellatid,       nglobal           )
- call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
+ call allocate_array('leaf_is_active', leaf_is_active, nnodes            )
  call allocate_array('active_leaves',  active_leaves,  ncellsmax+1       )
  call allocate_array('nodeglobal',     nodeglobal,     nglobal           )
- call allocate_array('node',           node,           ncellsmax+1       )
+ call allocate_array('node',           node,           nnodes            )
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
+ call allocate_array('remote_leaf_owner',remote_leaf_owner,nnodes        )
  nodemap = 0
  nmirror = 0
+ remote_leaf_owner = 0
  call allocate_kdtree()
  call allocate_array('listneigh_global',listneigh_global,maxp)
- call allocate_array('cachestate', cachestate, ncellsmax+1)
+ call allocate_array('cachestate', cachestate, nnodes)
 
  if (use_dualcache) then
-    call allocate_array('fnodecache', fnodecache, lenfgrav, ncellsmax+1)
+    call allocate_array('fnodecache', fnodecache, lenfgrav, nnodes)
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
-    call allocate_array('neighnodecache_start',neighnodecache_start,ncellsmax+1)
-    call allocate_array('neighnodecache_count',neighnodecache_count,ncellsmax+1)
+    call allocate_array('neighnodecache_start',neighnodecache_start,nnodes)
+    call allocate_array('neighnodecache_count',neighnodecache_count,nnodes)
     itail_neigh = 0
  endif
 
@@ -153,6 +166,7 @@ subroutine deallocate_neigh
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
+ if (allocated(remote_leaf_owner)) deallocate(remote_leaf_owner)
  if (allocated(mirror_list)) deallocate(mirror_list)
  if (allocated(nmirror_task)) deallocate(nmirror_task,mirror_displ)
  if (allocated(cachestate)) deallocate(cachestate)
@@ -205,8 +219,10 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
  ! walk tree up, stopping at the first ancestor whose hmax already covers hmaxcell:
  ! a node's hmax is never below its children's, so neither is any of its ancestors'.
- ! Other threads update the same ancestors, so both the test and the update are atomic
- do while (node(n)%parent /= 0)
+ ! Other threads update the same ancestors, so both the test and the update are atomic.
+ ! Stop at the local root: the global nodes above it are updated by sync_hmax_mpi,
+ ! so that they stay the same on every MPI task
+ do while (n /= irootnode .and. node(n)%parent /= 0)
     n = node(n)%parent
 !$omp atomic read
     hmaxn = node(n)%hmax
@@ -284,6 +300,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
                            apr_tree)
     endif
     call graft_local_trees()
+    call combine_trees()
  else
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
@@ -306,7 +323,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  ! the dual tree walk cache refers to the old nodes: reset it for the new tree
  if (use_dualcache) then
-    cachestate(1:ncells) = 0 ! 0=untouched, 1=claimed, 2=fnode cached, 3=fully cached
+    cachestate(1:max(int(ncells),ncomb)) = 0 ! 0=untouched, 1=claimed, 2=fnode cached, 3=fully cached
     itail_neigh = 0
  endif
 
@@ -623,6 +640,85 @@ end subroutine graft_local_trees
 
 !-----------------------------------------------------------------------
 !+
+!  build the combined tree: append the global tree after the local tree,
+!  except for this task's domain node and block, which are the local root
+!  and the local nodes they were copied from. The local root takes the
+!  data of the domain node, which the other tasks use, so that every task
+!  sees exactly the same node there
+!+
+!-----------------------------------------------------------------------
+subroutine combine_trees()
+ use io, only:nprocs,id,fatal
+ type(kdnode) :: rootlinks
+ integer :: g,n,ng
+
+ ng = 2*nprocs - 1 + sum(nmirror_task)
+ if (int(ncells) + ng > size(node)) call fatal('combine_trees','no room to append the global tree')
+ if (ncomb > 0) remote_leaf_owner(ncells+1:ncomb) = 0
+
+ rootlinks = node(irootnode)
+ node(irootnode) = nodeglobal(nprocs + id)
+ node(irootnode)%leftchild  = rootlinks%leftchild
+ node(irootnode)%rightchild = rootlinks%rightchild
+ node(irootnode)%level      = rootlinks%level
+ node(irootnode)%parent     = combined_index(nodeglobal(nprocs + id)%parent)
+
+ do g = 1,ng
+    if (is_this_task(g)) cycle
+    n = int(ncells) + g
+    node(n) = nodeglobal(g)
+    node(n)%leftchild  = combined_index(nodeglobal(g)%leftchild)
+    node(n)%rightchild = combined_index(nodeglobal(g)%rightchild)
+    node(n)%parent     = combined_index(nodeglobal(g)%parent)
+    remote_leaf_owner(n) = cellatid(g)
+    leaf_is_active(n)    = min(cellatid(g),1)
+ enddo
+ irootcomb = combined_index(1)
+ ncomb = int(ncells) + ng
+
+end subroutine combine_trees
+
+!-----------------------------------------------------------------------
+!+
+!  whether a node of the global tree is this task's domain node or one
+!  of the local nodes it copied into the global tree
+!+
+!-----------------------------------------------------------------------
+logical function is_this_task(g)
+ use io, only:nprocs,id
+ integer, intent(in) :: g
+ integer :: ibase
+
+ ibase = 2*nprocs - 1 + mirror_displ(id+1)
+ is_this_task = (g == nprocs + id) .or. (g > ibase .and. g <= ibase + nmirror)
+
+end function is_this_task
+
+!-----------------------------------------------------------------------
+!+
+!  index in the combined tree of a node of the global tree (0 for none)
+!+
+!-----------------------------------------------------------------------
+integer function combined_index(g)
+ use io, only:nprocs,id
+ integer, intent(in) :: g
+ integer :: ibase
+
+ ibase = 2*nprocs - 1 + mirror_displ(id+1)
+ if (g <= 0) then
+    combined_index = 0
+ elseif (g == nprocs + id) then
+    combined_index = irootnode
+ elseif (g > ibase .and. g <= ibase + nmirror) then
+    combined_index = mirror_list(g - ibase)
+ else
+    combined_index = int(ncells) + g
+ endif
+
+end function combined_index
+
+!-----------------------------------------------------------------------
+!+
 !  the most nodes of its local tree a task copies into the global tree
 !+
 !-----------------------------------------------------------------------
@@ -830,7 +926,7 @@ end function position_in_block
 !+
 !-----------------------------------------------------------------------
 subroutine sync_hmax_mpi
- use io,       only:nprocs
+ use io,       only:nprocs,id
  use mpiutils, only:allgatherv_mpi
  real, allocatable :: hmirror(:),hall(:)
  integer :: p,k,n,idomain,il,ir
@@ -858,6 +954,12 @@ subroutine sync_hmax_mpi
        nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     enddo
  enddo
+
+ ! the same values in the combined tree
+ do k = 1,ncomb - int(ncells)
+    if (.not.is_this_task(k)) node(int(ncells) + k)%hmax = nodeglobal(k)%hmax
+ enddo
+ node(irootnode)%hmax = nodeglobal(nprocs + id)%hmax
 
 end subroutine sync_hmax_mpi
 
