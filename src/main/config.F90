@@ -65,7 +65,10 @@ module dim
 
 ! maxmimum storage in node list
  integer         :: ncellsmax
- integer(kind=8) :: ncellsmaxglobal
+ ! the most nodes each MPI task copies from its local tree into the global tree, and
+ ! the most copied by all tasks together: these bound the memory of the global tree
+ integer, parameter :: maxmirror_task  = 2**16
+ integer, parameter :: maxmirror_total = 2**20
  integer         :: nnodeptmassmax
 
 !------
@@ -394,11 +397,8 @@ subroutine update_max_sizes(n,ntot)
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX
- ncellsmaxglobal = NCELLSMAX
 #else
  ncellsmax = 2*maxp
- ! the global tree is limited to the size of the local tree (see maketreeglobal)
- ncellsmaxglobal = ncellsmax
 #endif
 
  nnodeptmassmax = 2*maxptmass

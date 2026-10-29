@@ -21,7 +21,7 @@ module neighkdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
 !   kdtree, kernel, mpitree, mpiutils, part
 !
- use dim,          only:ncellsmax,ncellsmaxglobal,gravity
+ use dim,          only:ncellsmax,gravity
  use dtypekdtree,  only:kdnode,lenfgrav
  use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,tree_accuracy,&
                         ih1,im,irho,izetaomega,isoftomega
@@ -79,7 +79,7 @@ module neighkdtree
  ! until the particles have had about one step each since the tree was built
  real,            parameter         :: frac_active_revtree = 0.1
  integer(kind=8)                    :: nactive_since_build = 0
- integer                            :: globallevel,refinelevels
+ integer                            :: globallevel
 
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
@@ -105,9 +105,8 @@ subroutine allocate_neigh
  use io,         only:nprocs
  integer(kind=8) :: nglobal
 
- ! the global tree needs at least one level of refinement below the
- ! level of the MPI tasks, however few particles there are per task
- nglobal = max(ncellsmaxglobal+1,2_8**(ceiling(log(real(nprocs))/log(2.0))+2))
+ ! the top levels, which split the domains of the tasks, then each task's block of nodes
+ nglobal = 2*nprocs + int(nprocs,kind=8)*mirror_budget()
  call allocate_array('cellatid',       cellatid,       nglobal           )
  call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
  call allocate_array('active_leaves',  active_leaves,  ncellsmax+1       )
@@ -277,10 +276,10 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,globallevel,refinelevels,xyzh,npart,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,globallevel,refinelevels,xyzh,npart,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree)
     endif
     call graft_local_trees()
@@ -539,7 +538,7 @@ subroutine graft_local_trees()
  nodemap(1) = 0
  if (nmirror > 0) nodemap(mirror_list(1:nmirror)) = 0
 
- call select_mirrored_nodes(refinelevels)
+ call select_mirrored_nodes()
  allocate(block(nmirror))
  call pack_mirrored_nodes(block)
 
@@ -548,7 +547,7 @@ subroutine graft_local_trees()
  mirror_displ = get_displs_mpi(nmirror_task)
  ntot = sum(nmirror_task)
  ifirst = 2*nprocs     ! first node after the top levels
- if (ifirst + ntot - 1 > size(nodeglobal)) call fatal('graft_local_trees','global tree exceeds ncellsmaxglobal')
+ if (ifirst + ntot - 1 > size(nodeglobal)) call fatal('graft_local_trees','global tree exceeds its node budget')
  call allgatherv_nodes(block,nodeglobal(ifirst:),nmirror_task,mirror_displ)
 
  ! the blocks are linked within themselves: shift them to their place in the global tree
@@ -591,49 +590,167 @@ end subroutine graft_local_trees
 
 !-----------------------------------------------------------------------
 !+
-!  choose the nodes of the local tree to copy into the global tree:
-!  all those down to level maxlevel, listed breadth first from the
-!  children of the root
+!  the most nodes of its local tree a task copies into the global tree
 !+
 !-----------------------------------------------------------------------
-subroutine select_mirrored_nodes(maxlevel)
- integer, intent(in) :: maxlevel
- integer :: i,n
+integer function mirror_budget()
+ use io,  only:nprocs
+ use dim, only:maxmirror_task,maxmirror_total
 
- if (.not.allocated(mirror_list)) allocate(mirror_list(2**(maxlevel+1)))
- if (size(mirror_list) < 2**(maxlevel+1)) then
-    deallocate(mirror_list)
-    allocate(mirror_list(2**(maxlevel+1)))
+ mirror_budget = max(2,min(maxmirror_task,maxmirror_total/nprocs))
+
+end function mirror_budget
+
+!-----------------------------------------------------------------------
+!+
+!  choose the nodes of the local tree to copy into the global tree.
+!  Starting from the children of the root, the node reaching furthest
+!  (size plus kernel radius) is split next, if it can interact with the
+!  domain of another task, until the node budget is used. Other tasks
+!  then see this task finely only where they need to: near their domains,
+!  and around particles with large smoothing lengths. The nodes are
+!  listed with the children of the root first
+!+
+!-----------------------------------------------------------------------
+subroutine select_mirrored_nodes()
+ integer, allocatable :: heapnode(:)
+ real,    allocatable :: heapkey(:)
+ integer :: nbudget,nheap,n
+
+ nbudget = mirror_budget()
+ if (allocated(mirror_list)) then
+    if (size(mirror_list) < nbudget) deallocate(mirror_list)
  endif
+ if (.not.allocated(mirror_list)) allocate(mirror_list(nbudget))
+ allocate(heapnode(nbudget),heapkey(nbudget))
+
  nmirror = 0
- call add_children(irootnode)
- i = 0
- do while (i < nmirror)
-    i = i + 1
-    n = mirror_list(i)
-    if (node(n)%level < maxlevel) call add_children(n)
+ nheap = 0
+ call add_children(irootnode,heapnode,heapkey,nheap)
+ do while (nheap > 0 .and. nmirror + 2 <= nbudget)
+    call heap_pop(heapnode,heapkey,nheap,n)
+    if (node(n)%leftchild <= 0 .and. node(n)%rightchild <= 0) cycle  ! a leaf of the local tree
+    if (reaches_other_domain(n)) call add_children(n,heapnode,heapkey,nheap)
  enddo
 
 end subroutine select_mirrored_nodes
 
 !-----------------------------------------------------------------------
 !+
-!  add the children of a node to the list of nodes to copy
+!  add the children of a node to the list of nodes to copy, and to the
+!  heap of nodes that may be split further
 !+
 !-----------------------------------------------------------------------
-subroutine add_children(n)
- integer, intent(in) :: n
+subroutine add_children(n,heapnode,heapkey,nheap)
+ use kernel, only:radkern
+ integer, intent(in)    :: n
+ integer, intent(inout) :: heapnode(:),nheap
+ real,    intent(inout) :: heapkey(:)
+ integer :: ichild(2),k,nc
 
- if (node(n)%leftchild > 0) then
+ ichild = [node(n)%leftchild,node(n)%rightchild]
+ do k = 1,2
+    nc = ichild(k)
+    if (nc <= 0) cycle
     nmirror = nmirror + 1
-    mirror_list(nmirror) = node(n)%leftchild
- endif
- if (node(n)%rightchild > 0) then
-    nmirror = nmirror + 1
-    mirror_list(nmirror) = node(n)%rightchild
- endif
+    mirror_list(nmirror) = nc
+    call heap_push(heapnode,heapkey,nheap,nc,node(nc)%size + radkern*node(nc)%hmax)
+ enddo
 
 end subroutine add_children
+
+!-----------------------------------------------------------------------
+!+
+!  whether a cell of another task can reach a local node, either as a
+!  neighbour (within the kernel radius of either) or by opening it in
+!  the gravity walk. The domains of the other tasks are bounded by
+!  their nodes in the top levels of the global tree
+!+
+!-----------------------------------------------------------------------
+logical function reaches_other_domain(n)
+ use io,     only:nprocs,id
+ use kernel, only:radkern
+ integer, intent(in) :: n
+ integer :: idomain
+ real    :: dx,dy,dz,xoff,yoff,zoff,r,sizen,sized,reachn,reachd
+
+ reaches_other_domain = .true.
+ sizen  = node(n)%size
+ reachn = sizen + radkern*node(n)%hmax
+ do idomain = nprocs,2*nprocs-1
+    if (idomain == nprocs + id) cycle
+    call get_sep(node(n)%xcen,nodeglobal(idomain)%xcen,dx,dy,dz,xoff,yoff,zoff)
+    r = sqrt(dx*dx + dy*dy + dz*dz)
+    sized  = nodeglobal(idomain)%size
+    reachd = sized + radkern*nodeglobal(idomain)%hmax
+    if (r < reachn + reachd) return
+    ! a cell of the other domain is at least r - sized away, and no larger than sized
+    if (gravity .and. tree_accuracy*(r - sized) < sizen + sized) return
+ enddo
+ reaches_other_domain = .false.
+
+end function reaches_other_domain
+
+!-----------------------------------------------------------------------
+!+
+!  push a node onto a max-heap ordered by key
+!+
+!-----------------------------------------------------------------------
+pure subroutine heap_push(heapnode,heapkey,nheap,n,key)
+ integer, intent(inout) :: heapnode(:),nheap
+ real,    intent(inout) :: heapkey(:)
+ integer, intent(in)    :: n
+ real,    intent(in)    :: key
+ integer :: i,iparent
+
+ nheap = nheap + 1
+ i = nheap
+ do while (i > 1)
+    iparent = i/2
+    if (heapkey(iparent) >= key) exit
+    heapnode(i) = heapnode(iparent)
+    heapkey(i)  = heapkey(iparent)
+    i = iparent
+ enddo
+ heapnode(i) = n
+ heapkey(i)  = key
+
+end subroutine heap_push
+
+!-----------------------------------------------------------------------
+!+
+!  pop the node with the largest key from a max-heap
+!+
+!-----------------------------------------------------------------------
+pure subroutine heap_pop(heapnode,heapkey,nheap,n)
+ integer, intent(inout) :: heapnode(:),nheap
+ real,    intent(inout) :: heapkey(:)
+ integer, intent(out)   :: n
+ integer :: i,ichild,nlast
+ real    :: keylast
+
+ n = heapnode(1)
+ nlast   = heapnode(nheap)
+ keylast = heapkey(nheap)
+ nheap = nheap - 1
+ i = 1
+ do
+    ichild = 2*i
+    if (ichild > nheap) exit
+    if (ichild < nheap) then
+       if (heapkey(ichild+1) > heapkey(ichild)) ichild = ichild + 1
+    endif
+    if (keylast >= heapkey(ichild)) exit
+    heapnode(i) = heapnode(ichild)
+    heapkey(i)  = heapkey(ichild)
+    i = ichild
+ enddo
+ if (nheap > 0) then
+    heapnode(i) = nlast
+    heapkey(i)  = keylast
+ endif
+
+end subroutine heap_pop
 
 !-----------------------------------------------------------------------
 !+
