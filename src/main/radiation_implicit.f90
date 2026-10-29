@@ -239,7 +239,7 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  use timing,  only:get_timings
  use derivutils, only:do_timing
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
-                      varij,varij2,varinew,vari,mask
+                      varij,varij2,varinew,vari,mask,grow_neighbour_storage_implicit
  use radiation_utils, only:implicit_radiation_store_drad
  use dim,             only:mpi
  use io,              only:id,master
@@ -251,7 +251,7 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  logical, intent(out)   :: failed,moresweep
  integer, intent(out)   :: nit,ierr
  real,    intent(out)   :: maxerrE2,maxerrU2,EU0(:,:)
- integer              :: its
+ integer              :: its,nedges
  real                 :: errmax(2)
  real                 :: maxerrE2last,maxerrU2last,maxerrE2last2,maxerrU2last2,omega,maxerrE2prev2,maxerrU2prev2
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
@@ -272,13 +272,19 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  call allocate_memory_implicit(npart,radkern,hfact,ierr)
 
  !dtimax = dt/imaxstep
- if (mpi) then
-    !--include the neighbours on other tasks, numbered after the local particles
-    call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,&
-                                      icand_start=icand_start,icand=icand,xyzh_extra=xyzh_remote,joffset=npart)
- else
-    call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- endif
+ !--build the list, enlarging the storage and trying again if it overflows, which can
+ !  happen when a task with few particles has many neighbours on other tasks
+ do
+    if (mpi) then
+       !--include the neighbours on other tasks, numbered after the local particles
+       call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges,&
+                                         icand_start=icand_start,icand=icand,xyzh_extra=xyzh_remote,joffset=npart)
+    else
+       call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges)
+    endif
+    if (nedges <= icompactmax) exit
+    call grow_neighbour_storage_implicit(nedges,ierr)
+ enddo
 
  ! check for errors (under MPI, a task may have no particles to update)
  if ((ncompact <= 0 .or. ncompactlocal <= 0) .and. .not.mpi) then

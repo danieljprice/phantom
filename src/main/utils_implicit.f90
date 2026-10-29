@@ -55,4 +55,24 @@ subroutine allocate_memory_implicit(npart,radkern,hfact,ierr)
 
 end subroutine allocate_memory_implicit
 
+!---------------------------------------------------------
+!+
+!  enlarge the neighbour storage to hold nedges entries,
+!  with some room to spare for later calls
+!+
+!---------------------------------------------------------
+subroutine grow_neighbour_storage_implicit(nedges,ierr)
+ use io, only:fatal
+ integer, intent(in)  :: nedges
+ integer, intent(out) :: ierr
+
+ ierr = 0
+ if (nedges <= icompactmax) return
+ icompactmax = int(min(1.2*real(nedges),real(huge(icompactmax))))
+ deallocate(ijvar,varij,varij2)
+ allocate(ijvar(icompactmax),varij(2,icompactmax),varij2(4,icompactmax),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar, varij, varij2')
+
+end subroutine grow_neighbour_storage_implicit
+
 end module implicit
