@@ -438,7 +438,8 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- if (get_f .and. .not.(mpi) .and. use_dualtree) then
+ ! the dual tree walk is not yet used with more than one MPI task
+ if (get_f .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
  else

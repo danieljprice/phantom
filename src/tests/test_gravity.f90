@@ -638,6 +638,29 @@ end subroutine test_directsum
 !+
 !-----------------------------------------------------------------------
 subroutine test_FMM(ntests,npass)
+ use io,        only:id,master,nprocs
+ use dim,       only:mpi
+ integer, intent(inout) :: ntests,npass
+
+ if (id==master) write(*,"(/,a)") '--> testing linear and angular momentum conservation with symmetric fmm'
+ if (mpi .and. nprocs > 1) then
+    if (id==master) write(*,"(/,a)") '--> skipped... No sym FMM with more than one MPI task'
+    return
+ endif
+ call check_FMM_momentum(ntests,npass,add_outlier=.false.)
+ ! a particle between the two spheres, whose smoothing length grows to reach both
+ if (id==master) write(*,"(/,a)") '--> testing momentum conservation with symmetric fmm and a large-h particle'
+ call check_FMM_momentum(ntests,npass,add_outlier=.true.)
+
+end subroutine test_FMM
+
+!-----------------------------------------------------------------------
+!+
+!   compute the forces on two spheres of particles and check that the
+!   total force and torque vanish, optionally with one isolated particle
+!+
+!-----------------------------------------------------------------------
+subroutine check_FMM_momentum(ntests,npass,add_outlier)
  use io,        only:id,master,iverbose
  use part,      only:npart,npartoftype,xyzh,massoftype,hfact,&
                        init_part,fxyzu,istar,set_particle_type,&
@@ -658,16 +681,12 @@ subroutine test_FMM(ntests,npass)
  use dim, only:maxp,maxphase,mpi
 
  integer, intent(inout) :: ntests,npass
+ logical, intent(in)    :: add_outlier
  real :: x0(3),rmin,rmax,nx,psep,totvol,time,fsum(3),tsum(3)
  integer(kind=8) :: npart_total
  integer :: np
  integer :: nfail(6),i
 
- if (id==master) write(*,"(/,a)") '--> testing linear and angular momentum conservation with symmetric fmm'
- if (mpi) then
-    if (id==master) write(*,"(/,a)") '--> skipped... No sym FMM with MPI'
-    return
- endif
  npart = 0
  npartoftype = 0
  massoftype = 0.
@@ -706,6 +725,11 @@ subroutine test_FMM(ntests,npass)
        call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,npart_total,np_requested=np,xyz_origin=x0)
     endif
  enddo
+ if (add_outlier .and. id==master) then
+    npart = npart + 1
+    xyzh(1:3,npart) = [10.,0.5,0.]
+    xyzh(4,npart)   = xyzh(4,1)
+ endif
  npartoftype(:) = 0
  npartoftype(istar) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
  massoftype(:)  = 0.
@@ -739,15 +763,16 @@ subroutine test_FMM(ntests,npass)
  enddo
  fsum = fsum*massoftype(istar)
  tsum = tsum*massoftype(istar)
- call checkval(fsum(1),0.,2.e-16,nfail(1),"momentum conservation x")
- call checkval(fsum(2),0.,2.e-16,nfail(2),"momentum conservation y")
- call checkval(fsum(3),0.,2.e-16,nfail(3),"momentum conservation z")
+ ! round-off in the sums depends on the order of summation (number of threads, MPI tasks)
+ call checkval(fsum(1),0.,5.e-16,nfail(1),"momentum conservation x")
+ call checkval(fsum(2),0.,5.e-16,nfail(2),"momentum conservation y")
+ call checkval(fsum(3),0.,5.e-16,nfail(3),"momentum conservation z")
  call checkval(tsum(1),0.,2.e-15,nfail(4),"angular momentum conservation x")
  call checkval(tsum(2),0.,2.e-15,nfail(5),"angular momentum conservation y")
  call checkval(tsum(3),0.,2.e-15,nfail(6),"angular momentum conservation z")
  call update_test_scores(ntests,nfail,npass)
 
-end subroutine test_FMM
+end subroutine check_FMM_momentum
 
 !-----------------------------------------------------------------------
 !+
