@@ -560,6 +560,7 @@ end subroutine fill_arrays
 !---------------------------------------------------------
 subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask)
  use io,              only:error
+ use omputils,        only:omp_chunk
  use part,            only:dust_temp,nucleation
  use radiation_utils, only:get_rad_R,limit_radiation_flux
  integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
@@ -570,10 +571,12 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
  real                :: opacity,radRi,EU01i
+ integer             :: nchunk
 
- ! hand out particles in chunks of 64: one at a time (dynamic,1) spends most of the
+ ! hand out particles in chunks of up to 64: one at a time (dynamic,1) spends most of the
  ! loop contending for iterations, while much larger chunks leave threads idle at the end
- !$omp do schedule(dynamic,64)&
+ nchunk = omp_chunk(ncompact,64)
+ !$omp do schedule(dynamic,nchunk)&
  !$omp private(i,j,k,n,dedx,rhoi,rhoj,icompact)&
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)&
  !$omp private(opacity,radRi,EU01i)
@@ -640,19 +643,21 @@ end subroutine compute_flux
 !---------------------------------------------------------
 subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
                                vari,EU0,varinew,mask,ierr)
- use io,   only:error
- use part, only:dust_temp,nucleation
+ use io,       only:error
+ use part,     only:dust_temp,nucleation
+ use omputils, only:omp_chunk
  integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
  real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(:,:)
  logical, intent(in)    :: mask(npart)
  integer, intent(out)   :: ierr
  real,    intent(inout) :: varinew(3,npart)
- integer              :: n,i,j,k,icompact
+ integer              :: n,i,j,k,icompact,nchunk
  real                 :: rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,dWdrlightrhorhom
  real                 :: diffusion_numerator,diffusion_denominator
 
  ierr = 0
- !$omp do schedule(dynamic,64)&
+ nchunk = omp_chunk(ncompact,64)
+ !$omp do schedule(dynamic,nchunk)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
  !$omp private(dWdrlightrhorhom,icompact)&
  !$omp reduction(max:ierr)
@@ -730,6 +735,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
  use part,    only:iphase,iamtype,iboundary
+ use omputils, only:omp_chunk
  integer,      intent(in)    :: ivar(:,:),npart,ncompactlocal
  real,         intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
  real(kind=4), intent(in)    :: pdvvisc(:),dvdx(:,:)
@@ -740,7 +746,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  logical,      intent(in)    :: store_drad
  logical,      intent(out)   :: moresweep
  logical,      intent(inout) :: mask(npart)
- integer             :: i,n,ieqtype,ierr
+ integer             :: i,n,ieqtype,ierr,nchunk
  logical             :: moresweep2,skip_quartic
  real                :: dti,rhoi,diffusion_numerator,diffusion_denominator,gradEi2,gradvPi,rpdiag,rpall
  real                :: radpresdenom,stellarradiation,gas_temp,xnH2,betaval,gammaval,tfour,betaval_d,chival
@@ -761,7 +767,8 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  maxerrU2 = 0.
  !$omp end single
 
- !$omp do schedule(dynamic,64)&
+ nchunk = omp_chunk(ncompactlocal,64)
+ !$omp do schedule(dynamic,nchunk)&
  !$omp private(i,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private(dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &
