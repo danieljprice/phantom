@@ -555,7 +555,7 @@ subroutine extract_int4(tag,ival,intarr,tags,ntags,ierr,default,q)
  enddo over_tags
  if (matched) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_int4
@@ -594,7 +594,7 @@ subroutine extract_int8(tag,ival,intarr,tags,ntags,ierr,default,q)
  enddo over_tags
  if (matched) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_int8
@@ -632,7 +632,7 @@ subroutine extract_real8(tag,rval,r8arr,tags,ntags,ierr,default,q)
  enddo over_tags
  if (matched) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_real8
@@ -670,7 +670,7 @@ subroutine extract_real4(tag,rval,r4arr,tags,ntags,ierr,default,q)
  enddo over_tags
  if (matched) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_real4
@@ -701,7 +701,7 @@ subroutine extract_int4arr(tag,ival,intarr,tags,ntags,ierr,q)
  enddo over_tags
  if (nmatched==size(ival)) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_int4arr
@@ -732,7 +732,7 @@ subroutine extract_int8arr(tag,ival,intarr,tags,ntags,ierr,q)
  enddo over_tags
  if (nmatched==size(ival)) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_int8arr
@@ -767,7 +767,7 @@ subroutine extract_real8arr(tag,rval,r8arr,tags,ntags,ierr,q)
     ierr = ierr_notenough
  endif
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_real8arr
@@ -798,7 +798,7 @@ subroutine extract_real4arr(tag,rval,r4arr,tags,ntags,ierr,q)
  enddo over_tags
  if (nmatched==size(rval)) ierr = 0
  if (ierr /= 0 .and. .not.present(q)) then
-    print "(a)",' ERROR: could not find '//trim(adjustl(tag))//' in header'
+    print "(a)",' WARNING: could not find '//trim(adjustl(tag))//' in header'
  endif
 
 end subroutine extract_real4arr
