@@ -200,7 +200,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  dustfrac,ddustevol,fext,fxyz_drag,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
 
- use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree
+ use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
                         active_leaves,nactive_leaves,ncellchunk
@@ -300,6 +300,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  type(cellforce)           :: cell
  logical                   :: remote_export(nprocs),do_export
+ logical                   :: ptargets(minpart,nprocs) ! tasks each particle of a cell is sent to
  logical                   :: exchange ! whether cells are exchanged with other MPI tasks
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
@@ -448,7 +449,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(poten) &
 !$omp private(icell,i,ia) &
 !$omp private(cell) &
-!$omp private(remote_export) &
+!$omp private(remote_export,ptargets) &
 !$omp private(nneigh) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
@@ -522,12 +523,23 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     cell%owner = id
     do_export = any(remote_export)
+    !--send each task only the particles that interact with its particles. Not with
+    !  self-gravity: the remote task then computes the gravity of its nearby nodes,
+    !  which the global tree walk did not, on every particle of the cell
+    if (do_export .and. .not.gravity) then
+       call particle_targets(cell,remote_export,ptargets)
+       do_export = any(remote_export)
+    endif
 
     if (exchange) then
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
+          if (gravity) then
+             call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
+          else
+             call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets)
+          endif
        endif
     endif
 
@@ -3555,5 +3567,28 @@ subroutine get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
     sdrag2 = 0.
  endif
 end subroutine get_drag_terms
+
+!-----------------------------------------------------------------------
+!+
+!  the tasks each particle of an exported cell must be sent to: those with
+!  particles within the kernel radius of either (force uses h_i and h_j),
+!  a subset of the tasks found for the whole cell. Tasks that no particle
+!  reaches are removed from remote_export
+!+
+!-----------------------------------------------------------------------
+subroutine particle_targets(cell,remote_export,ptargets)
+ use neighkdtree, only:get_particle_targets
+ use kernel,      only:radkern
+ type(cellforce), intent(in)    :: cell
+ logical,         intent(inout) :: remote_export(:)
+ logical,         intent(out)   :: ptargets(:,:)
+ integer :: np
+
+ np = cell%npcell
+ ! a fraction more than the kernel radius, so that rounding can never drop a neighbour
+ call get_particle_targets(np,cell%xpartvec(ixi:izi,1:np),radkern*cell%xpartvec(ihi,1:np)*(1. + 1.e-6),&
+                           .true.,remote_export,ptargets)
+
+end subroutine particle_targets
 
 end module forces

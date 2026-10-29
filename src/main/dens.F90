@@ -1975,23 +1975,17 @@ end subroutine get_density_at_pos
 !+
 !-----------------------------------------------------------------------
 subroutine particle_targets(cell,remote_export,ptargets)
- use neighkdtree, only:get_particle_export
+ use neighkdtree, only:get_particle_targets
  use kernel,      only:radkern
  type(celldens), intent(in)    :: cell
  logical,        intent(inout) :: remote_export(:)
  logical,        intent(out)   :: ptargets(:,:)
- logical :: pexport(size(remote_export))
- integer :: i,j
+ integer :: np
 
- ptargets = .false.
- do i=1,cell%npcell
-    ! a fraction more than the kernel radius, so that rounding can never drop a neighbour
-    call get_particle_export(cell%xpartvec(ixi:izi,i),radkern*cell%h(i)*(1. + 1.e-6),pexport)
-    ptargets(i,:) = pexport .and. remote_export
- enddo
- do j=1,size(remote_export)
-    remote_export(j) = any(ptargets(1:cell%npcell,j))
- enddo
+ np = cell%npcell
+ ! a fraction more than the kernel radius, so that rounding can never drop a neighbour
+ call get_particle_targets(np,cell%xpartvec(ixi:izi,1:np),radkern*cell%h(1:np)*(1. + 1.e-6),&
+                           .false.,remote_export,ptargets)
 
 end subroutine particle_targets
 

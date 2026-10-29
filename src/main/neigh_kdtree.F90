@@ -87,7 +87,7 @@ module neighkdtree
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
- public :: get_particle_export
+ public :: get_particle_targets
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
  private
@@ -524,21 +524,34 @@ end subroutine get_cell_location
 
 !-----------------------------------------------------------------------
 !+
-!  MPI tasks with particles within rcut of a particle at xpos (i.e. the tasks
-!  owning a leaf of the global tree within rcut), for exporting single
-!  particles rather than whole cells
+!  the MPI tasks each particle of an exported cell must be sent to, a
+!  subset of the tasks found for the whole cell: those owning a leaf of
+!  the global tree within the kernel radius of the particle (rcut) or,
+!  with getj, within the kernel radius of the leaf's hmax. Tasks that no
+!  particle reaches are removed from remote_export
 !+
 !-----------------------------------------------------------------------
-subroutine get_particle_export(xpos,rcut,remote_export)
- real,    intent(in)  :: xpos(3),rcut
- logical, intent(out) :: remote_export(:)
- integer :: listdummy(1),ndummy
+subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
+ integer, intent(in)    :: np
+ real,    intent(in)    :: xpos(:,:),rcut(:)
+ logical, intent(in)    :: getj
+ logical, intent(inout) :: remote_export(:)
+ logical, intent(out)   :: ptargets(:,:)
+ logical :: pexport(size(remote_export))
+ integer :: i,j,listdummy(1),ndummy
  real    :: cachedummy(1,1)
 
- call getneigh(nodeglobal,xpos,0.,rcut,listdummy,ndummy,cachedummy,0,cellatid,&
-               .false.,.false.,remote_export=remote_export)
+ ptargets = .false.
+ do i=1,np
+    call getneigh(nodeglobal,xpos(:,i),0.,rcut(i),listdummy,ndummy,cachedummy,0,cellatid,&
+                  getj,.false.,remote_export=pexport)
+    ptargets(i,:) = pexport .and. remote_export
+ enddo
+ do j=1,size(remote_export)
+    remote_export(j) = any(ptargets(1:np,j))
+ enddo
 
-end subroutine get_particle_export
+end subroutine get_particle_targets
 
 !-----------------------------------------------------------------------
 !+
