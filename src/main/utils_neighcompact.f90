@@ -76,7 +76,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  integer, intent(in),  optional :: icand_start(:),icand(:),joffset
  real,    intent(in),  optional :: xyzh_extra(:,:)
  integer                    :: icell,nneigh,i,j,k,n,ip,ncompact_private
- integer                    :: icompact_private,icompact,icompactmax,nneigh_trial
+ integer                    :: icompact_private,icompact,icompactmax,nneigh_trial,ncand
  integer, parameter         :: maxcellcache = 10000
  integer, save, allocatable :: neighlist(:)
  real                       :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
@@ -101,7 +101,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxpsph,growable)&
  !$omp shared(extra,icand_start,icand,xyzh_extra,joffset)&
  !$omp private(icell,i,j,k,n,ip,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
+ !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh,ncand)
 
  over_cells: do icell=1,int(ncells)
 
@@ -112,9 +112,19 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
     !--get the neighbour list and fill the cell cache
     !
     call get_neighbour_list(icell,listneigh,nneigh_trial,xyzh,xyzcache,maxcellcache,getj=.true.)
+    !
+    !--a particle can have more neighbours, local plus on other tasks, than
+    !  there are particles on this task, so grow this thread's list if needed
+    !
+    ncand = 0
+    if (extra) ncand = icand_start(icell+1) - icand_start(icell)
+    if (nneigh_trial + ncand > size(neighlist)) then
+       deallocate(neighlist)
+       allocate(neighlist(2*(nneigh_trial + ncand)))
+    endif
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
-       i = inodeparts(ip)
+       i = abs(inodeparts(ip))  ! the tree stores inactive particles as -i
        if (.not.is_solver_particle(i,xyzh)) cycle over_parts
 
        xi = xyzh(1,i)
@@ -219,7 +229,8 @@ logical function is_solver_particle(i,xyzh)
  integer :: iamtypei
 
  is_solver_particle = .false.
- if (i > maxpsph) return
+ !--sinks are stored beyond maxpsph
+ if (i <= 0 .or. i > maxpsph) return
  if (maxphase==maxp) then
     call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
  else

@@ -317,7 +317,6 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  iterations: do while (.not. converged)
 
     !$omp single
-    its = its + 1
     call get_timings(t1,tcpu1)
     !$omp end single
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
@@ -342,6 +341,9 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     !$omp end single
 
     !$omp single
+    !--count the sweep here, before the barrier, so that no thread can change
+    !  its while others are still testing it against itsmax_rad below
+    its = its + 1
     !--every MPI task needs the same errors, to take the same number of sweeps
     if (mpi) then
        errmax = reduceall_mpi('max',[maxerrE2,maxerrU2])
@@ -751,8 +753,9 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
 
  a_code = get_radconst_code()
  c_code = get_c_code()
- moresweep = .false.
+ !--reset by one thread, so that a late thread cannot clear a failure flagged by another
  !$omp single
+ moresweep = .false.
  maxerrE2 = 0.
  maxerrU2 = 0.
  !$omp end single

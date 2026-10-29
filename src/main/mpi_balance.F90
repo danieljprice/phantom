@@ -31,11 +31,24 @@ module mpibalance
  public :: deallocate_balance_arrays
  public :: balancedomains
 
+ ! particles sent to other tasks, and calls to balancedomains (in total and skipped
+ ! because no particles needed to move), for the MPI statistics
+ integer(kind=8), public :: nmigrated = 0, nbalance_calls = 0, nbalance_skipped = 0
+
  private
 
 #ifdef MPI
- real :: xsendbuf(ipartbufsize),xbuffer(ipartbufsize)
- integer :: irequestrecv(1),irequestsend(1)
+ ! particles are sent in batches of up to nbatch per message, with two buffers
+ ! per destination so that one can be filled while the other is being sent
+ integer, parameter   :: nbatch = 32
+ real                 :: xsendbuf(ipartbufsize),xbuffer(ipartbufsize)
+ real                 :: xrecvbatch(ipartbufsize*nbatch)  ! receives one message
+ real,    allocatable :: xsendbatch(:,:,:)                ! (values, buffer, destination)
+ integer, allocatable :: nbatched(:),icurbuf(:)           ! particles in, and index of, the current buffer
+ integer, allocatable :: isendreq(:,:)                    ! (buffer, destination) send requests
+ integer, allocatable :: countsendreq(:)                  ! sends of the particle counts
+ integer              :: npartbuf                         ! reals per particle in the buffers
+ integer :: irequestrecv(1)
  integer(kind=8)                           :: ntot_start
  integer                                   :: npartnew, ncomplete
 #endif
@@ -70,6 +83,9 @@ subroutine deallocate_balance_arrays()
  if (allocated(nexpect     )) deallocate(nexpect     )
  if (allocated(nrecv       )) deallocate(nrecv       )
  if (allocated(countrequest)) deallocate(countrequest)
+#ifdef MPI
+ if (allocated(xsendbatch))   deallocate(xsendbatch,nbatched,icurbuf,isendreq,countsendreq)
+#endif
 
 end subroutine deallocate_balance_arrays
 
@@ -84,7 +100,8 @@ subroutine balancedomains(npart)
  integer, intent(inout) :: npart
 #else
  use io,     only:id,master,iverbose,fatal
- use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot
+ use part,   only:shuffle_part,count_dead_particles,ibelong,update_npartoftypetot,&
+                   recount_npartoftype
  use timing, only:getused,printused
  use mpiutils, only:barrier_mpi
  integer, intent(inout) :: npart
@@ -100,7 +117,13 @@ subroutine balancedomains(npart)
  gotpart = .false.
 
  ! Balance is only necessary when there are more than 1 MPI tasks
+ ! and some task has particles to send or dead particles to remove
  if (nprocs > 1) then
+    nbalance_calls = nbalance_calls + 1
+    if (reduceall_mpi('max',nparts_to_move(npart)) == 0) then
+       nbalance_skipped = nbalance_skipped + 1
+       return
+    endif
 
     if (id==master .and. iverbose >= 3) call getused(tstart)
     if (id==master .and. iverbose >= 5) print*,'starting balance',npart
@@ -114,7 +137,7 @@ subroutine balancedomains(npart)
        !--attempt to receive a particle
        !
        if (mod(i,check_interval) == 0) then
-          call recv_part(gotpart)
+          call recv_part(gotpart=gotpart)
           !
           !--if there is a long gap between receiving particles, then decrease
           !  the check frequency. if there is no gap, then increase frequency.
@@ -141,15 +164,19 @@ subroutine balancedomains(npart)
        newproc = ibelong(i)
        if (newproc /= id) call send_part(i,newproc)
     enddo
+    call flush_all_batches()
 
     if (iverbose >= 5) then
        print*,id,' finished send, nsent = ',sum(nsent(1:nprocs)),' npart = ',npartnew
        print*,id,' received so far ',sum(nrecv(1:nprocs))
     endif
     call balance_finish(npart)
+    nmigrated = nmigrated + sum(nsent(1:nprocs))
     ! ndead = count_dead_particles()
     ! print*,' thread ',id,' before shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead,ideadhead
     call shuffle_part(npart)
+    !--count types only once the particles sent away have been removed
+    call recount_npartoftype
     call barrier_mpi()
     ! ndead = count_dead_particles()
     ! print*,' thread ',id,' after shuffle, got ',npart,' dead ',ndead,' actual = ',npart - ndead
@@ -175,6 +202,31 @@ end subroutine balancedomains
 #ifdef MPI
 !----------------------------------------------------------------
 !+
+!  number of particles on this task that belong to another task,
+!  plus one if there are dead particles to be removed
+!+
+!----------------------------------------------------------------
+integer function nparts_to_move(npart)
+ use io,   only:id
+ use part, only:ibelong,ideadhead
+ integer, intent(in) :: npart
+ integer :: i,n
+
+ n = 0
+ !$omp parallel do default(none) shared(npart,ibelong,id) private(i) reduction(+:n)
+ do i=1,npart
+    if (ibelong(i) /= id) n = n + 1
+ enddo
+ !$omp end parallel do
+ if (ideadhead /= 0) n = n + 1
+ nparts_to_move = n
+
+end function nparts_to_move
+#endif
+
+#ifdef MPI
+!----------------------------------------------------------------
+!+
 !  initialisation of load balancing process,
 !  declaration of types etc.
 !+
@@ -182,16 +234,23 @@ end subroutine balancedomains
 subroutine balance_init(npart)
  use part, only:fill_sendbuf
  integer, intent(in) :: npart
- integer :: i,nbuf
+ integer :: i
 
- ! use a dummy call to fill_sendbuf to find out the buffer size
- call fill_sendbuf(1,xbuffer,nbuf) ! just fill for particle #1
+ ! use a dummy call to fill_sendbuf to find out the number of reals per particle
+ call fill_sendbuf(1,xbuffer,npartbuf) ! just fill for particle #1
 
-!--use persistent communication type for receives
-!  cannot do same for sends as there are different destination,
-!  unless we make a request for each processor
+ if (.not.allocated(xsendbatch)) then
+    allocate(xsendbatch(npartbuf*nbatch,2,nprocs),nbatched(nprocs),icurbuf(nprocs))
+    allocate(isendreq(2,nprocs),countsendreq(nprocs))
+ endif
+ nbatched = 0
+ icurbuf  = 1
+ isendreq = MPI_REQUEST_NULL
+ countsendreq = MPI_REQUEST_NULL
+
+!--use persistent communication type for receives, of up to nbatch particles
 !
- call MPI_RECV_INIT(xbuffer,nbuf,MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
+ call MPI_RECV_INIT(xrecvbatch,size(xrecvbatch),MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
                     MPI_ANY_TAG,comm_balance,irequestrecv(1),mpierr)
 !
 !--post a non-blocking receive so that we can receive particles
@@ -222,19 +281,20 @@ end subroutine balance_init
 
 !-----------------------------------------------------------------------
 !+
-!  function which checks for particles to receive and receives them
-!  if necessary. Non-zero ideadhead refers to start of dead particle
-!  list in which to place particles. Sending in zero for ideadhead means
-!  simply add new particles to the end of the array.
+!  checks for a message of particles and, if one has arrived, places
+!  them. With replace (the default) they fill the slots of particles
+!  already sent (the dead particle list headed by ideadhead), otherwise
+!  they are added to the end of the array.
 !+
 !-----------------------------------------------------------------------
 subroutine recv_part(replace,gotpart)
- use io,      only:fatal,id
- use part,    only:isdead,unfill_buffer,maxp,ll,ideadhead,ibelong
  logical, intent(in),  optional :: replace
  logical, intent(out), optional :: gotpart
- logical :: igotpart
- integer :: inew
+ logical :: igotpart,doreplace
+ integer :: ncount,np,k
+
+ doreplace = .true.
+ if (present(replace)) doreplace = replace
 
  igotpart = .false.
  call MPI_TEST(irequestrecv(1),igotpart,status,mpierr)
@@ -242,41 +302,15 @@ subroutine recv_part(replace,gotpart)
  if (present(gotpart)) gotpart = igotpart
 
  if (igotpart) then
-    nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + 1
-    if (present(replace)) then
-       if (replace) then
-          inew = ideadhead
-       else
-          inew = 0
-       endif
-    else
-       inew = ideadhead
-    endif
-
-    if (inew > 0 .and. inew <= maxp) then
-       if (.not.isdead(inew)) &
-          call fatal('balance','replacing non-dead particle')
-       !
-       !--replace a particle which has already been sent
-       !
-       call unfill_buffer(inew,xbuffer)
-       !
-       !--assume that this particle landed in the right place
-       !
-       ibelong(inew) = id
-       ideadhead = ll(inew)
-    else
-       if (inew /= 0) call fatal('balance','error in dead particle list',inew)
-       !
-       !--make a new particle
-       !
-       npartnew = npartnew + 1
-       if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
-       call unfill_buffer(npartnew,xbuffer)
-       ibelong(npartnew) = id
-    endif
+    call MPI_GET_COUNT(status,MPI_DEFAULT_REAL,ncount,mpierr)
+    np = ncount/npartbuf
+    do k=1,np
+       xbuffer(1:npartbuf) = xrecvbatch((k-1)*npartbuf+1:k*npartbuf)
+       call place_particle(doreplace)
+    enddo
+    nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + np
     !
-    !--post another receive ready for next particle
+    !--post another receive ready for the next message
     !
     call MPI_START(irequestrecv(1),mpierr)
  endif
@@ -285,7 +319,41 @@ end subroutine recv_part
 
 !-----------------------------------------------------------------------
 !+
-!  function which sends a particle onto a remote processor
+!  place the particle in xbuffer in the slot of a particle already sent,
+!  or at the end of the particle arrays
+!+
+!-----------------------------------------------------------------------
+subroutine place_particle(replace)
+ use io,   only:fatal,id
+ use part, only:isdead,unfill_buffer,maxp,ll,ideadhead,ibelong
+ logical, intent(in) :: replace
+ integer :: inew
+
+ inew = 0
+ if (replace) inew = ideadhead
+
+ if (inew > 0 .and. inew <= maxp) then
+    if (.not.isdead(inew)) call fatal('balance','replacing non-dead particle')
+    !--replace a particle which has already been sent
+    call unfill_buffer(inew,xbuffer)
+    !--assume that this particle landed in the right place
+    ibelong(inew) = id
+    ideadhead = ll(inew)
+ else
+    if (inew /= 0) call fatal('balance','error in dead particle list',inew)
+    !--make a new particle
+    npartnew = npartnew + 1
+    if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
+    call unfill_buffer(npartnew,xbuffer)
+    ibelong(npartnew) = id
+ endif
+
+end subroutine place_particle
+
+!-----------------------------------------------------------------------
+!+
+!  add a particle to the batch for its new processor, sending the batch
+!  when it is full, and kill it on this processor
 !+
 !-----------------------------------------------------------------------
 subroutine send_part(i,newproc,replace)
@@ -293,36 +361,87 @@ subroutine send_part(i,newproc,replace)
  use part, only:fill_sendbuf,kill_particle
  integer, intent(in) :: i,newproc
  logical, intent(in), optional :: replace
- logical :: idone,doreplace
- integer :: nbuf
+ logical :: doreplace
+ integer :: nbuf,ip,ioff
 
- if (present(replace)) then
-    doreplace = replace
- else
-    doreplace = .true.
- endif
+ doreplace = .true.
+ if (present(replace)) doreplace = replace
 
- !--copy the particle to the new processor
  if (newproc < 0 .or. newproc > nprocs-1) then
     call fatal('balance','error in ibelong',ival=newproc,var='ibelong')
- else
-    call fill_sendbuf(i,xsendbuf,nbuf)
-    ! tag cannot be i, because some MPI implementations do not support large values for the tag
-    call MPI_ISEND(xsendbuf,nbuf,MPI_DEFAULT_REAL,newproc,0,comm_balance,irequestsend(1),mpierr)
-
-    !--wait for send to complete, receive whilst doing so
-    idone = .false.
-    do while(.not.idone)
-       call MPI_TEST(irequestsend(1),idone,status,mpierr)
-       call recv_part(replace=doreplace)
-    enddo
  endif
+ ip = newproc + 1
+ call fill_sendbuf(i,xsendbuf,nbuf)
+ ioff = nbatched(ip)*npartbuf
+ xsendbatch(ioff+1:ioff+nbuf,icurbuf(ip),ip) = xsendbuf(1:nbuf)
+ nbatched(ip) = nbatched(ip) + 1
+
  !--kill particle on this processor
  call kill_particle(i)
+ nsent(ip) = nsent(ip) + 1
 
- nsent(newproc+1) = nsent(newproc+1) + 1
+ if (nbatched(ip) == nbatch) call flush_batch(ip,doreplace)
 
 end subroutine send_part
+
+!-----------------------------------------------------------------------
+!+
+!  send the current batch for processor ip-1, then make the other buffer
+!  current, waiting (and receiving meanwhile) until its last send is done
+!+
+!-----------------------------------------------------------------------
+subroutine flush_batch(ip,replace)
+ integer, intent(in) :: ip
+ logical, intent(in) :: replace
+ integer :: ib
+
+ if (nbatched(ip) == 0) return
+ ib = icurbuf(ip)
+ ! tag cannot be i, because some MPI implementations do not support large values for the tag
+ call MPI_ISEND(xsendbatch(1,ib,ip),nbatched(ip)*npartbuf,MPI_DEFAULT_REAL,ip-1,0,&
+                comm_balance,isendreq(ib,ip),mpierr)
+ nbatched(ip) = 0
+ icurbuf(ip)  = 3 - ib
+ call wait_for_send(isendreq(icurbuf(ip),ip),replace)
+
+end subroutine flush_batch
+
+!-----------------------------------------------------------------------
+!+
+!  send the remaining partial batches and wait until all sends are done
+!+
+!-----------------------------------------------------------------------
+subroutine flush_all_batches()
+ integer :: ip,ib
+
+ do ip=1,nprocs
+    call flush_batch(ip,.true.)
+ enddo
+ do ip=1,nprocs
+    do ib=1,2
+       call wait_for_send(isendreq(ib,ip),.true.)
+    enddo
+ enddo
+
+end subroutine flush_all_batches
+
+!-----------------------------------------------------------------------
+!+
+!  wait for a send to complete, receiving particles meanwhile
+!+
+!-----------------------------------------------------------------------
+subroutine wait_for_send(ireq,replace)
+ integer, intent(inout) :: ireq
+ logical, intent(in)    :: replace
+ logical :: idone
+
+ idone = .false.
+ do while(.not.idone)
+    call MPI_TEST(ireq,idone,status,mpierr)
+    if (.not.idone) call recv_part(replace=replace)
+ enddo
+
+end subroutine wait_for_send
 
 !----------------------------------------------------------------
 !+
@@ -331,11 +450,9 @@ end subroutine send_part
 !----------------------------------------------------------------
 subroutine balance_finish(npart,replace)
  use io,    only:id,fatal,iverbose
- use part,  only:recount_npartoftype
  integer, intent(out) :: npart
  logical, intent(in), optional :: replace
  integer             :: newproc
- integer             :: sendrequest !dummy
  logical, parameter  :: iamcomplete = .true.
  logical             :: doreplace
 
@@ -345,7 +462,7 @@ subroutine balance_finish(npart,replace)
 !
  do newproc=0,nprocs-1
     if (newproc /= id) then
-       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_balancecount,sendrequest,mpierr)
+       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_balancecount,countsendreq(newproc+1),mpierr)
     endif
  enddo
 
@@ -362,6 +479,7 @@ subroutine balance_finish(npart,replace)
     call check_complete
  enddo
  npart = npartnew
+ call MPI_WAITALL(nprocs,countsendreq,MPI_STATUSES_IGNORE,mpierr)
 
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
 !
@@ -379,11 +497,6 @@ subroutine balance_finish(npart,replace)
 !--double check that all receives are complete and free request handle
  call MPI_WAIT(irequestrecv(1),status,mpierr)
  call MPI_REQUEST_FREE(irequestrecv(1),mpierr)
-
- !
- !--update npartoftype
- !
- call recount_npartoftype
 
 end subroutine balance_finish
 
