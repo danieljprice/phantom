@@ -32,7 +32,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
  use dim,         only:maxp,periodic,ind_timesteps,mpi,use_apr,use_sinktree
- use io,          only:id,master,iverbose
+ use io,          only:id,master,iverbose,nprocs
  use neighkdtree, only:leaf_is_active,ncells,node
  use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase,iactive,&
                        sync_aprmassoftype,init_part
@@ -111,7 +111,8 @@ subroutine test_kdtree(ntests,npass)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
     if (id==master) print*,' ratio of revtree/maketree: ',(t2-t1)/tmaketree
-    can_revise = .not.(periodic .or. mpi .or. use_apr .or. use_sinktree)
+    ! as in revtree: with more than one MPI task the global tree must be rebuilt too
+    can_revise = .not.(periodic .or. (mpi .and. nprocs > 1) .or. use_apr .or. use_sinktree)
     call checkval(revised,can_revise,nfailed(1),'revtree revised the tree')
     call update_test_scores(ntests,nfailed(1:1),npass)
     if (.not.revised) then
