@@ -38,7 +38,7 @@ module neighkdtree
  integer,               allocatable :: mirror_list(:)
  integer                            :: nmirror = 0
  integer,               parameter   :: nmirror_min = 256        ! fewest nodes copied by a task
- integer,               parameter   :: nactive_per_mirror = 16  ! active particles per copied node
+ integer,               parameter   :: nactive_per_mirror = 4   ! active particles per copied node
  ! the number of nodes in each task's block and the offset of the block
  integer,               allocatable :: nmirror_task(:),mirror_displ(:)
  ! the combined tree: with more than one MPI task, the global tree is appended to the
