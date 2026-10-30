@@ -37,6 +37,7 @@ module neighkdtree
  ! the local nodes copied into the global tree, in the order of this task's block
  integer,               allocatable :: mirror_list(:)
  integer                            :: nmirror = 0
+ integer,               parameter   :: nmirror_min = 256 ! fewest nodes copied, with few particles active
  ! the number of nodes in each task's block and the offset of the block
  integer,               allocatable :: nmirror_task(:),mirror_displ(:)
  ! the combined tree: with more than one MPI task, the global tree is appended to the
@@ -334,7 +335,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
        call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree)
     endif
-    call graft_local_trees()
+    call graft_local_trees(real(nactive)/real(max(npart,1)))
     call combine_trees()
  else
     if (use_sinktree) then
@@ -628,11 +629,12 @@ end subroutine get_particle_targets
 !  tree, below the node of its domain
 !+
 !-----------------------------------------------------------------------
-subroutine graft_local_trees()
+subroutine graft_local_trees(active_fraction)
  use io,       only:nprocs,id,fatal
  use mpiutils, only:allgather_mpi,get_displs_mpi
  use mpitree,  only:allgatherv_nodes
  use mpiutils, only:allgatherv_mpi
+ real, intent(in) :: active_fraction  ! fraction of this task's particles that are active
  type(kdnode), allocatable :: block(:)
  integer,      allocatable :: ilocal(:)
  integer :: ntot,ifirst,itask,ibase,p,g,idomain
@@ -641,7 +643,7 @@ subroutine graft_local_trees()
  nodemap(1) = 0
  if (nmirror > 0) nodemap(mirror_list(1:nmirror)) = 0
 
- call select_mirrored_nodes()
+ call select_mirrored_nodes(active_fraction)
  allocate(block(nmirror))
  call pack_mirrored_nodes(block)
 
@@ -1229,12 +1231,16 @@ end function mirror_budget
 !  listed with the children of the root first
 !+
 !-----------------------------------------------------------------------
-subroutine select_mirrored_nodes()
+subroutine select_mirrored_nodes(active_fraction)
+ real,    intent(in)  :: active_fraction
  integer, allocatable :: heapnode(:)
  real,    allocatable :: heapkey(:)
  integer :: nbudget,nheap,n
 
+ ! with few particles active (deep in the timestep hierarchy) there are few exports,
+ ! and the tree is rebuilt often: copy fewer nodes, which is cheaper to gather and sync
  nbudget = mirror_budget()
+ nbudget = max(min(nbudget,nmirror_min),nint(nbudget*min(active_fraction,1.)))
  if (allocated(mirror_list)) then
     if (size(mirror_list) < nbudget) deallocate(mirror_list)
  endif
