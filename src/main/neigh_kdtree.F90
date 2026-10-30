@@ -52,10 +52,11 @@ module neighkdtree
  integer,      public,  allocatable :: remote_local_index(:)
  ! nodes imported from other tasks (the locally essential tree) are appended after ncomb_tree
  integer                            :: ncomb_tree = 0
+ integer                            :: ncells_appended = 0 ! where the global tree was appended
  integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver
  integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
  integer                            :: let_stamp = 0
- integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0, nlet_trunc = 0
+ integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0
  ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
  integer,               parameter   :: nlet_record = 9 + merge(16,0,gravity)
  type(kdnode), public,  allocatable :: node(:)
@@ -86,6 +87,10 @@ module neighkdtree
  real,                  allocatable :: fnode_branch(:,:)
 !$omp threadprivate(fnode_branch,neighnode_branch,neighnodecount_branch)
 !$omp threadprivate(listneigh)
+ ! leaves of other tasks met in leaf-leaf pairs by the last dual tree walk of this thread
+ integer, public, allocatable :: remote_leaves(:)
+ integer, public              :: nremote_leaves = 0
+!$omp threadprivate(remote_leaves,nremote_leaves)
  integer(kind=8), public            :: ncells
  real,            public            :: dxcell
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
@@ -106,7 +111,7 @@ module neighkdtree
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
- public :: let_exchange,let_dry_run,print_let_stats,let_truncated_pairs
+ public :: let_exchange,print_let_stats,get_leaf_neighbours
  public :: get_particle_targets
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
@@ -424,7 +429,7 @@ end subroutine list_active_leaves
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export,cell_xpos,cell_xsizei,cell_rcuti)
- use io,       only:nprocs,warning
+ use io,       only:nprocs,warning,fatal
  use dim,      only:mpi
  use kernel,   only:radkern
  use part,     only:gravity,periodic
@@ -441,6 +446,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  real :: xpos(3)
  real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
+ integer :: nrem,ntr,k
  logical :: get_j,global_search,get_f
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
@@ -474,6 +480,21 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  if (present(getj)) get_j = getj
 
  get_f = (gravity .and. present(f))
+
+ if (mpi .and. global_search .and. get_f .and. use_dualtree) then
+    ! with more than one MPI task: dual tree walk of the combined tree, with the nodes
+    ! imported from other tasks. Leaves of other tasks paired with this cell are listed
+    ! in remote_leaves, and the cell is sent to their owners
+    call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                       leaf_is_active,get_j,get_f,f,inode,nrem,ntr)
+    if (ntr > 0) call fatal('get_neighbour_list','dual tree walk met a node of another task whose children were not imported')
+    do k = 1,nremote_leaves
+       remote_export(remote_leaf_owner(remote_leaves(k))) = .true.
+    enddo
+    !$omp atomic
+    nlet_p2p = nlet_p2p + nrem
+    return
+ endif
 
  if (mpi .and. global_search) then ! no sym fmm for now...
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
@@ -697,7 +718,10 @@ subroutine combine_trees()
 
  ng = 2*nprocs - 1 + sum(nmirror_task)
  if (int(ncells) + ng > size(node)) call fatal('combine_trees','no room to append the global tree')
- if (ncomb > 0) remote_leaf_owner(ncells+1:ncomb) = 0
+ ! forget the nodes of other tasks appended to the previous tree, which may
+ ! have started at a different place if the local tree has changed size
+ if (ncomb > ncells_appended) remote_leaf_owner(ncells_appended+1:ncomb) = 0
+ ncells_appended = int(ncells)
 
  rootlinks = node(irootnode)
  node(irootnode) = nodeglobal(nprocs + id)
@@ -820,6 +844,12 @@ subroutine let_exchange()
     irecv = irecv + nrecv(iproc+1)
  enddo
  nlet_recv = nlet_recv + sum(nrecv)/nlet_record
+
+ ! the walk caches refer to the nodes and smoothing lengths before the import
+ if (use_dualcache) then
+    cachestate(1:min(ncomb,size(cachestate))) = 0
+    itail_neigh = 0
+ endif
 
 end subroutine let_exchange
 
@@ -1128,46 +1158,6 @@ end subroutine grow_real
 
 !-----------------------------------------------------------------------
 !+
-!  walk the combined tree for every active leaf, as the force calculation
-!  will, without using the results: count the leaf-leaf pairs with leaves
-!  of other tasks, and those with truncated nodes, which must not happen
-!+
-!-----------------------------------------------------------------------
-subroutine let_dry_run()
- integer :: k,icell,nneigh,nremote,ntrunc
- integer(kind=8) :: nremote_tot,ntrunc_tot
- real :: fnode(lenfgrav),xyzcache(4,1)
-
- if (use_dualcache) then
-    cachestate(1:min(ncomb,size(cachestate))) = 0
-    itail_neigh = 0
- endif
- nremote_tot = 0
- ntrunc_tot  = 0
- !$omp parallel do default(none) schedule(dynamic,ncellchunk) &
- !$omp shared(node,leaf_is_active,active_leaves,nactive_leaves) &
- !$omp private(k,icell,nneigh,nremote,ntrunc,fnode,xyzcache) &
- !$omp reduction(+:nremote_tot,ntrunc_tot)
- do k = 1,nactive_leaves
-    icell = active_leaves(k)
-    call getneigh_dual(node,node(icell)%xcen,node(icell)%size,0.,listneigh,nneigh,xyzcache,0,&
-                       leaf_is_active,.true.,.true.,fnode,icell,nremote,ntrunc)
-    nremote_tot = nremote_tot + nremote
-    ntrunc_tot  = ntrunc_tot + ntrunc
- enddo
- !$omp end parallel do
- nlet_p2p   = nlet_p2p + nremote_tot
- nlet_trunc = nlet_trunc + ntrunc_tot
- ! the force calculation does not use the walk yet: leave the caches as built
- if (use_dualcache) then
-    cachestate(1:min(ncomb,size(cachestate))) = 0
-    itail_neigh = 0
- endif
-
-end subroutine let_dry_run
-
-!-----------------------------------------------------------------------
-!+
 !  print the statistics of the locally essential tree exchange
 !+
 !-----------------------------------------------------------------------
@@ -1175,35 +1165,45 @@ subroutine print_let_stats(iunit)
  use io,       only:id,master,nprocs
  use mpiutils, only:reduceall_mpi
  integer, intent(in) :: iunit
- integer(kind=8) :: nsent,nrecv,np2p,ntrunc
+ integer(kind=8) :: nsent,nrecv,np2p
 
  nsent  = reduceall_mpi('+',nlet_sent)
  nrecv  = reduceall_mpi('+',nlet_recv)
  np2p   = reduceall_mpi('+',nlet_p2p)
- ntrunc = reduceall_mpi('+',nlet_trunc)
  if (id == master .and. nsent > 0) then
     write(iunit,"(a,i0,a,f10.3)") ' MPI LET nodes imported (all tasks): ',nrecv,&
           '  MB per task: ',1.e-6*8*nlet_record*real(nrecv)/nprocs
-    write(iunit,"(a,i0,a,i0)") ' MPI LET leaf pairs with other tasks: ',np2p,'  with truncated nodes: ',ntrunc
+    write(iunit,"(a,i0)") ' MPI LET leaf pairs with other tasks: ',np2p
  endif
  nlet_sent = 0
  nlet_recv = 0
  nlet_p2p  = 0
- nlet_trunc = 0
 
 end subroutine print_let_stats
 
 !-----------------------------------------------------------------------
 !+
-!  number of leaf pairs with truncated nodes found by let_dry_run
+!  the trial neighbours of a cell sent by another task: the particles of
+!  the given local leaves, which its dual tree walk paired with the cell
 !+
 !-----------------------------------------------------------------------
-integer(kind=8) function let_truncated_pairs()
- use mpiutils, only:reduceall_mpi
+subroutine get_leaf_neighbours(xpos,leaves,nleaves,mylistneigh,nneigh,xyzcache,ixyzcachesize)
+ real,    intent(in)  :: xpos(3)
+ integer, intent(in)  :: leaves(:),nleaves,ixyzcachesize
+ integer, intent(out) :: mylistneigh(:),nneigh
+ real,    intent(out) :: xyzcache(:,:)
+ integer :: k,maxcache
+ real    :: dx,dy,dz,xoffset,yoffset,zoffset
 
- let_truncated_pairs = reduceall_mpi('+',nlet_trunc)
+ maxcache = 0
+ if (ixyzcachesize > 0) maxcache = size(xyzcache,1)
+ nneigh = 0
+ do k = 1,nleaves
+    call get_sep(xpos,node(leaves(k))%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
+    call cache_neighbours(nneigh,leaves(k),ixyzcachesize,maxcache,mylistneigh,xyzcache,xoffset,yoffset,zoffset)
+ enddo
 
-end function let_truncated_pairs
+end subroutine get_leaf_neighbours
 
 !-----------------------------------------------------------------------
 !+
@@ -1642,6 +1642,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  istack = 0
  nrem = 0
  ntr = 0
+ nremote_leaves = 0
  xoffset = 0.
  yoffset = 0.
  zoffset = 0.
@@ -1894,8 +1895,9 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
     endif
     is_P2P: if (isdstleaf) then !-- P2P detected should be cached and tagged as neighbours
        if (remote_leaf_owner(isrc) /= 0) then
-          ! a leaf of another task: its particles are not here
+          ! a leaf of another task: its particles are not here, so the cell is sent to its owner
           nremote = nremote + 1
+          call add_remote_leaf(isrc)
        else
           call cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
        endif
@@ -1924,6 +1926,26 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  endif is_src_leaf
 
 end subroutine open_nodes
+
+!-----------------------------------------------------------
+!+
+!  add a leaf of another task to this thread's list
+!+
+!-----------------------------------------------------------
+subroutine add_remote_leaf(n)
+ integer, intent(in) :: n
+ integer, allocatable :: tmp(:)
+
+ if (.not.allocated(remote_leaves)) allocate(remote_leaves(256))
+ if (nremote_leaves >= size(remote_leaves)) then
+    allocate(tmp(2*size(remote_leaves)))
+    tmp(1:nremote_leaves) = remote_leaves(1:nremote_leaves)
+    call move_alloc(tmp,remote_leaves)
+ endif
+ nremote_leaves = nremote_leaves + 1
+ remote_leaves(nremote_leaves) = n
+
+end subroutine add_remote_leaf
 
 !----------------------------------------------------------------
 !+

@@ -203,7 +203,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
-                        active_leaves,nactive_leaves,ncellchunk,let_exchange,let_dry_run
+                        active_leaves,nactive_leaves,ncellchunk,let_exchange,use_dualtree,&
+                        get_leaf_neighbours
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -409,10 +410,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
  !--import the nodes of other tasks that the dual tree walk could open (the
  !  locally essential tree), and check that the walk never meets a truncated node
- if (exchange .and. gravity) then
-    call let_exchange()
-    call let_dry_run()
- endif
+ if (exchange .and. gravity .and. use_dualtree) call let_exchange()
 
 !
 !-- verification for non-ideal MHD
@@ -499,7 +497,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2) &
-!$omp shared(tc1,tcpuc1,tc2,tcpuc2)
+!$omp shared(tc1,tcpuc1,tc2,tcpuc2,use_dualtree)
 
  if (exchange) call init_cell_exchange(stack_remote)
 
@@ -541,7 +539,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)
-          if (gravity) then
+          if (gravity .and. use_dualtree) then
+             ! to each task, with its leaves that the dual tree walk paired with the cell
+             call send_cell_with_leaves(cell,stack_remote,cell_counters)
+          elseif (gravity) then
              call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
           else
              call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets)
@@ -606,9 +607,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     over_remote: do i = 1,force_pool%n
        call get_packed_cell(force_pool,i,cell)
 
-       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
-                               getj=.true.,f=cell%fgrav,&
-                               cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
+       if (cell%nleaves > 0) then
+          ! the trial neighbours are the particles of the leaves the owner's dual
+          ! tree walk paired with the cell; its long-range gravity is the owner's
+          call get_leaf_neighbours(cell%xpos,cell%leaves,cell%nleaves,listneigh,nneigh,xyzcache,maxcellcache)
+          cell%fgrav = 0.
+       else
+          call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
+                                  getj=.true.,f=cell%fgrav,&
+                                  cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
+       endif
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
@@ -2278,6 +2286,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  realviscosity = (irealvisc > 0)
 
  cell%npcell = 0
+ cell%nleaves = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
     if (i < 0) then
@@ -3596,5 +3605,43 @@ subroutine particle_targets(cell,remote_export,ptargets)
                            .true.,remote_export,ptargets)
 
 end subroutine particle_targets
+
+!-----------------------------------------------------------------------
+!+
+!  send a cell to each task with leaves that the dual tree walk paired
+!  with it (listed in remote_leaves), with the owner's local index of
+!  each leaf, in messages of at most maxcellleaves leaves
+!+
+!-----------------------------------------------------------------------
+subroutine send_cell_with_leaves(cell,stack,counters)
+ use io,          only:nprocs
+ use neighkdtree, only:remote_leaves,nremote_leaves,remote_leaf_owner,remote_local_index
+ use mpiforce,    only:maxcellleaves
+ use mpiderivs,   only:send_cell
+ type(cellforce),  intent(inout) :: cell
+ type(stackforce), intent(inout) :: stack
+ integer,          intent(inout) :: counters(:,:)
+ logical :: target(nprocs)
+ integer :: iproc,k,n
+
+ do iproc = 0,nprocs-1
+    target = .false.
+    target(iproc+1) = .true.
+    cell%nleaves = 0
+    do k = 1,nremote_leaves
+       n = remote_leaves(k)
+       if (remote_leaf_owner(n) /= iproc + 1) cycle
+       cell%nleaves = cell%nleaves + 1
+       cell%leaves(cell%nleaves) = abs(remote_local_index(n))
+       if (cell%nleaves == maxcellleaves) then
+          call send_cell(cell,target,stack,counters)
+          cell%nleaves = 0
+       endif
+    enddo
+    if (cell%nleaves > 0) call send_cell(cell,target,stack,counters)
+ enddo
+ cell%nleaves = 0
+
+end subroutine send_cell_with_leaves
 
 end module forces

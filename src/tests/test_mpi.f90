@@ -151,6 +151,7 @@ subroutine test_packed_pool(ntests,npass)
        cell%waiting_index = i
        cell%xpos   = [1.,2.,3.] * i
        cell%xpartvec = real(i)
+       cell%nleaves  = 0
        call pack_cellforce(cell,.true.,buf,nbuf)
        call push_packed(force_pool,buf,nbuf)
     enddo

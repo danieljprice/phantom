@@ -34,12 +34,15 @@ module mpiforce
  ! outbound (to the task with neighbours) the particle data, and on return
  ! (to the owner) the partial sums, both for the npcell particles only
  !
- integer, parameter, public :: maxpack_cellforce = max(8 + minpart*(maxxpartveciforce + 4), &
+ ! the most leaves of the receiving task sent with a cell, as the trial neighbours
+ ! of its particles there (a cell paired with more leaves is sent several times)
+ integer, parameter, public :: maxcellleaves = 64
+ integer, parameter, public :: maxpack_cellforce = max(9 + maxcellleaves + minpart*(maxxpartveciforce + 4), &
                                                        26 + minpart*(maxfsum + 4))
  ! particle values sent outbound: the metric values at the end of xpartvec only with GR
  integer, parameter :: nxpartvec_pack = maxxpartveciforce - merge(0,maxxpartvecGR,gr)
 
- integer, parameter :: ndata = 21 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 23 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_cellforce = 8 * maxxpartveciforce * minpart + &  !  xpartvec(maxxpartveciforce,minpart)
                                           8 * maxfsum * minpart           + &  !  fsums(maxfsum,minpart)
                                           8 * 20                          + &  !  fgrav(20)
@@ -52,6 +55,8 @@ module mpiforce
                                           4                               + &  !  npcell
                                           4 * minpart                     + &  !  arr_index(minpart)
                                           4 * minpart                     + &  !  ipos(minpart)
+                                          4                               + &  !  nleaves
+                                          4 * maxcellleaves               + &  !  leaves(maxcellleaves)
                                           4                               + &  !  ndrag
                                           4                               + &  !  nstokes
                                           4                               + &  !  nsuper
@@ -75,6 +80,8 @@ module mpiforce
     integer          :: npcell                                 ! number of particles in here
     integer          :: arr_index(minpart)
     integer          :: ipos(minpart)                          ! position of each particle in the owner's cell
+    integer          :: nleaves                                ! leaves of the receiving task paired with the cell
+    integer          :: leaves(maxcellleaves)
     integer          :: ndrag
     integer          :: nstokes
     integer          :: nsuper
@@ -195,6 +202,18 @@ subroutine get_mpitype_of_cellforce(dtype)
  blens(nblock) = size(cell%ipos)
  mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(cell%ipos,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%nleaves,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%leaves)
+ mpitypes(nblock) = MPI_INTEGER4
+ call MPI_GET_ADDRESS(cell%leaves,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
@@ -322,6 +341,8 @@ subroutine pack_cellforce(cell,outbound,buf,n,mask)
     call put_reals(buf,n,real(cell%iphase(idx(1:np))))
     call put_reals(buf,n,real(cell%apr(idx(1:np))))
     call put_reals(buf,n,real(cell%arr_index(idx(1:np))))
+    call put_reals(buf,n,real((/cell%nleaves/)))
+    call put_reals(buf,n,real(cell%leaves(1:cell%nleaves)))
  else
     call put_reals(buf,n,reshape(cell%fsums(:,1:np),(/size(cell%fsums,1)*np/)))
     call put_reals(buf,n,cell%fgrav)
@@ -346,7 +367,7 @@ subroutine unpack_cellforce(buf,outbound,cell,n)
  logical,         intent(in)    :: outbound
  type(cellforce), intent(inout) :: cell
  integer,         intent(out)   :: n
- real    :: hdr(3),geom(5),tmp(minpart),counts(3)
+ real    :: hdr(3),geom(5),tmp(minpart),counts(3),one(1),leafbuf(maxcellleaves)
  integer :: np,nx
 
  n = 0
@@ -369,6 +390,10 @@ subroutine unpack_cellforce(buf,outbound,cell,n)
     cell%apr(1:np) = int(tmp(1:np),kind=1)
     call get_reals(buf,n,tmp(1:np))
     cell%arr_index(1:np) = nint(tmp(1:np))  ! the same on every task for sinks only
+    call get_reals(buf,n,one)
+    cell%nleaves = nint(one(1))
+    call get_reals(buf,n,leafbuf(1:cell%nleaves))
+    cell%leaves(1:cell%nleaves) = nint(leafbuf(1:cell%nleaves))
     cell%ndrag   = 0
     cell%nstokes = 0
     cell%nsuper  = 0
