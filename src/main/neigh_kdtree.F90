@@ -1098,14 +1098,13 @@ end subroutine put_let_record
 !+
 !-----------------------------------------------------------------------
 subroutine attach_let_nodes(iproc,buf)
- use io, only:fatal
  integer, intent(in) :: iproc
  real,    intent(in) :: buf(:)
  integer :: nrec,k,n,nbase,ipar,ip
 
  nrec  = size(buf)/nlet_record
  nbase = ncomb
- if (nbase + nrec > size(node)) call fatal('let_exchange','imported nodes exceed the node budget')
+ if (nbase + nrec > size(node)) call grow_combined_tree(nbase + nrec)
  do k = 1,nrec
     ip = (k-1)*nlet_record
     n  = nbase + k
@@ -1145,6 +1144,45 @@ end subroutine attach_let_nodes
 
 !-----------------------------------------------------------------------
 !+
+!  make room for at least nmin nodes in the combined tree, keeping the
+!  nodes already there (called outside parallel regions)
+!+
+!-----------------------------------------------------------------------
+subroutine grow_combined_tree(nmin)
+ integer, intent(in) :: nmin
+ type(kdnode), allocatable :: newnode(:)
+ integer :: nnew
+
+ nnew = max(nmin,int(1.5*size(node)))
+ allocate(newnode(nnew))
+ newnode(1:ncomb) = node(1:ncomb)
+ call move_alloc(newnode,node)
+ call grow_int(leaf_is_active,nnew,ncomb)
+ call grow_int(remote_leaf_owner,nnew,ncomb)
+ call grow_int(remote_local_index,nnew,ncomb)
+
+end subroutine grow_combined_tree
+
+!-----------------------------------------------------------------------
+!+
+!  grow an integer array to size nnew, keeping its first nkeep entries
+!  and setting the rest to zero
+!+
+!-----------------------------------------------------------------------
+subroutine grow_int(x,nnew,nkeep)
+ integer, allocatable, intent(inout) :: x(:)
+ integer,              intent(in)    :: nnew,nkeep
+ integer, allocatable :: tmp(:)
+
+ allocate(tmp(nnew))
+ tmp = 0
+ tmp(1:nkeep) = x(1:nkeep)
+ call move_alloc(tmp,x)
+
+end subroutine grow_int
+
+!-----------------------------------------------------------------------
+!+
 !  grow a real array, keeping its contents
 !+
 !-----------------------------------------------------------------------
@@ -1168,14 +1206,16 @@ subroutine print_let_stats(iunit)
  use io,       only:id,master,nprocs
  use mpiutils, only:reduceall_mpi
  integer, intent(in) :: iunit
- integer(kind=8) :: nsent,nrecv,np2p
+ integer(kind=8) :: nsent,nrecv,np2p,nrecvmax
 
  nsent  = reduceall_mpi('+',nlet_sent)
  nrecv  = reduceall_mpi('+',nlet_recv)
+ nrecvmax = reduceall_mpi('max',nlet_recv)
  np2p   = reduceall_mpi('+',nlet_p2p)
  if (id == master .and. nsent > 0) then
-    write(iunit,"(a,i0,a,f10.3)") ' MPI LET nodes imported (all tasks): ',nrecv,&
-          '  MB per task: ',1.e-6*8*nlet_record*real(nrecv)/nprocs
+    write(iunit,"(a,i0,a,f10.3,a,f10.3)") ' MPI LET nodes imported (all tasks): ',nrecv,&
+          '  MB per task (mean,max): ',1.e-6*8*nlet_record*real(nrecv)/nprocs,&
+          ' ',1.e-6*8*nlet_record*real(nrecvmax)
     write(iunit,"(a,i0)") ' MPI LET leaf pairs with other tasks: ',np2p
  endif
  nlet_sent = 0
