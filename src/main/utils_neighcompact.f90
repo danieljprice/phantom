@@ -16,8 +16,8 @@ module neighcompact
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, neighkdtree, omputils,
-!   part, physcon
+! :Dependencies: boundary, dim, io, kdtree, kernel, neighkdtree, part,
+!   physcon
 !
  use io, only:fatal
  implicit none
@@ -69,7 +69,6 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  use kdtree,      only:inodeparts,inoderange
  use boundary,    only:mod_boundary
  use kernel,      only:radkern2
- use omputils,    only:omp_chunk
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: ivar(:,:),ijvar(:)
  integer, intent(out) :: ncompact,ncompactlocal
@@ -77,8 +76,12 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  integer, intent(in),  optional :: icand_start(:),icand(:),joffset
  real,    intent(in),  optional :: xyzh_extra(:,:)
  integer                    :: icell,nneigh,i,j,k,n,ip,ncompact_private
- integer                    :: icompact_private,icompact,icompactmax,nneigh_trial,ncand,nchunk
+ integer                    :: icompact_private,icompact,icompactmax,nneigh_trial,ncand
  integer, parameter         :: maxcellcache = 10000
+ ! cells handed to a thread at a time: one at a time contends for iterations, while
+ ! larger chunks load balance poorly. A constant, as some compilers (nvfortran)
+ ! mishandle a chunk size held in a variable
+ integer, parameter         :: ncellchunk = 16
  integer, save, allocatable :: neighlist(:)
  real                       :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
  real, save, allocatable    :: xyzcache(:,:)
@@ -97,11 +100,8 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  icompactmax = size(ijvar)
  growable = present(nedges)
  extra = present(icand_start) .and. present(icand) .and. present(xyzh_extra) .and. present(joffset)
- ! chunks of up to 64 cells: one at a time contends for iterations, larger chunks load
- ! balance poorly, and small trees still need several chunks per thread
- nchunk = omp_chunk(int(ncells),64)
- !$omp parallel do default(none) schedule(dynamic,nchunk)&
- !$omp shared(nchunk,ncells,xyzh,inodeparts,inoderange,leaf_is_active)&
+ !$omp parallel do default(none) schedule(dynamic,ncellchunk)&
+ !$omp shared(ncells,xyzh,inodeparts,inoderange,leaf_is_active)&
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxpsph,growable)&
  !$omp shared(extra,icand_start,icand,xyzh_extra,joffset)&
  !$omp private(icell,i,j,k,n,ip,dx,dy,dz,rij2,q2i,q2j)&
