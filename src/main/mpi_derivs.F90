@@ -59,9 +59,12 @@ module mpiderivs
   module procedure complete_sends_dens,complete_sends_force
  end interface complete_sends
 
+ ! only needed with MPI, otherwise unused
+#ifdef MPI
  interface next_sendbuf
   module procedure next_sendbuf_dens,next_sendbuf_force
  end interface next_sendbuf
+#endif
 
  interface combine_cells
   module procedure combine_celldens,combine_cellforce
@@ -371,6 +374,7 @@ subroutine send_celldens(cell,targets,stack,counters,ptargets)
 
 end subroutine send_celldens
 
+#ifdef MPI
 !-----------------------------------------------------------------------
 !+
 !  the next send buffer of this thread, waiting (and receiving cells into
@@ -421,6 +425,7 @@ subroutine next_sendbuf_force(ith,ibuf,stack,counters)
  endif
 
 end subroutine next_sendbuf_force
+#endif
 
 !-----------------------------------------------------------------------
 !+

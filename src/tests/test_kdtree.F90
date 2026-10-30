@@ -426,6 +426,7 @@ end subroutine check_global_hmax
 !-----------------------------------------------------------------------
 subroutine check_combined_tree(nfailed)
  use io,          only:id,nprocs
+ use dim,         only:gravity
  use mpiutils,    only:allgatherv_mpi
  use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner
  use kdtree,      only:irootnode
@@ -433,7 +434,7 @@ subroutine check_combined_tree(nfailed)
  integer, intent(out) :: nfailed(3)
  integer, allocatable :: list(:)
  integer :: n,i,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff,itask
- real    :: rootdata(6),alldata(6*nprocs)
+ real    :: rootdata(6),nodedata(6),alldata(6*nprocs)
 
  allocate(list(ncomb))
  ! walk from the root of the combined tree
@@ -455,14 +456,18 @@ subroutine check_combined_tree(nfailed)
  call checkval(nbad+ndiff+nbadremote,0,0,nfailed(1),'combined tree links and leaf owners')
  call checkval(nlocal,nlocal_root,0,nfailed(2),'combined tree reaches every local leaf')
 
- ! the domain node of each task, as the task itself has it (its local root)
- rootdata = [node(irootnode)%xcen,node(irootnode)%size,node(irootnode)%hmax,node(irootnode)%mass]
+ ! the domain node of each task, as the task itself has it (its local root);
+ ! node masses are only set with self-gravity
+ rootdata = [node(irootnode)%xcen,node(irootnode)%size,node(irootnode)%hmax,0.]
+ if (gravity) rootdata(6) = node(irootnode)%mass
  call allgatherv_mpi(rootdata,alldata)
  ndiff = 0
  do itask=0,nprocs-1
     if (itask == id) cycle
     n = int(ncells) + nprocs + itask
-    if (any([node(n)%xcen,node(n)%size,node(n)%hmax,node(n)%mass] /= alldata(6*itask+1:6*itask+6))) ndiff = ndiff + 1
+    nodedata = [node(n)%xcen,node(n)%size,node(n)%hmax,0.]
+    if (gravity) nodedata(6) = node(n)%mass
+    if (any(nodedata /= alldata(6*itask+1:6*itask+6))) ndiff = ndiff + 1
  enddo
  call checkval(ndiff,0,0,nfailed(3),'domain nodes identical on all tasks')
 
