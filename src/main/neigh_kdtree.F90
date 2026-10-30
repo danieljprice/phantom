@@ -1754,7 +1754,7 @@ subroutine sync_hmax_mpi
  enddo
 
  ! the same values in the combined tree
- do k = 1,ncomb - int(ncells)
+ do k = 1,ncomb_tree - int(ncells)  ! the global tree only, not the imported nodes
     if (.not.is_this_task(k)) node(int(ncells) + k)%hmax = nodeglobal(k)%hmax
  enddo
  node(irootnode)%hmax = nodeglobal(nprocs + id)%hmax
