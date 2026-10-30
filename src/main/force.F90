@@ -48,7 +48,7 @@ module forces
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
- use mpiforce,    only:cellforce,stackforce
+ use mpiforce,    only:cellforce,stackforce,maxcellleaves
  use neighkdtree, only:leaf_is_active
  use kdtree,      only:inodeparts,inoderange,ih1,im,irho,izetaomega,isoftomega
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
@@ -300,6 +300,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer(kind=1)           :: ibinnow_m1
 
  type(cellforce)           :: cell
+ integer                   :: leaves(maxcellleaves),nleaves ! leaves of this task sent with a remote cell
  logical                   :: remote_export(nprocs),do_export
  logical                   :: ptargets(minpart,nprocs) ! tasks each particle of a cell is sent to
  logical                   :: exchange ! whether cells are exchanged with other MPI tasks
@@ -452,7 +453,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(nprocs,icall) &
 !$omp shared(poten) &
 !$omp private(icell,i,ia) &
-!$omp private(cell) &
+!$omp private(cell,leaves,nleaves) &
 !$omp private(remote_export,ptargets) &
 !$omp private(nneigh) &
 !$omp shared(dens) &
@@ -605,12 +606,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp end single
     !$omp do schedule(dynamic,ncellchunk)
     over_remote: do i = 1,force_pool%n
-       call get_packed_cell(force_pool,i,cell)
+       call get_packed_cell(force_pool,i,cell,leaves,nleaves)
 
-       if (cell%nleaves > 0) then
+       if (nleaves > 0) then
           ! the trial neighbours are the particles of the leaves the owner's dual
           ! tree walk paired with the cell; its long-range gravity is the owner's
-          call get_leaf_neighbours(cell%xpos,cell%leaves,cell%nleaves,listneigh,nneigh,xyzcache,maxcellcache)
+          call get_leaf_neighbours(cell%xpos,leaves,nleaves,listneigh,nneigh,xyzcache,maxcellcache)
           cell%fgrav = 0.
        else
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
@@ -2286,7 +2287,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  realviscosity = (irealvisc > 0)
 
  cell%npcell = 0
- cell%nleaves = 0
  over_parts: do ip = inoderange(1,cell%icell),inoderange(2,cell%icell)
     i = inodeparts(ip)
     if (i < 0) then
@@ -3616,31 +3616,29 @@ end subroutine particle_targets
 subroutine send_cell_with_leaves(cell,stack,counters)
  use io,          only:nprocs
  use neighkdtree, only:remote_leaves,nremote_leaves,remote_leaf_owner,remote_local_index
- use mpiforce,    only:maxcellleaves
  use mpiderivs,   only:send_cell
- type(cellforce),  intent(inout) :: cell
+ type(cellforce),  intent(in)    :: cell
  type(stackforce), intent(inout) :: stack
  integer,          intent(inout) :: counters(:,:)
  logical :: target(nprocs)
- integer :: iproc,k,n
+ integer :: iproc,k,n,nleaves,leaves(maxcellleaves)
 
  do iproc = 0,nprocs-1
     target = .false.
     target(iproc+1) = .true.
-    cell%nleaves = 0
+    nleaves = 0
     do k = 1,nremote_leaves
        n = remote_leaves(k)
        if (remote_leaf_owner(n) /= iproc + 1) cycle
-       cell%nleaves = cell%nleaves + 1
-       cell%leaves(cell%nleaves) = abs(remote_local_index(n))
-       if (cell%nleaves == maxcellleaves) then
-          call send_cell(cell,target,stack,counters)
-          cell%nleaves = 0
+       nleaves = nleaves + 1
+       leaves(nleaves) = abs(remote_local_index(n))
+       if (nleaves == maxcellleaves) then
+          call send_cell(cell,target,stack,counters,leaves=leaves(1:nleaves))
+          nleaves = 0
        endif
     enddo
-    if (cell%nleaves > 0) call send_cell(cell,target,stack,counters)
+    if (nleaves > 0) call send_cell(cell,target,stack,counters,leaves=leaves(1:nleaves))
  enddo
- cell%nleaves = 0
 
 end subroutine send_cell_with_leaves
 

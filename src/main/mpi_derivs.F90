@@ -652,7 +652,7 @@ end subroutine init_cellforce_exchange
 !  thread, receiving cells into stack while waiting for that buffer
 !+
 !-----------------------------------------------------------------------
-subroutine send_cellforce(cell,targets,stack,counters,ptargets)
+subroutine send_cellforce(cell,targets,stack,counters,ptargets,leaves)
  use io,       only:fatal
  use omputils, only:omp_thread_num
  use mpiforce, only:stackforce,pack_cellforce
@@ -661,6 +661,7 @@ subroutine send_cellforce(cell,targets,stack,counters,ptargets)
  type(stackforce), intent(inout) :: stack
  integer,         intent(inout) :: counters(nprocs,3)
  logical,         intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
+ integer,         intent(in), optional :: leaves(:)     ! leaves of the (single) target task, as trial neighbours
 #ifdef MPI
  integer :: newproc,mpierr,ith,ibuf,n,nbuf
 
@@ -686,7 +687,7 @@ subroutine send_cellforce(cell,targets,stack,counters,ptargets)
 
  call next_sendbuf(ith,ibuf,stack,counters)
  !--outbound if this task owns the cell, otherwise the results returned to the owner
- call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf)
+ call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf,leaves=leaves)
  n = 0
  !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1

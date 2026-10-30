@@ -582,17 +582,18 @@ subroutine get_packed_celldens(pool,i,cell)
 
 end subroutine get_packed_celldens
 
-subroutine get_packed_cellforce(pool,i,cell)
+subroutine get_packed_cellforce(pool,i,cell,leaves,nleaves)
  use mpiforce, only:unpack_cellforce
  type(packedpool), intent(in)    :: pool
  integer,          intent(in)    :: i
  type(cellforce),  intent(inout) :: cell
+ integer,          intent(out), optional :: leaves(:),nleaves
  integer :: k,ioff,nbuf
 
  if (i > pool%n) call fatal('force','attempting to read invalid pool address')
  k    = int(pool%pos(i)/pool%chunksize) + 1
  ioff = int(pool%pos(i) - int(k-1,kind=8)*pool%chunksize)
- call unpack_cellforce(pool%chunks(k)%x(ioff+1:),.true.,cell,nbuf)
+ call unpack_cellforce(pool%chunks(k)%x(ioff+1:),.true.,cell,nbuf,leaves,nleaves)
 
 end subroutine get_packed_cellforce
 
