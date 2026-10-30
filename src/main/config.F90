@@ -69,6 +69,13 @@ module dim
  ! the most copied by all tasks together: these bound the memory of the global tree
  integer, parameter :: maxmirror_task  = 2**16
  integer, parameter :: maxmirror_total = 2**20
+ ! for force, each MPI task sends another task the particles of its leaves with a particle
+ ! of more than minneigh_import neighbours (large h), which the cells of many other tasks
+ ! meet, so that those cells need not be sent: at most maximport_leaves leaves holding at
+ ! most maximport_part particles
+ integer, parameter :: minneigh_import  = 10000
+ integer, parameter :: maximport_leaves = 256
+ integer, parameter :: maximport_part   = 4096
  integer         :: nnodeptmassmax
 
 !------
