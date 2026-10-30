@@ -74,6 +74,12 @@ module neighkdtree
  ! that find which tasks to export a cell or its particles to
  integer, parameter                 :: iwalk_tree = 1, iwalk_export = 2
  real(kind=4),          allocatable :: twalk(:,:)
+ ! counts in the dual tree walk since the last summary, per thread: walks, node pairs
+ ! popped from the stack, walks starting from a cached interaction list, and interaction
+ ! lists of branch nodes too long to cache (more than maxnodecache_local nodes)
+ integer, parameter                 :: istat_walks = 1, istat_pops = 2, istat_cached = 3, &
+                                       istat_overflow = 4, nwalkstats = 4
+ integer(kind=8),       allocatable :: walkstats(:,:)
  ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
  integer,               parameter   :: nlet_record = 9 + merge(16,0,gravity)
  type(kdnode), public,  allocatable :: node(:)
@@ -129,6 +135,7 @@ module neighkdtree
  public :: get_cell_location
  public :: sync_hmax_mpi
  public :: let_exchange,print_let_stats,get_leaf_neighbours,get_let_counts,record_walk_times
+ public :: get_walk_stats
  public :: get_particle_targets
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
@@ -183,8 +190,9 @@ subroutine allocate_neigh
  ! time in the walks, per thread
  nthreads = 1
 !$ nthreads = omp_get_max_threads()
- allocate(twalk(2,nthreads))
+ allocate(twalk(2,nthreads),walkstats(nwalkstats,nthreads))
  twalk = 0.
+ walkstats = 0
  nodemap = 0
  nmirror = 0
  remote_leaf_owner = 0
@@ -223,6 +231,7 @@ subroutine deallocate_neigh
 
  if (allocated(cellatid)) deallocate(cellatid)
  if (allocated(twalk)) deallocate(twalk)
+ if (allocated(walkstats)) deallocate(walkstats)
  if (allocated(leaf_is_active)) deallocate(leaf_is_active)
  if (allocated(active_leaves)) deallocate(active_leaves)
  if (allocated(nodeglobal)) deallocate(nodeglobal)
@@ -2008,7 +2017,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  integer,      intent(in)    :: icell
  integer,      intent(out), optional :: nremote,ntrunc ! leaf pairs with other tasks' leaves, and with truncated ones
  integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate,nrem,ntr
- integer :: branch(maxdepth+1),nparents,stack(3,maxstacksize),startwith(2)
+ integer :: branch(maxdepth+1),nparents,stack(3,maxstacksize),startwith(2),npop,noverflow
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
@@ -2054,8 +2063,10 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
 !
 !-- parallel select algorithm to check every interactions between the tree and the selected branch
 !
+ npop = 0
  do while(istack > 0)
     !-- pop the stack
+    npop = npop + 1
     idst       = stack(1,istack) ! dest node id
     isrc       = stack(2,istack) ! src node id
     idstbranch = stack(3,istack) ! dest id in branch array
@@ -2088,6 +2099,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  !
  !-- Downward pass to accumulate on each leaf / Cache and fetch fgrav optimisation
  !
+ noverflow = 0
  do i=nparents,2,-1 ! parents(1) is equal to icell
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
@@ -2108,6 +2120,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
              !$omp end atomic
 
              !-- then store interaction list in the cache array if it fits
+             if (neighnodecount_branch(i) > maxnodecache_local) noverflow = noverflow + 1
              if (neighnodecount_branch(i)> 0 .and. neighnodecount_branch(i) <= maxnodecache_local) then
                 !$omp atomic capture
                 ibase = itail_neigh
@@ -2139,8 +2152,54 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  enddo
 
  fnode = fnode_acc + fnode_branch(:,1)
+ call add_walk_stats(npop,(use_dualcache .and. startwith(2) > 0),noverflow)
 
 end subroutine getneigh_dual
+
+!-----------------------------------------------------------------------
+!+
+!  add the counts of one dual tree walk to this thread's statistics
+!+
+!-----------------------------------------------------------------------
+subroutine add_walk_stats(npop,cached,noverflow)
+ use omputils, only:omp_thread_num
+ integer, intent(in) :: npop,noverflow
+ logical, intent(in) :: cached
+ integer :: ith
+
+ if (.not.allocated(walkstats)) return
+ ith = omp_thread_num() + 1
+ if (ith > size(walkstats,2)) return
+ walkstats(istat_walks,ith)    = walkstats(istat_walks,ith) + 1
+ walkstats(istat_pops,ith)     = walkstats(istat_pops,ith) + npop
+ if (cached) walkstats(istat_cached,ith) = walkstats(istat_cached,ith) + 1
+ walkstats(istat_overflow,ith) = walkstats(istat_overflow,ith) + noverflow
+
+end subroutine add_walk_stats
+
+!-----------------------------------------------------------------------
+!+
+!  statistics of the dual tree walks on this task since the last call:
+!  node pairs per walk, percentage of walks starting from a cached
+!  interaction list, interaction lists too long to cache, and the hmax
+!  of the local root, then reset
+!+
+!-----------------------------------------------------------------------
+subroutine get_walk_stats(stats)
+ use kdtree, only:irootnode
+ real(kind=8), intent(out) :: stats(4)
+ integer(kind=8) :: tot(nwalkstats)
+
+ stats = 0.
+ if (.not.allocated(walkstats)) return
+ tot = sum(walkstats,dim=2)
+ stats(1) = real(tot(istat_pops),kind=8)/real(max(tot(istat_walks),1_8),kind=8)
+ stats(2) = 100.*real(tot(istat_cached),kind=8)/real(max(tot(istat_walks),1_8),kind=8)
+ stats(3) = real(tot(istat_overflow),kind=8)
+ if (allocated(node)) stats(4) = node(irootnode)%hmax
+ walkstats = 0
+
+end subroutine get_walk_stats
 
 !-----------------------------------------------------------
 !+

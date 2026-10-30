@@ -27,7 +27,7 @@ module evolve_utils
  public :: check_and_write_dump
  public :: print_log
 
- integer, parameter :: ntaskvals = 19 ! values per task in the per-task summary
+ integer, parameter :: ntaskvals = 23 ! values per task in the per-task summary
 
  private
 
@@ -418,7 +418,7 @@ subroutine gather_task_values(allvals)
  use part,        only:npart
  use mpiutils,    only:allgatherv_mpi
  use mpiderivs,   only:get_exchange_counts
- use neighkdtree, only:get_let_counts
+ use neighkdtree, only:get_let_counts,get_walk_stats
  use timing,      only:timers,itimer_step,itimer_tree,itimer_dens_lcomp,itimer_dens_rcomp,&
                        itimer_dens_wait,itimer_force_let,itimer_force_lcomp,itimer_force_lsend,&
                        itimer_force_rcomp,itimer_force_wait,itimer_dens_export,itimer_force_export,&
@@ -445,6 +445,7 @@ subroutine gather_task_values(allvals)
  vals(17) = timers(itimer_dens_export)%wall
  vals(18) = timers(itimer_force_export)%wall
  vals(19) = timers(itimer_force_lwalk)%wall
+ call get_walk_stats(vals(20:23))
  allocate(allvals(ntaskvals*nprocs))
  call allgatherv_mpi(vals,allvals)
 
@@ -453,8 +454,10 @@ end subroutine gather_task_values
 !----------------------------------------------------------------
 !+
 !  print one row per task of the values from gather_task_values:
-!  wall times of each phase on that task (s), and the exchange and
-!  import statistics since the last summary
+!  wall times of each phase on that task (s), the exchange and import
+!  statistics since the last summary, and the dual tree walk statistics
+!  (node pairs per walk, % of walks starting from a cached list, lists
+!  too long to cache, hmax of the local root)
 !+
 !----------------------------------------------------------------
 subroutine print_task_table(iunit,allvals)
@@ -463,17 +466,18 @@ subroutine print_task_table(iunit,allvals)
  real(kind=8), intent(in) :: allvals(:)
  integer :: itask
  character(len=*), parameter :: fmtrow = &
-    "(i5,1x,i9,10(1x,f8.2),2(1x,i10),1x,f9.1,1x,i9,1x,i11,3(1x,f8.2))"
+    "(i5,1x,i9,10(1x,f8.2),2(1x,i10),1x,f9.1,1x,i9,1x,i11,3(1x,f8.2),1x,f9.1,1x,f7.1,1x,i9,1x,es10.3)"
 
  if (id /= master) return
  write(iunit,"(/,a)") ' MPI per task: wall time (s) of each phase, and exchange and import since the last summary'
- write(iunit,"(a5,1x,a9,10(1x,a8),2(1x,a10),1x,a9,1x,a9,1x,a11,3(1x,a8))") 'task','npart','step','tree',&
+ write(iunit,"(a5,1x,a9,10(1x,a8),2(1x,a10),1x,a9,1x,a9,1x,a11,3(1x,a8),1x,a9,1x,a7,1x,a9,1x,a10)") 'task','npart','step','tree',&
        'd_lcomp','d_rcomp','d_wait','f_let','f_lcomp','f_lsend','f_rcomp','f_wait',&
-       'cells_sent','cells_recv','MB_recv','LET/call','leaf_pairs','d_export','f_export','f_lwalk'
+       'cells_sent','cells_recv','MB_recv','LET/call','leaf_pairs','d_export','f_export','f_lwalk',&
+       'pairs/wk','cached%','overflow','hmax_root'
  do itask = 0,nprocs-1
     associate(v => allvals(ntaskvals*itask+1:ntaskvals*(itask+1)))
     write(iunit,fmtrow) itask,nint(v(1)),v(2:11),nint(v(12:13),kind=8),v(14),nint(v(15)),&
-                        nint(v(16),kind=8),v(17:19)
+                        nint(v(16),kind=8),v(17:19),v(20),v(21),nint(v(22),kind=8),v(23)
     end associate
  enddo
  write(iunit,*)
