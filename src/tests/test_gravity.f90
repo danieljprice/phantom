@@ -642,15 +642,16 @@ subroutine test_FMM(ntests,npass)
  use dim,       only:mpi
  integer, intent(inout) :: ntests,npass
 
+ logical :: check_momentum
+
+ ! with more than one MPI task the dual tree walk is not used yet: check only that
+ ! the imported nodes (locally essential tree) are enough for it
+ check_momentum = .not.(mpi .and. nprocs > 1)
  if (id==master) write(*,"(/,a)") '--> testing linear and angular momentum conservation with symmetric fmm'
- if (mpi .and. nprocs > 1) then
-    if (id==master) write(*,"(/,a)") '--> skipped... No sym FMM with more than one MPI task'
-    return
- endif
- call check_FMM_momentum(ntests,npass,add_outlier=.false.)
+ call check_FMM_momentum(ntests,npass,add_outlier=.false.,check_momentum=check_momentum)
  ! a particle between the two spheres, whose smoothing length grows to reach both
  if (id==master) write(*,"(/,a)") '--> testing momentum conservation with symmetric fmm and a large-h particle'
- call check_FMM_momentum(ntests,npass,add_outlier=.true.)
+ call check_FMM_momentum(ntests,npass,add_outlier=.true.,check_momentum=check_momentum)
 
 end subroutine test_FMM
 
@@ -660,8 +661,9 @@ end subroutine test_FMM
 !   total force and torque vanish, optionally with one isolated particle
 !+
 !-----------------------------------------------------------------------
-subroutine check_FMM_momentum(ntests,npass,add_outlier)
- use io,        only:id,master,iverbose
+subroutine check_FMM_momentum(ntests,npass,add_outlier,check_momentum)
+ use io,        only:id,master,iverbose,nprocs
+ use neighkdtree, only:let_truncated_pairs
  use part,      only:npart,npartoftype,xyzh,massoftype,hfact,&
                        init_part,fxyzu,istar,set_particle_type,&
                        ibelong
@@ -681,7 +683,7 @@ subroutine check_FMM_momentum(ntests,npass,add_outlier)
  use dim, only:maxp,maxphase,mpi
 
  integer, intent(inout) :: ntests,npass
- logical, intent(in)    :: add_outlier
+ logical, intent(in)    :: add_outlier,check_momentum
  real :: x0(3),rmin,rmax,nx,psep,totvol,time,fsum(3),tsum(3)
  integer(kind=8) :: npart_total
  integer :: np
@@ -742,6 +744,11 @@ subroutine check_FMM_momentum(ntests,npass,add_outlier)
  endif
 
  call get_derivs_global()
+ if (mpi .and. nprocs > 1) then
+    call checkval(let_truncated_pairs(),0_8,0,nfail(1),'walk never meets a truncated node')
+    call update_test_scores(ntests,nfail(1:1),npass)
+ endif
+ if (.not.check_momentum) return
 
  !
  !--move particles to master and sort for test comparison

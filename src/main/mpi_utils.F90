@@ -49,6 +49,15 @@ module mpiutils
 !   and the offset of each block in xrecv may be passed in counts and
 !   displs (e.g. from get_displs_mpi), otherwise they are gathered.
 !
+! * alltoall_mpi, alltoallv_mpi:
+!
+!   call alltoall_mpi(nsend,nrecv)
+!   call alltoallv_mpi(xsend,nsend,xrecv,nrecv)
+!
+!   exchange integer counts, then blocks of real*8, between every pair
+!   of tasks: block p of xsend (nsend(p) entries) goes to task p-1, and
+!   block p of xrecv (nrecv(p) entries) comes from task p-1.
+!
 ! * bcast_mpi:
 !
 !   call bcast_mpi(var)
@@ -145,6 +154,7 @@ module mpiutils
  public :: reduce_mpi, reduceall_mpi, reduce_in_place_mpi
  public :: bcast_mpi
  public :: allgather_mpi, allgatherv_mpi, get_displs_mpi
+ public :: alltoall_mpi, alltoallv_mpi
  public :: barrier_mpi
  public :: fill_buffer, unfill_buf
  public :: reduceloc_mpi
@@ -1789,5 +1799,50 @@ subroutine allgatherv_mpi_real8(xsend,xrecv,counts,displs)
 #endif
 
 end subroutine allgatherv_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  send nsend(p) to task p-1 and receive nrecv(p) from it, for all p
+!+
+!--------------------------------------------------------------------------
+subroutine alltoall_mpi(nsend,nrecv)
+#ifdef MPI
+ use io, only:fatal
+#endif
+ integer, intent(in)  :: nsend(:)
+ integer, intent(out) :: nrecv(:)
+
+#ifdef MPI
+ call MPI_ALLTOALL(nsend,1,MPI_INTEGER,nrecv,1,MPI_INTEGER,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('alltoall_mpi','error in MPI_ALLTOALL call')
+#else
+ nrecv = nsend
+#endif
+
+end subroutine alltoall_mpi
+
+!--------------------------------------------------------------------------
+!+
+!  exchange blocks of real*8 between all pairs of tasks: block p of
+!  xsend (nsend(p) entries) goes to task p-1, block p of xrecv
+!  (nrecv(p) entries, as given by alltoall_mpi) comes from task p-1
+!+
+!--------------------------------------------------------------------------
+subroutine alltoallv_mpi(xsend,nsend,xrecv,nrecv)
+ use io, only:fatal
+ real(kind=8), intent(in)  :: xsend(:)
+ integer,      intent(in)  :: nsend(:),nrecv(:)
+ real(kind=8), intent(out) :: xrecv(:)
+
+ if (sum(nrecv) > size(xrecv)) call fatal('alltoallv_mpi','receive array too small')
+#ifdef MPI
+ call MPI_ALLTOALLV(xsend,nsend,get_displs_mpi(nsend),MPI_REAL8,&
+                    xrecv,nrecv,get_displs_mpi(nrecv),MPI_REAL8,MPI_COMM_WORLD,mpierr)
+ if (mpierr /= 0) call fatal('alltoallv_mpi','error in MPI_ALLTOALLV call')
+#else
+ xrecv(1:nsend(1)) = xsend(1:nsend(1))
+#endif
+
+end subroutine alltoallv_mpi
 
 end module mpiutils

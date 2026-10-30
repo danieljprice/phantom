@@ -365,6 +365,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  use io,           only:iprint,id,master,iverbose
  use evwrite,      only:write_evlog
  use mpiderivs,    only:print_cell_exchange_stats
+ use neighkdtree,  only:print_let_stats
  use part,         only:npart,nptmass,iphase,ibin,xyzh
  use io_summary,   only:summary_printout
  use timing,       only:reduce_timers,timers,itimer_lastdump,reset_timers,get_timings
@@ -378,6 +379,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  call reduce_timers
  if (id==master) call print_timinginfo(iprint,nsteps,nsteplast)
  if (mpi) call print_cell_exchange_stats(iprint)
+ if (mpi) call print_let_stats(iprint)
  !--Write out summary to log file
  if (id==master) call summary_printout(iprint,nptmass)
 

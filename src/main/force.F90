@@ -203,7 +203,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
-                        active_leaves,nactive_leaves,ncellchunk
+                        active_leaves,nactive_leaves,ncellchunk,let_exchange,let_dry_run
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -406,6 +406,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (exchange) then
     call reset_stacks
     call reset_cell_counters(cell_counters)
+ endif
+ !--import the nodes of other tasks that the dual tree walk could open (the
+ !  locally essential tree), and check that the walk never meets a truncated node
+ if (exchange .and. gravity) then
+    call let_exchange()
+    call let_dry_run()
  endif
 
 !
