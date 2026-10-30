@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree, only:leaf_is_active,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi,&
-                     active_leaves,nactive_leaves,ncellchunk,record_walk_times,leaf_maxneigh,ncells
+                     active_leaves,nactive_leaves,ncellchunk,record_walk_times
  use part,        only:mhd,get_partinfo,iactive,&
                        iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,    only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
@@ -191,8 +191,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  !--the cell exchange is only needed with more than one MPI task
  exchange = mpi .and. nprocs > 1
- ! the most neighbours of a particle in each leaf, for the import of particles in force
- if (exchange) leaf_maxneigh(1:ncells) = 0
  if (exchange) then
     call reset_stacks
     call reset_cell_counters(cell_counters)
@@ -1726,7 +1724,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        igradomega,igradzeta,igradsoft
  use options,     only:use_dustfrac,implicit_radiation,two_kernel
  use viscosity,   only:bulkvisc,shearparam
- use neighkdtree, only:set_hmaxcell,leaf_maxneigh
+ use neighkdtree, only:set_hmaxcell
  use kernel,      only:radkern
  use kdtree,      only:inodeparts
 
@@ -1765,9 +1763,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
  real         :: rho1i,term,denom,rhodusti(maxdustlarge)
-
- ! the most neighbours of a particle in the leaf, counted on all tasks
- if (cell%npcell > 0) leaf_maxneigh(cell%icell) = max(leaf_maxneigh(cell%icell),maxval(cell%nneigh(1:cell%npcell)))
 
  do i = 1,cell%npcell
     lli = inodeparts(cell%arr_index(i))

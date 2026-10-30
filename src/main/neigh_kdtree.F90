@@ -84,7 +84,6 @@ module neighkdtree
  ! npart in the particle arrays, and the leaf becomes a local leaf of the combined tree, so that
  ! the cells meeting it need not be sent to its owner
  integer,               allocatable :: let_base(:)   ! position before the nodes from each task
- integer, public,       allocatable :: leaf_maxneigh(:) ! most neighbours of a particle in each leaf (set by density)
  integer(kind=8)                    :: nimp_leaves_recv = 0, nimp_part_recv = 0
  ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
  integer,               parameter   :: nlet_record = 9 + merge(16,0,gravity)
@@ -185,7 +184,6 @@ subroutine allocate_neigh
  call allocate_array('remote_local_index',remote_local_index,nnodes      )
  call allocate_array('global_local_index',global_local_index,nglobal     )
  call allocate_array('let_mark',       let_mark,       ncellsmax+1       )
- call allocate_array('leaf_maxneigh',  leaf_maxneigh,  ncellsmax+1       )
  call allocate_array('global_owner',   global_owner,   nglobal           )
  if (nprocs > 1) then
     call allocate_array('profile_start',profile_start,int(nglobal))
@@ -205,7 +203,6 @@ subroutine allocate_neigh
  remote_leaf_owner = 0
  remote_local_index = 0
  let_mark = 0
- leaf_maxneigh = 0
  call allocate_kdtree()
  call allocate_array('listneigh_global',listneigh_global,maxp)
  call allocate_array('cachestate', cachestate, ncache)
@@ -238,7 +235,6 @@ subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
  if (allocated(cellatid)) deallocate(cellatid)
- if (allocated(leaf_maxneigh)) deallocate(leaf_maxneigh)
  if (allocated(twalk)) deallocate(twalk)
  if (allocated(walkstats)) deallocate(walkstats)
  if (allocated(leaf_is_active)) deallocate(leaf_is_active)
@@ -972,12 +968,13 @@ end subroutine let_exchange
 !-----------------------------------------------------------------------
 !+
 !  the leaves of this task whose particles are sent to task iproc with
-!  the nodes in list: those with a particle of more than minneigh_import
-!  neighbours, most neighbours first, among the true leaves iproc will
-!  have in its combined tree (the leaves in list and this task's leaves
-!  in the global tree) that the walks of iproc's active cells could pair
-!  with (marked by let_pair_step). Such a leaf, of large h, is met by
-!  many of iproc's cells. Only leaves whose particles are all active
+!  the nodes in list. The candidates are the true leaves iproc will have
+!  in its combined tree (the leaves in list and this task's leaves in the
+!  global tree) that the walks of iproc's active cells could pair with
+!  (marked by let_pair_step). Of these, those with a reach (size +
+!  radkern*hmax) more than reach_import_factor times the median are sent,
+!  largest first: large leaves in sparse regions, which many of iproc's
+!  cells meet. Only leaves whose particles are all active
 !  are sent: the force
 !  calculation can wake inactive neighbours, which would then have to
 !  be returned. Each leaf is added to implist with its locator on
@@ -986,14 +983,16 @@ end subroutine let_exchange
 !-----------------------------------------------------------------------
 subroutine select_import_leaves(list,nlist,implist,nimpl,nleaves)
  use io,       only:id
- use dim,      only:maximport_leaves,maximport_part,gr,maxpsph
+ use dim,      only:maximport_leaves,maximport_part,gr,maxpsph,reach_import_factor
+ use kernel,   only:radkern
  use kdtree,   only:inoderange,inodeparts
  use sortutils,only:indexx
  integer, intent(in)    :: list(:),nlist
  integer, intent(inout) :: implist(:,:),nimpl
  integer, intent(out)   :: nleaves
  integer, allocatable :: cand(:),loc(:),indx(:)
- real,    allocatable :: rneigh(:)
+ real,    allocatable :: reach(:)
+ real    :: reachmin
  integer :: k,n,nc,iglob,np,npsent
 
  nleaves = 0
@@ -1014,13 +1013,14 @@ subroutine select_import_leaves(list,nlist,implist,nimpl,nleaves)
     loc(nc)  = -iglob
  enddo
  if (nc == 0) return
- allocate(rneigh(nc),indx(nc))
- rneigh = real(leaf_maxneigh(cand(1:nc)))
- call indexx(nc,rneigh,indx)
- ! most neighbours first, within the budgets of leaves and particles
+ allocate(reach(nc),indx(nc))
+ reach = node(cand(1:nc))%size + radkern*node(cand(1:nc))%hmax
+ call indexx(nc,reach,indx)
+ reachmin = reach_import_factor*reach(indx(nc/2+1))
+ ! largest reach first, within the budgets of leaves and particles
  npsent = 0
  do k = nc,1,-1
-    if (nleaves >= maximport_leaves) exit
+    if (nleaves >= maximport_leaves .or. reach(indx(k)) <= reachmin) exit
     n  = cand(indx(k))
     np = inoderange(2,n) - inoderange(1,n) + 1
     if (npsent + np > maximport_part) cycle
@@ -1037,16 +1037,14 @@ end subroutine select_import_leaves
 
 !-----------------------------------------------------------------------
 !+
-!  whether local node n is a leaf with a particle of many neighbours
-!  that the walks of the current receiver could pair with
+!  whether local node n is a leaf with particles that the walks of the
+!  current receiver could pair with
 !+
 !-----------------------------------------------------------------------
 logical function is_import_candidate(n)
- use dim, only:minneigh_import
  integer, intent(in) :: n
 
- is_import_candidate = (local_index_and_leaf(n) < 0 .and. leaf_is_active(n) /= 0 .and. let_mark(n) == let_stamp &
-                        .and. leaf_maxneigh(n) > minneigh_import)
+ is_import_candidate = (local_index_and_leaf(n) < 0 .and. leaf_is_active(n) /= 0 .and. let_mark(n) == let_stamp)
 
 end function is_import_candidate
 
@@ -1743,7 +1741,7 @@ subroutine print_let_stats(iunit)
  endif
  nimpl = reduceall_mpi('+',nimp_leaves_recv)
  nimpp = reduceall_mpi('+',nimp_part_recv)
- if (id == master .and. nimpl > 0) write(iunit,"(a,i0,a,i0,a)") ' MPI leaves of large reach imported (all tasks): ',&
+ if (id == master .and. nsent > 0) write(iunit,"(a,i0,a,i0,a)") ' MPI leaves imported for force (all tasks): ',&
        nimpl,' with ',nimpp,' particles'
  nlet_sent = 0
  nlet_recv = 0
