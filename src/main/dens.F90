@@ -129,7 +129,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree, only:leaf_is_active,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi,&
-                     active_leaves,nactive_leaves,ncellchunk
+                     active_leaves,nactive_leaves,ncellchunk,record_walk_times
  use part,        only:mhd,get_partinfo,iactive,&
                        iphase,igas,idust,iamgas,periodic,all_active,dustfrac
  use mpiutils,    only:reduceall_mpi,barrier_mpi,reduce_mpi,reduceall_mpi
@@ -147,6 +147,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use io_summary,  only:summary_variable,iosumhup,iosumhdn
  use timing,      only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote,&
                        itimer_dens_lcomp,itimer_dens_rcomp,&
+                       itimer_dens_lwalk,itimer_dens_rwalk,itimer_dens_export,&
                        itimer_dens_lsend,itimer_dens_rsend
 
  integer,         intent(in)    :: icall,npart,nactive
@@ -385,6 +386,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  if (exchange) then
     call increment_timer(itimer_dens_lcomp,tc2-t1,tcpuc2-tcpu1)
     call record_send_wait(itimer_dens_lsend)
+    call record_walk_times(itimer_dens_lwalk,itimer_dens_export)
  endif
  !$omp end single
 
@@ -449,6 +451,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        call get_timings(tc2,tcpuc2)
        call increment_timer(itimer_dens_rcomp,tc2-tc1,tcpuc2-tcpuc1)
        call record_send_wait(itimer_dens_rsend)
+       call record_walk_times(itimer_dens_rwalk,itimer_dens_export)
        !$omp end single
 
        !$omp single

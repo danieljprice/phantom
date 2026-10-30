@@ -43,6 +43,10 @@ module kdtree
 !
  real,    public  :: tree_accuracy    = 0.5
  logical, public  :: use_geosplit     = gravity ! only debug flag / should be on with gravity
+ ! split the global (MPI) levels at the box centre too, rather than the centre of mass;
+ ! set at the first global build from the environment variable PHANTOM_GEOSPLIT_GLOBAL=yes
+ logical, private :: use_geosplit_global = .false.
+ logical, private :: done_geosplit_env   = .false.
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned   = .false.
  logical, private :: tree_is_revisable = .false. ! last build was of the particle arrays
@@ -1264,9 +1268,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
                            level,global_build,doparallel)
 
  ! for gravity KDtree, we need the geo centre to split the node. The global (MPI) levels
- ! decide which particles each task owns, so are split at the centre of mass, which keeps the
- ! domains balanced: a box centre set by a few distant particles would overload one task
- if (use_geosplit .and. .not.global_build) then
+ ! decide which particles each task owns, so are split at the centre of mass by default, which
+ ! keeps the domains balanced: a box centre set by a few distant particles would overload one task
+ if (use_geosplit .and. (use_geosplit_global .or. .not.global_build)) then
     x0 = (xmaxi+xmini)*0.5
  else  !--for default KDtree, we need the split centre to be the centre of mass
     x0 = xyzcofm
@@ -1858,6 +1862,7 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
 
  sinktree = .false.
  if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.
+ if (.not.done_geosplit_env) call read_geosplit_env()
  parent = 0
  iself = irootnode
  leaf_is_active = 0
@@ -2016,5 +2021,23 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  ! copied into the global tree below the domain nodes (graft_local_trees in neighkdtree)
 
 end subroutine maketreeglobal
+
+!--------------------------------------------------------------------
+!+
+!  whether to split the global levels at the box centre, from the
+!  environment variable PHANTOM_GEOSPLIT_GLOBAL (read once)
+!+
+!--------------------------------------------------------------------
+subroutine read_geosplit_env()
+ use io, only:id,master
+ character(len=8) :: string
+
+ call get_environment_variable('PHANTOM_GEOSPLIT_GLOBAL',string)
+ use_geosplit_global = (trim(string) == 'yes')
+ if (use_geosplit_global .and. id == master) &
+    print "(a)",' global tree: splitting the MPI domains at the box centre (PHANTOM_GEOSPLIT_GLOBAL=yes)'
+ done_geosplit_env = .true.
+
+end subroutine read_geosplit_env
 
 end module kdtree

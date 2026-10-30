@@ -204,7 +204,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
                         active_leaves,nactive_leaves,ncellchunk,let_exchange,use_dualtree,&
-                        get_leaf_neighbours
+                        get_leaf_neighbours,record_walk_times
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -243,6 +243,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,itimer_force_let,&
                         itimer_force_lcomp,itimer_force_rcomp,&
+                        itimer_force_lwalk,itimer_force_rwalk,itimer_force_export,&
                         itimer_force_lsend,itimer_force_rsend
  use eos,          only:iresistive_heating
 
@@ -593,6 +594,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (exchange) then
     call increment_timer(itimer_force_lcomp,tc2-t1,tcpuc2-tcpu1)
     call record_send_wait(itimer_force_lsend)
+    call record_walk_times(itimer_force_lwalk,itimer_force_export)
  endif
  !$omp end single
 
@@ -643,6 +645,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call get_timings(tc2,tcpuc2)
     call increment_timer(itimer_force_rcomp,tc2-tc1,tcpuc2-tcpuc1)
     call record_send_wait(itimer_force_rsend)
+    call record_walk_times(itimer_force_rwalk,itimer_force_export)
     !$omp end single
 
     !$omp single

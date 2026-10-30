@@ -27,6 +27,8 @@ module evolve_utils
  public :: check_and_write_dump
  public :: print_log
 
+ integer, parameter :: ntaskvals = 19 ! values per task in the per-task summary
+
  private
 
 contains
@@ -362,7 +364,7 @@ end subroutine check_and_write_dump
 !----------------------------------------------------------------
 subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,twalllast)
  use dim,          only:ind_timesteps,mpi
- use io,           only:iprint,id,master,iverbose
+ use io,           only:iprint,id,master,iverbose,nprocs
  use evwrite,      only:write_evlog
  use mpiderivs,    only:print_cell_exchange_stats
  use neighkdtree,  only:print_let_stats
@@ -375,9 +377,13 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  real,            intent(in)    :: dtmax
  real(kind=4),    intent(inout) :: tall
  real(kind=4),    intent(out)   :: tcpulast,twalllast
+ real(kind=8),    allocatable   :: taskvals(:)
 
+ ! per-task values are taken before the timers are summed over tasks
+ if (mpi .and. nprocs > 1) call gather_task_values(taskvals)
  call reduce_timers
  if (id==master) call print_timinginfo(iprint,nsteps,nsteplast)
+ if (mpi .and. nprocs > 1) call print_task_table(iprint,taskvals)
  if (mpi) call print_cell_exchange_stats(iprint)
  if (mpi) call print_let_stats(iprint)
  !--Write out summary to log file
@@ -399,6 +405,80 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  call reset_timers
 
 end subroutine print_log
+
+!----------------------------------------------------------------
+!+
+!  gather on every task the values printed per task in the
+!  summary: particles, wall time of the main phases, and the
+!  exchange and import statistics since the last summary
+!+
+!----------------------------------------------------------------
+subroutine gather_task_values(allvals)
+ use io,          only:nprocs
+ use part,        only:npart
+ use mpiutils,    only:allgatherv_mpi
+ use mpiderivs,   only:get_exchange_counts
+ use neighkdtree, only:get_let_counts
+ use timing,      only:timers,itimer_step,itimer_tree,itimer_dens_lcomp,itimer_dens_rcomp,&
+                       itimer_dens_wait,itimer_force_let,itimer_force_lcomp,itimer_force_lsend,&
+                       itimer_force_rcomp,itimer_force_wait,itimer_dens_export,itimer_force_export,&
+                       itimer_force_lwalk
+ real(kind=8), allocatable, intent(out) :: allvals(:)
+ real(kind=8) :: vals(ntaskvals),exch(3),let(3)
+
+ call get_exchange_counts(exch)
+ call get_let_counts(let)
+ vals(1)  = npart
+ vals(2)  = timers(itimer_step)%wall
+ vals(3)  = timers(itimer_tree)%wall
+ vals(4)  = timers(itimer_dens_lcomp)%wall
+ vals(5)  = timers(itimer_dens_rcomp)%wall
+ vals(6)  = timers(itimer_dens_wait)%wall
+ vals(7)  = timers(itimer_force_let)%wall
+ vals(8)  = timers(itimer_force_lcomp)%wall
+ vals(9)  = timers(itimer_force_lsend)%wall
+ vals(10) = timers(itimer_force_rcomp)%wall
+ vals(11) = timers(itimer_force_wait)%wall
+ vals(12:14) = exch
+ vals(15) = let(1)/max(let(3),1._8)  ! nodes imported per call
+ vals(16) = let(2)
+ vals(17) = timers(itimer_dens_export)%wall
+ vals(18) = timers(itimer_force_export)%wall
+ vals(19) = timers(itimer_force_lwalk)%wall
+ allocate(allvals(ntaskvals*nprocs))
+ call allgatherv_mpi(vals,allvals)
+
+end subroutine gather_task_values
+
+!----------------------------------------------------------------
+!+
+!  print one row per task of the values from gather_task_values:
+!  wall times of each phase on that task (s), and the exchange and
+!  import statistics since the last summary
+!+
+!----------------------------------------------------------------
+subroutine print_task_table(iunit,allvals)
+ use io, only:id,master,nprocs
+ integer,      intent(in) :: iunit
+ real(kind=8), intent(in) :: allvals(:)
+ integer :: itask
+ character(len=*), parameter :: fmtrow = &
+    "(i5,1x,i9,10(1x,f8.2),2(1x,i10),1x,f9.1,1x,i9,1x,i11,3(1x,f8.2))"
+
+ if (id /= master) return
+ write(iunit,"(/,a)") ' MPI per task: wall time (s) of each phase, and exchange and import since the last summary'
+ write(iunit,"(a5,1x,a9,10(1x,a8),2(1x,a10),1x,a9,1x,a9,1x,a11,3(1x,a8))") 'task','npart','step','tree',&
+       'd_lcomp','d_rcomp','d_wait','f_let','f_lcomp','f_lsend','f_rcomp','f_wait',&
+       'cells_sent','cells_recv','MB_recv','LET/call','leaf_pairs','d_export','f_export','f_lwalk'
+ do itask = 0,nprocs-1
+    associate(v => allvals(ntaskvals*itask+1:ntaskvals*(itask+1)))
+    write(iunit,fmtrow) itask,nint(v(1)),v(2:11),nint(v(12:13),kind=8),v(14),nint(v(15)),&
+                        nint(v(16),kind=8),v(17:19)
+    end associate
+ enddo
+ write(iunit,*)
+
+end subroutine print_task_table
 
 !----------------------------------------------------------------
 !+

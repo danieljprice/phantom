@@ -68,7 +68,12 @@ module neighkdtree
  logical,               allocatable :: global_active(:)  ! a global node with active leaves below
  integer,               allocatable :: branch_mark(:)     ! local nodes above active leaves
  integer                            :: let_stamp = 0
- integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0
+ integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0, nlet_calls = 0
+ ! wall time each thread spends in neighbour walks since the last call to record_walk_times:
+ ! walks of this task's tree (including the dual tree walk), and the walks of the global tree
+ ! that find which tasks to export a cell or its particles to
+ integer, parameter                 :: iwalk_tree = 1, iwalk_export = 2
+ real(kind=4),          allocatable :: twalk(:,:)
  ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
  integer,               parameter   :: nlet_record = 9 + merge(16,0,gravity)
  type(kdnode), public,  allocatable :: node(:)
@@ -123,7 +128,7 @@ module neighkdtree
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
- public :: let_exchange,print_let_stats,get_leaf_neighbours
+ public :: let_exchange,print_let_stats,get_leaf_neighbours,get_let_counts,record_walk_times
  public :: get_particle_targets
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
@@ -141,9 +146,10 @@ subroutine allocate_neigh
  use kdtree,     only:allocate_kdtree,maxdepth
  use dim,        only:maxp
  use io,         only:nprocs
+!$ use omp_lib,   only:omp_get_max_threads
  integer(kind=8) :: nglobal
 
- integer :: nnodes,ncache
+ integer :: nnodes,ncache,nthreads
 
  ! the top levels, which split the domains of the tasks, then each task's block of nodes
  nglobal = 2*nprocs + int(nprocs,kind=8)*mirror_budget()
@@ -174,6 +180,11 @@ subroutine allocate_neigh
     call allocate_array('branch_mark',  branch_mark,  ncellsmax+1)
     branch_mark = 0
  endif
+ ! time in the walks, per thread
+ nthreads = 1
+!$ nthreads = omp_get_max_threads()
+ allocate(twalk(2,nthreads))
+ twalk = 0.
  nodemap = 0
  nmirror = 0
  remote_leaf_owner = 0
@@ -211,6 +222,7 @@ subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
  if (allocated(cellatid)) deallocate(cellatid)
+ if (allocated(twalk)) deallocate(twalk)
  if (allocated(leaf_is_active)) deallocate(leaf_is_active)
  if (allocated(active_leaves)) deallocate(active_leaves)
  if (allocated(nodeglobal)) deallocate(nodeglobal)
@@ -456,6 +468,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  use kernel,   only:radkern
  use part,     only:gravity,periodic
  use boundary, only:dxbound,dybound,dzbound
+ use timing,   only:getused
  integer, intent(in)  :: inode,ixyzcachesize
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
@@ -469,6 +482,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
  integer :: nrem,ntr,k
+ real(kind=4) :: t1
  logical :: get_j,global_search,get_f
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
@@ -507,8 +521,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     ! with more than one MPI task: dual tree walk of the combined tree, with the nodes
     ! imported from other tasks. Leaves of other tasks paired with this cell are listed
     ! in remote_leaves, and the cell is sent to their owners
+    call getused(t1)
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                        leaf_is_active,get_j,get_f,f,inode,nrem,ntr)
+    call add_walk_time(iwalk_tree,t1)
     if (ntr > 0) call fatal('get_neighbour_list','dual tree walk met a node of another task whose children were not imported')
     do k = 1,nremote_leaves
        remote_export(remote_leaf_owner(remote_leaves(k))) = .true.
@@ -520,8 +536,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  if (mpi .and. global_search) then ! no sym fmm for now...
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
+    call getused(t1)
     call getneigh(nodeglobal,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                   cellatid,get_j,get_f,fgrav_global,remote_export)
+    call add_walk_time(iwalk_export,t1)
  elseif (get_f) then
     ! Set fgrav to zero, which matters if gravity is enabled but global search is not
     fgrav_global = 0.0
@@ -529,6 +547,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  ! Find neighbours of this cell on this node
  ! the dual tree walk is not yet used with more than one MPI task
+ call getused(t1)
  if (get_f .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
@@ -536,6 +555,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                      leaf_is_active,get_j,get_f,fgrav)
  endif
+ call add_walk_time(iwalk_tree,t1)
 
  if (get_f) f = fgrav + fgrav_global
 
@@ -623,6 +643,7 @@ end subroutine get_cell_location
 !+
 !-----------------------------------------------------------------------
 subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
+ use timing, only:getused
  integer, intent(in)    :: np
  real,    intent(in)    :: xpos(:,:),rcut(:)
  logical, intent(in)    :: getj
@@ -630,8 +651,10 @@ subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
  logical, intent(out)   :: ptargets(:,:)
  logical :: pexport(size(remote_export))
  integer :: i,j,listdummy(1),ndummy
+ real(kind=4) :: t1
  real    :: cachedummy(1,1)
 
+ call getused(t1)
  ptargets = .false.
  do i=1,np
     call getneigh(nodeglobal,xpos(:,i),0.,rcut(i),listdummy,ndummy,cachedummy,0,cellatid,&
@@ -641,8 +664,49 @@ subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
  do j=1,size(remote_export)
     remote_export(j) = any(ptargets(1:np,j))
  enddo
+ call add_walk_time(iwalk_export,t1)
 
 end subroutine get_particle_targets
+
+!-----------------------------------------------------------------------
+!+
+!  add the wall time since t1 to this thread's time in a kind of walk
+!+
+!-----------------------------------------------------------------------
+subroutine add_walk_time(iwalk,t1)
+ use timing,   only:getused
+ use omputils, only:omp_thread_num
+ integer,      intent(in) :: iwalk
+ real(kind=4), intent(in) :: t1
+ real(kind=4) :: t2
+ integer :: ith
+
+ if (.not.allocated(twalk)) return
+ ith = omp_thread_num() + 1
+ if (ith > size(twalk,2)) return
+ call getused(t2)
+ twalk(iwalk,ith) = twalk(iwalk,ith) + (t2 - t1)
+
+end subroutine add_walk_time
+
+!-----------------------------------------------------------------------
+!+
+!  add the time threads spent in walks of this task's tree and in the
+!  export walks since the last call to two timers, then reset (called
+!  by one thread). As for send_wait, the wall time is that of the
+!  thread that spent longest, the cpu time is the sum over threads
+!+
+!-----------------------------------------------------------------------
+subroutine record_walk_times(itimer_walk,itimer_export)
+ use timing, only:increment_timer
+ integer, intent(in) :: itimer_walk,itimer_export
+
+ if (.not.allocated(twalk)) return
+ call increment_timer(itimer_walk,maxval(twalk(iwalk_tree,:)),sum(twalk(iwalk_tree,:)))
+ call increment_timer(itimer_export,maxval(twalk(iwalk_export,:)),sum(twalk(iwalk_export,:)))
+ twalk = 0.
+
+end subroutine record_walk_times
 
 !-----------------------------------------------------------------------
 !+
@@ -868,6 +932,7 @@ subroutine let_exchange()
     irecv = irecv + nrecv(iproc+1)
  enddo
  nlet_recv = nlet_recv + sum(nrecv)/nlet_record
+ nlet_calls = nlet_calls + 1
 
  ! the walk caches refer to the nodes and smoothing lengths before the import
  if (use_dualcache) then
@@ -1483,8 +1548,22 @@ subroutine print_let_stats(iunit)
  nlet_sent = 0
  nlet_recv = 0
  nlet_p2p  = 0
+ nlet_calls = 0
 
 end subroutine print_let_stats
+
+!-----------------------------------------------------------------------
+!+
+!  this task's import statistics since the last summary: nodes
+!  imported, leaf pairs with other tasks and calls to let_exchange
+!+
+!-----------------------------------------------------------------------
+subroutine get_let_counts(counts)
+ real(kind=8), intent(out) :: counts(3)
+
+ counts = real([nlet_recv,nlet_p2p,nlet_calls],kind=8)
+
+end subroutine get_let_counts
 
 !-----------------------------------------------------------------------
 !+

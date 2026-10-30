@@ -93,7 +93,7 @@ module mpiderivs
  public :: complete_sends,claim_polling,release_polling,set_thread_complete
  public :: send_cell_counts,finish_cell_counts,check_complete
  public :: all_threads_complete,all_tasks_complete,irecvslot
- public :: print_cell_exchange_stats
+ public :: print_cell_exchange_stats,get_exchange_counts
  public :: record_send_wait
 
  !
@@ -1217,6 +1217,21 @@ subroutine print_cell_exchange_stats(iunit)
  nbalance_skipped = 0
 
 end subroutine print_cell_exchange_stats
+
+!----------------------------------------------------------------
+!+
+!  this task's exchange statistics since the last summary: cells
+!  sent, cells received and MB received
+!+
+!----------------------------------------------------------------
+subroutine get_exchange_counts(counts)
+ real(kind=8), intent(out) :: counts(3)
+
+ counts(1) = real(ncells_sent,kind=8)
+ counts(2) = real(ncells_recv_dens + ncells_recv_force,kind=8)
+ counts(3) = 1.e-6_8*nreals_recv*(storage_size(1.)/8)
+
+end subroutine get_exchange_counts
 
 !----------------------------------------------------------------
 !+
