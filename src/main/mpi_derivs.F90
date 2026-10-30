@@ -59,6 +59,13 @@ module mpiderivs
   module procedure complete_sends_dens,complete_sends_force
  end interface complete_sends
 
+ ! only needed with MPI, otherwise unused
+#ifdef MPI
+ interface next_sendbuf
+  module procedure next_sendbuf_dens,next_sendbuf_force
+ end interface next_sendbuf
+#endif
+
  interface combine_cells
   module procedure combine_celldens,combine_cellforce
  end interface combine_cells
@@ -314,31 +321,39 @@ end subroutine init_celldens_exchange
 !  thread, receiving cells into stack while waiting for that buffer
 !+
 !-----------------------------------------------------------------------
-subroutine send_celldens(cell,targets,stack,counters)
+subroutine send_celldens(cell,targets,stack,counters,ptargets)
  use io,       only:fatal
  use omputils, only:omp_thread_num
- use timing,   only:get_timings
  use mpidens, only:stackdens,pack_celldens
  type(celldens),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
  type(stackdens), intent(inout) :: stack
  integer,         intent(inout) :: counters(nprocs,3)
+ logical,         intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
 #ifdef MPI
  integer :: newproc,mpierr,ith,ibuf,n,nbuf
- real(kind=4) :: t1,t2,tcpu1,tcpu2
 
- ith  = omp_thread_num() + 1
- ibuf = mod(lastbuf(ith),nsendbufs) + 1
- lastbuf(ith) = ibuf
-
- !--wait for the previous sends from this buffer, continuing to receive
- if (nsendreq(ibuf,ith) > 0) then
-    call get_timings(t1,tcpu1)
-    call complete_sends(ibuf,ith,stack,counters)
-    call get_timings(t2,tcpu2)
-    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ ith = omp_thread_num() + 1
+ if (present(ptargets) .and. cell%owner == id) then
+    !--each task gets only the particles it needs, so a buffer for each
+    do newproc=0,nprocs-1
+       if (newproc == id .or. .not.targets(newproc+1)) cycle
+       if (.not.any(ptargets(1:cell%npcell,newproc+1))) cycle
+       call next_sendbuf(ith,ibuf,stack,counters)
+       call pack_celldens(cell,.true.,sendbuf_dens(:,ibuf,ith),nbuf,mask=ptargets(1:cell%npcell,newproc+1))
+       !$omp critical (mpi_cell_exchange)
+       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_dens,comm_cellexchange,&
+                      sendreq(1,ibuf,ith),mpierr)
+       !$omp end critical (mpi_cell_exchange)
+       if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
+       nsendreq(ibuf,ith) = 1
+       !$omp atomic
+       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+    enddo
+    return
  endif
 
+ call next_sendbuf(ith,ibuf,stack,counters)
  !--outbound if this task owns the cell, otherwise the results returned to the owner
  call pack_celldens(cell,(cell%owner == id),sendbuf_dens(:,ibuf,ith),nbuf)
  n = 0
@@ -358,6 +373,59 @@ subroutine send_celldens(cell,targets,stack,counters)
 #endif
 
 end subroutine send_celldens
+
+#ifdef MPI
+!-----------------------------------------------------------------------
+!+
+!  the next send buffer of this thread, waiting (and receiving cells into
+!  stack meanwhile) for the previous sends from it to complete
+!+
+!-----------------------------------------------------------------------
+subroutine next_sendbuf_dens(ith,ibuf,stack,counters)
+ use timing,  only:get_timings
+ use mpidens, only:stackdens
+ integer,         intent(in)    :: ith
+ integer,         intent(out)   :: ibuf
+ type(stackdens), intent(inout) :: stack
+ integer,         intent(inout) :: counters(nprocs,3)
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+
+ ibuf = mod(lastbuf(ith),nsendbufs) + 1
+ lastbuf(ith) = ibuf
+ if (nsendreq(ibuf,ith) > 0) then
+    call get_timings(t1,tcpu1)
+    call complete_sends(ibuf,ith,stack,counters)
+    call get_timings(t2,tcpu2)
+    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ endif
+
+end subroutine next_sendbuf_dens
+
+!-----------------------------------------------------------------------
+!+
+!  as next_sendbuf_dens, for force cells
+!+
+!-----------------------------------------------------------------------
+subroutine next_sendbuf_force(ith,ibuf,stack,counters)
+ use timing,   only:get_timings
+ use mpiforce, only:stackforce
+ integer,          intent(in)    :: ith
+ integer,          intent(out)   :: ibuf
+ type(stackforce), intent(inout) :: stack
+ integer,          intent(inout) :: counters(nprocs,3)
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+
+ ibuf = mod(lastbuf(ith),nsendbufs) + 1
+ lastbuf(ith) = ibuf
+ if (nsendreq(ibuf,ith) > 0) then
+    call get_timings(t1,tcpu1)
+    call complete_sends(ibuf,ith,stack,counters)
+    call get_timings(t2,tcpu2)
+    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ endif
+
+end subroutine next_sendbuf_force
+#endif
 
 !-----------------------------------------------------------------------
 !+
@@ -589,33 +657,42 @@ end subroutine init_cellforce_exchange
 !  thread, receiving cells into stack while waiting for that buffer
 !+
 !-----------------------------------------------------------------------
-subroutine send_cellforce(cell,targets,stack,counters)
+subroutine send_cellforce(cell,targets,stack,counters,ptargets,leaves)
  use io,       only:fatal
  use omputils, only:omp_thread_num
- use timing,   only:get_timings
  use mpiforce, only:stackforce,pack_cellforce
  type(cellforce),  intent(in)    :: cell
  logical,         intent(in)    :: targets(nprocs)
  type(stackforce), intent(inout) :: stack
  integer,         intent(inout) :: counters(nprocs,3)
+ logical,         intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
+ integer,         intent(in), optional :: leaves(:)     ! leaves of the (single) target task, as trial neighbours
 #ifdef MPI
  integer :: newproc,mpierr,ith,ibuf,n,nbuf
- real(kind=4) :: t1,t2,tcpu1,tcpu2
 
- ith  = omp_thread_num() + 1
- ibuf = mod(lastbuf(ith),nsendbufs) + 1
- lastbuf(ith) = ibuf
-
- !--wait for the previous sends from this buffer, continuing to receive
- if (nsendreq(ibuf,ith) > 0) then
-    call get_timings(t1,tcpu1)
-    call complete_sends(ibuf,ith,stack,counters)
-    call get_timings(t2,tcpu2)
-    tsend_wait(ith) = tsend_wait(ith) + (t2 - t1)
+ ith = omp_thread_num() + 1
+ if (present(ptargets) .and. cell%owner == id) then
+    !--each task gets only the particles it needs, so a buffer for each
+    do newproc=0,nprocs-1
+       if (newproc == id .or. .not.targets(newproc+1)) cycle
+       if (.not.any(ptargets(1:cell%npcell,newproc+1))) cycle
+       call next_sendbuf(ith,ibuf,stack,counters)
+       call pack_cellforce(cell,.true.,sendbuf_force(:,ibuf,ith),nbuf,mask=ptargets(1:cell%npcell,newproc+1))
+       !$omp critical (mpi_cell_exchange)
+       call MPI_ISEND(sendbuf_force(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_force,comm_cellexchange,&
+                      sendreq(1,ibuf,ith),mpierr)
+       !$omp end critical (mpi_cell_exchange)
+       if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
+       nsendreq(ibuf,ith) = 1
+       !$omp atomic
+       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+    enddo
+    return
  endif
 
+ call next_sendbuf(ith,ibuf,stack,counters)
  !--outbound if this task owns the cell, otherwise the results returned to the owner
- call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf)
+ call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf,leaves=leaves)
  n = 0
  !$omp critical (mpi_cell_exchange)
  do newproc=0,nprocs-1
@@ -939,15 +1016,17 @@ subroutine combine_celldens(target_cell,new_cell)
  type(celldens), intent(inout) :: target_cell
  type(celldens), intent(inout) :: new_cell
 
- integer :: k, l
+ integer :: k, l, i
 
+ ! the returned particles may be a subset of the cell: arr_index gives their positions
  do k = 1,new_cell%npcell
+    i = new_cell%arr_index(k)
     do l = 1,maxrhosum
        !$omp atomic
-       target_cell%rhosums(l,k) = target_cell%rhosums(l,k) + new_cell%rhosums(l,k)
+       target_cell%rhosums(l,i) = target_cell%rhosums(l,i) + new_cell%rhosums(l,k)
     enddo
     !$omp atomic
-    target_cell%nneigh(k) = target_cell%nneigh(k) + new_cell%nneigh(k)
+    target_cell%nneigh(i) = target_cell%nneigh(i) + new_cell%nneigh(k)
  enddo
  !$omp atomic
  target_cell%nneightry = target_cell%nneightry + new_cell%nneightry
@@ -961,20 +1040,22 @@ subroutine combine_cellforce(target_cell,new_cell)
  type(cellforce), intent(inout) :: target_cell
  type(cellforce), intent(inout) :: new_cell
 
- integer :: k, l
+ integer :: k, l, i
 
+ ! the returned particles may be a subset of the cell: ipos gives their positions
  do k = 1,new_cell%npcell
+    i = new_cell%ipos(k)
     do l = 1,maxfsum
        !$omp atomic
-       target_cell%fsums(l,k) =      target_cell%fsums(l,k) +  new_cell%fsums(l,k)
+       target_cell%fsums(l,i) =      target_cell%fsums(l,i) +  new_cell%fsums(l,k)
     enddo
     !$omp atomic
-    target_cell%tsmin(k)     = min( target_cell%tsmin(k),     new_cell%tsmin(k)     )
+    target_cell%tsmin(i)     = min( target_cell%tsmin(i),     new_cell%tsmin(k)     )
     !$omp atomic
-    target_cell%vsigmax(k)   = max( target_cell%vsigmax(k),   new_cell%vsigmax(k)   )
+    target_cell%vsigmax(i)   = max( target_cell%vsigmax(i),   new_cell%vsigmax(k)   )
 #ifdef IND_TIMESTEPS
     !$omp atomic
-    target_cell%ibinneigh(k) = max( target_cell%ibinneigh(k), new_cell%ibinneigh(k) )
+    target_cell%ibinneigh(i) = max( target_cell%ibinneigh(i), new_cell%ibinneigh(k) )
 #endif
  enddo
 

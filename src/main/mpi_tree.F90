@@ -33,6 +33,7 @@ module mpitree
 
  public :: tree_sync
  public :: tree_bcast
+ public :: allgatherv_nodes
  public :: finish_tree_comms
 
 #ifdef MPI
@@ -263,5 +264,29 @@ subroutine tree_bcast(node, nnode, level)
 #endif
 
 end subroutine tree_bcast
+
+!----------------------------------------------------------------
+!+
+!  gather blocks of tree nodes of different sizes from all tasks
+!  (as allgatherv_mpi in mpiutils, for the kdnode type)
+!+
+!----------------------------------------------------------------
+subroutine allgatherv_nodes(node_in,node_out,counts,displs)
+ use dtypekdtree, only:get_mpitype_of_kdnode,kdnode
+ type(kdnode), intent(in)  :: node_in(:)
+ type(kdnode), intent(out) :: node_out(:)
+ integer,      intent(in)  :: counts(nprocs),displs(nprocs)
+#ifdef MPI
+ integer :: dtype_kdnode,mpierr
+
+ call get_mpitype_of_kdnode(dtype_kdnode)
+ call MPI_ALLGATHERV(node_in,size(node_in),dtype_kdnode,node_out,counts,displs,dtype_kdnode,&
+                     MPI_COMM_WORLD,mpierr)
+#else
+ node_out(1:size(node_in)) = node_in
+#endif
+
+end subroutine allgatherv_nodes
+
 
 end module mpitree

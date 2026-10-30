@@ -85,9 +85,7 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  get the MPI datatype for kdnode
-!  Todo:
-!  - MPI commit the datatype just once, rather than rebuilding it every time
+!  get the MPI datatype for kdnode, committed on the first call
 !+
 !----------------------------------------------------------------
 subroutine get_mpitype_of_kdnode(dtype)
@@ -102,7 +100,12 @@ subroutine get_mpitype_of_kdnode(dtype)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
  type(kdnode)                    :: node
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
+ integer, save                   :: dtype_saved = MPI_DATATYPE_NULL
 
+ if (dtype_saved /= MPI_DATATYPE_NULL) then
+    dtype = dtype_saved
+    return
+ endif
  nblock = 0
 
  call MPI_GET_ADDRESS(node,start,mpierr)
@@ -171,6 +174,7 @@ subroutine get_mpitype_of_kdnode(dtype)
 
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
+ dtype_saved = dtype
 
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)

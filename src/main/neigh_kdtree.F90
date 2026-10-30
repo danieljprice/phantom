@@ -19,17 +19,58 @@ module neighkdtree
 !   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!   kdtree, kernel, mpiutils, part
+!   kdtree, kernel, mpitree, mpiutils, part
 !
- use dim,          only:ncellsmax,ncellsmaxglobal,gravity
+ use dim,          only:ncellsmax,gravity
  use dtypekdtree,  only:kdnode,lenfgrav
- use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,irefine,tree_accuracy,&
+ use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,tree_accuracy,&
                         ih1,im,irho,izetaomega,isoftomega
  implicit none
 
- integer,               allocatable :: cellatid(:)
+ ! the global tree, replicated on every MPI task: cellatid is owner+1 for its leaves, 0 otherwise.
+ ! Its top levels split the domains of the tasks (the domain of task r is node nprocs+r),
+ ! and below them each task's block of nodes copied from its local tree is stored in task order
+ integer,      public,  allocatable :: cellatid(:)
+ type(kdnode), public,  allocatable :: nodeglobal(:)
+ ! index in the global tree of each node of the local tree copied into it, 0 for the others
  integer,               allocatable :: nodemap(:)
- type(kdnode),          allocatable :: nodeglobal(:)
+ ! the local nodes copied into the global tree, in the order of this task's block
+ integer,               allocatable :: mirror_list(:)
+ integer                            :: nmirror = 0
+ integer,               parameter   :: nmirror_min = 256        ! fewest nodes copied by a task
+ integer,               parameter   :: nactive_per_mirror = 4   ! active particles per copied node
+ ! the number of nodes in each task's block and the offset of the block
+ integer,               allocatable :: nmirror_task(:),mirror_displ(:)
+ ! the combined tree: with more than one MPI task, the global tree is appended to the
+ ! local tree (global node g at ncells+g), except for the nodes of this task, which are
+ ! the local nodes themselves, so that each local leaf's branch runs up to the global root
+ integer,      public               :: ncomb = 0        ! last node of the combined tree, 0 if none
+ integer,      public               :: irootcomb = 1    ! root of the combined tree
+ integer,      public,  allocatable :: remote_leaf_owner(:) ! owner+1 of the leaves of other tasks, else 0
+ ! the owner's local index of each node of the global tree, and of each node of other tasks
+ ! in the combined tree: negative for a leaf of the owner's local tree. A leaf of another
+ ! task with a positive index is truncated: its children were not imported
+ integer,               allocatable :: global_local_index(:)
+ integer,      public,  allocatable :: remote_local_index(:)
+ ! nodes imported from other tasks (the locally essential tree) are appended after ncomb_tree
+ integer                            :: ncomb_tree = 0
+ integer                            :: ncells_appended = 0 ! where the global tree was appended
+ integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver
+ integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
+ ! for each global leaf of another task, the largest size of a node that its walks can
+ ! pair with a node of this task, by the number of steps the walk has taken below the leaf
+ ! (the last entry is for all deeper steps). Only the branches above active leaves count,
+ ! since only active leaves walk. Stored in a pool: profile_len(g) values from
+ ! profile_start(g); 0 if the leaf has no active particles, -1 if not received
+ integer,               parameter   :: nprofile = 24
+ real,                  allocatable :: profile_pool(:)
+ integer,               allocatable :: profile_start(:),profile_len(:)
+ logical,               allocatable :: global_active(:)  ! a global node with active leaves below
+ integer,               allocatable :: branch_mark(:)     ! local nodes above active leaves
+ integer                            :: let_stamp = 0
+ integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0
+ ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
+ integer,               parameter   :: nlet_record = 9 + merge(16,0,gravity)
  type(kdnode), public,  allocatable :: node(:)
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
@@ -58,6 +99,10 @@ module neighkdtree
  real,                  allocatable :: fnode_branch(:,:)
 !$omp threadprivate(fnode_branch,neighnode_branch,neighnodecount_branch)
 !$omp threadprivate(listneigh)
+ ! leaves of other tasks met in leaf-leaf pairs by the last dual tree walk of this thread
+ integer, public, allocatable :: remote_leaves(:)
+ integer, public              :: nremote_leaves = 0
+!$omp threadprivate(remote_leaves,nremote_leaves)
  integer(kind=8), public            :: ncells
  real,            public            :: dxcell
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
@@ -70,7 +115,7 @@ module neighkdtree
  ! until the particles have had about one step each since the tree was built
  real,            parameter         :: frac_active_revtree = 0.1
  integer(kind=8)                    :: nactive_since_build = 0
- integer                            :: globallevel,refinelevels
+ integer                            :: globallevel
 
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
@@ -78,6 +123,8 @@ module neighkdtree
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
+ public :: let_exchange,print_let_stats,get_leaf_neighbours
+ public :: get_particle_targets
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
  private
@@ -96,24 +143,51 @@ subroutine allocate_neigh
  use io,         only:nprocs
  integer(kind=8) :: nglobal
 
- ! the global tree needs at least one level of refinement below the
- ! level of the MPI tasks, however few particles there are per task
- nglobal = max(ncellsmaxglobal+1,2_8**(ceiling(log(real(nprocs))/log(2.0))+2))
+ integer :: nnodes,ncache
+
+ ! the top levels, which split the domains of the tasks, then each task's block of nodes
+ nglobal = 2*nprocs + int(nprocs,kind=8)*mirror_budget()
+ ! room for the combined tree: the global tree appended after the local tree, then as
+ ! many nodes again imported from other tasks. The walk caches only the nodes on the
+ ! branches of local leaves: the local nodes and the top levels of the global tree
+ nnodes = ncellsmax + 1
+ ncache = ncellsmax + 1
+ if (nprocs > 1) then
+    nnodes = nnodes + 2*int(nglobal)
+    ncache = ncache + 2*nprocs
+ endif
  call allocate_array('cellatid',       cellatid,       nglobal           )
- call allocate_array('leaf_is_active', leaf_is_active, ncellsmax+1       )
+ call allocate_array('leaf_is_active', leaf_is_active, nnodes            )
  call allocate_array('active_leaves',  active_leaves,  ncellsmax+1       )
  call allocate_array('nodeglobal',     nodeglobal,     nglobal           )
- call allocate_array('node',           node,           ncellsmax+1       )
+ call allocate_array('node',           node,           nnodes            )
  call allocate_array('nodemap',        nodemap,        ncellsmax+1       )
+ call allocate_array('remote_leaf_owner',remote_leaf_owner,nnodes        )
+ call allocate_array('remote_local_index',remote_local_index,nnodes      )
+ call allocate_array('global_local_index',global_local_index,nglobal     )
+ call allocate_array('let_mark',       let_mark,       ncellsmax+1       )
+ call allocate_array('global_owner',   global_owner,   nglobal           )
+ if (nprocs > 1) then
+    call allocate_array('profile_start',profile_start,int(nglobal))
+    call allocate_array('profile_len',  profile_len,  int(nglobal))
+    allocate(global_active(nglobal))
+    call allocate_array('branch_mark',  branch_mark,  ncellsmax+1)
+    branch_mark = 0
+ endif
+ nodemap = 0
+ nmirror = 0
+ remote_leaf_owner = 0
+ remote_local_index = 0
+ let_mark = 0
  call allocate_kdtree()
  call allocate_array('listneigh_global',listneigh_global,maxp)
- call allocate_array('cachestate', cachestate, ncellsmax+1)
+ call allocate_array('cachestate', cachestate, ncache)
 
  if (use_dualcache) then
-    call allocate_array('fnodecache', fnodecache, lenfgrav, ncellsmax+1)
+    call allocate_array('fnodecache', fnodecache, lenfgrav, ncache)
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
-    call allocate_array('neighnodecache_start',neighnodecache_start,ncellsmax+1)
-    call allocate_array('neighnodecache_count',neighnodecache_count,ncellsmax+1)
+    call allocate_array('neighnodecache_start',neighnodecache_start,ncache)
+    call allocate_array('neighnodecache_count',neighnodecache_count,ncache)
     itail_neigh = 0
  endif
 
@@ -142,6 +216,16 @@ subroutine deallocate_neigh
  if (allocated(nodeglobal)) deallocate(nodeglobal)
  if (allocated(node)) deallocate(node)
  if (allocated(nodemap)) deallocate(nodemap)
+ if (allocated(remote_leaf_owner)) deallocate(remote_leaf_owner)
+ if (allocated(remote_local_index)) deallocate(remote_local_index)
+ if (allocated(global_local_index)) deallocate(global_local_index)
+ if (allocated(let_mark)) deallocate(let_mark)
+ if (allocated(global_owner)) deallocate(global_owner)
+ if (allocated(profile_pool)) deallocate(profile_pool)
+ if (allocated(profile_start)) deallocate(profile_start,profile_len,global_active)
+ if (allocated(branch_mark)) deallocate(branch_mark)
+ if (allocated(mirror_list)) deallocate(mirror_list)
+ if (allocated(nmirror_task)) deallocate(nmirror_task,mirror_displ)
  if (allocated(cachestate)) deallocate(cachestate)
  if (allocated(fnodecache)) deallocate(fnodecache)
  if (allocated(neighnodecache)) deallocate(neighnodecache)
@@ -192,8 +276,10 @@ subroutine set_hmaxcell(inode,hmaxcell)
 
  ! walk tree up, stopping at the first ancestor whose hmax already covers hmaxcell:
  ! a node's hmax is never below its children's, so neither is any of its ancestors'.
- ! Other threads update the same ancestors, so both the test and the update are atomic
- do while (node(n)%parent /= 0)
+ ! Other threads update the same ancestors, so both the test and the update are atomic.
+ ! Stop at the local root: the global nodes above it are updated by sync_hmax_mpi,
+ ! so that they stay the same on every MPI task
+ do while (n /= irootnode .and. node(n)%parent /= 0)
     n = node(n)%parent
 !$omp atomic read
     hmaxn = node(n)%hmax
@@ -264,12 +350,14 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,cellatid,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree)
     endif
+    call graft_local_trees(nactive)
+    call combine_trees()
  else
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
@@ -292,7 +380,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  ! the dual tree walk cache refers to the old nodes: reset it for the new tree
  if (use_dualcache) then
-    cachestate(1:ncells) = 0 ! 0=untouched, 1=claimed, 2=fnode cached, 3=fully cached
+    cachestate(1:min(max(int(ncells),ncomb),size(cachestate))) = 0 ! 0=untouched, 1=claimed, 2=fnode cached, 3=fully cached
     itail_neigh = 0
  endif
 
@@ -363,7 +451,7 @@ end subroutine list_active_leaves
 !-----------------------------------------------------------------------
 subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesize, &
                               getj,f,remote_export,cell_xpos,cell_xsizei,cell_rcuti)
- use io,       only:nprocs,warning
+ use io,       only:nprocs,warning,fatal
  use dim,      only:mpi
  use kernel,   only:radkern
  use part,     only:gravity,periodic
@@ -380,6 +468,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  real :: xpos(3)
  real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
  real :: xsizei,rcuti
+ integer :: nrem,ntr,k
  logical :: get_j,global_search,get_f
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
@@ -414,6 +503,21 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  get_f = (gravity .and. present(f))
 
+ if (mpi .and. global_search .and. get_f .and. use_dualtree) then
+    ! with more than one MPI task: dual tree walk of the combined tree, with the nodes
+    ! imported from other tasks. Leaves of other tasks paired with this cell are listed
+    ! in remote_leaves, and the cell is sent to their owners
+    call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
+                       leaf_is_active,get_j,get_f,f,inode,nrem,ntr)
+    if (ntr > 0) call fatal('get_neighbour_list','dual tree walk met a node of another task whose children were not imported')
+    do k = 1,nremote_leaves
+       remote_export(remote_leaf_owner(remote_leaves(k))) = .true.
+    enddo
+    !$omp atomic
+    nlet_p2p = nlet_p2p + nrem
+    return
+ endif
+
  if (mpi .and. global_search) then ! no sym fmm for now...
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
     call getneigh(nodeglobal,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
@@ -424,7 +528,8 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  endif
 
  ! Find neighbours of this cell on this node
- if (get_f .and. .not.(mpi) .and. use_dualtree) then
+ ! the dual tree walk is not yet used with more than one MPI task
+ if (get_f .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
  else
@@ -510,37 +615,1149 @@ end subroutine get_cell_location
 
 !-----------------------------------------------------------------------
 !+
-!  sync the hmax values across all MPI tasks
+!  the MPI tasks each particle of an exported cell must be sent to, a
+!  subset of the tasks found for the whole cell: those owning a leaf of
+!  the global tree within the kernel radius of the particle (rcut) or,
+!  with getj, within the kernel radius of the leaf's hmax. Tasks that no
+!  particle reaches are removed from remote_export
+!+
+!-----------------------------------------------------------------------
+subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
+ integer, intent(in)    :: np
+ real,    intent(in)    :: xpos(:,:),rcut(:)
+ logical, intent(in)    :: getj
+ logical, intent(inout) :: remote_export(:)
+ logical, intent(out)   :: ptargets(:,:)
+ logical :: pexport(size(remote_export))
+ integer :: i,j,listdummy(1),ndummy
+ real    :: cachedummy(1,1)
+
+ ptargets = .false.
+ do i=1,np
+    call getneigh(nodeglobal,xpos(:,i),0.,rcut(i),listdummy,ndummy,cachedummy,0,cellatid,&
+                  getj,.false.,remote_export=pexport)
+    ptargets(i,:) = pexport .and. remote_export
+ enddo
+ do j=1,size(remote_export)
+    remote_export(j) = any(ptargets(1:np,j))
+ enddo
+
+end subroutine get_particle_targets
+
+!-----------------------------------------------------------------------
+!+
+!  copy the top levels of the local tree of every task into the global
+!  tree, below the node of its domain
+!+
+!-----------------------------------------------------------------------
+subroutine graft_local_trees(nactive)
+ use io,       only:nprocs,id,fatal
+ use mpiutils, only:allgather_mpi,get_displs_mpi
+ use mpitree,  only:allgatherv_nodes
+ use mpiutils, only:allgatherv_mpi
+ integer, intent(in) :: nactive  ! number of active particles on this task
+ type(kdnode), allocatable :: block(:)
+ integer,      allocatable :: ilocal(:)
+ integer :: ntot,ifirst,itask,ibase,p,g,idomain
+
+ ! forget the nodes copied from the previous tree
+ nodemap(1) = 0
+ if (nmirror > 0) nodemap(mirror_list(1:nmirror)) = 0
+
+ call select_mirrored_nodes(nactive)
+ allocate(block(nmirror))
+ call pack_mirrored_nodes(block)
+
+ if (.not.allocated(nmirror_task)) allocate(nmirror_task(nprocs),mirror_displ(nprocs))
+ call allgather_mpi(nmirror,nmirror_task)
+ mirror_displ = get_displs_mpi(nmirror_task)
+ ntot = sum(nmirror_task)
+ ifirst = 2*nprocs     ! first node after the top levels
+ if (ifirst + ntot - 1 > size(nodeglobal)) call fatal('graft_local_trees','global tree exceeds its node budget')
+ call allgatherv_nodes(block,nodeglobal(ifirst:),nmirror_task,mirror_displ)
+
+ ! the local index of each copied node on its owner, negative for a leaf of its local tree
+ allocate(ilocal(nmirror))
+ do p = 1,nmirror
+    ilocal(p) = local_index_and_leaf(mirror_list(p))
+ enddo
+ call allgatherv_mpi(ilocal,global_local_index(ifirst:),nmirror_task,mirror_displ)
+
+ ! the blocks are linked within themselves: shift them to their place in the global tree
+ cellatid = 0
+ global_owner(1:nprocs-1) = -1
+ do itask = 1,nprocs
+    ibase = ifirst - 1 + mirror_displ(itask)
+    idomain = nprocs + itask - 1
+    do p = 1,nmirror_task(itask)
+       g = ibase + p
+       if (nodeglobal(g)%leftchild > 0)  nodeglobal(g)%leftchild  = nodeglobal(g)%leftchild  + ibase
+       if (nodeglobal(g)%rightchild > 0) nodeglobal(g)%rightchild = nodeglobal(g)%rightchild + ibase
+       if (nodeglobal(g)%parent > 0) then
+          nodeglobal(g)%parent = nodeglobal(g)%parent + ibase
+       else
+          nodeglobal(g)%parent = idomain
+       endif
+       if (nodeglobal(g)%leftchild == 0 .and. nodeglobal(g)%rightchild == 0) cellatid(g) = itask
+    enddo
+    global_local_index(idomain) = merge(-irootnode,irootnode,nmirror_task(itask) == 0)
+    global_owner(idomain) = itask - 1
+    global_owner(ibase+1:ibase+nmirror_task(itask)) = itask - 1
+    ! the children of the domain node come first in the block
+    nodeglobal(idomain)%leftchild = 0
+    nodeglobal(idomain)%rightchild = 0
+    if (nmirror_task(itask) == 0) then
+       cellatid(idomain) = itask
+    else
+       nodeglobal(idomain)%leftchild = ibase + 1
+       if (nmirror_task(itask) > 1) then
+          if (nodeglobal(ibase+2)%parent == idomain) nodeglobal(idomain)%rightchild = ibase + 2
+       endif
+    endif
+ enddo
+
+ ! where the copied local nodes are in the global tree; the local root is the domain node
+ ibase = ifirst - 1 + mirror_displ(id+1)
+ nodemap(irootnode) = nprocs + id
+ do p = 1,nmirror
+    nodemap(mirror_list(p)) = ibase + p
+ enddo
+
+end subroutine graft_local_trees
+
+!-----------------------------------------------------------------------
+!+
+!  build the combined tree: append the global tree after the local tree,
+!  except for this task's domain node and block, which are the local root
+!  and the local nodes they were copied from. The local root takes the
+!  data of the domain node, which the other tasks use, so that every task
+!  sees exactly the same node there
+!+
+!-----------------------------------------------------------------------
+subroutine combine_trees()
+ use io, only:nprocs,id,fatal
+ type(kdnode) :: rootlinks
+ integer :: g,n,ng
+
+ ng = 2*nprocs - 1 + sum(nmirror_task)
+ if (int(ncells) + ng > size(node)) call fatal('combine_trees','no room to append the global tree')
+ ! forget the nodes of other tasks appended to the previous tree, which may
+ ! have started at a different place if the local tree has changed size
+ if (ncomb > ncells_appended) remote_leaf_owner(ncells_appended+1:ncomb) = 0
+ ncells_appended = int(ncells)
+
+ rootlinks = node(irootnode)
+ node(irootnode) = nodeglobal(nprocs + id)
+ node(irootnode)%leftchild  = rootlinks%leftchild
+ node(irootnode)%rightchild = rootlinks%rightchild
+ node(irootnode)%level      = rootlinks%level
+ node(irootnode)%parent     = combined_index(nodeglobal(nprocs + id)%parent)
+
+ do g = 1,ng
+    if (is_this_task(g)) cycle
+    n = int(ncells) + g
+    node(n) = nodeglobal(g)
+    node(n)%leftchild  = combined_index(nodeglobal(g)%leftchild)
+    node(n)%rightchild = combined_index(nodeglobal(g)%rightchild)
+    node(n)%parent     = combined_index(nodeglobal(g)%parent)
+    remote_leaf_owner(n) = cellatid(g)
+    remote_local_index(n) = global_local_index(g)
+    leaf_is_active(n)    = min(cellatid(g),1)
+ enddo
+ irootcomb = combined_index(1)
+ ncomb = int(ncells) + ng
+ ncomb_tree = ncomb
+
+end subroutine combine_trees
+
+!-----------------------------------------------------------------------
+!+
+!  whether a node of the global tree is this task's domain node or one
+!  of the local nodes it copied into the global tree
+!+
+!-----------------------------------------------------------------------
+logical function is_this_task(g)
+ use io, only:nprocs,id
+ integer, intent(in) :: g
+ integer :: ibase
+
+ ibase = 2*nprocs - 1 + mirror_displ(id+1)
+ is_this_task = (g == nprocs + id) .or. (g > ibase .and. g <= ibase + nmirror)
+
+end function is_this_task
+
+!-----------------------------------------------------------------------
+!+
+!  index in the combined tree of a node of the global tree (0 for none)
+!+
+!-----------------------------------------------------------------------
+integer function combined_index(g)
+ use io, only:nprocs,id
+ integer, intent(in) :: g
+ integer :: ibase
+
+ ibase = 2*nprocs - 1 + mirror_displ(id+1)
+ if (g <= 0) then
+    combined_index = 0
+ elseif (g == nprocs + id) then
+    combined_index = irootnode
+ elseif (g > ibase .and. g <= ibase + nmirror) then
+    combined_index = mirror_list(g - ibase)
+ else
+    combined_index = int(ncells) + g
+ endif
+
+end function combined_index
+
+!-----------------------------------------------------------------------
+!+
+!  local index of a node, negative if it is a leaf of the local tree
+!+
+!-----------------------------------------------------------------------
+integer function local_index_and_leaf(n)
+ integer, intent(in) :: n
+
+ local_index_and_leaf = n
+ if (node(n)%leftchild <= 0 .and. node(n)%rightchild <= 0) local_index_and_leaf = -n
+
+end function local_index_and_leaf
+
+!-----------------------------------------------------------------------
+!+
+!  exchange the locally essential tree: each task sends every other task
+!  the local nodes below its global leaves that the other task's walks
+!  could open, and attaches the nodes it receives below the global leaves
+!  of their owners in the combined tree. Called after sync_hmax_mpi, so
+!  that the nodes carry the smoothing lengths of the density calculation
+!+
+!-----------------------------------------------------------------------
+subroutine let_exchange()
+ use io,       only:nprocs,id
+ use mpiutils, only:alltoall_mpi,alltoallv_mpi
+ real,    allocatable :: sendbuf(:),recvbuf(:)
+ integer, allocatable :: list(:),iparent(:),iside(:)
+ integer :: nsend(nprocs),nrecv(nprocs),irecv,nlist,nbuf,k,iproc
+
+ ! forget the nodes imported by a previous call
+ call combine_trees()
+ call exchange_size_profiles()
+
+ allocate(list(ncomb),iparent(ncomb),iside(ncomb))
+ allocate(sendbuf(nlet_record*1024))
+ nbuf = 0
+ nsend = 0
+ do iproc = 0,nprocs-1
+    if (iproc == id) cycle
+    call select_let_nodes(iproc,list,iparent,iside,nlist)
+    if (nbuf + nlist*nlet_record > size(sendbuf)) call grow_real(sendbuf,nbuf + nlist*nlet_record)
+    do k = 1,nlist
+       call put_let_record(sendbuf(nbuf+1:nbuf+nlet_record),list(k),iparent(k),iside(k))
+       nbuf = nbuf + nlet_record
+    enddo
+    nsend(iproc+1) = nlist*nlet_record
+    nlet_sent = nlet_sent + nlist
+ enddo
+
+ call alltoall_mpi(nsend,nrecv)
+ allocate(recvbuf(max(sum(nrecv),1)))
+ call alltoallv_mpi(sendbuf,nsend,recvbuf,nrecv)
+
+ irecv = 0
+ do iproc = 0,nprocs-1
+    if (nrecv(iproc+1) > 0) call attach_let_nodes(iproc,recvbuf(irecv+1:irecv+nrecv(iproc+1)))
+    irecv = irecv + nrecv(iproc+1)
+ enddo
+ nlet_recv = nlet_recv + sum(nrecv)/nlet_record
+
+ ! the walk caches refer to the nodes and smoothing lengths before the import
+ if (use_dualcache) then
+    cachestate(1:min(ncomb,size(cachestate))) = 0
+    itail_neigh = 0
+ endif
+
+end subroutine let_exchange
+
+!-----------------------------------------------------------------------
+!+
+!  the local nodes to send to task iproc: the children of every node
+!  below this task's global leaves that a walk on iproc could open, in
+!  pre-order, with the parent of each (negative: a global node, by its
+!  index in the global tree; positive: a position in the list) and
+!  which child it is (1 left, 2 right)
+!+
+!-----------------------------------------------------------------------
+subroutine select_let_nodes(iproc,list,iparent,iside,nlist)
+ use io, only:id
+ integer, intent(in)  :: iproc
+ integer, intent(out) :: list(:),iparent(:),iside(:),nlist
+ integer, allocatable :: istack(:,:)
+ integer :: nstack,iglob,ileaf,n,ichild(2),k,ipos
+
+ let_stamp = let_stamp + 1
+ !
+ ! mark the nodes that a walk on iproc could open, following the walk itself:
+ ! pairs (node on iproc's side, node on this task's side) of the combined tree
+ ! descend together from the root, as in the unsplit dual tree traversal. Once
+ ! iproc's side reaches one of its global leaves, whose nodes below are unknown
+ ! here, a region bound stands in for them and only this task's side descends
+ !
+ allocate(istack(3,1024))
+ nstack = 0
+ call push_pair(istack,nstack,irootcomb,irootcomb,0)
+ do while (nstack > 0)
+    call let_pair_step(istack,nstack,iproc)
+ enddo
+ !
+ ! list the children of the marked nodes in pre-order: a node marked
+ ! below a global leaf is itself in the list, so its parent comes first
+ !
+ nlist = 0
+ nstack = 0
+ do iglob = 1,ncomb_tree - int(ncells)
+    if (.not.is_this_task(iglob) .or. cellatid(iglob) /= id + 1) cycle
+    ileaf = combined_index(iglob)
+    if (let_mark(ileaf) == let_stamp) call push_pair(istack,nstack,ileaf,-iglob,0)
+ enddo
+ do while (nstack > 0)
+    n    = istack(1,nstack)
+    ipos = istack(2,nstack)
+    nstack = nstack - 1
+    ichild = [node(n)%leftchild,node(n)%rightchild]
+    do k = 1,2
+       if (ichild(k) <= 0) cycle
+       nlist = nlist + 1
+       list(nlist)    = ichild(k)
+       iparent(nlist) = ipos
+       iside(nlist)   = k
+       if (let_mark(ichild(k)) == let_stamp) call push_pair(istack,nstack,ichild(k),nlist,0)
+    enddo
+ enddo
+
+end subroutine select_let_nodes
+
+!-----------------------------------------------------------------------
+!+
+!  one step of the descent in select_let_nodes: test the pair on top of
+!  the stack, a node on iproc's side against a node on this task's side
+!  (both in the combined tree), and push the pairs below it
+!+
+!-----------------------------------------------------------------------
+subroutine let_pair_step(istack,nstack,iproc)
+ use io, only:id
+ integer, allocatable, intent(inout) :: istack(:,:)
+ integer,              intent(inout) :: nstack
+ integer,              intent(in)    :: iproc
+ integer :: ia,ib,istep,ka(2),kb(2),i,j
+ real    :: sizemax,hmaxmax
+ logical :: may_open
+
+ ia    = istack(1,nstack)
+ ib    = istack(2,nstack)
+ istep = istack(3,nstack)
+ nstack = nstack - 1
+ if (.not.(on_side(ia,iproc) .and. on_side(ib,id))) return
+ ka = [node(ia)%leftchild,node(ia)%rightchild]
+ kb = [node(ib)%leftchild,node(ib)%rightchild]
+
+ if (remote_leaf_owner(ia) == iproc + 1) then
+    ! a global leaf of iproc, istep steps of the walk above the pair. Below it,
+    ! iproc's nodes are unknown here: bound them by its size profile. The leaf
+    ! itself, or a leaf of iproc's tree, is known exactly
+    if (.not.global_active(ia - int(ncells))) return  ! none of its leaves walk
+    if (istep == 0 .or. remote_local_index(ia) < 0) then
+       may_open = .not.well_separated(node(ia),node(ib))
+    else
+       call profile_bounds(ia - int(ncells),istep,sizemax,hmaxmax)
+       may_open = profile_may_open(node(ia),sizemax,hmaxmax,node(ib))
+    endif
+    if (.not.may_open .or. all(kb <= 0)) return
+    call mark_opened(ib)
+    do j = 1,2
+       if (kb(j) > 0) call push_pair(istack,nstack,ia,kb(j),istep+1)
+    enddo
+ elseif (ia == ib .or. .not.well_separated(node(ia),node(ib))) then
+    if (ia > ncells) then
+       if (global_owner(ia - int(ncells)) == iproc) then
+          if (.not.global_active(ia - int(ncells))) return  ! no active leaves below it on iproc
+       endif
+    endif
+    if (all(kb <= 0)) then
+       ! leaf lowering: only iproc's side descends
+       do i = 1,2
+          if (ka(i) > 0) call push_pair(istack,nstack,ka(i),ib,0)
+       enddo
+    else
+       call mark_opened(ib)
+       do i = 1,2
+          do j = 1,2
+             if (ka(i) > 0 .and. kb(j) > 0) call push_pair(istack,nstack,ka(i),kb(j),0)
+          enddo
+       enddo
+    endif
+ endif
+
+end subroutine let_pair_step
+
+!-----------------------------------------------------------------------
+!+
+!  mark a local node as opened for the current receiver, if its children
+!  are not already in the global tree
+!+
+!-----------------------------------------------------------------------
+subroutine mark_opened(n)
+ use io, only:id
+ integer, intent(in) :: n
+
+ if (n > ncells) return
+ if (nodemap(n) /= 0) then
+    if (cellatid(nodemap(n)) /= id + 1) return  ! an internal node of the global tree
+ endif
+ let_mark(n) = let_stamp
+
+end subroutine mark_opened
+
+!-----------------------------------------------------------------------
+!+
+!  whether a node of the combined tree belongs to the given task, or is
+!  a node of the global tree above its domain
+!+
+!-----------------------------------------------------------------------
+logical function on_side(n,itask)
+ use io, only:id,nprocs
+ integer, intent(in) :: n,itask
+ integer :: g,k
+
+ if (n <= ncells) then
+    on_side = (itask == id)
+    return
+ endif
+ g = n - int(ncells)
+ if (global_owner(g) >= 0) then
+    on_side = (global_owner(g) == itask)
+ else
+    ! a top node (heap indexed): an ancestor of the domain node of itask?
+    k = nprocs + itask
+    do while (k > g)
+       k = k/2
+    enddo
+    on_side = (k == g)
+ endif
+
+end function on_side
+
+!-----------------------------------------------------------------------
+!+
+!  push a pair onto a stack that grows as needed
+!+
+!-----------------------------------------------------------------------
+subroutine push_pair(istack,nstack,i1,i2,i3)
+ integer, allocatable, intent(inout) :: istack(:,:)
+ integer,              intent(inout) :: nstack
+ integer,              intent(in)    :: i1,i2,i3
+ integer, allocatable :: tmp(:,:)
+
+ if (nstack >= size(istack,2)) then
+    allocate(tmp(3,2*size(istack,2)))
+    tmp(:,1:nstack) = istack(:,1:nstack)
+    call move_alloc(tmp,istack)
+ endif
+ nstack = nstack + 1
+ istack(:,nstack) = [i1,i2,i3]
+
+end subroutine push_pair
+
+!-----------------------------------------------------------------------
+!+
+!  whether two nodes are well separated: the acceptance criterion of
+!  the dual tree walk (node_interaction)
+!+
+!-----------------------------------------------------------------------
+logical function well_separated(node1,node2)
+ use kernel, only:radkern
+ type(kdnode), intent(in) :: node1,node2
+ real :: dx,dy,dz,xoff,yoff,zoff,r2,rcut
+
+ call get_sep(node1%xcen,node2%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+ rcut = radkern*max(node1%hmax,node2%hmax)
+ well_separated = (tree_accuracy**2*r2 > (node1%size + node2%size)**2) .and. &
+                  (r2 > (node1%size + node2%size + rcut)**2)
+
+end function well_separated
+
+!-----------------------------------------------------------------------
+!+
+!  whether a node below the global leaf noded, of size at most sizemax and
+!  hmax at most hmaxmax (from its profile), could fail the acceptance
+!  criterion against node n. Its centre is within the leaf's sphere (the
+!  centre of mass of particles in a ball is in the ball)
+!+
+!-----------------------------------------------------------------------
+logical function profile_may_open(noded,sizemax,hmaxmax,n_node)
+ use kernel, only:radkern
+ type(kdnode), intent(in) :: noded,n_node
+ real,         intent(in) :: sizemax,hmaxmax
+ real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
+
+ call get_sep(noded%xcen,n_node%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+ d     = sqrt(r2) - noded%size
+ sizes = sizemax + n_node%size
+ rcut  = radkern*max(hmaxmax,n_node%hmax)
+ profile_may_open = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
+
+end function profile_may_open
+
+!-----------------------------------------------------------------------
+!+
+!  bounds on the size and hmax of a node of another task's global leaf g
+!  that a walk pairs istep steps below it, from its profile (or, if none
+!  was received, any node in its sphere: at most twice its radius, and
+!  no larger hmax than the leaf)
+!+
+!-----------------------------------------------------------------------
+subroutine profile_bounds(g,istep,sizemax,hmaxmax)
+ integer, intent(in)  :: g,istep
+ real,    intent(out) :: sizemax,hmaxmax
+ integer :: k
+
+ if (profile_len(g) > 0) then
+    k = profile_start(g) + 2*min(istep,profile_len(g)-1)
+    sizemax = profile_pool(k)
+    hmaxmax = profile_pool(k+1)
+ else
+    sizemax = 2.*nodeglobal(g)%size
+    hmaxmax = nodeglobal(g)%hmax
+ endif
+
+end subroutine profile_bounds
+
+!-----------------------------------------------------------------------
+!+
+!  send the size profiles of this task's global leaves to the tasks whose
+!  walks they can bound (those whose domains could interact with the leaf),
+!  receive theirs, and mark which global nodes of other tasks have active
+!  leaves below them. A task missing a profile uses a looser bound, so this
+!  affects only how many nodes are imported, never which are needed
+!+
+!-----------------------------------------------------------------------
+subroutine exchange_size_profiles()
+ use io,       only:nprocs,id
+ use mpiutils, only:alltoall_mpi,alltoallv_mpi
+ real,    allocatable :: sendbuf(:),recvbuf(:)
+ integer, allocatable :: leaves(:)
+ real    :: prof(2,nprofile)
+ integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nleaves,nlen,nbuf,irecv,g,n,ng
+
+ call mark_active_branches()
+ ! this task's global leaves: its domain node, if a leaf, or the leaves of its block
+ allocate(leaves(nmirror+1))
+ nleaves = 0
+ if (nmirror == 0) then
+    nleaves = 1
+    leaves(1) = irootnode
+ endif
+ do k = 1,nmirror
+    if (cellatid(nodemap(mirror_list(k))) == id + 1) then
+       nleaves = nleaves + 1
+       leaves(nleaves) = mirror_list(k)
+    endif
+ enddo
+
+ ! records of (global index, length, values) for each leaf, to each task it can interact with
+ allocate(sendbuf(max(1,nleaves*(2*nprofile+2)*min(nprocs-1,4))))
+ nbuf  = 0
+ nsend = 0
+ do iproc = 0,nprocs-1
+    if (iproc == id) cycle
+    do k = 1,nleaves
+       n = leaves(k)
+       if (.not.leaf_may_interact(n,nprocs + iproc)) cycle
+       call leaf_size_profile(n,prof,nlen)
+       if (nbuf + 2*nlen + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + 2*nlen + 2)
+       sendbuf(nbuf+1) = nodemap(n)
+       sendbuf(nbuf+2) = nlen
+       sendbuf(nbuf+3:nbuf+2+2*nlen) = reshape(prof(:,1:nlen),[2*nlen])
+       nbuf = nbuf + 2*nlen + 2
+       nsend(iproc+1) = nsend(iproc+1) + 2*nlen + 2
+    enddo
+ enddo
+ call alltoall_mpi(nsend,nrecv)
+ allocate(recvbuf(max(sum(nrecv),1)))
+ call alltoallv_mpi(sendbuf,nsend,recvbuf,nrecv)
+
+ ! store the profiles received
+ ng = ncomb_tree - int(ncells)
+ profile_len(1:ng) = -1
+ if (allocated(profile_pool)) then
+    if (size(profile_pool) < sum(nrecv)) deallocate(profile_pool)
+ endif
+ if (.not.allocated(profile_pool)) allocate(profile_pool(max(sum(nrecv),1)))
+ irecv = 0
+ do while (irecv < sum(nrecv))
+    g    = nint(recvbuf(irecv+1))
+    nlen = nint(recvbuf(irecv+2))
+    profile_len(g)   = nlen
+    profile_start(g) = irecv + 3
+    profile_pool(irecv+3:irecv+2+2*nlen) = recvbuf(irecv+3:irecv+2+2*nlen)
+    irecv = irecv + 2*nlen + 2
+ enddo
+ call mark_global_active(ng)
+
+end subroutine exchange_size_profiles
+
+!-----------------------------------------------------------------------
+!+
+!  whether a local node could interact with any node in the domain of
+!  another task: the domain region bound, conservative
+!+
+!-----------------------------------------------------------------------
+logical function leaf_may_interact(n,idomain)
+ use kernel, only:radkern
+ integer, intent(in) :: n,idomain
+ real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
+
+ call get_sep(nodeglobal(idomain)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+ d     = sqrt(r2) - nodeglobal(idomain)%size
+ sizes = 2.*nodeglobal(idomain)%size + node(n)%size
+ rcut  = radkern*max(nodeglobal(idomain)%hmax,node(n)%hmax)
+ leaf_may_interact = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
+
+end function leaf_may_interact
+
+!-----------------------------------------------------------------------
+!+
+!  mark the local nodes on the branches of active leaves
+!+
+!-----------------------------------------------------------------------
+subroutine mark_active_branches()
+ integer :: k,n
+
+ let_stamp = let_stamp + 1
+ do k = 1,nactive_leaves
+    n = active_leaves(k)
+    do while (branch_mark(n) /= let_stamp)
+       branch_mark(n) = let_stamp
+       if (n == irootnode .or. node(n)%parent <= 0) exit
+       n = node(n)%parent
+    enddo
+ enddo
+
+end subroutine mark_active_branches
+
+!-----------------------------------------------------------------------
+!+
+!  mark the global nodes with active leaves below them: a leaf of another
+!  task is active unless its profile says it has no active particles (or
+!  none was received for a leaf too far away to matter, kept as active)
+!+
+!-----------------------------------------------------------------------
+subroutine mark_global_active(ng)
+ integer, intent(in) :: ng
+ integer :: g,il,ir
+
+ ! children come after their parents in the global tree, except above the
+ ! domains, where the heap order also puts children at larger indices
+ do g = ng,1,-1
+    il = nodeglobal(g)%leftchild
+    ir = nodeglobal(g)%rightchild
+    if (il <= 0 .and. ir <= 0) then
+       global_active(g) = (profile_len(g) /= 0)
+    else
+       global_active(g) = .false.
+       if (il > 0) global_active(g) = global_active(il)
+       if (ir > 0) global_active(g) = global_active(g) .or. global_active(ir)
+    endif
+ enddo
+
+end subroutine mark_global_active
+
+!-----------------------------------------------------------------------
+!+
+!  profile of the active branches of the local subtree below n0: entry k
+!  bounds the size and hmax of a node the walk can reach k-1 steps below
+!  n0, i.e. a node at that depth on an active branch, or an active leaf
+!  above it (which the walk keeps while the other side descends). The
+!  last entry covers all deeper steps. nlen is 0 with no active leaves
+!+
+!-----------------------------------------------------------------------
+subroutine leaf_size_profile(n0,prof,nlen)
+ integer, intent(in)  :: n0
+ real,    intent(out) :: prof(2,nprofile)   ! (size, hmax) for each step
+ integer, intent(out) :: nlen
+ integer, allocatable :: istack(:,:)
+ integer :: nstack,n,idepth,k,j,ichild(2)
+ real    :: sdepth(2,nprofile),sleaf(2,nprofile),nodeval(2)
+
+ nlen = 0
+ prof = 0.
+ if (branch_mark(n0) /= let_stamp) return
+ sdepth = 0.
+ sleaf  = 0.
+ allocate(istack(3,256))
+ nstack = 0
+ call push_pair(istack,nstack,n0,0,0)
+ do while (nstack > 0)
+    n      = istack(1,nstack)
+    idepth = istack(2,nstack)
+    nstack = nstack - 1
+    k = min(idepth+1,nprofile)
+    nlen = max(nlen,k)
+    nodeval = [node(n)%size,node(n)%hmax]
+    sdepth(:,k) = max(sdepth(:,k),nodeval)
+    ichild = [node(n)%leftchild,node(n)%rightchild]
+    if (all(ichild <= 0)) then
+       sleaf(:,k) = max(sleaf(:,k),nodeval)
+    else
+       do j = 1,2
+          if (ichild(j) > 0) then
+             if (branch_mark(ichild(j)) == let_stamp) call push_pair(istack,nstack,ichild(j),idepth+1,0)
+          endif
+       enddo
+    endif
+ enddo
+ ! an active leaf found at a shallower depth stays in the walk at all later steps
+ do k = 2,nprofile
+    sleaf(:,k) = max(sleaf(:,k),sleaf(:,k-1))
+ enddo
+ prof(:,1) = sdepth(:,1)
+ do k = 2,nlen
+    prof(:,k) = max(sdepth(:,k),sleaf(:,k-1))
+ enddo
+ ! beyond the deepest active node only those leaves remain
+ if (nlen < nprofile) then
+    nlen = nlen + 1
+    prof(:,nlen) = sleaf(:,nlen-1)
+ endif
+
+end subroutine leaf_size_profile
+
+!-----------------------------------------------------------------------
+!+
+!  write one imported-node record: node data, parent, side, local index
+!+
+!-----------------------------------------------------------------------
+subroutine put_let_record(rec,n,iparent,iside)
+ real,    intent(out) :: rec(nlet_record)
+ integer, intent(in)  :: n,iparent,iside
+
+ rec(1:3) = node(n)%xcen
+ rec(4)   = node(n)%size
+ rec(5)   = node(n)%hmax
+ rec(6)   = node(n)%mass
+ rec(7)   = iparent
+ rec(8)   = iside
+ rec(9)   = local_index_and_leaf(n)
+#ifdef GRAVITY
+ rec(10:15) = node(n)%quads
+ rec(16:25) = node(n)%octs
+#endif
+
+end subroutine put_let_record
+
+!-----------------------------------------------------------------------
+!+
+!  append the nodes received from task iproc to the combined tree,
+!  below its global leaves
+!+
+!-----------------------------------------------------------------------
+subroutine attach_let_nodes(iproc,buf)
+ integer, intent(in) :: iproc
+ real,    intent(in) :: buf(:)
+ integer :: nrec,k,n,nbase,ipar,ip
+
+ nrec  = size(buf)/nlet_record
+ nbase = ncomb
+ if (nbase + nrec > size(node)) call grow_combined_tree(nbase + nrec)
+ do k = 1,nrec
+    ip = (k-1)*nlet_record
+    n  = nbase + k
+    node(n)%xcen = buf(ip+1:ip+3)
+    node(n)%size = buf(ip+4)
+    node(n)%hmax = buf(ip+5)
+    node(n)%mass = buf(ip+6)
+#ifdef GRAVITY
+    node(n)%quads = buf(ip+10:ip+15)
+    node(n)%octs  = buf(ip+16:ip+25)
+#endif
+    node(n)%leftchild  = 0
+    node(n)%rightchild = 0
+    node(n)%level      = 0
+    ipar = nint(buf(ip+7))
+    if (ipar < 0) then
+       ipar = int(ncells) - ipar   ! a global node of iproc
+    else
+       ipar = nbase + ipar
+    endif
+    node(n)%parent = ipar
+    if (nint(buf(ip+8)) == 1) then
+       node(ipar)%leftchild = n
+    else
+       node(ipar)%rightchild = n
+    endif
+    ! the parent is no longer a leaf of the combined tree
+    leaf_is_active(ipar)    = 0
+    remote_leaf_owner(ipar) = 0
+    leaf_is_active(n)       = 1
+    remote_leaf_owner(n)    = iproc + 1
+    remote_local_index(n)   = nint(buf(ip+9))
+ enddo
+ ncomb = nbase + nrec
+
+end subroutine attach_let_nodes
+
+!-----------------------------------------------------------------------
+!+
+!  make room for at least nmin nodes in the combined tree, keeping the
+!  nodes already there (called outside parallel regions)
+!+
+!-----------------------------------------------------------------------
+subroutine grow_combined_tree(nmin)
+ integer, intent(in) :: nmin
+ type(kdnode), allocatable :: newnode(:)
+ integer :: nnew
+
+ nnew = max(nmin,int(1.5*size(node)))
+ allocate(newnode(nnew))
+ newnode(1:ncomb) = node(1:ncomb)
+ call move_alloc(newnode,node)
+ call grow_int(leaf_is_active,nnew,ncomb)
+ call grow_int(remote_leaf_owner,nnew,ncomb)
+ call grow_int(remote_local_index,nnew,ncomb)
+
+end subroutine grow_combined_tree
+
+!-----------------------------------------------------------------------
+!+
+!  grow an integer array to size nnew, keeping its first nkeep entries
+!  and setting the rest to zero
+!+
+!-----------------------------------------------------------------------
+subroutine grow_int(x,nnew,nkeep)
+ integer, allocatable, intent(inout) :: x(:)
+ integer,              intent(in)    :: nnew,nkeep
+ integer, allocatable :: tmp(:)
+
+ allocate(tmp(nnew))
+ tmp = 0
+ tmp(1:nkeep) = x(1:nkeep)
+ call move_alloc(tmp,x)
+
+end subroutine grow_int
+
+!-----------------------------------------------------------------------
+!+
+!  grow a real array, keeping its contents
+!+
+!-----------------------------------------------------------------------
+subroutine grow_real(x,nmin)
+ real, allocatable, intent(inout) :: x(:)
+ integer,           intent(in)    :: nmin
+ real, allocatable :: tmp(:)
+
+ allocate(tmp(max(nmin,2*size(x))))
+ tmp(1:size(x)) = x
+ call move_alloc(tmp,x)
+
+end subroutine grow_real
+
+!-----------------------------------------------------------------------
+!+
+!  print the statistics of the locally essential tree exchange
+!+
+!-----------------------------------------------------------------------
+subroutine print_let_stats(iunit)
+ use io,       only:id,master,nprocs
+ use mpiutils, only:reduceall_mpi
+ integer, intent(in) :: iunit
+ integer(kind=8) :: nsent,nrecv,np2p,nrecvmax
+
+ nsent  = reduceall_mpi('+',nlet_sent)
+ nrecv  = reduceall_mpi('+',nlet_recv)
+ nrecvmax = reduceall_mpi('max',nlet_recv)
+ np2p   = reduceall_mpi('+',nlet_p2p)
+ if (id == master .and. nsent > 0) then
+    write(iunit,"(a,i0,a,f10.3,a,f10.3)") ' MPI LET nodes imported (all tasks): ',nrecv,&
+          '  MB per task (mean,max): ',1.e-6*8*nlet_record*real(nrecv)/nprocs,&
+          ' ',1.e-6*8*nlet_record*real(nrecvmax)
+    write(iunit,"(a,i0)") ' MPI LET leaf pairs with other tasks: ',np2p
+ endif
+ nlet_sent = 0
+ nlet_recv = 0
+ nlet_p2p  = 0
+
+end subroutine print_let_stats
+
+!-----------------------------------------------------------------------
+!+
+!  the trial neighbours of a cell sent by another task: the particles of
+!  the given local leaves, which its dual tree walk paired with the cell
+!+
+!-----------------------------------------------------------------------
+subroutine get_leaf_neighbours(xpos,leaves,nleaves,mylistneigh,nneigh,xyzcache,ixyzcachesize)
+ real,    intent(in)  :: xpos(3)
+ integer, intent(in)  :: leaves(:),nleaves,ixyzcachesize
+ integer, intent(out) :: mylistneigh(:),nneigh
+ real,    intent(out) :: xyzcache(:,:)
+ integer :: k,maxcache
+ real    :: dx,dy,dz,xoffset,yoffset,zoffset
+
+ maxcache = 0
+ if (ixyzcachesize > 0) maxcache = size(xyzcache,1)
+ nneigh = 0
+ do k = 1,nleaves
+    call get_sep(xpos,node(leaves(k))%xcen,dx,dy,dz,xoffset,yoffset,zoffset)
+    call cache_neighbours(nneigh,leaves(k),ixyzcachesize,maxcache,mylistneigh,xyzcache,xoffset,yoffset,zoffset)
+ enddo
+
+end subroutine get_leaf_neighbours
+
+!-----------------------------------------------------------------------
+!+
+!  the most nodes of its local tree a task copies into the global tree
+!+
+!-----------------------------------------------------------------------
+integer function mirror_budget()
+ use io,  only:nprocs
+ use dim, only:maxmirror_task,maxmirror_total
+
+ mirror_budget = max(2,min(maxmirror_task,maxmirror_total/nprocs))
+
+end function mirror_budget
+
+!-----------------------------------------------------------------------
+!+
+!  choose the nodes of the local tree to copy into the global tree.
+!  Starting from the children of the root, the node reaching furthest
+!  (size plus kernel radius) is split next, if it can interact with the
+!  domain of another task, until the node budget is used. Other tasks
+!  then see this task finely only where they need to: near their domains,
+!  and around particles with large smoothing lengths. The nodes are
+!  listed with the children of the root first
+!+
+!-----------------------------------------------------------------------
+subroutine select_mirrored_nodes(nactive)
+ integer, intent(in)  :: nactive
+ integer, allocatable :: heapnode(:)
+ real,    allocatable :: heapkey(:)
+ integer :: nbudget,nheap,n
+
+ ! copy a number of nodes proportional to the active particles: gathering and syncing
+ ! them then costs a small fraction of the work on those particles, however many tasks
+ ! there are, and deep in the timestep hierarchy (few active, the tree rebuilt often,
+ ! few exports) only a few nodes are copied
+ nbudget = min(mirror_budget(),max(nmirror_min,nactive/nactive_per_mirror))
+ if (allocated(mirror_list)) then
+    if (size(mirror_list) < nbudget) deallocate(mirror_list)
+ endif
+ if (.not.allocated(mirror_list)) allocate(mirror_list(nbudget))
+ allocate(heapnode(nbudget),heapkey(nbudget))
+
+ nmirror = 0
+ nheap = 0
+ call add_children(irootnode,heapnode,heapkey,nheap)
+ do while (nheap > 0 .and. nmirror + 2 <= nbudget)
+    call heap_pop(heapnode,heapkey,nheap,n)
+    if (node(n)%leftchild <= 0 .and. node(n)%rightchild <= 0) cycle  ! a leaf of the local tree
+    if (reaches_other_domain(n)) call add_children(n,heapnode,heapkey,nheap)
+ enddo
+
+end subroutine select_mirrored_nodes
+
+!-----------------------------------------------------------------------
+!+
+!  add the children of a node to the list of nodes to copy, and to the
+!  heap of nodes that may be split further
+!+
+!-----------------------------------------------------------------------
+subroutine add_children(n,heapnode,heapkey,nheap)
+ use kernel, only:radkern
+ integer, intent(in)    :: n
+ integer, intent(inout) :: heapnode(:),nheap
+ real,    intent(inout) :: heapkey(:)
+ integer :: ichild(2),k,nc
+
+ ichild = [node(n)%leftchild,node(n)%rightchild]
+ do k = 1,2
+    nc = ichild(k)
+    if (nc <= 0) cycle
+    nmirror = nmirror + 1
+    mirror_list(nmirror) = nc
+    call heap_push(heapnode,heapkey,nheap,nc,node(nc)%size + radkern*node(nc)%hmax)
+ enddo
+
+end subroutine add_children
+
+!-----------------------------------------------------------------------
+!+
+!  whether a cell of another task can reach a local node, either as a
+!  neighbour (within the kernel radius of either) or by opening it in
+!  the gravity walk. The domains of the other tasks are bounded by
+!  their nodes in the top levels of the global tree
+!+
+!-----------------------------------------------------------------------
+logical function reaches_other_domain(n)
+ use io,     only:nprocs,id
+ use kernel, only:radkern
+ integer, intent(in) :: n
+ integer :: idomain
+ real    :: dx,dy,dz,xoff,yoff,zoff,r,sizen,sized,reachn,reachd
+
+ reaches_other_domain = .true.
+ sizen  = node(n)%size
+ reachn = sizen + radkern*node(n)%hmax
+ do idomain = nprocs,2*nprocs-1
+    if (idomain == nprocs + id) cycle
+    call get_sep(node(n)%xcen,nodeglobal(idomain)%xcen,dx,dy,dz,xoff,yoff,zoff)
+    r = sqrt(dx*dx + dy*dy + dz*dz)
+    sized  = nodeglobal(idomain)%size
+    reachd = sized + radkern*nodeglobal(idomain)%hmax
+    if (r < reachn + reachd) return
+    ! a cell of the other domain is at least r - sized away, and no larger than sized
+    if (gravity .and. tree_accuracy*(r - sized) < sizen + sized) return
+ enddo
+ reaches_other_domain = .false.
+
+end function reaches_other_domain
+
+!-----------------------------------------------------------------------
+!+
+!  push a node onto a max-heap ordered by key
+!+
+!-----------------------------------------------------------------------
+pure subroutine heap_push(heapnode,heapkey,nheap,n,key)
+ integer, intent(inout) :: heapnode(:),nheap
+ real,    intent(inout) :: heapkey(:)
+ integer, intent(in)    :: n
+ real,    intent(in)    :: key
+ integer :: i,iparent
+
+ nheap = nheap + 1
+ i = nheap
+ do while (i > 1)
+    iparent = i/2
+    if (heapkey(iparent) >= key) exit
+    heapnode(i) = heapnode(iparent)
+    heapkey(i)  = heapkey(iparent)
+    i = iparent
+ enddo
+ heapnode(i) = n
+ heapkey(i)  = key
+
+end subroutine heap_push
+
+!-----------------------------------------------------------------------
+!+
+!  pop the node with the largest key from a max-heap
+!+
+!-----------------------------------------------------------------------
+pure subroutine heap_pop(heapnode,heapkey,nheap,n)
+ integer, intent(inout) :: heapnode(:),nheap
+ real,    intent(inout) :: heapkey(:)
+ integer, intent(out)   :: n
+ integer :: i,ichild,nlast
+ real    :: keylast
+
+ n = heapnode(1)
+ nlast   = heapnode(nheap)
+ keylast = heapkey(nheap)
+ nheap = nheap - 1
+ i = 1
+ do
+    ichild = 2*i
+    if (ichild > nheap) exit
+    if (ichild < nheap) then
+       if (heapkey(ichild+1) > heapkey(ichild)) ichild = ichild + 1
+    endif
+    if (keylast >= heapkey(ichild)) exit
+    heapnode(i) = heapnode(ichild)
+    heapkey(i)  = heapkey(ichild)
+    i = ichild
+ enddo
+ if (nheap > 0) then
+    heapnode(i) = nlast
+    heapkey(i)  = keylast
+ endif
+
+end subroutine heap_pop
+
+!-----------------------------------------------------------------------
+!+
+!  copy the chosen local nodes into a block, with the links between
+!  them given as positions in the block (0 for nodes outside it)
+!+
+!-----------------------------------------------------------------------
+subroutine pack_mirrored_nodes(block)
+ type(kdnode), intent(out) :: block(:)
+ integer :: p,n
+
+ ! position in the block, temporarily stored in nodemap
+ do p = 1,nmirror
+    nodemap(mirror_list(p)) = p
+ enddo
+ do p = 1,nmirror
+    n = mirror_list(p)
+    block(p) = node(n)
+    block(p)%leftchild  = position_in_block(node(n)%leftchild)
+    block(p)%rightchild = position_in_block(node(n)%rightchild)
+    block(p)%parent     = position_in_block(node(n)%parent)
+ enddo
+
+end subroutine pack_mirrored_nodes
+
+!-----------------------------------------------------------------------
+!+
+!  position of a local node in the block of copied nodes, 0 if not in it
+!+
+!-----------------------------------------------------------------------
+integer function position_in_block(n)
+ integer, intent(in) :: n
+
+ position_in_block = 0
+ if (n > 0) position_in_block = nodemap(n)
+
+end function position_in_block
+
+!-----------------------------------------------------------------------
+!+
+!  pass the hmax of the copied local nodes to the global tree on all
+!  MPI tasks, then raise the hmax of the domain nodes and the levels
+!  above them to cover their children
 !+
 !-----------------------------------------------------------------------
 subroutine sync_hmax_mpi
- use mpiutils,  only:reduceall_mpi
- use io,        only:nprocs
- integer :: i, n
- real    :: hmax(2**(globallevel+refinelevels+1)-1)
+ use io,       only:nprocs,id
+ use mpiutils, only:allgatherv_mpi
+ real, allocatable :: hmirror(:),hall(:)
+ integer :: p,k,n,idomain,il,ir
+ real    :: hchild
 
- hmax(:) = 0.0
- ! copy hmax values into contiguous array
- do i = 2,2**(refinelevels+1)-1
-    hmax(nodemap(i)) = node(i)%hmax
+ allocate(hmirror(nmirror),hall(sum(nmirror_task)))
+ do p = 1,nmirror
+    hmirror(p) = node(mirror_list(p))%hmax
+ enddo
+ call allgatherv_mpi(hmirror,hall,nmirror_task,mirror_displ)
+ do k = 1,size(hall)
+    nodeglobal(2*nprocs-1+k)%hmax = hall(k)
  enddo
 
- ! reduce across threads
- hmax = reduceall_mpi('max', hmax)
-
- ! put values back into node
- do i = 2*nprocs,2**(globallevel+refinelevels+1)-1
-    nodeglobal(i)%hmax = hmax(i)
- enddo
-
- ! walk tree up
- do i = 2*nprocs,4*nprocs
-    n = i
+ do idomain = nprocs,2*nprocs-1
+    il = nodeglobal(idomain)%leftchild
+    ir = nodeglobal(idomain)%rightchild
+    if (il == 0) cycle
+    hchild = nodeglobal(il)%hmax
+    if (ir > 0) hchild = max(hchild,nodeglobal(ir)%hmax)
+    n = idomain
+    nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     do while (nodeglobal(n)%parent /= 0)
        n = nodeglobal(n)%parent
-       nodeglobal(n)%hmax = max(nodeglobal(n)%hmax, hmax(i))
+       nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     enddo
  enddo
+
+ ! the same values in the combined tree
+ do k = 1,ncomb_tree - int(ncells)  ! the global tree only, not the imported nodes
+    if (.not.is_this_task(k)) node(int(ncells) + k)%hmax = nodeglobal(k)%hmax
+ enddo
+ node(irootnode)%hmax = nodeglobal(nprocs + id)%hmax
 
 end subroutine sync_hmax_mpi
 
@@ -585,6 +1802,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
 #ifdef GRAVITY
  real :: quads(6)
  real :: dr,totmass_node
+ logical :: count_gravity
 #endif
  tree_acc2 = tree_accuracy*tree_accuracy
  if (get_f .and. .not.present(fnode)) then
@@ -667,9 +1885,11 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
        ! counted again.
        !
        ! The solution is to not count the parts of the local tree that have been
-       ! added onto the global tree.
-
-       count_gravity: if ( global_walk .or. (n > irefine) ) then
+       ! added onto the global tree (those with nodemap /= 0). In the global
+       ! walk, n indexes the global tree, so nodemap must not be read.
+       count_gravity = global_walk
+       if (.not.global_walk) count_gravity = (nodemap(n) == 0)
+       if_count_gravity: if (count_gravity) then
           !
           !--long range force on node due to distant node, along node centres
           !  along with derivatives in order to perform series expansion
@@ -677,7 +1897,7 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
           dr = 1./sqrt(r2)
           call compute_M2L(dx,dy,dz,dr,totmass_node,quads,fnode)
 
-       endif count_gravity
+       endif if_count_gravity
 #endif
 
     endif if_open_node
@@ -694,7 +1914,7 @@ end subroutine getneigh
 !+
 !----------------------------------------------------------------
 subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesize,leaf_is_active,&
-                              get_hj,get_f,fnode,icell)
+                              get_hj,get_f,fnode,icell,nremote,ntrunc)
  type(kdnode), intent(inout) :: node(:) !ncellsmax+1)
  integer,      intent(in)    :: ixyzcachesize
  real,         intent(in)    :: xpos(3)
@@ -707,7 +1927,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  logical,      intent(in)    :: get_f
  real,         intent(out)   :: fnode(lenfgrav)
  integer,      intent(in)    :: icell
- integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate
+ integer,      intent(out), optional :: nremote,ntrunc ! leaf pairs with other tasks' leaves, and with truncated ones
+ integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate,nrem,ntr
  integer :: branch(maxdepth+1),nparents,stack(3,maxstacksize),startwith(2)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
@@ -729,6 +1950,9 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  fnode_acc = 0.
  nneigh = 0
  istack = 0
+ nrem = 0
+ ntr = 0
+ nremote_leaves = 0
  xoffset = 0.
  yoffset = 0.
  zoffset = 0.
@@ -738,12 +1962,14 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
        isrc = neighnodecache(neighnodecache_start(startwith(1)) + i)
        call open_nodes(stack,istack,node(isrc),isrc,branch,startwith(2),&
                        listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
-                       maxcache,xoffset,yoffset,zoffset)
+                       maxcache,xoffset,yoffset,zoffset,nrem,ntr)
     enddo
  else
+    ! start from the top of the branch: the root of the local tree, or of the
+    ! combined tree with more than one MPI task
     istack = istack + 1
-    stack(1,istack) = irootnode
-    stack(2,istack) = irootnode
+    stack(1,istack) = branch(nparents)
+    stack(2,istack) = branch(nparents)
     stack(3,istack) = nparents
  endif
 !
@@ -774,9 +2000,11 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
 
        call open_nodes(stack,istack,node(isrc),isrc,branch,idstbranch,&
                        listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
-                       maxcache,xoffset,yoffset,zoffset)
+                       maxcache,xoffset,yoffset,zoffset,nrem,ntr)
     endif
  enddo
+ if (present(nremote)) nremote = nrem
+ if (present(ntrunc))  ntrunc  = ntr
 
  !
  !-- Downward pass to accumulate on each leaf / Cache and fetch fgrav optimisation
@@ -939,7 +2167,7 @@ end subroutine get_list_of_parent_nodes
 !-----------------------------------------------------------
 subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
                            listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
-                           maxcache,xoffset,yoffset,zoffset)
+                           maxcache,xoffset,yoffset,zoffset,nremote,ntrunc)
  use io, only:fatal
  type(kdnode), intent(in)    :: srcnode
  integer,      intent(in)    :: isrc,idstbranch
@@ -951,6 +2179,7 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  integer,      intent(inout) :: stack(:,:),istack
  real,         intent(inout) :: xyzcache(:,:)
  real,         intent(in)    :: xoffset,yoffset,zoffset
+ integer,      intent(inout) :: nremote,ntrunc
  integer :: ir,il,ibranchnext,idstnext
  logical :: isdstleaf
 
@@ -969,8 +2198,19 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  idstnext = branch(ibranchnext) ! new dest node id
 
  is_src_leaf: if (leaf_is_active(isrc) /= 0) then
+    ! a leaf of another task with a positive local index is not a leaf on its owner:
+    ! its children are missing, so it can be neither lowered against nor paired here
+    if (remote_leaf_owner(isrc) /= 0) then
+       if (remote_local_index(isrc) > 0) ntrunc = ntrunc + 1
+    endif
     is_P2P: if (isdstleaf) then !-- P2P detected should be cached and tagged as neighbours
-       call cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
+       if (remote_leaf_owner(isrc) /= 0) then
+          ! a leaf of another task: its particles are not here, so the cell is sent to its owner
+          nremote = nremote + 1
+          call add_remote_leaf(isrc)
+       else
+          call cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
+       endif
     else ! then you're a leaf -> leaf lowering
        if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
        istack = istack + 1
@@ -996,6 +2236,26 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  endif is_src_leaf
 
 end subroutine open_nodes
+
+!-----------------------------------------------------------
+!+
+!  add a leaf of another task to this thread's list
+!+
+!-----------------------------------------------------------
+subroutine add_remote_leaf(n)
+ integer, intent(in) :: n
+ integer, allocatable :: tmp(:)
+
+ if (.not.allocated(remote_leaves)) allocate(remote_leaves(256))
+ if (nremote_leaves >= size(remote_leaves)) then
+    allocate(tmp(2*size(remote_leaves)))
+    tmp(1:nremote_leaves) = remote_leaves(1:nremote_leaves)
+    call move_alloc(tmp,remote_leaves)
+ endif
+ nremote_leaves = nremote_leaves + 1
+ remote_leaves(nremote_leaves) = n
+
+end subroutine add_remote_leaf
 
 !----------------------------------------------------------------
 !+
