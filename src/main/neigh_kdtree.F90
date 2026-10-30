@@ -53,6 +53,7 @@ module neighkdtree
  ! nodes imported from other tasks (the locally essential tree) are appended after ncomb_tree
  integer                            :: ncomb_tree = 0
  integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver
+ integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
  integer                            :: let_stamp = 0
  integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0, nlet_trunc = 0
  ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
@@ -148,6 +149,7 @@ subroutine allocate_neigh
  call allocate_array('remote_local_index',remote_local_index,nnodes      )
  call allocate_array('global_local_index',global_local_index,nglobal     )
  call allocate_array('let_mark',       let_mark,       ncellsmax+1       )
+ call allocate_array('global_owner',   global_owner,   nglobal           )
  nodemap = 0
  nmirror = 0
  remote_leaf_owner = 0
@@ -194,6 +196,7 @@ subroutine deallocate_neigh
  if (allocated(remote_local_index)) deallocate(remote_local_index)
  if (allocated(global_local_index)) deallocate(global_local_index)
  if (allocated(let_mark)) deallocate(let_mark)
+ if (allocated(global_owner)) deallocate(global_owner)
  if (allocated(mirror_list)) deallocate(mirror_list)
  if (allocated(nmirror_task)) deallocate(nmirror_task,mirror_displ)
  if (allocated(cachestate)) deallocate(cachestate)
@@ -638,6 +641,7 @@ subroutine graft_local_trees()
 
  ! the blocks are linked within themselves: shift them to their place in the global tree
  cellatid = 0
+ global_owner(1:nprocs-1) = -1
  do itask = 1,nprocs
     ibase = ifirst - 1 + mirror_displ(itask)
     idomain = nprocs + itask - 1
@@ -653,6 +657,8 @@ subroutine graft_local_trees()
        if (nodeglobal(g)%leftchild == 0 .and. nodeglobal(g)%rightchild == 0) cellatid(g) = itask
     enddo
     global_local_index(idomain) = merge(-irootnode,irootnode,nmirror_task(itask) == 0)
+    global_owner(idomain) = itask - 1
+    global_owner(ibase+1:ibase+nmirror_task(itask)) = itask - 1
     ! the children of the domain node come first in the block
     nodeglobal(idomain)%leftchild = 0
     nodeglobal(idomain)%rightchild = 0
@@ -827,25 +833,23 @@ end subroutine let_exchange
 !+
 !-----------------------------------------------------------------------
 subroutine select_let_nodes(iproc,list,iparent,iside,nlist)
- use io, only:nprocs,id
+ use io, only:id
  integer, intent(in)  :: iproc
  integer, intent(out) :: list(:),iparent(:),iside(:),nlist
  integer, allocatable :: istack(:,:)
- integer :: nstack,idom,iglob,ileaf,n,ichild(2),k,ipos
+ integer :: nstack,iglob,ileaf,n,ichild(2),k,ipos
 
  let_stamp = let_stamp + 1
- idom = nprocs + iproc
  !
- ! mark the nodes that a walk on iproc could open, descending pairs of
- ! (node of iproc's global tree, local node), starting from iproc's
- ! domain against each of this task's global leaves
+ ! mark the nodes that a walk on iproc could open, following the walk itself:
+ ! pairs (node on iproc's side, node on this task's side) of the combined tree
+ ! descend together from the root, as in the unsplit dual tree traversal. Once
+ ! iproc's side reaches one of its global leaves, whose nodes below are unknown
+ ! here, a region bound stands in for them and only this task's side descends
  !
  allocate(istack(2,1024))
  nstack = 0
- do iglob = 1,ncomb_tree - int(ncells)
-    if (.not.is_this_task(iglob) .or. cellatid(iglob) /= id + 1) cycle
-    call push_pair(istack,nstack,idom,combined_index(iglob))
- enddo
+ call push_pair(istack,nstack,irootcomb,irootcomb)
  do while (nstack > 0)
     call let_pair_step(istack,nstack,iproc)
  enddo
@@ -880,38 +884,96 @@ end subroutine select_let_nodes
 !-----------------------------------------------------------------------
 !+
 !  one step of the descent in select_let_nodes: test the pair on top of
-!  the stack, a node of iproc's global tree against a local node, and
-!  push the pairs below it
+!  the stack, a node on iproc's side against a node on this task's side
+!  (both in the combined tree), and push the pairs below it
 !+
 !-----------------------------------------------------------------------
 subroutine let_pair_step(istack,nstack,iproc)
+ use io, only:id
  integer, allocatable, intent(inout) :: istack(:,:)
  integer,              intent(inout) :: nstack
  integer,              intent(in)    :: iproc
- integer :: iglob,n
- logical :: open_local
+ integer :: ia,ib,ka(2),kb(2),i,j
 
- iglob = istack(1,nstack)
- n     = istack(2,nstack)
+ ia = istack(1,nstack)
+ ib = istack(2,nstack)
  nstack = nstack - 1
- if (.not.region_may_open(nodeglobal(iglob),node(n))) return
+ if (.not.(on_side(ia,iproc) .and. on_side(ib,id))) return
+ ka = [node(ia)%leftchild,node(ia)%rightchild]
+ kb = [node(ib)%leftchild,node(ib)%rightchild]
 
- if (cellatid(iglob) == 0) then
-    ! an internal node of iproc's part of the global tree: its data is exact
-    if (nodeglobal(iglob)%leftchild > 0)  call push_pair(istack,nstack,nodeglobal(iglob)%leftchild,n)
-    if (nodeglobal(iglob)%rightchild > 0) call push_pair(istack,nstack,nodeglobal(iglob)%rightchild,n)
-    open_local = .not.well_separated(nodeglobal(iglob),node(n))
- else
-    ! a global leaf of iproc: its unknown nodes below are covered by the region bound
-    open_local = (cellatid(iglob) == iproc + 1)
- endif
- if (open_local .and. local_index_and_leaf(n) > 0) then
-    let_mark(n) = let_stamp
-    call push_pair(istack,nstack,iglob,node(n)%leftchild)
-    call push_pair(istack,nstack,iglob,node(n)%rightchild)
+ if (remote_leaf_owner(ia) == iproc + 1) then
+    ! a global leaf of iproc: the region bound covers its unknown nodes below
+    if (.not.region_may_open(node(ia),node(ib))) return
+    if (all(kb <= 0)) return
+    call mark_opened(ib)
+    do j = 1,2
+       if (kb(j) > 0) call push_pair(istack,nstack,ia,kb(j))
+    enddo
+ elseif (ia == ib .or. .not.well_separated(node(ia),node(ib))) then
+    if (all(kb <= 0)) then
+       ! leaf lowering: only iproc's side descends
+       do i = 1,2
+          if (ka(i) > 0) call push_pair(istack,nstack,ka(i),ib)
+       enddo
+    else
+       call mark_opened(ib)
+       do i = 1,2
+          do j = 1,2
+             if (ka(i) > 0 .and. kb(j) > 0) call push_pair(istack,nstack,ka(i),kb(j))
+          enddo
+       enddo
+    endif
  endif
 
 end subroutine let_pair_step
+
+!-----------------------------------------------------------------------
+!+
+!  mark a local node as opened for the current receiver, if its children
+!  are not already in the global tree
+!+
+!-----------------------------------------------------------------------
+subroutine mark_opened(n)
+ use io, only:id
+ integer, intent(in) :: n
+
+ if (n > ncells) return
+ if (nodemap(n) /= 0) then
+    if (cellatid(nodemap(n)) /= id + 1) return  ! an internal node of the global tree
+ endif
+ let_mark(n) = let_stamp
+
+end subroutine mark_opened
+
+!-----------------------------------------------------------------------
+!+
+!  whether a node of the combined tree belongs to the given task, or is
+!  a node of the global tree above its domain
+!+
+!-----------------------------------------------------------------------
+logical function on_side(n,itask)
+ use io, only:id,nprocs
+ integer, intent(in) :: n,itask
+ integer :: g,k
+
+ if (n <= ncells) then
+    on_side = (itask == id)
+    return
+ endif
+ g = n - int(ncells)
+ if (global_owner(g) >= 0) then
+    on_side = (global_owner(g) == itask)
+ else
+    ! a top node (heap indexed): an ancestor of the domain node of itask?
+    k = nprocs + itask
+    do while (k > g)
+       k = k/2
+    enddo
+    on_side = (k == g)
+ endif
+
+end function on_side
 
 !-----------------------------------------------------------------------
 !+
