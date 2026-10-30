@@ -948,6 +948,7 @@ subroutine let_pair_step(istack,nstack,iproc)
  integer,              intent(inout) :: nstack
  integer,              intent(in)    :: iproc
  integer :: ia,ib,istep,ka(2),kb(2),i,j
+ real    :: sizemax,hmaxmax
  logical :: may_open
 
  ia    = istack(1,nstack)
@@ -966,7 +967,8 @@ subroutine let_pair_step(istack,nstack,iproc)
     if (istep == 0 .or. remote_local_index(ia) < 0) then
        may_open = .not.well_separated(node(ia),node(ib))
     else
-       may_open = profile_may_open(node(ia),profile_size(ia - int(ncells),istep),node(ib))
+       call profile_bounds(ia - int(ncells),istep,sizemax,hmaxmax)
+       may_open = profile_may_open(node(ia),sizemax,hmaxmax,node(ib))
     endif
     if (.not.may_open .or. all(kb <= 0)) return
     call mark_opened(ib)
@@ -1084,43 +1086,49 @@ end function well_separated
 
 !-----------------------------------------------------------------------
 !+
-!  whether a node below the global leaf noded, of size at most sizemax
-!  (from its size profile), could fail the acceptance criterion against
-!  node n. Its centre is within the leaf's sphere (the centre of mass of
-!  particles in a ball is in the ball) and its hmax is no larger
+!  whether a node below the global leaf noded, of size at most sizemax and
+!  hmax at most hmaxmax (from its profile), could fail the acceptance
+!  criterion against node n. Its centre is within the leaf's sphere (the
+!  centre of mass of particles in a ball is in the ball)
 !+
 !-----------------------------------------------------------------------
-logical function profile_may_open(noded,sizemax,n_node)
+logical function profile_may_open(noded,sizemax,hmaxmax,n_node)
  use kernel, only:radkern
  type(kdnode), intent(in) :: noded,n_node
- real,         intent(in) :: sizemax
+ real,         intent(in) :: sizemax,hmaxmax
  real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
 
  call get_sep(noded%xcen,n_node%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
  d     = sqrt(r2) - noded%size
  sizes = sizemax + n_node%size
- rcut  = radkern*max(noded%hmax,n_node%hmax)
+ rcut  = radkern*max(hmaxmax,n_node%hmax)
  profile_may_open = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
 
 end function profile_may_open
 
 !-----------------------------------------------------------------------
 !+
-!  bound on the size of a node of another task's global leaf g that a walk
-!  pairs istep steps below it, from its size profile (or, if no profile
-!  was received, any node in its sphere: at most twice its radius)
+!  bounds on the size and hmax of a node of another task's global leaf g
+!  that a walk pairs istep steps below it, from its profile (or, if none
+!  was received, any node in its sphere: at most twice its radius, and
+!  no larger hmax than the leaf)
 !+
 !-----------------------------------------------------------------------
-real function profile_size(g,istep)
- integer, intent(in) :: g,istep
+subroutine profile_bounds(g,istep,sizemax,hmaxmax)
+ integer, intent(in)  :: g,istep
+ real,    intent(out) :: sizemax,hmaxmax
+ integer :: k
 
  if (profile_len(g) > 0) then
-    profile_size = profile_pool(profile_start(g) + min(istep,profile_len(g)-1))
+    k = profile_start(g) + 2*min(istep,profile_len(g)-1)
+    sizemax = profile_pool(k)
+    hmaxmax = profile_pool(k+1)
  else
-    profile_size = 2.*nodeglobal(g)%size
+    sizemax = 2.*nodeglobal(g)%size
+    hmaxmax = nodeglobal(g)%hmax
  endif
 
-end function profile_size
+end subroutine profile_bounds
 
 !-----------------------------------------------------------------------
 !+
@@ -1136,7 +1144,7 @@ subroutine exchange_size_profiles()
  use mpiutils, only:alltoall_mpi,alltoallv_mpi
  real,    allocatable :: sendbuf(:),recvbuf(:)
  integer, allocatable :: leaves(:)
- real    :: prof(nprofile)
+ real    :: prof(2,nprofile)
  integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nleaves,nlen,nbuf,irecv,g,n,ng
 
  call mark_active_branches()
@@ -1155,7 +1163,7 @@ subroutine exchange_size_profiles()
  enddo
 
  ! records of (global index, length, values) for each leaf, to each task it can interact with
- allocate(sendbuf(max(1,nleaves*(nprofile+2)*min(nprocs-1,4))))
+ allocate(sendbuf(max(1,nleaves*(2*nprofile+2)*min(nprocs-1,4))))
  nbuf  = 0
  nsend = 0
  do iproc = 0,nprocs-1
@@ -1164,12 +1172,12 @@ subroutine exchange_size_profiles()
        n = leaves(k)
        if (.not.leaf_may_interact(n,nprocs + iproc)) cycle
        call leaf_size_profile(n,prof,nlen)
-       if (nbuf + nlen + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + nlen + 2)
+       if (nbuf + 2*nlen + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + 2*nlen + 2)
        sendbuf(nbuf+1) = nodemap(n)
        sendbuf(nbuf+2) = nlen
-       sendbuf(nbuf+3:nbuf+2+nlen) = prof(1:nlen)
-       nbuf = nbuf + nlen + 2
-       nsend(iproc+1) = nsend(iproc+1) + nlen + 2
+       sendbuf(nbuf+3:nbuf+2+2*nlen) = reshape(prof(:,1:nlen),[2*nlen])
+       nbuf = nbuf + 2*nlen + 2
+       nsend(iproc+1) = nsend(iproc+1) + 2*nlen + 2
     enddo
  enddo
  call alltoall_mpi(nsend,nrecv)
@@ -1189,8 +1197,8 @@ subroutine exchange_size_profiles()
     nlen = nint(recvbuf(irecv+2))
     profile_len(g)   = nlen
     profile_start(g) = irecv + 3
-    profile_pool(irecv+3:irecv+2+nlen) = recvbuf(irecv+3:irecv+2+nlen)
-    irecv = irecv + nlen + 2
+    profile_pool(irecv+3:irecv+2+2*nlen) = recvbuf(irecv+3:irecv+2+2*nlen)
+    irecv = irecv + 2*nlen + 2
  enddo
  call mark_global_active(ng)
 
@@ -1264,8 +1272,8 @@ end subroutine mark_global_active
 
 !-----------------------------------------------------------------------
 !+
-!  size profile of the active branches of the local subtree below n0:
-!  entry k bounds the size of a node the walk can reach k-1 steps below
+!  profile of the active branches of the local subtree below n0: entry k
+!  bounds the size and hmax of a node the walk can reach k-1 steps below
 !  n0, i.e. a node at that depth on an active branch, or an active leaf
 !  above it (which the walk keeps while the other side descends). The
 !  last entry covers all deeper steps. nlen is 0 with no active leaves
@@ -1273,11 +1281,11 @@ end subroutine mark_global_active
 !-----------------------------------------------------------------------
 subroutine leaf_size_profile(n0,prof,nlen)
  integer, intent(in)  :: n0
- real,    intent(out) :: prof(nprofile)
+ real,    intent(out) :: prof(2,nprofile)   ! (size, hmax) for each step
  integer, intent(out) :: nlen
  integer, allocatable :: istack(:,:)
  integer :: nstack,n,idepth,k,j,ichild(2)
- real    :: sdepth(nprofile),sleaf(nprofile)
+ real    :: sdepth(2,nprofile),sleaf(2,nprofile),nodeval(2)
 
  nlen = 0
  prof = 0.
@@ -1293,10 +1301,11 @@ subroutine leaf_size_profile(n0,prof,nlen)
     nstack = nstack - 1
     k = min(idepth+1,nprofile)
     nlen = max(nlen,k)
-    sdepth(k) = max(sdepth(k),node(n)%size)
+    nodeval = [node(n)%size,node(n)%hmax]
+    sdepth(:,k) = max(sdepth(:,k),nodeval)
     ichild = [node(n)%leftchild,node(n)%rightchild]
     if (all(ichild <= 0)) then
-       sleaf(k) = max(sleaf(k),node(n)%size)
+       sleaf(:,k) = max(sleaf(:,k),nodeval)
     else
        do j = 1,2
           if (ichild(j) > 0) then
@@ -1307,16 +1316,16 @@ subroutine leaf_size_profile(n0,prof,nlen)
  enddo
  ! an active leaf found at a shallower depth stays in the walk at all later steps
  do k = 2,nprofile
-    sleaf(k) = max(sleaf(k),sleaf(k-1))
+    sleaf(:,k) = max(sleaf(:,k),sleaf(:,k-1))
  enddo
- prof(1) = sdepth(1)
+ prof(:,1) = sdepth(:,1)
  do k = 2,nlen
-    prof(k) = max(sdepth(k),sleaf(k-1))
+    prof(:,k) = max(sdepth(:,k),sleaf(:,k-1))
  enddo
  ! beyond the deepest active node only those leaves remain
  if (nlen < nprofile) then
     nlen = nlen + 1
-    prof(nlen) = sleaf(nlen-1)
+    prof(:,nlen) = sleaf(:,nlen-1)
  endif
 
 end subroutine leaf_size_profile
