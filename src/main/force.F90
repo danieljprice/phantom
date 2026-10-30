@@ -241,7 +241,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use mpimemory,    only:force_pool,get_packed_cell,clear_pool
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
- use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,&
+ use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,itimer_force_let,&
                         itimer_force_lcomp,itimer_force_rcomp,&
                         itimer_force_lsend,itimer_force_rsend
  use eos,          only:iresistive_heating
@@ -414,7 +414,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
  !--import the nodes of other tasks that the dual tree walk could open (the
  !  locally essential tree), and check that the walk never meets a truncated node
- if (exchange .and. gravity .and. use_dualtree) call let_exchange()
+ if (exchange .and. gravity .and. use_dualtree) then
+    call get_timings(t1,tcpu1)
+    call let_exchange()
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_force_let,t2-t1,tcpu2-tcpu1)
+ endif
 
 !
 !-- verification for non-ideal MHD

@@ -57,6 +57,16 @@ module neighkdtree
  integer                            :: ncells_appended = 0 ! where the global tree was appended
  integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver
  integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
+ ! for each global leaf of another task, the largest size of a node that its walks can
+ ! pair with a node of this task, by the number of steps the walk has taken below the leaf
+ ! (the last entry is for all deeper steps). Only the branches above active leaves count,
+ ! since only active leaves walk. Stored in a pool: profile_len(g) values from
+ ! profile_start(g); 0 if the leaf has no active particles, -1 if not received
+ integer,               parameter   :: nprofile = 24
+ real,                  allocatable :: profile_pool(:)
+ integer,               allocatable :: profile_start(:),profile_len(:)
+ logical,               allocatable :: global_active(:)  ! a global node with active leaves below
+ integer,               allocatable :: branch_mark(:)     ! local nodes above active leaves
  integer                            :: let_stamp = 0
  integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0
  ! reals per imported node: xcen, size, hmax, mass, parent, side, local index (+ quads, octs)
@@ -157,6 +167,13 @@ subroutine allocate_neigh
  call allocate_array('global_local_index',global_local_index,nglobal     )
  call allocate_array('let_mark',       let_mark,       ncellsmax+1       )
  call allocate_array('global_owner',   global_owner,   nglobal           )
+ if (nprocs > 1) then
+    call allocate_array('profile_start',profile_start,int(nglobal))
+    call allocate_array('profile_len',  profile_len,  int(nglobal))
+    allocate(global_active(nglobal))
+    call allocate_array('branch_mark',  branch_mark,  ncellsmax+1)
+    branch_mark = 0
+ endif
  nodemap = 0
  nmirror = 0
  remote_leaf_owner = 0
@@ -204,6 +221,9 @@ subroutine deallocate_neigh
  if (allocated(global_local_index)) deallocate(global_local_index)
  if (allocated(let_mark)) deallocate(let_mark)
  if (allocated(global_owner)) deallocate(global_owner)
+ if (allocated(profile_pool)) deallocate(profile_pool)
+ if (allocated(profile_start)) deallocate(profile_start,profile_len,global_active)
+ if (allocated(branch_mark)) deallocate(branch_mark)
  if (allocated(mirror_list)) deallocate(mirror_list)
  if (allocated(nmirror_task)) deallocate(nmirror_task,mirror_displ)
  if (allocated(cachestate)) deallocate(cachestate)
@@ -820,6 +840,7 @@ subroutine let_exchange()
 
  ! forget the nodes imported by a previous call
  call combine_trees()
+ call exchange_size_profiles()
 
  allocate(list(ncomb),iparent(ncomb),iside(ncomb))
  allocate(sendbuf(nlet_record*1024))
@@ -880,9 +901,9 @@ subroutine select_let_nodes(iproc,list,iparent,iside,nlist)
  ! iproc's side reaches one of its global leaves, whose nodes below are unknown
  ! here, a region bound stands in for them and only this task's side descends
  !
- allocate(istack(2,1024))
+ allocate(istack(3,1024))
  nstack = 0
- call push_pair(istack,nstack,irootcomb,irootcomb)
+ call push_pair(istack,nstack,irootcomb,irootcomb,0)
  do while (nstack > 0)
     call let_pair_step(istack,nstack,iproc)
  enddo
@@ -895,7 +916,7 @@ subroutine select_let_nodes(iproc,list,iparent,iside,nlist)
  do iglob = 1,ncomb_tree - int(ncells)
     if (.not.is_this_task(iglob) .or. cellatid(iglob) /= id + 1) cycle
     ileaf = combined_index(iglob)
-    if (let_mark(ileaf) == let_stamp) call push_pair(istack,nstack,ileaf,-iglob)
+    if (let_mark(ileaf) == let_stamp) call push_pair(istack,nstack,ileaf,-iglob,0)
  enddo
  do while (nstack > 0)
     n    = istack(1,nstack)
@@ -908,7 +929,7 @@ subroutine select_let_nodes(iproc,list,iparent,iside,nlist)
        list(nlist)    = ichild(k)
        iparent(nlist) = ipos
        iside(nlist)   = k
-       if (let_mark(ichild(k)) == let_stamp) call push_pair(istack,nstack,ichild(k),nlist)
+       if (let_mark(ichild(k)) == let_stamp) call push_pair(istack,nstack,ichild(k),nlist,0)
     enddo
  enddo
 
@@ -926,34 +947,48 @@ subroutine let_pair_step(istack,nstack,iproc)
  integer, allocatable, intent(inout) :: istack(:,:)
  integer,              intent(inout) :: nstack
  integer,              intent(in)    :: iproc
- integer :: ia,ib,ka(2),kb(2),i,j
+ integer :: ia,ib,istep,ka(2),kb(2),i,j
+ logical :: may_open
 
- ia = istack(1,nstack)
- ib = istack(2,nstack)
+ ia    = istack(1,nstack)
+ ib    = istack(2,nstack)
+ istep = istack(3,nstack)
  nstack = nstack - 1
  if (.not.(on_side(ia,iproc) .and. on_side(ib,id))) return
  ka = [node(ia)%leftchild,node(ia)%rightchild]
  kb = [node(ib)%leftchild,node(ib)%rightchild]
 
  if (remote_leaf_owner(ia) == iproc + 1) then
-    ! a global leaf of iproc: the region bound covers its unknown nodes below
-    if (.not.region_may_open(node(ia),node(ib))) return
-    if (all(kb <= 0)) return
+    ! a global leaf of iproc, istep steps of the walk above the pair. Below it,
+    ! iproc's nodes are unknown here: bound them by its size profile. The leaf
+    ! itself, or a leaf of iproc's tree, is known exactly
+    if (.not.global_active(ia - int(ncells))) return  ! none of its leaves walk
+    if (istep == 0 .or. remote_local_index(ia) < 0) then
+       may_open = .not.well_separated(node(ia),node(ib))
+    else
+       may_open = profile_may_open(node(ia),profile_size(ia - int(ncells),istep),node(ib))
+    endif
+    if (.not.may_open .or. all(kb <= 0)) return
     call mark_opened(ib)
     do j = 1,2
-       if (kb(j) > 0) call push_pair(istack,nstack,ia,kb(j))
+       if (kb(j) > 0) call push_pair(istack,nstack,ia,kb(j),istep+1)
     enddo
  elseif (ia == ib .or. .not.well_separated(node(ia),node(ib))) then
+    if (ia > ncells) then
+       if (global_owner(ia - int(ncells)) == iproc) then
+          if (.not.global_active(ia - int(ncells))) return  ! no active leaves below it on iproc
+       endif
+    endif
     if (all(kb <= 0)) then
        ! leaf lowering: only iproc's side descends
        do i = 1,2
-          if (ka(i) > 0) call push_pair(istack,nstack,ka(i),ib)
+          if (ka(i) > 0) call push_pair(istack,nstack,ka(i),ib,0)
        enddo
     else
        call mark_opened(ib)
        do i = 1,2
           do j = 1,2
-             if (ka(i) > 0 .and. kb(j) > 0) call push_pair(istack,nstack,ka(i),kb(j))
+             if (ka(i) > 0 .and. kb(j) > 0) call push_pair(istack,nstack,ka(i),kb(j),0)
           enddo
        enddo
     endif
@@ -1013,19 +1048,19 @@ end function on_side
 !  push a pair onto a stack that grows as needed
 !+
 !-----------------------------------------------------------------------
-subroutine push_pair(istack,nstack,i1,i2)
+subroutine push_pair(istack,nstack,i1,i2,i3)
  integer, allocatable, intent(inout) :: istack(:,:)
  integer,              intent(inout) :: nstack
- integer,              intent(in)    :: i1,i2
+ integer,              intent(in)    :: i1,i2,i3
  integer, allocatable :: tmp(:,:)
 
  if (nstack >= size(istack,2)) then
-    allocate(tmp(2,2*size(istack,2)))
+    allocate(tmp(3,2*size(istack,2)))
     tmp(:,1:nstack) = istack(:,1:nstack)
     call move_alloc(tmp,istack)
  endif
  nstack = nstack + 1
- istack(:,nstack) = [i1,i2]
+ istack(:,nstack) = [i1,i2,i3]
 
 end subroutine push_pair
 
@@ -1049,24 +1084,242 @@ end function well_separated
 
 !-----------------------------------------------------------------------
 !+
-!  whether any node below (or equal to) noded, whose particles all lie in
-!  its sphere, could fail the acceptance criterion against node n. Such a
-!  node has its centre within the sphere, a size of at most twice its
-!  radius and no larger hmax
+!  whether a node below the global leaf noded, of size at most sizemax
+!  (from its size profile), could fail the acceptance criterion against
+!  node n. Its centre is within the leaf's sphere (the centre of mass of
+!  particles in a ball is in the ball) and its hmax is no larger
 !+
 !-----------------------------------------------------------------------
-logical function region_may_open(noded,n_node)
+logical function profile_may_open(noded,sizemax,n_node)
  use kernel, only:radkern
  type(kdnode), intent(in) :: noded,n_node
+ real,         intent(in) :: sizemax
  real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
 
  call get_sep(noded%xcen,n_node%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
  d     = sqrt(r2) - noded%size
- sizes = 2.*noded%size + n_node%size
+ sizes = sizemax + n_node%size
  rcut  = radkern*max(noded%hmax,n_node%hmax)
- region_may_open = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
+ profile_may_open = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
 
-end function region_may_open
+end function profile_may_open
+
+!-----------------------------------------------------------------------
+!+
+!  bound on the size of a node of another task's global leaf g that a walk
+!  pairs istep steps below it, from its size profile (or, if no profile
+!  was received, any node in its sphere: at most twice its radius)
+!+
+!-----------------------------------------------------------------------
+real function profile_size(g,istep)
+ integer, intent(in) :: g,istep
+
+ if (profile_len(g) > 0) then
+    profile_size = profile_pool(profile_start(g) + min(istep,profile_len(g)-1))
+ else
+    profile_size = 2.*nodeglobal(g)%size
+ endif
+
+end function profile_size
+
+!-----------------------------------------------------------------------
+!+
+!  send the size profiles of this task's global leaves to the tasks whose
+!  walks they can bound (those whose domains could interact with the leaf),
+!  receive theirs, and mark which global nodes of other tasks have active
+!  leaves below them. A task missing a profile uses a looser bound, so this
+!  affects only how many nodes are imported, never which are needed
+!+
+!-----------------------------------------------------------------------
+subroutine exchange_size_profiles()
+ use io,       only:nprocs,id
+ use mpiutils, only:alltoall_mpi,alltoallv_mpi
+ real,    allocatable :: sendbuf(:),recvbuf(:)
+ integer, allocatable :: leaves(:)
+ real    :: prof(nprofile)
+ integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nleaves,nlen,nbuf,irecv,g,n,ng
+
+ call mark_active_branches()
+ ! this task's global leaves: its domain node, if a leaf, or the leaves of its block
+ allocate(leaves(nmirror+1))
+ nleaves = 0
+ if (nmirror == 0) then
+    nleaves = 1
+    leaves(1) = irootnode
+ endif
+ do k = 1,nmirror
+    if (cellatid(nodemap(mirror_list(k))) == id + 1) then
+       nleaves = nleaves + 1
+       leaves(nleaves) = mirror_list(k)
+    endif
+ enddo
+
+ ! records of (global index, length, values) for each leaf, to each task it can interact with
+ allocate(sendbuf(max(1,nleaves*(nprofile+2)*min(nprocs-1,4))))
+ nbuf  = 0
+ nsend = 0
+ do iproc = 0,nprocs-1
+    if (iproc == id) cycle
+    do k = 1,nleaves
+       n = leaves(k)
+       if (.not.leaf_may_interact(n,nprocs + iproc)) cycle
+       call leaf_size_profile(n,prof,nlen)
+       if (nbuf + nlen + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + nlen + 2)
+       sendbuf(nbuf+1) = nodemap(n)
+       sendbuf(nbuf+2) = nlen
+       sendbuf(nbuf+3:nbuf+2+nlen) = prof(1:nlen)
+       nbuf = nbuf + nlen + 2
+       nsend(iproc+1) = nsend(iproc+1) + nlen + 2
+    enddo
+ enddo
+ call alltoall_mpi(nsend,nrecv)
+ allocate(recvbuf(max(sum(nrecv),1)))
+ call alltoallv_mpi(sendbuf,nsend,recvbuf,nrecv)
+
+ ! store the profiles received
+ ng = ncomb_tree - int(ncells)
+ profile_len(1:ng) = -1
+ if (allocated(profile_pool)) then
+    if (size(profile_pool) < sum(nrecv)) deallocate(profile_pool)
+ endif
+ if (.not.allocated(profile_pool)) allocate(profile_pool(max(sum(nrecv),1)))
+ irecv = 0
+ do while (irecv < sum(nrecv))
+    g    = nint(recvbuf(irecv+1))
+    nlen = nint(recvbuf(irecv+2))
+    profile_len(g)   = nlen
+    profile_start(g) = irecv + 3
+    profile_pool(irecv+3:irecv+2+nlen) = recvbuf(irecv+3:irecv+2+nlen)
+    irecv = irecv + nlen + 2
+ enddo
+ call mark_global_active(ng)
+
+end subroutine exchange_size_profiles
+
+!-----------------------------------------------------------------------
+!+
+!  whether a local node could interact with any node in the domain of
+!  another task: the domain region bound, conservative
+!+
+!-----------------------------------------------------------------------
+logical function leaf_may_interact(n,idomain)
+ use kernel, only:radkern
+ integer, intent(in) :: n,idomain
+ real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
+
+ call get_sep(nodeglobal(idomain)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+ d     = sqrt(r2) - nodeglobal(idomain)%size
+ sizes = 2.*nodeglobal(idomain)%size + node(n)%size
+ rcut  = radkern*max(nodeglobal(idomain)%hmax,node(n)%hmax)
+ leaf_may_interact = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
+
+end function leaf_may_interact
+
+!-----------------------------------------------------------------------
+!+
+!  mark the local nodes on the branches of active leaves
+!+
+!-----------------------------------------------------------------------
+subroutine mark_active_branches()
+ integer :: k,n
+
+ let_stamp = let_stamp + 1
+ do k = 1,nactive_leaves
+    n = active_leaves(k)
+    do while (branch_mark(n) /= let_stamp)
+       branch_mark(n) = let_stamp
+       if (n == irootnode .or. node(n)%parent <= 0) exit
+       n = node(n)%parent
+    enddo
+ enddo
+
+end subroutine mark_active_branches
+
+!-----------------------------------------------------------------------
+!+
+!  mark the global nodes with active leaves below them: a leaf of another
+!  task is active unless its profile says it has no active particles (or
+!  none was received for a leaf too far away to matter, kept as active)
+!+
+!-----------------------------------------------------------------------
+subroutine mark_global_active(ng)
+ integer, intent(in) :: ng
+ integer :: g,il,ir
+
+ ! children come after their parents in the global tree, except above the
+ ! domains, where the heap order also puts children at larger indices
+ do g = ng,1,-1
+    il = nodeglobal(g)%leftchild
+    ir = nodeglobal(g)%rightchild
+    if (il <= 0 .and. ir <= 0) then
+       global_active(g) = (profile_len(g) /= 0)
+    else
+       global_active(g) = .false.
+       if (il > 0) global_active(g) = global_active(il)
+       if (ir > 0) global_active(g) = global_active(g) .or. global_active(ir)
+    endif
+ enddo
+
+end subroutine mark_global_active
+
+!-----------------------------------------------------------------------
+!+
+!  size profile of the active branches of the local subtree below n0:
+!  entry k bounds the size of a node the walk can reach k-1 steps below
+!  n0, i.e. a node at that depth on an active branch, or an active leaf
+!  above it (which the walk keeps while the other side descends). The
+!  last entry covers all deeper steps. nlen is 0 with no active leaves
+!+
+!-----------------------------------------------------------------------
+subroutine leaf_size_profile(n0,prof,nlen)
+ integer, intent(in)  :: n0
+ real,    intent(out) :: prof(nprofile)
+ integer, intent(out) :: nlen
+ integer, allocatable :: istack(:,:)
+ integer :: nstack,n,idepth,k,j,ichild(2)
+ real    :: sdepth(nprofile),sleaf(nprofile)
+
+ nlen = 0
+ prof = 0.
+ if (branch_mark(n0) /= let_stamp) return
+ sdepth = 0.
+ sleaf  = 0.
+ allocate(istack(3,256))
+ nstack = 0
+ call push_pair(istack,nstack,n0,0,0)
+ do while (nstack > 0)
+    n      = istack(1,nstack)
+    idepth = istack(2,nstack)
+    nstack = nstack - 1
+    k = min(idepth+1,nprofile)
+    nlen = max(nlen,k)
+    sdepth(k) = max(sdepth(k),node(n)%size)
+    ichild = [node(n)%leftchild,node(n)%rightchild]
+    if (all(ichild <= 0)) then
+       sleaf(k) = max(sleaf(k),node(n)%size)
+    else
+       do j = 1,2
+          if (ichild(j) > 0) then
+             if (branch_mark(ichild(j)) == let_stamp) call push_pair(istack,nstack,ichild(j),idepth+1,0)
+          endif
+       enddo
+    endif
+ enddo
+ ! an active leaf found at a shallower depth stays in the walk at all later steps
+ do k = 2,nprofile
+    sleaf(k) = max(sleaf(k),sleaf(k-1))
+ enddo
+ prof(1) = sdepth(1)
+ do k = 2,nlen
+    prof(k) = max(sdepth(k),sleaf(k-1))
+ enddo
+ ! beyond the deepest active node only those leaves remain
+ if (nlen < nprofile) then
+    nlen = nlen + 1
+    prof(nlen) = sleaf(nlen-1)
+ endif
+
+end subroutine leaf_size_profile
 
 !-----------------------------------------------------------------------
 !+
