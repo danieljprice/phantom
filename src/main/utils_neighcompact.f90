@@ -78,6 +78,10 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  integer                    :: icell,nneigh,i,j,k,n,ip,ncompact_private
  integer                    :: icompact_private,icompact,icompactmax,nneigh_trial,ncand
  integer, parameter         :: maxcellcache = 10000
+ ! cells handed to a thread at a time: one at a time contends for iterations, while
+ ! larger chunks load balance poorly. A constant, as some compilers (nvfortran)
+ ! mishandle a chunk size held in a variable
+ integer, parameter         :: ncellchunk = 16
  integer, save, allocatable :: neighlist(:)
  real                       :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
  real, save, allocatable    :: xyzcache(:,:)
@@ -96,7 +100,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  icompactmax = size(ijvar)
  growable = present(nedges)
  extra = present(icand_start) .and. present(icand) .and. present(xyzh_extra) .and. present(joffset)
- !$omp parallel do default(none) schedule(runtime)&
+ !$omp parallel do default(none) schedule(dynamic,ncellchunk)&
  !$omp shared(ncells,xyzh,inodeparts,inoderange,leaf_is_active)&
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxpsph,growable)&
  !$omp shared(extra,icand_start,icand,xyzh_extra,joffset)&

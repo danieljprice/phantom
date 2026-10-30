@@ -31,21 +31,21 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_kdtree(ntests,npass)
- use dim,         only:maxp,periodic,ind_timesteps
- use io,          only:id,master,iverbose
+ use dim,         only:maxp,periodic,ind_timesteps,mpi,use_apr,use_sinktree
+ use io,          only:id,master,iverbose,nprocs
  use neighkdtree, only:leaf_is_active,ncells,node
  use part,        only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase,iactive,&
                        sync_aprmassoftype,init_part
  use kernel,      only:hfact_default
- use kdtree,      only:maketree,revtree,kdnode,empty_tree
+ use kdtree,      only:maketree,revtree,kdnode,empty_tree,inoderange,inodeparts
  use unifdis,     only:set_unifdis
  use testutils,   only:checkvalbuf,checkvalbuf_end,update_test_scores,checkval
  use timing,      only:print_time,getused
  use mpidomain,   only:i_belong
  integer, intent(inout) :: ntests,npass
- logical :: test_revtree, test_all
- integer :: i,nfailed(22),nchecked(22),nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1)
- real    :: psep,tol,tol_octs,errmax(22)
+ logical :: test_revtree, test_all, revised, can_revise
+ integer :: i,ip,j,nfailed(22),nchecked(22),nfailed_leaf(1),nchecked_leaf(1),ierrmax_leaf(1)
+ real    :: psep,tol,tol_octs,errmax(22),r2max,hmax,dx(3),rand(3)
  real(4) :: t2,t1,tmaketree
  type(kdnode), allocatable :: old_tree(:)
  integer, allocatable :: leaf_is_active_saved(:)
@@ -107,10 +107,19 @@ subroutine test_kdtree(ntests,npass)
     !
     tmaketree = t2-t1
     call cpu_time(t1)
-    call revtree(node,xyzh,leaf_is_active,ncells)
+    call revtree(node,xyzh,npart,leaf_is_active,ncells,revised)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
     if (id==master) print*,' ratio of revtree/maketree: ',(t2-t1)/tmaketree
+    ! as in revtree: with more than one MPI task the global tree must be rebuilt too
+    can_revise = .not.(periodic .or. (mpi .and. nprocs > 1) .or. use_apr .or. use_sinktree)
+    call checkval(revised,can_revise,nfailed(1),'revtree revised the tree')
+    call update_test_scores(ntests,nfailed(1:1),npass)
+    if (.not.revised) then
+       ! the tree was not revised, so restore it for the checks below
+       node(1:ncells) = old_tree(1:ncells)
+       leaf_is_active(1:int(ncells)) = leaf_is_active_saved(1:int(ncells))
+    endif
 
     !
     ! check that the revised tree matches the tree built
@@ -194,6 +203,41 @@ subroutine test_kdtree(ntests,npass)
        call checkvalbuf_end('leaf_is_active',nchecked_leaf(1),nfailed_leaf(1),ierrmax_leaf(1),0)
     endif
     call update_test_scores(ntests,nfailed_leaf,npass)
+
+    if (can_revise) then
+       !
+       ! move the particles, revise the tree, and check that every node
+       ! bounds its particles and their smoothing lengths
+       !
+       if (id==master) write(*,"(/,a)") '--> checking revtree for moved particles'
+       do i=1,npart
+          call random_number(rand)
+          xyzh(1:3,i) = xyzh(1:3,i) + 0.5*psep*(rand - 0.5)
+       enddo
+       call revtree(node,xyzh,npart,leaf_is_active,ncells,revised)
+       call checkval(revised,.true.,nfailed(1),'revtree revised the tree')
+       call update_test_scores(ntests,nfailed(1:1),npass)
+       nfailed(:)  = 0
+       nchecked(:) = 0
+       do i=1,int(ncells)
+          if (i > 1 .and. node(i)%parent == 0) cycle
+          if (inoderange(1,i) <= 0) cycle
+          r2max = 0.
+          hmax  = 0.
+          do ip=inoderange(1,i),inoderange(2,i)
+             j  = abs(inodeparts(ip))
+             dx = xyzh(1:3,j) - node(i)%xcen
+             r2max = max(r2max,dot_product(dx,dx))
+             hmax  = max(hmax,xyzh(4,j))
+          enddo
+          call checkvalbuf((sqrt(r2max) <= node(i)%size*(1. + epsilon(r2max))),.true.,&
+                           'size bounds particles',nfailed(1),nchecked(1))
+          call checkvalbuf((hmax <= node(i)%hmax),.true.,'hmax bounds particles',nfailed(2),nchecked(2))
+       enddo
+       call checkvalbuf_end('size bounds particles',nchecked(1),nfailed(1))
+       call checkvalbuf_end('hmax bounds particles',nchecked(2),nfailed(2))
+       call update_test_scores(ntests,nfailed(1:2),npass)
+    endif
 
     deallocate(old_tree)
     deallocate(leaf_is_active_saved)

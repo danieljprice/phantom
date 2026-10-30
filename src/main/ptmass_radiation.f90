@@ -22,8 +22,6 @@ module ptmass_radiation
 ! :Dependencies: dim, dust_formation, infile_utils, io, part, physcon,
 !   raytracer, units
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
-
  implicit none
  integer, public  :: isink_radiation = 0
  integer, public  :: iget_tdust      = 0
@@ -320,6 +318,7 @@ end subroutine get_dust_temperature
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau,tau_lucy)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,    only:isdead_or_accreted,iLum,iTeff,iReff,itemp
  integer, intent(in)  :: nptmass,npart
  real,    intent(in)  :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)

@@ -72,7 +72,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   dens,metrics,apr_level)
  use dim,            only:mhd,fast_divcurlB,gr,periodic,do_radiation,driving,&
                           sink_radiation,use_dustgrowth,ind_timesteps,isothermal,nalpha,mpi
- use io,             only:iprint,fatal,error
+ use io,             only:iprint,fatal,error,nprocs
  use neighkdtree,    only:build_tree
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing,get_pressure_on_sinks
@@ -147,7 +147,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
     if (gr) then
        ! update time-dependent metric (e.g. binary BH) and repack at particle positions
-       if (mpi .or. metric_is_time_dependent()) then
+       if ((mpi .and. nprocs > 1) .or. metric_is_time_dependent()) then
           ! also the derivatives, if the metric changes with time or
           ! particles may have moved between ranks (derivatives are not sent)
           call init_metric(npart,xyzh,metrics,metricderivs,time=time)

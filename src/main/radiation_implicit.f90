@@ -22,9 +22,8 @@ module radiation_implicit
 !   mpiradiation, mpiutils, neighcompact, part, physcon, quartic,
 !   radiation_utils, timing, units
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
- use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rho,get_pmass,imu,&
-                            itlastrad
+ use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,&
+                           rho,get_pmass,imu,itlastrad
  use eos,             only:iopacity_type,get_cv,eos_outputs_mu
  use radiation_utils, only:get_kappa,tol_rad,itsmax_rad,cv_type
  use neighcompact,    only:get_compacted_neighbour_list
@@ -33,6 +32,10 @@ module radiation_implicit
                        ierr_negative_opacity = 2, &
                        ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
+ ! particles handed to a thread at a time in the solver loops: one at a time spends most
+ ! of the loop contending for iterations, while much larger chunks leave threads idle at
+ ! the end. A constant, as some compilers (nvfortran) mishandle a chunk size held in a variable
+ integer, parameter :: nchunk = 64
 
  ! options for Bate & Keto ISM radiative transfer (not working yet)
  logical, parameter :: dustRT = .false.
@@ -240,7 +243,7 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  use timing,  only:get_timings
  use derivutils, only:do_timing
  use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
-                      varij,varij2,varinew,vari,mask
+                      varij,varij2,varinew,vari,mask,grow_neighbour_storage_implicit
  use radiation_utils, only:implicit_radiation_store_drad
  use dim,             only:mpi
  use io,              only:id,master
@@ -252,7 +255,7 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  logical, intent(out)   :: failed,moresweep
  integer, intent(out)   :: nit,ierr
  real,    intent(out)   :: maxerrE2,maxerrU2,EU0(:,:)
- integer              :: its
+ integer              :: its,nedges
  real                 :: errmax(2)
  real                 :: maxerrE2last,maxerrU2last,maxerrE2last2,maxerrU2last2,omega,maxerrE2prev2,maxerrU2prev2
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
@@ -273,13 +276,19 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  call allocate_memory_implicit(npart,radkern,hfact,ierr)
 
  !dtimax = dt/imaxstep
- if (mpi) then
-    !--include the neighbours on other tasks, numbered after the local particles
-    call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,&
-                                      icand_start=icand_start,icand=icand,xyzh_extra=xyzh_remote,joffset=npart)
- else
-    call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- endif
+ !--build the list, enlarging the storage and trying again if it overflows, which can
+ !  happen when a task with few particles has many neighbours on other tasks
+ do
+    if (mpi) then
+       !--include the neighbours on other tasks, numbered after the local particles
+       call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges,&
+                                         icand_start=icand_start,icand=icand,xyzh_extra=xyzh_remote,joffset=npart)
+    else
+       call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,nedges)
+    endif
+    if (nedges <= icompactmax) exit
+    call grow_neighbour_storage_implicit(nedges,ierr)
+ enddo
 
  ! check for errors (under MPI, a task may have no particles to update)
  if ((ncompact <= 0 .or. ncompactlocal <= 0) .and. .not.mpi) then
@@ -515,7 +524,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
           rij1 = 1./rij
           dr = rij
 
-
           hj21 = 1./(hj*hj)
           hj41 = hj21*hj21
 
@@ -573,7 +581,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
  real                :: opacity,radRi,EU01i
 
- !$omp do schedule(runtime)&
+ !$omp do schedule(dynamic,nchunk)&
  !$omp private(i,j,k,n,dedx,rhoi,rhoj,icompact)&
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)&
  !$omp private(opacity,radRi,EU01i)
@@ -640,8 +648,8 @@ end subroutine compute_flux
 !---------------------------------------------------------
 subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
                                vari,EU0,varinew,mask,ierr)
- use io,   only:error
- use part, only:dust_temp,nucleation
+ use io,       only:error
+ use part,     only:dust_temp,nucleation
  integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
  real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(:,:)
  logical, intent(in)    :: mask(npart)
@@ -652,7 +660,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  real                 :: diffusion_numerator,diffusion_denominator
 
  ierr = 0
- !$omp do schedule(runtime)&
+ !$omp do schedule(dynamic,nchunk)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
  !$omp private(dWdrlightrhorhom,icompact)&
  !$omp reduction(max:ierr)
@@ -724,6 +732,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                        radprop,rad,origEU,varinew,EU0,&
                                        pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu, &
                                        mask,store_drad,moresweep,maxerrE2,maxerrU2,omega)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use io,      only:fatal,error
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
@@ -760,7 +769,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  maxerrU2 = 0.
  !$omp end single
 
- !$omp do schedule(runtime)&
+ !$omp do schedule(dynamic,nchunk)&
  !$omp private(i,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private(dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &

@@ -113,6 +113,11 @@ module mpiderivs
 
  ! calls to densityiterate and rounds of remote density iterations since the last summary
  integer(kind=8), public :: ndens_calls = 0, ndens_rounds = 0
+ ! particles received from other tasks for density, and those with neighbours on this task
+ ! (the others need not have been sent), since the last summary
+ integer(kind=8), public :: nimport_part = 0, nimport_useful = 0
+ ! particles resent in density rounds, and those of them already converged
+ integer(kind=8), public :: nresend_part = 0, nresend_conv = 0
 
  ! receive buffers and requests, shared by all threads: (slot, source task)
  ! cells travel packed into real buffers: (value, slot, source task)
@@ -386,14 +391,17 @@ end subroutine complete_sends_dens
 !------------------------------------------------
 subroutine recv_celldens(target_stack,counters)
  use io,        only:fatal
- use mpimemory, only:push_onto_stack,get_cell_ptr
+ use mpimemory, only:get_cell_ptr
+#ifdef MPI
+ use mpimemory, only:push_packed,dens_pool
+#endif
  use mpidens, only:stackdens,unpack_celldens
  type(stackdens), intent(inout) :: target_stack
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  type(celldens),  pointer :: target_cell
  type(celldens)           :: cell
- integer :: indices(nrecvslots*nprocs)
+ integer :: indices(nrecvslots*nprocs),nlen(nrecvslots*nprocs)
  integer :: nout,k,islot,iproc,mpierr,nbuf
  logical :: returned
 
@@ -402,6 +410,12 @@ subroutine recv_celldens(target_stack,counters)
  if (claim_polling()) then
     !$omp critical (mpi_cell_exchange)
     call MPI_TESTSOME(nrecvslots*nprocs,recvreq,nout,indices,recvstatus,mpierr)
+    !--lengths of the messages, read now since other threads reuse recvstatus
+    if (nout /= MPI_UNDEFINED) then
+       do k=1,nout
+          call MPI_GET_COUNT(recvstatus(:,k),MPI_DEFAULT_REAL,nlen(k),mpierr)
+       enddo
+    endif
     !$omp end critical (mpi_cell_exchange)
     call release_polling
  endif
@@ -414,12 +428,14 @@ subroutine recv_celldens(target_stack,counters)
     iproc = (indices(k)-1)/nrecvslots + 1
     !--results returned for a cell this task owns, or a cell to compute here
     returned = (nint(recvbuf_dens(2,islot,iproc)) == id)
-    call unpack_celldens(recvbuf_dens(:,islot,iproc),.not.returned,cell,nbuf)
     if (returned) then
+       call unpack_celldens(recvbuf_dens(:,islot,iproc),.false.,cell,nbuf)
        target_cell => get_cell_ptr(target_stack,cell%waiting_index)
        call combine_cells(target_cell,cell)
     else
-       call push_onto_stack(target_stack,cell)
+       !--kept packed until it is computed
+       nbuf = nlen(k)
+       call push_packed(dens_pool,recvbuf_dens(:,islot,iproc),nbuf)
     endif
     !$omp atomic
     nreals_recv = nreals_recv + nbuf
@@ -650,14 +666,17 @@ end subroutine complete_sends_force
 !------------------------------------------------
 subroutine recv_cellforce(target_stack,counters)
  use io,        only:fatal
- use mpimemory, only:push_onto_stack,get_cell_ptr
+ use mpimemory, only:get_cell_ptr
+#ifdef MPI
+ use mpimemory, only:push_packed,force_pool
+#endif
  use mpiforce, only:stackforce,unpack_cellforce
  type(stackforce), intent(inout) :: target_stack
  integer,         intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  type(cellforce),  pointer :: target_cell
  type(cellforce)           :: cell
- integer :: indices(nrecvslots*nprocs)
+ integer :: indices(nrecvslots*nprocs),nlen(nrecvslots*nprocs)
  integer :: nout,k,islot,iproc,mpierr,nbuf
  logical :: returned
 
@@ -666,6 +685,12 @@ subroutine recv_cellforce(target_stack,counters)
  if (claim_polling()) then
     !$omp critical (mpi_cell_exchange)
     call MPI_TESTSOME(nrecvslots*nprocs,recvreq,nout,indices,recvstatus,mpierr)
+    !--lengths of the messages, read now since other threads reuse recvstatus
+    if (nout /= MPI_UNDEFINED) then
+       do k=1,nout
+          call MPI_GET_COUNT(recvstatus(:,k),MPI_DEFAULT_REAL,nlen(k),mpierr)
+       enddo
+    endif
     !$omp end critical (mpi_cell_exchange)
     call release_polling
  endif
@@ -678,12 +703,14 @@ subroutine recv_cellforce(target_stack,counters)
     iproc = (indices(k)-1)/nrecvslots + 1
     !--results returned for a cell this task owns, or a cell to compute here
     returned = (nint(recvbuf_force(2,islot,iproc)) == id)
-    call unpack_cellforce(recvbuf_force(:,islot,iproc),.not.returned,cell,nbuf)
     if (returned) then
+       call unpack_cellforce(recvbuf_force(:,islot,iproc),.false.,cell,nbuf)
        target_cell => get_cell_ptr(target_stack,cell%waiting_index)
        call combine_cells(target_cell,cell)
     else
-       call push_onto_stack(target_stack,cell)
+       !--kept packed until it is computed
+       nbuf = nlen(k)
+       call push_packed(force_pool,recvbuf_force(:,islot,iproc),nbuf)
     endif
     !$omp atomic
     nreals_recv = nreals_recv + nbuf
@@ -1052,30 +1079,44 @@ end subroutine reset_cell_counters
 subroutine print_cell_exchange_stats(iunit)
  use io,         only:master
  use mpiutils,   only:reduceall_mpi
- use mpimemory,  only:dens_stack_1,dens_stack_2,dens_stack_3,force_stack_1,force_stack_2
+ use mpimemory,  only:dens_stack_2,dens_stack_3,force_stack_2,dens_pool,force_pool,exchange_memory_mb
  use mpibalance, only:nmigrated,nbalance_calls,nbalance_skipped
  integer, intent(in) :: iunit
- integer(kind=8) :: nsent(3),nrecv(3),ncalls,nrounds,nmoved,nbal,nskip
+ integer(kind=8) :: nsent(3),nrecv(3),ncalls,nrounds,nmoved,nbal,nskip,nimp,nuse,nres,nconv,nrd,nrf
  real(kind=8)    :: mbrecv(3)
+ real            :: mbstack
  integer         :: maxstack
 
  call get_min_mean_max(ncells_sent,nsent)
  call get_min_mean_max(ncells_recv_dens+ncells_recv_force,nrecv)
  call get_min_mean_max_r8(1.e-6_8*nreals_recv*(storage_size(1.)/8),mbrecv)
- maxstack = max(dens_stack_1%maxlength,dens_stack_2%maxlength,dens_stack_3%maxlength,&
-                force_stack_1%maxlength,force_stack_2%maxlength)
+ maxstack = max(dens_pool%maxn,dens_stack_2%maxlength,dens_stack_3%maxlength,&
+                force_pool%maxn,force_stack_2%maxlength)
  maxstack = int(reduceall_mpi('max',maxstack))
+ mbstack  = reduceall_mpi('max',exchange_memory_mb())
  ncalls  = reduceall_mpi('max',ndens_calls)
  nrounds = reduceall_mpi('max',ndens_rounds)
  nmoved  = reduceall_mpi('+',nmigrated)
  nbal    = reduceall_mpi('max',nbalance_calls)
  nskip   = reduceall_mpi('max',nbalance_skipped)
+ nimp    = reduceall_mpi('+',nimport_part)
+ nuse    = reduceall_mpi('+',nimport_useful)
+ nres    = reduceall_mpi('+',nresend_part)
+ nrd     = reduceall_mpi('+',ncells_recv_dens)
+ nrf     = reduceall_mpi('+',ncells_recv_force)
+ nconv   = reduceall_mpi('+',nresend_conv)
  if (id==master) then
     write(iunit,"(1x,a,3(1x,i12))")   'MPI cells sent per task     (min,mean,max):',nsent
     write(iunit,"(1x,a,3(1x,i12))")   'MPI cells received per task (min,mean,max):',nrecv
     write(iunit,"(1x,a,3(1x,f12.1))") 'MPI MB received per task    (min,mean,max):',mbrecv
+    write(iunit,"(1x,a,2(1x,i12))")   'MPI cells received in density and force (all tasks):',nrd,nrf
     write(iunit,"(1x,a,i12)")         'MPI largest stack size (cells):',maxstack
+    write(iunit,"(1x,a,f12.1)")       'MPI largest memory of stacks and pools per task (MB):',mbstack
     if (ncalls > 0) write(iunit,"(1x,a,f8.2)") 'MPI remote density rounds per call:',real(nrounds)/real(ncalls)
+    if (nimp > 0) write(iunit,"(1x,a,f8.2,a)") 'MPI particles received in density with neighbours there:', &
+                  100.*real(nuse)/real(nimp),'%'
+    if (nres > 0) write(iunit,"(1x,a,i12,a,f8.2,a)") 'MPI particles resent in density rounds:',nres, &
+                  ' (',100.*real(nconv)/real(nres),'% already converged)'
     if (nbal > nskip) write(iunit,"(1x,a,f12.1,a,i8,a,i8,a)") 'MPI particles migrated per balance call:', &
                       real(nmoved)/real(nbal-nskip),' (',nbal,' calls,',nskip,' skipped)'
     write(iunit,*)
@@ -1086,6 +1127,10 @@ subroutine print_cell_exchange_stats(iunit)
  nreals_recv = 0
  ndens_calls = 0
  ndens_rounds = 0
+ nimport_part = 0
+ nimport_useful = 0
+ nresend_part = 0
+ nresend_conv = 0
  nmigrated = 0
  nbalance_calls = 0
  nbalance_skipped = 0

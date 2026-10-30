@@ -19,7 +19,6 @@ module checksetup
 !   metric_tools, nicil, options, part, physcon, ptmass, ptmass_radiation,
 !   sortutils, timestep, units, utils_gr
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  implicit none
  public :: check_setup
 
@@ -39,6 +38,7 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
                 do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps,use_apr,&
                 maxdvdx
@@ -515,6 +515,7 @@ end subroutine check_setup
 !+
 !----------------------------------------------------
 subroutine check_NaN(npart,array,label,nerror)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  integer,          intent(in)    :: npart
  real,             intent(in)    :: array(:,:)
  character(len=*), intent(in)    :: label
@@ -1078,6 +1079,7 @@ end subroutine check_for_identical_positions
 !+
 !------------------------------------------------------------------
 subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror,nwarn

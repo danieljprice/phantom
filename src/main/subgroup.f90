@@ -20,7 +20,6 @@ module subgroup
 !
 ! :Dependencies: dim, io, mpiutils, orbits, part, timing, utils_subgroup
 !
- use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use utils_subgroup, only:ck_size,cck_sorted_id,cks,dks,cck_sorted
  use utils_subgroup, only:get_com,get_binary,get_nneigh,get_subgroup
  implicit none
@@ -998,6 +997,7 @@ end subroutine get_force_TTL_bin
 !+
 !--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part,   only:igarg,icomp,ipert,ikap,iapo,iorb,isemi,ipertg
  use orbits, only:get_semimajor_axis,get_eccentricity
  use dim ,   only:use_sinktree
@@ -1100,6 +1100,7 @@ end subroutine get_kappa
 !+
 !--------------------------------------------------------
 subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use part, only:ipert,iapo,ikap,isemi,ipertg
  use dim, only:use_sinktree
  use io,   only:fatal

@@ -283,7 +283,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use externalforces, only:is_velocity_dependent
  use ptmass,         only:use_fourthorder,use_regnbody,ck,dk,ptmass_check_stars,icreate_sinks
  use subgroup,     only:subgroup_search
- use timing,       only:get_timings,increment_timer,itimer_kick,itimer_drift,itimer_sg_id
+ use timing,       only:get_timings,increment_timer,itimer_kick,itimer_kickdrift,itimer_sg_id
  integer,         intent(in)    :: npart,ntypes
  integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
  integer,         intent(inout) :: group_info(:,:)
@@ -333,17 +333,11 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 ! Main integration scheme
 !
     call get_timings(t1,tcpu1)
-    call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-              fext,fxyz_ptmass,dsdt_ptmass)
+    call kickdrift(dk(1),ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
+                   xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,gtgrad, &
+                   n_group,n_ingroup,group_info,bin_info)
     call get_timings(t2,tcpu2)
-    call increment_timer(itimer_kick,t2-t1,tcpu2-tcpu1)
-
-    call get_timings(t1,tcpu1)
-    call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,&
-               vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
-               group_info,bin_info)
-    call get_timings(t2,tcpu2)
-    call increment_timer(itimer_drift,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_kickdrift,t2-t1,tcpu2-tcpu1)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(2),force_count,&
@@ -357,17 +351,11 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       extf_vdep_flag,bin_info,group_info,nmatrix,fsink_old)
 
        call get_timings(t1,tcpu1)
-       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                 fext,fxyz_ptmass,dsdt_ptmass)
+       call kickdrift(dk(2),ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
+                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,gtgrad, &
+                      n_group,n_ingroup,group_info,bin_info)
        call get_timings(t2,tcpu2)
-       call increment_timer(itimer_kick,t2-t1,tcpu2-tcpu1)
-
-       call get_timings(t1,tcpu1)
-       call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,&
-                  vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
-                  group_info,bin_info)
-       call get_timings(t2,tcpu2)
-       call increment_timer(itimer_drift,t2-t1,tcpu2-tcpu1)
+       call increment_timer(itimer_kickdrift,t2-t1,tcpu2-tcpu1)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_tree,dsdt_ptmass,dt,dk(3),force_count,&
@@ -557,6 +545,62 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  !$omp end parallel do
 
 end subroutine kick
+
+!----------------------------------------------------------------
+!+
+!  kick followed by drift for the whole system (part and ptmass),
+!  doing both in a single pass over the gas particles
+!+
+!----------------------------------------------------------------
+subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
+                     xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,gtgrad, &
+                     n_group,n_ingroup,group_info,bin_info)
+ use part,     only:isdead_or_accreted,iamtype,iamboundary,iphase,igas
+ use dim,      only:maxp,maxphase
+ real,    intent(in)    :: dki,cki,dt
+ integer, intent(in)    :: npart,nptmass,ntypes
+ real,    intent(inout) :: time_par
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,    intent(inout) :: gtgrad(:,:),bin_info(:,:)
+ integer, intent(in)    :: n_ingroup,n_group
+ integer, intent(inout) :: group_info(:,:)
+ integer :: i,itype
+ real    :: dkdt,ckdt
+ !
+ ! Kick then drift sink particles only
+ !
+ call kick(dki,dt,0,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
+           fext,fxyz_ptmass,dsdt_ptmass)
+ call drift(cki,dt,time_par,0,nptmass,ntypes,xyzh,xyzmh_ptmass,&
+            vxyzu,vxyz_ptmass,fxyz_ptmass,gtgrad,n_group,n_ingroup,&
+            group_info,bin_info)
+ !
+ ! Kick then drift gas particles
+ !
+ itype = igas
+ dkdt = dki*dt
+ ckdt = cki*dt
+ !$omp parallel do default(none) &
+ !$omp shared(maxp,maxphase,iphase,ntypes,npart,fext,xyzh,vxyzu,dkdt,ckdt) &
+ !$omp private(i) &
+ !$omp firstprivate(itype)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (ntypes > 1 .and. maxphase==maxp) itype = iamtype(iphase(i))
+       if (.not.iamboundary(itype)) then
+          vxyzu(1,i) = vxyzu(1,i) + dkdt*fext(1,i)
+          vxyzu(2,i) = vxyzu(2,i) + dkdt*fext(2,i)
+          vxyzu(3,i) = vxyzu(3,i) + dkdt*fext(3,i)
+       endif
+       xyzh(1,i) = xyzh(1,i) + ckdt*vxyzu(1,i)
+       xyzh(2,i) = xyzh(2,i) + ckdt*vxyzu(2,i)
+       xyzh(3,i) = xyzh(3,i) + ckdt*vxyzu(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+end subroutine kickdrift
 
  !----------------------------------------------------------------
  !+
