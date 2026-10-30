@@ -394,6 +394,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        fxyz_ptmass_tree(:,i) = 0.
     enddo
     !$omp end parallel do
+    ! the potential of a sink is set only by the task whose tree holds it, and
+    ! summed over all tasks: clear any value left from when another task held it
+    poten(maxpsph+1:maxpsph+nptmass) = 0.
  endif
 
  ! sink particle creation
@@ -750,9 +753,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (use_sinktree) then
        fxyz_ptmass_tree   = reduceall_mpi('+',fxyz_ptmass_tree)
        bin_info(ipertg,:) = reduceall_mpi('+',bin_info(ipertg,:))
-       do i=1,nptmass
-          shortsinktree(1:nptmass,i) = reduceall_mpi("max", shortsinktree(1:nptmass,i))
-       enddo
+       ! one reduction for all sink pairs, rather than one per sink
+       shortsinktree(1:nptmass,1:nptmass) = reshape(reduceall_mpi('max',&
+          reshape(shortsinktree(1:nptmass,1:nptmass),[nptmass*nptmass])),[nptmass,nptmass])
     endif
  endif
 
