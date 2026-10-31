@@ -55,7 +55,7 @@ module neighkdtree
  ! nodes imported from other tasks (the locally essential tree) are appended after ncomb_tree
  integer                            :: ncomb_tree = 0
  integer                            :: ncells_appended = 0 ! where the global tree was appended
- integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver
+ integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver (per thread)
  integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
  ! for each global leaf of another task, the largest size of a node that its walks can
  ! pair with a node of this task, by the number of steps the walk has taken below the leaf
@@ -119,6 +119,8 @@ module neighkdtree
  integer, public, allocatable :: remote_leaves(:)
  integer, public              :: nremote_leaves = 0
 !$omp threadprivate(remote_leaves,nremote_leaves)
+! nodes marked for the receiver whose import is being selected, per thread (see let_exchange)
+!$omp threadprivate(let_mark,let_stamp)
  integer(kind=8), public            :: ncells
  real,            public            :: dxcell
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
@@ -183,7 +185,6 @@ subroutine allocate_neigh
  call allocate_array('remote_leaf_owner',remote_leaf_owner,nnodes        )
  call allocate_array('remote_local_index',remote_local_index,nnodes      )
  call allocate_array('global_local_index',global_local_index,nglobal     )
- call allocate_array('let_mark',       let_mark,       ncellsmax+1       )
  call allocate_array('global_owner',   global_owner,   nglobal           )
  if (nprocs > 1) then
     call allocate_array('profile_start',profile_start,int(nglobal))
@@ -202,7 +203,6 @@ subroutine allocate_neigh
  nmirror = 0
  remote_leaf_owner = 0
  remote_local_index = 0
- let_mark = 0
  call allocate_kdtree()
  call allocate_array('listneigh_global',listneigh_global,maxp)
  call allocate_array('cachestate', cachestate, ncache)
@@ -245,7 +245,6 @@ subroutine deallocate_neigh
  if (allocated(remote_leaf_owner)) deallocate(remote_leaf_owner)
  if (allocated(remote_local_index)) deallocate(remote_local_index)
  if (allocated(global_local_index)) deallocate(global_local_index)
- if (allocated(let_mark)) deallocate(let_mark)
  if (allocated(global_owner)) deallocate(global_owner)
  if (allocated(profile_pool)) deallocate(profile_pool)
  if (allocated(profile_start)) deallocate(profile_start,profile_len,global_active)
@@ -258,6 +257,7 @@ subroutine deallocate_neigh
  if (allocated(neighnodecache_start)) deallocate(neighnodecache_start)
  if (allocated(neighnodecache_count)) deallocate(neighnodecache_count)
 !$omp parallel
+ if (allocated(let_mark)) deallocate(let_mark)
  if (allocated(neighnode_branch)) deallocate(neighnode_branch)
  if (allocated(neighnodecount_branch)) deallocate(neighnodecount_branch)
  if (allocated(fnode_branch)) deallocate(fnode_branch)
@@ -912,33 +912,57 @@ end function local_index_and_leaf
 subroutine let_exchange()
  use io,       only:nprocs,id
  use mpiutils, only:alltoall_mpi,alltoallv_mpi
- use dim,      only:maximport_leaves
+ use dim,      only:maximport_leaves,ncellsmax
+ type :: realbuf
+    real, allocatable :: x(:)
+ end type realbuf
+ type(realbuf)        :: records(nprocs)
  real,    allocatable :: sendbuf(:),recvbuf(:)
- integer, allocatable :: list(:),iparent(:),iside(:),implist(:,:)
- integer :: nsend(nprocs),nrecv(nprocs),nimp(nprocs),irecv,nlist,nbuf,k,iproc,nimpl
+ integer, allocatable :: list(:),iparent(:),iside(:),implist(:,:,:)
+ integer :: nsend(nprocs),nrecv(nprocs),nimp(nprocs),irecv,nlist,nbuf,k,iproc
 
  ! forget the nodes imported by a previous call
  call combine_trees()
  call exchange_size_profiles()
 
- allocate(list(ncomb),iparent(ncomb),iside(ncomb))
- allocate(sendbuf(nlet_record*1024),implist(2,maximport_leaves*(nprocs-1)))
- nbuf = 0
+ ! select the nodes and leaves to send to each task, one task per thread at a time
+ allocate(implist(2,maximport_leaves,nprocs))
  nsend = 0
- nimpl = 0
- nimp = 0
+ nimp  = 0
+ !$omp parallel default(none) shared(nprocs,id,ncomb,ncellsmax,records,implist,nimp,nsend) &
+ !$omp private(iproc,list,iparent,iside,nlist,k)
+ if (allocated(let_mark)) then
+    if (size(let_mark) < ncellsmax+1) deallocate(let_mark)
+ endif
+ if (.not.allocated(let_mark)) then
+    allocate(let_mark(ncellsmax+1))
+    let_mark = 0
+ endif
+ allocate(list(ncomb),iparent(ncomb),iside(ncomb))
+ !$omp do schedule(dynamic,1)
  do iproc = 0,nprocs-1
     if (iproc == id) cycle
     call select_let_nodes(iproc,list,iparent,iside,nlist)
-    call select_import_leaves(list,nlist,implist,nimpl,nimp(iproc+1))
-    if (nbuf + nlist*nlet_record > size(sendbuf)) call grow_real(sendbuf,nbuf + nlist*nlet_record)
+    call select_import_leaves(list,nlist,implist(:,:,iproc+1),nimp(iproc+1))
+    allocate(records(iproc+1)%x(nlist*nlet_record))
     do k = 1,nlist
-       call put_let_record(sendbuf(nbuf+1:nbuf+nlet_record),list(k),iparent(k),iside(k))
-       nbuf = nbuf + nlet_record
+       call put_let_record(records(iproc+1)%x((k-1)*nlet_record+1:k*nlet_record),list(k),iparent(k),iside(k))
     enddo
     nsend(iproc+1) = nlist*nlet_record
-    nlet_sent = nlet_sent + nlist
  enddo
+ !$omp enddo
+ deallocate(list,iparent,iside)
+ !$omp end parallel
+
+ ! the records for all tasks, in task order
+ allocate(sendbuf(max(sum(nsend),1)))
+ nbuf = 0
+ do iproc = 0,nprocs-1
+    if (nsend(iproc+1) == 0) cycle
+    sendbuf(nbuf+1:nbuf+nsend(iproc+1)) = records(iproc+1)%x
+    nbuf = nbuf + nsend(iproc+1)
+ enddo
+ nlet_sent = nlet_sent + sum(nsend)/nlet_record
 
  call alltoall_mpi(nsend,nrecv)
  allocate(recvbuf(max(sum(nrecv),1)))
@@ -974,21 +998,20 @@ end subroutine let_exchange
 !  (marked by let_pair_step). Of these, those with a reach (size +
 !  radkern*hmax) more than reach_import_factor times the median are sent,
 !  largest first: large leaves in sparse regions, which many of iproc's
-!  cells meet. Only leaves whose particles are all active
-!  are sent: the force
-!  calculation can wake inactive neighbours, which would then have to
-!  be returned. Each leaf is added to implist with its locator on
+!  cells meet. Only leaves whose particles are all active are sent: the
+!  force calculation can wake inactive neighbours, which would then have
+!  to be returned. Each leaf is listed in implist with its locator on
 !  iproc: its position in list, or minus its index in the global tree
 !+
 !-----------------------------------------------------------------------
-subroutine select_import_leaves(list,nlist,implist,nimpl,nleaves)
+subroutine select_import_leaves(list,nlist,implist,nleaves)
  use io,       only:id
  use dim,      only:maximport_leaves,maximport_part,gr,maxpsph,reach_import_factor
  use kernel,   only:radkern
  use kdtree,   only:inoderange,inodeparts
  use sortutils,only:indexx
  integer, intent(in)    :: list(:),nlist
- integer, intent(inout) :: implist(:,:),nimpl
+ integer, intent(out)   :: implist(:,:)
  integer, intent(out)   :: nleaves
  integer, allocatable :: cand(:),loc(:),indx(:)
  real,    allocatable :: reach(:)
@@ -1028,8 +1051,7 @@ subroutine select_import_leaves(list,nlist,implist,nimpl,nleaves)
     if (any(inodeparts(inoderange(1,n):inoderange(2,n)) <= 0) .or. &
         any(inodeparts(inoderange(1,n):inoderange(2,n)) > maxpsph)) cycle
     nleaves = nleaves + 1
-    nimpl   = nimpl + 1
-    implist(:,nimpl) = [n,loc(indx(k))]
+    implist(:,nleaves) = [n,loc(indx(k))]
     npsent = npsent + np
  enddo
 
@@ -1053,7 +1075,10 @@ end function is_import_candidate
 !  send each task the particles of the leaves selected for it, and place
 !  those received after npart in the particle arrays: each such leaf of
 !  the combined tree becomes a local leaf, whose particles the walk takes
-!  as neighbours. Leaves that do not fit stay leaves of another task
+!  as neighbours. Leaves that do not fit stay leaves of another task.
+!  Each leaf is sent as a header (locator, number of particles), then
+!  its particles; the buffer offset of each leaf is found first, so that
+!  leaves are packed and unpacked in parallel
 !+
 !-----------------------------------------------------------------------
 subroutine exchange_leaf_particles(implist,nimp)
@@ -1062,37 +1087,50 @@ subroutine exchange_leaf_particles(implist,nimp)
  use mpiutils, only:alltoall_mpi,alltoallv_mpi
  use part,     only:npart,fill_sendbuf,unfill_buffer,ipartbufsize,xyzh,get_pmass,maxphase,maxp,treecache
  use kdtree,   only:inoderange,inodeparts
- integer, intent(in) :: implist(:,:),nimp(:)
+ integer, intent(in) :: implist(:,:,:),nimp(:)
  real,    allocatable :: sendbuf(:),recvbuf(:)
- integer, allocatable :: newrange(:,:)
+ integer, allocatable :: newrange(:,:),leaf(:),loc(:),ioff(:),ifirst(:)
  real    :: xtemp(ipartbufsize)
- integer :: nsend(nprocs),nrecv(nprocs),iproc,k,n,j,np,nbuf,nrec,irecv,iend,loc,islot
+ integer :: nsend(nprocs),nrecv(nprocs),iproc,k,m,n,j,np,nrec,irecv,iend,islot,nleaves
+ logical :: use_gas
 
- ! each leaf: a header (locator, number of particles, reals per particle), then its particles
- allocate(sendbuf(1024))
- nbuf  = 0
+ use_gas = .not.(maxphase==maxp)  ! all particles are gas unless types are stored
+ ! the number of reals sent per particle depends only on the build
+ call fill_sendbuf(1,xtemp,nrec)
+ ! the leaves to send, in task order, and the position of each in the buffer
+ nleaves = sum(nimp)
+ allocate(leaf(nleaves),loc(nleaves),ioff(nleaves+1))
+ m = 0
+ ioff(1) = 0
  nsend = 0
- k = 0
  do iproc = 0,nprocs-1
-    do j = 1,nimp(iproc+1)
-       k  = k + 1
-       n  = implist(1,k)
-       np = inoderange(2,n) - inoderange(1,n) + 1
-       call fill_sendbuf(inodeparts(inoderange(1,n)),xtemp,nrec)
-       if (nbuf + 3 + np*nrec > size(sendbuf)) call grow_real(sendbuf,nbuf + 3 + np*nrec)
-       sendbuf(nbuf+1:nbuf+3) = [implist(2,k),np,nrec]
-       nbuf = nbuf + 3
-       do islot = inoderange(1,n),inoderange(2,n)
-          call fill_sendbuf(inodeparts(islot),xtemp,nrec)
-          sendbuf(nbuf+1:nbuf+nrec) = xtemp(1:nrec)
-          nbuf = nbuf + nrec
-       enddo
-       nsend(iproc+1) = nsend(iproc+1) + 3 + np*nrec
+    do k = 1,nimp(iproc+1)
+       m = m + 1
+       leaf(m) = implist(1,k,iproc+1)
+       loc(m)  = implist(2,k,iproc+1)
+       np = inoderange(2,leaf(m)) - inoderange(1,leaf(m)) + 1
+       ioff(m+1) = ioff(m) + 2 + np*nrec
+       nsend(iproc+1) = nsend(iproc+1) + 2 + np*nrec
     enddo
  enddo
+ allocate(sendbuf(max(ioff(nleaves+1),1)))
+ !$omp parallel do default(none) schedule(dynamic,1) shared(nleaves,leaf,loc,ioff,nrec,sendbuf,inoderange,inodeparts) &
+ !$omp private(m,n,j,k,xtemp)
+ do m = 1,nleaves
+    n = leaf(m)
+    sendbuf(ioff(m)+1) = loc(m)
+    sendbuf(ioff(m)+2) = inoderange(2,n) - inoderange(1,n) + 1
+    k = ioff(m) + 2
+    do j = inoderange(1,n),inoderange(2,n)
+       call fill_sendbuf(inodeparts(j),xtemp,nrec)
+       sendbuf(k+1:k+nrec) = xtemp(1:nrec)
+       k = k + nrec
+    enddo
+ enddo
+ !$omp end parallel do
  call alltoall_mpi(nsend,nrecv)
  allocate(recvbuf(max(sum(nrecv),1)))
- call alltoallv_mpi(sendbuf(1:max(nbuf,1)),nsend,recvbuf,nrecv)
+ call alltoallv_mpi(sendbuf,nsend,recvbuf,nrecv)
 
  ! the leaves of the combined tree need a range of particles in the tree arrays
  if (size(inoderange,2) < size(node)) then
@@ -1100,37 +1138,50 @@ subroutine exchange_leaf_particles(implist,nimp)
     newrange(:,1:size(inoderange,2)) = inoderange
     call move_alloc(newrange,inoderange)
  endif
+ ! the leaves received that fit, with the position of their particles in the buffer
+ ! and their first slot after npart; each leaf of the combined tree is a node imported
+ ! from the sender (positive locator) or one of the sender's leaves in the global tree
+ deallocate(leaf,ioff)
+ n = size(recvbuf)/(2 + nrec) + 1
+ allocate(leaf(n),ioff(n),ifirst(n))
+ nleaves = 0
  islot = npart
  irecv = 0
  do iproc = 0,nprocs-1
     iend = irecv + nrecv(iproc+1)
     do while (irecv < iend)
-       loc  = nint(recvbuf(irecv+1))
-       np   = nint(recvbuf(irecv+2))
-       nrec = nint(recvbuf(irecv+3))
-       irecv = irecv + 3
-       ! the leaf: a node imported from iproc, or one of iproc's leaves in the global tree
-       if (loc > 0) then
-          n = let_base(iproc+1) + loc
+       if (nint(recvbuf(irecv+1)) > 0) then
+          n = let_base(iproc+1) + nint(recvbuf(irecv+1))
        else
-          n = int(ncells) - loc
+          n = int(ncells) - nint(recvbuf(irecv+1))
        endif
+       np = nint(recvbuf(irecv+2))
        if (islot + np <= maxpsph .and. remote_leaf_owner(n) == iproc + 1) then
+          nleaves = nleaves + 1
+          leaf(nleaves)   = n
+          ioff(nleaves)   = irecv + 2
+          ifirst(nleaves) = islot + 1
           inoderange(:,n) = [islot+1,islot+np]
-          do j = 1,np
-             islot = islot + 1
-             call unfill_buffer(islot,recvbuf(irecv+(j-1)*nrec+1:irecv+j*nrec))
-             inodeparts(islot)    = islot
-             treecache(1:4,islot) = xyzh(1:4,islot)
-             treecache(5,islot)   = get_pmass(islot,.not.(maxphase==maxp))
-          enddo
           remote_leaf_owner(n) = 0
-          nimp_leaves_recv = nimp_leaves_recv + 1
+          islot = islot + np
        endif
-       irecv = irecv + np*nrec
+       irecv = irecv + 2 + np*nrec
     enddo
  enddo
- nimp_part_recv = nimp_part_recv + (islot - npart)
+ !$omp parallel do default(none) schedule(dynamic,1) shared(nleaves,leaf,ioff,ifirst,nrec,recvbuf,inoderange) &
+ !$omp shared(inodeparts,treecache,xyzh,use_gas) private(m,j,k)
+ do m = 1,nleaves
+    do j = 0,inoderange(2,leaf(m)) - inoderange(1,leaf(m))
+       k = ifirst(m) + j
+       call unfill_buffer(k,recvbuf(ioff(m)+j*nrec+1:ioff(m)+(j+1)*nrec))
+       inodeparts(k)    = k
+       treecache(1:4,k) = xyzh(1:4,k)
+       treecache(5,k)   = get_pmass(k,use_gas)
+    enddo
+ enddo
+ !$omp end parallel do
+ nimp_leaves_recv = nimp_leaves_recv + nleaves
+ nimp_part_recv   = nimp_part_recv + (islot - npart)
 
 end subroutine exchange_leaf_particles
 
