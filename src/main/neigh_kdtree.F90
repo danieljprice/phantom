@@ -124,7 +124,7 @@ module neighkdtree
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
  logical,         public            :: use_dualtree  = .true.
  logical,         public            :: use_dualcache = gravity ! only debug flag / should be on with gravity
- integer,         parameter         :: maxnodecache_local = 512
+ integer,         parameter         :: maxnodecache_local = 4096
  integer,         parameter         :: maxneigh_per_node  = 16
  integer,         parameter         :: maxstacksize = 2048
  ! revise rather than rebuild the tree if fewer than this fraction of particles are active,
