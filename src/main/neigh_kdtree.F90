@@ -365,6 +365,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
  use kdtree,       only:maketree,maketreeglobal,revtree
  use dim,          only:mpi,use_sinktree
+ use timing,       only:get_timings,increment_timer,itimer_tree_revise,itimer_tree_graft
  use part,         only:nptmass,xyzmh_ptmass,maxp
  use allocutils,   only:allocate_array
  integer, intent(inout) :: npart
@@ -373,6 +374,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  real,    intent(in)    :: vxyzu(:,:)
  logical, intent(in), optional :: for_apr
  logical :: apr_tree,revised
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 
  apr_tree = .false.
  if (present(for_apr)) apr_tree = for_apr
@@ -394,8 +396,11 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
        call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
                            apr_tree)
     endif
+    call get_timings(t1,tcpu1)
     call graft_local_trees(nactive)
     call combine_trees()
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_tree_graft,t2-t1,tcpu2-tcpu1)
  else
     if (use_sinktree) then
        call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
@@ -406,7 +411,10 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
        revised = .false.
        nactive_since_build = nactive_since_build + nactive
        if (.not.apr_tree .and. nactive < frac_active_revtree*npart .and. nactive_since_build < npart) then
+          call get_timings(t1,tcpu1)
           call revtree(node,xyzh,npart,leaf_is_active,ncells,revised)
+          call get_timings(t2,tcpu2)
+          call increment_timer(itimer_tree_revise,t2-t1,tcpu2-tcpu1)
        endif
        if (.not.revised) then
           call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)

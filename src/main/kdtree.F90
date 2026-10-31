@@ -110,6 +110,7 @@ end subroutine deallocate_kdtree
 !-------------------------------------------------------------------------------
 subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xyzmh_ptmass)
  use io,   only:fatal,warning,iprint,iverbose
+ use timing, only:get_timings,increment_timer,itimer_tree_top,itimer_tree_sub
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(:) !ncellsmax+1)
  integer,         intent(in)    :: np
@@ -131,7 +132,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  integer :: npcounter
  logical :: wassplit,finished,sinktree
  character(len=10) :: string
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
 
+ call get_timings(t1,tcpu1)
  ! must initialise: otherwise a garbage .true. takes the sinktree branch
  ! with absent optionals (illegal access of nptmass/xyzmh_ptmass)
  sinktree = .false.
@@ -242,7 +245,9 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  ! build_top_parallel completes whole levels, so the queue may hold more than nqueue nodes
  if (.not.finished) nqueue = istack
 
- ! fix the indices
+ ! the levels built with all threads, then the subtrees built by one thread each
+ call get_timings(t2,tcpu2)
+ if (.not.apr_tree) call increment_timer(itimer_tree_top,t2-t1,tcpu2-tcpu1)
 
  done: if (.not.finished) then
 
@@ -302,6 +307,8 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
     !$omp end parallel
 
  endif done
+ call get_timings(t1,tcpu1)
+ if (.not.apr_tree) call increment_timer(itimer_tree_sub,t1-t2,tcpu1-tcpu2)
 
  ! decrease number of cells if tree is entirely within 2^k indexing limit
  if (maxlevel < maxlevel_indexed) then
@@ -1332,6 +1339,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
                                     inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,treecache,inodeparts,&
                                     npnode)
+       elseif (global_build .and. doparallel) then
+          ! a global (MPI) level holds all of this task's particles: partition with all threads
+          call partition_parallel(iaxis,inoderange(1,nnode),inoderange(2,nnode),xpivot,nl,xminl,xmaxl,xminr,xmaxr)
+          nr = npnode - nl
+          inoderange(:,il) = [inoderange(1,nnode),inoderange(1,nnode)+nl-1]
+          inoderange(:,ir) = [inoderange(1,nnode)+nl,inoderange(2,nnode)]
        else
           ! regular sort
           call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
@@ -1354,7 +1367,9 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           nr = npnode - nl
        endif
 
-       ! compute min/max with explicit loops for better cache behavior
+       ! compute min/max with explicit loops for better cache behavior (the parallel
+       ! partition of a global level already has them)
+       if (.not.(global_build .and. doparallel)) then
        xminl(:) =  huge(xminl)
        xmaxl(:) = -huge(xmaxl)
        do ipart=inoderange(1,il),inoderange(2,il)
@@ -1376,6 +1391,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           xmaxr(2) = max(xmaxr(2),treecache(2,ipart))
           xmaxr(3) = max(xmaxr(3),treecache(3,ipart))
        enddo
+       endif
     else
        nl = 0
        nr = 0
@@ -1409,6 +1425,100 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  endif
 
 end subroutine construct_node
+
+!----------------------------------------------------------------
+!+
+!  partition the particles in positions imin..imax of the tree
+!  arrays about xpivot along axis iaxis with all threads: those
+!  at or below the pivot first (nl of them), then the rest, with
+!  the bounds of each side. Each thread counts and bounds a chunk,
+!  then copies it to its offsets in the scratch buffers
+!+
+!----------------------------------------------------------------
+subroutine partition_parallel(iaxis,imin,imax,xpivot,nl,xminl,xmaxl,xminr,xmaxr)
+!$ use omp_lib, only:omp_get_max_threads
+ integer, intent(in)  :: iaxis,imin,imax
+ real,    intent(in)  :: xpivot
+ integer, intent(out) :: nl
+ real,    intent(out) :: xminl(3),xmaxl(3),xminr(3),xmaxr(3)
+ integer, allocatable :: nlc(:),offl(:),offr(:)
+ real,    allocatable :: bnd(:,:)
+ integer :: nchunk,c,i,i1,i2,pl,pr,n
+
+ if (allocated(tcbuf)) then
+    if (size(tcbuf,2) /= size(treecache,2) .or. size(tcbuf,1) /= size(treecache,1)) deallocate(tcbuf,ipbuf)
+ endif
+ if (.not.allocated(tcbuf)) allocate(tcbuf(size(treecache,1),size(treecache,2)),ipbuf(size(inodeparts)))
+ n = imax - imin + 1
+ nchunk = 1
+!$ nchunk = omp_get_max_threads()
+ nchunk = max(1,min(nchunk,n))
+ allocate(nlc(nchunk),offl(nchunk),offr(nchunk),bnd(12,nchunk))
+ ! count and bound each side in each chunk
+ !$omp parallel do default(none) schedule(static) shared(nchunk,imin,n,iaxis,xpivot,treecache,nlc,bnd) &
+ !$omp private(c,i,i1,i2)
+ do c = 1,nchunk
+    i1 = imin + int((int(c-1,8)*n)/nchunk)
+    i2 = imin + int((int(c,8)*n)/nchunk) - 1
+    nlc(c) = 0
+    bnd(1:3,c)  =  huge(0.)
+    bnd(4:6,c)  = -huge(0.)
+    bnd(7:9,c)  =  huge(0.)
+    bnd(10:12,c) = -huge(0.)
+    do i = i1,i2
+       if (treecache(iaxis,i) <= xpivot) then
+          nlc(c) = nlc(c) + 1
+          bnd(1:3,c) = min(bnd(1:3,c),treecache(1:3,i))
+          bnd(4:6,c) = max(bnd(4:6,c),treecache(1:3,i))
+       else
+          bnd(7:9,c)   = min(bnd(7:9,c),treecache(1:3,i))
+          bnd(10:12,c) = max(bnd(10:12,c),treecache(1:3,i))
+       endif
+    enddo
+ enddo
+ !$omp end parallel do
+ nl = sum(nlc)
+ offl(1) = imin
+ offr(1) = imin + nl
+ do c = 2,nchunk
+    offl(c) = offl(c-1) + nlc(c-1)
+    offr(c) = offr(c-1) + (int((int(c-1,8)*n)/nchunk) - int((int(c-2,8)*n)/nchunk)) - nlc(c-1)
+ enddo
+ ! each chunk to its place in the scratch buffers, then back
+ !$omp parallel default(none) shared(nchunk,imin,imax,n,iaxis,xpivot,treecache,inodeparts,tcbuf,ipbuf,offl,offr) &
+ !$omp private(c,i,i1,i2,pl,pr)
+ !$omp do schedule(static)
+ do c = 1,nchunk
+    i1 = imin + int((int(c-1,8)*n)/nchunk)
+    i2 = imin + int((int(c,8)*n)/nchunk) - 1
+    pl = offl(c)
+    pr = offr(c)
+    do i = i1,i2
+       if (treecache(iaxis,i) <= xpivot) then
+          tcbuf(:,pl) = treecache(:,i)
+          ipbuf(pl)   = inodeparts(i)
+          pl = pl + 1
+       else
+          tcbuf(:,pr) = treecache(:,i)
+          ipbuf(pr)   = inodeparts(i)
+          pr = pr + 1
+       endif
+    enddo
+ enddo
+ !$omp enddo
+ !$omp do schedule(static)
+ do i = imin,imax
+    treecache(:,i) = tcbuf(:,i)
+    inodeparts(i)  = ipbuf(i)
+ enddo
+ !$omp enddo
+ !$omp end parallel
+ xminl = minval(bnd(1:3,:),dim=2)
+ xmaxl = maxval(bnd(4:6,:),dim=2)
+ xminr = minval(bnd(7:9,:),dim=2)
+ xmaxr = maxval(bnd(10:12,:),dim=2)
+
+end subroutine partition_parallel
 
 !----------------------------------------------------------------
 !+
@@ -1830,7 +1940,7 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  use mpitree,      only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong,isink,massoftype,igas,&
                         iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
- use timing,       only:increment_timer,get_timings,itimer_balance
+ use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global
  use dim,          only:ind_timesteps
 
  type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
@@ -1858,8 +1968,9 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  integer                           :: i
  integer                           :: npnode
  logical                           :: wassplit,sinktree
- real(kind=4)                      :: t1,t2,tcpu1,tcpu2
+ real(kind=4)                      :: t1,t2,tcpu1,tcpu2,tg1,tg2,tcpug1,tcpug2
 
+ call get_timings(tg1,tcpug1)
  sinktree = .false.
  if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.
  if (.not.done_geosplit_env) call read_geosplit_env()
@@ -1890,11 +2001,11 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
        npcounter = npnode
     endif
     if (sinktree) then
-       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
+       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .true., &
                            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, leaf_is_active, &
                            minlevel, maxlevel, wassplit,.true.,apr_tree,xyzmh_ptmass)
     else
-       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
+       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .true., &
                         il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, leaf_is_active, &
                         minlevel, maxlevel, wassplit,.true.,apr_tree)
     endif
@@ -1932,12 +2043,16 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
        endif
     endif
     if (npcounter > 0) then
-       do i = inoderange(1,il), inoderange(2,il)
-          ibelong(abs(inodeparts(i))) = idleft
+       !$omp parallel do default(none) schedule(static) shared(inoderange,inodeparts,ibelong,il,ir,idleft,idright) &
+       !$omp private(i)
+       do i = inoderange(1,il), inoderange(2,ir)
+          if (i <= inoderange(2,il)) then
+             ibelong(abs(inodeparts(i))) = idleft
+          else
+             ibelong(abs(inodeparts(i))) = idright
+          endif
        enddo
-       do i = inoderange(1,ir), inoderange(2,ir)
-          ibelong(abs(inodeparts(i))) = idright
-       enddo
+       !$omp end parallel do
     endif
 
     call get_timings(t1,tcpu1)
@@ -1948,35 +2063,38 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
     call increment_timer(itimer_balance,t2-t1,tcpu2-tcpu1)
     ! move particles from old array
     ! this is a waste of time, but maintains compatibility
-    npnode = 0
+    ! position i in the tree arrays holds particle i
+    !$omp parallel do default(none) schedule(static) &
+    !$omp shared(np,inodeparts,treecache,xyzh,iphase,massoftype,aprmassoftype,apr_level,maxphase,maxp) private(i)
     do i=1,np
-       npnode = npnode + 1
        !
        ! tag inactive particles with negative index
        ! in the particle list for the node
        !
        if (ind_timesteps) then
           if (iactive(iphase(i))) then
-             inodeparts(npnode) = i
+             inodeparts(i) = i
           else
-             inodeparts(npnode) = -i
+             inodeparts(i) = -i
           endif
        else
-          inodeparts(npnode) = i
+          inodeparts(i) = i
        endif
-       treecache(1:4,npnode) = xyzh(1:4,i)
+       treecache(1:4,i) = xyzh(1:4,i)
        if (maxphase==maxp) then
           if (use_apr) then
-             treecache(5,npnode) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+             treecache(5,i) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
           else
-             treecache(5,npnode) = massoftype(iamtype(iphase(i)))
+             treecache(5,i) = massoftype(iamtype(iphase(i)))
           endif
        elseif (use_apr) then
-          treecache(5,npnode) = aprmassoftype(igas,apr_level(i))
+          treecache(5,i) = aprmassoftype(igas,apr_level(i))
        else
-          treecache(5,npnode) = massoftype(igas)
+          treecache(5,i) = massoftype(igas)
        endif
     enddo
+    !$omp end parallel do
+    npnode = np
     if (sinktree) then
        if (nptmass > 0) then
           do i=1,nptmass
@@ -2009,6 +2127,9 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
     endif
 
  enddo levels
+
+ call get_timings(tg2,tcpug2)
+ call increment_timer(itimer_tree_global,tg2-tg1,tcpug2-tcpug1)
 
  ! local tree
  if (sinktree) then

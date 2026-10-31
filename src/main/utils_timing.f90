@@ -45,54 +45,59 @@ module timing
                                 itimer_lastdump      =  2, &
                                 itimer_step          =  3, &
                                 itimer_tree          =  4, &
-                                itimer_balance       =  5, &
-                                itimer_dens          =  6, &
-                                itimer_dens_local    =  7, &
-                                itimer_dens_lcomp    =  8, &
-                                itimer_dens_lsend    =  9, &
-                                itimer_dens_lwalk    = 10, &
-                                itimer_dens_export   = 11, &
-                                itimer_dens_remote   = 12, &
-                                itimer_dens_rcomp    = 13, &
-                                itimer_dens_rsend    = 14, &
-                                itimer_dens_rwalk    = 15, &
-                                itimer_dens_wait     = 16, &
-                                itimer_force         = 17, &
-                                itimer_force_let     = 18, &
-                                itimer_force_local   = 19, &
-                                itimer_force_lcomp   = 20, &
-                                itimer_force_lsend   = 21, &
-                                itimer_force_lwalk   = 22, &
-                                itimer_force_export  = 23, &
-                                itimer_force_remote  = 24, &
-                                itimer_force_rcomp   = 25, &
-                                itimer_force_rsend   = 26, &
-                                itimer_force_rwalk   = 27, &
-                                itimer_force_wait    = 28, &
-                                itimer_radiation     = 29, &
-                                itimer_rad_save      = 30, &
-                                itimer_rad_neighlist = 31, &
-                                itimer_rad_arrays    = 32, &
-                                itimer_rad_its       = 33, &
-                                itimer_rad_flux      = 34, &
-                                itimer_rad_diff      = 35, &
-                                itimer_rad_update    = 36, &
-                                itimer_rad_store     = 37, &
-                                itimer_cons2prim     = 38, &
-                                itimer_substep       = 39, &
-                                itimer_sinksink      = 40, &
-                                itimer_gasf          = 41, &
-                                itimer_acc           = 42, &
-                                itimer_sg_id         = 43, &
-                                itimer_sg_evol       = 44, &
-                                itimer_kick          = 45, &
-                                itimer_drift         = 46, &
-                                itimer_kickdrift     = 47, &
-                                itimer_HII           = 48, &
-                                itimer_ev            = 49, &
-                                itimer_io            = 50
+                                itimer_tree_global   =  5, &
+                                itimer_balance       =  6, &
+                                itimer_tree_top      =  7, &
+                                itimer_tree_sub      =  8, &
+                                itimer_tree_revise   =  9, &
+                                itimer_tree_graft    = 10, &
+                                itimer_dens          = 11, &
+                                itimer_dens_local    = 12, &
+                                itimer_dens_lcomp    = 13, &
+                                itimer_dens_lsend    = 14, &
+                                itimer_dens_lwalk    = 15, &
+                                itimer_dens_export   = 16, &
+                                itimer_dens_remote   = 17, &
+                                itimer_dens_rcomp    = 18, &
+                                itimer_dens_rsend    = 19, &
+                                itimer_dens_rwalk    = 20, &
+                                itimer_dens_wait     = 21, &
+                                itimer_force         = 22, &
+                                itimer_force_let     = 23, &
+                                itimer_force_local   = 24, &
+                                itimer_force_lcomp   = 25, &
+                                itimer_force_lsend   = 26, &
+                                itimer_force_lwalk   = 27, &
+                                itimer_force_export  = 28, &
+                                itimer_force_remote  = 29, &
+                                itimer_force_rcomp   = 30, &
+                                itimer_force_rsend   = 31, &
+                                itimer_force_rwalk   = 32, &
+                                itimer_force_wait    = 33, &
+                                itimer_radiation     = 34, &
+                                itimer_rad_save      = 35, &
+                                itimer_rad_neighlist = 36, &
+                                itimer_rad_arrays    = 37, &
+                                itimer_rad_its       = 38, &
+                                itimer_rad_flux      = 39, &
+                                itimer_rad_diff      = 40, &
+                                itimer_rad_update    = 41, &
+                                itimer_rad_store     = 42, &
+                                itimer_cons2prim     = 43, &
+                                itimer_substep       = 44, &
+                                itimer_sinksink      = 45, &
+                                itimer_gasf          = 46, &
+                                itimer_acc           = 47, &
+                                itimer_sg_id         = 48, &
+                                itimer_sg_evol       = 49, &
+                                itimer_kick          = 50, &
+                                itimer_drift         = 51, &
+                                itimer_kickdrift     = 52, &
+                                itimer_HII           = 53, &
+                                itimer_ev            = 54, &
+                                itimer_io            = 55
 
- integer, public, parameter :: ntimers = 50 ! should be equal to the largest itimer index
+ integer, public, parameter :: ntimers = 55 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
  !--running totals are summed in double precision; timers(:)%wall and %cpu hold
  !  copies in single precision, so a small increment is not lost in a large total
@@ -117,7 +122,12 @@ subroutine setup_timers
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
  call init_timer(itimer_tree        , 'tree',        itimer_step  )
- call init_timer(itimer_balance     , 'balance',     itimer_tree  )
+ call init_timer(itimer_tree_global , 'global',      itimer_tree  )
+ call init_timer(itimer_balance     , 'balance',     itimer_tree_global )
+ call init_timer(itimer_tree_top    , 'top',         itimer_tree  )
+ call init_timer(itimer_tree_sub    , 'subtrees',    itimer_tree  )
+ call init_timer(itimer_tree_revise , 'revise',      itimer_tree  )
+ call init_timer(itimer_tree_graft  , 'graft',       itimer_tree  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
  call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
  call init_timer(itimer_dens_lcomp  , 'compute',     itimer_dens_local )
