@@ -24,7 +24,7 @@ module neighkdtree
  use dim,          only:ncellsmax,gravity
  use dtypekdtree,  only:kdnode,lenfgrav
  use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,tree_accuracy,&
-                        ih1,im,irho,izetaomega,isoftomega
+                        ih1,im
  implicit none
 
  ! the global tree, replicated on every MPI task: cellatid is owner+1 for its leaves, 0 otherwise.
@@ -2643,11 +2643,7 @@ end subroutine add_remote_leaf
 !+
 !----------------------------------------------------------------
 subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
- use part, only:rho,gradh,treecache
- use dim,  only:igradomega,igradzeta,maxpsph
-#ifdef GRAVITY
- use dim,  only:igradsoft
-#endif
+ use part, only:treecache
  integer, intent(in)    :: isrc,ixyzcachesize,maxcache
  real,    intent(in)    :: xoffset,yoffset,zoffset
  integer, intent(inout) :: nneigh
@@ -2679,24 +2675,6 @@ subroutine cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcach
        if (maxcache >= 5) then
           xyzcache(im,nneigh+ipart) = treecache(5,inode)
        endif
-       if (maxcache >= 7) then
-          if (ip <= maxpsph) then
-             xyzcache(irho,nneigh+ipart)        = rho(ip)
-             xyzcache(izetaomega,nneigh+ipart) = real(gradh(igradzeta,ip))*real(gradh(igradomega,ip))
-          else
-             xyzcache(irho,nneigh+ipart)        = 0.
-             xyzcache(izetaomega,nneigh+ipart) = 0.
-          endif
-       endif
-#ifdef GRAVITY
-       if (maxcache >= 8) then
-          if (ip <= maxpsph) then
-             xyzcache(isoftomega,nneigh+ipart) = real(gradh(igradsoft,ip))*real(gradh(igradomega,ip))
-          else
-             xyzcache(isoftomega,nneigh+ipart) = 0.
-          endif
-       endif
-#endif
     enddo
  endif
 

@@ -62,7 +62,7 @@ module kdtree
  integer, public :: maxlevel_indexed, maxlevel
 
  ! neighbour cache indices (xyzcache); imported with only: from dens/force
- integer, parameter, public :: ix=1, iy=2, iz=3, ih1=4, im=5, irho=6, izetaomega=7, isoftomega=8
+ integer, parameter, public :: ix=1, iy=2, iz=3, ih1=4, im=5
 
  type kdbuildstack
     integer :: node

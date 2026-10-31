@@ -50,17 +50,13 @@ module forces
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce,    only:cellforce,stackforce,maxcellleaves
  use neighkdtree, only:leaf_is_active
- use kdtree,      only:inodeparts,inoderange,ih1,im,irho,izetaomega,isoftomega
+ use kdtree,      only:inodeparts,inoderange,ih1,im
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
  implicit none
 
  integer, parameter :: maxcellcache = 1000
-#ifdef GRAVITY
- integer, parameter :: nforcecache = 8
-#else
- integer, parameter :: nforcecache = 7
-#endif
+ integer, parameter :: nforcecache = 5  ! position, 1/h and mass of the trial neighbours
 
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
 
@@ -1325,31 +1321,28 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qi   = 0.
        endif
 
-       ! neighbour mass, density and gradh products from cache (or tables if uncached)
+       ! neighbour mass from the cache (or tables if uncached); its density and gradh
+       ! products are read here, only for actual neighbours
        if (ifilledcellcache .and. n <= maxcellcache) then
-          pmassj       = xyzcache(im,n)
-          rhoj         = xyzcache(irho,n)
-          zetaomegaj   = xyzcache(izetaomega,n)
-#ifdef GRAVITY
-          softomegaj   = xyzcache(isoftomega,n)
-#endif
+          pmassj = xyzcache(im,n)
        elseif (iamsinkj) then
-          pmassj       = xyzmh_ptmass(4,j-maxpsph)
-          rhoj         = 0.
-          zetaomegaj   = 0.
+          pmassj = xyzmh_ptmass(4,j-maxpsph)
+       elseif (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassj = massoftype(iamtypej)
+       endif
+       if (iamsinkj) then
+          rhoj       = 0.
+          zetaomegaj = 0.
 #ifdef GRAVITY
-          softomegaj   = 0.
+          softomegaj = 0.
 #endif
        else
-          if (use_apr) then
-             pmassj = aprmassoftype(iamtypej,apr_level(j))
-          else
-             pmassj = massoftype(iamtypej)
-          endif
-          rhoj         = rho(j)
-          zetaomegaj   = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
+          rhoj       = rho(j)
+          zetaomegaj = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
 #ifdef GRAVITY
-          softomegaj   = real(gradh(igradsoft,j))*real(gradh(igradomega,j))
+          softomegaj = real(gradh(igradsoft,j))*real(gradh(igradomega,j))
 #endif
        endif
 
