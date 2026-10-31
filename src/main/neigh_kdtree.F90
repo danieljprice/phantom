@@ -119,13 +119,19 @@ module neighkdtree
  integer, public, allocatable :: remote_leaves(:)
  integer, public              :: nremote_leaves = 0
 !$omp threadprivate(remote_leaves,nremote_leaves)
+! the stack of node pairs of the dual tree walk, per thread, grown when full
+ integer, allocatable :: dualstack(:,:)
+!$omp threadprivate(dualstack)
 ! nodes marked for the receiver whose import is being selected, per thread (see let_exchange)
 !$omp threadprivate(let_mark,let_stamp)
  integer(kind=8), public            :: ncells
  real,            public            :: dxcell
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
  logical,         public            :: use_dualtree  = .true.
- logical,         public            :: use_dualcache = gravity ! only debug flag / should be on with gravity
+ logical,         public            :: use_dualcache = gravity ! set in allocate_neigh
+ ! for testing only: the dual tree walk also in force without self-gravity on one task
+ ! (slower than the single tree walk in polar on 8 threads, so off)
+ logical,         public            :: use_dualtree_hydro = .false.
  integer,         parameter         :: maxnodecache_local = 4096
  integer,         parameter         :: maxneigh_per_node  = 16
  integer,         parameter         :: maxstacksize = 2048
@@ -147,6 +153,7 @@ module neighkdtree
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
  private
+
 
 contains
 
@@ -207,8 +214,12 @@ subroutine allocate_neigh
  call allocate_array('listneigh_global',listneigh_global,maxp)
  call allocate_array('cachestate', cachestate, ncache)
 
+ ! the walk caches are used by the dual tree walk: in force with self-gravity, and in
+ ! every force walk with more than one MPI task. Long-range forces are only cached with
+ ! self-gravity
+ use_dualcache = gravity .or. nprocs > 1 .or. use_dualtree_hydro
  if (use_dualcache) then
-    call allocate_array('fnodecache', fnodecache, lenfgrav, ncache)
+    call allocate_array('fnodecache', fnodecache, lenfgrav, merge(ncache,1,gravity))
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
     call allocate_array('neighnodecache_start',neighnodecache_start,ncache)
     call allocate_array('neighnodecache_count',neighnodecache_count,ncache)
@@ -258,6 +269,7 @@ subroutine deallocate_neigh
  if (allocated(neighnodecache_count)) deallocate(neighnodecache_count)
 !$omp parallel
  if (allocated(let_mark)) deallocate(let_mark)
+ if (allocated(dualstack)) deallocate(dualstack)
  if (allocated(neighnode_branch)) deallocate(neighnode_branch)
  if (allocated(neighnodecount_branch)) deallocate(neighnodecount_branch)
  if (allocated(fnode_branch)) deallocate(fnode_branch)
@@ -531,10 +543,10 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  get_f = (gravity .and. present(f))
 
- if (mpi .and. global_search .and. get_f .and. use_dualtree) then
-    ! with more than one MPI task: dual tree walk of the combined tree, with the nodes
-    ! imported from other tasks. Leaves of other tasks paired with this cell are listed
-    ! in remote_leaves, and the cell is sent to their owners
+ if (mpi .and. global_search .and. present(f) .and. use_dualtree) then
+    ! with more than one MPI task, the force walk (f present) is the dual tree walk of
+    ! the combined tree, with the nodes imported from other tasks. Leaves of other tasks
+    ! paired with this cell are listed in remote_leaves, and the cell is sent to their owners
     call getused(t1)
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                        leaf_is_active,get_j,get_f,f,inode,nrem,ntr)
@@ -559,10 +571,9 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     fgrav_global = 0.0
  endif
 
- ! Find neighbours of this cell on this node
- ! the dual tree walk is not yet used with more than one MPI task
+ ! Find neighbours of this cell on this node: the dual tree walk in force with self-gravity
  call getused(t1)
- if (get_f .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
+ if ((get_f .or. (present(f) .and. use_dualtree_hydro)) .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
  else
@@ -1114,17 +1125,17 @@ subroutine exchange_leaf_particles(implist,nimp)
     enddo
  enddo
  allocate(sendbuf(max(ioff(nleaves+1),1)))
- !$omp parallel do default(none) schedule(dynamic,1) shared(nleaves,leaf,loc,ioff,nrec,sendbuf,inoderange,inodeparts) &
- !$omp private(m,n,j,k,xtemp)
+ !$omp parallel do default(none) schedule(dynamic,1) shared(nleaves,leaf,loc,ioff,sendbuf,inoderange,inodeparts) &
+ !$omp private(m,n,j,k,xtemp,np)
  do m = 1,nleaves
     n = leaf(m)
     sendbuf(ioff(m)+1) = loc(m)
     sendbuf(ioff(m)+2) = inoderange(2,n) - inoderange(1,n) + 1
     k = ioff(m) + 2
     do j = inoderange(1,n),inoderange(2,n)
-       call fill_sendbuf(inodeparts(j),xtemp,nrec)
-       sendbuf(k+1:k+nrec) = xtemp(1:nrec)
-       k = k + nrec
+       call fill_sendbuf(inodeparts(j),xtemp,np)   ! np: reals for this particle
+       sendbuf(k+1:k+np) = xtemp(1:np)
+       k = k + np
     enddo
  enddo
  !$omp end parallel do
@@ -1389,8 +1400,8 @@ logical function well_separated(node1,node2)
 
  call get_sep(node1%xcen,node2%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
  rcut = radkern*max(node1%hmax,node2%hmax)
- well_separated = (tree_accuracy**2*r2 > (node1%size + node2%size)**2) .and. &
-                  (r2 > (node1%size + node2%size + rcut)**2)
+ well_separated = (r2 > (node1%size + node2%size + rcut)**2)
+ if (gravity) well_separated = well_separated .and. (tree_accuracy**2*r2 > (node1%size + node2%size)**2)
 
 end function well_separated
 
@@ -1412,7 +1423,8 @@ logical function profile_may_open(noded,sizemax,hmaxmax,n_node)
  d     = sqrt(r2) - noded%size
  sizes = sizemax + n_node%size
  rcut  = radkern*max(hmaxmax,n_node%hmax)
- profile_may_open = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
+ profile_may_open = (d < sizes + rcut)
+ if (gravity) profile_may_open = profile_may_open .or. (tree_accuracy*d < sizes)
 
 end function profile_may_open
 
@@ -2259,7 +2271,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  integer,      intent(in)    :: icell
  integer,      intent(out), optional :: nremote,ntrunc ! leaf pairs with other tasks' leaves, and with truncated ones
  integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate,nrem,ntr
- integer :: branch(maxdepth+1),nparents,stack(3,maxstacksize),startwith(2),npop,noverflow
+ integer :: branch(maxdepth+1),nparents,startwith(2),npop,noverflow
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
@@ -2273,6 +2285,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
     maxcache = 0
  endif
 
+ if (.not.allocated(dualstack)) allocate(dualstack(3,maxstacksize))
  call get_list_of_parent_nodes(icell,node,branch,nparents,startwith)
 
  neighnodecount_branch(1:nparents) = 0
@@ -2290,17 +2303,14 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  if (use_dualcache .and. startwith(2) > 0) then
     do i=1,neighnodecache_count(startwith(1))
        isrc = neighnodecache(neighnodecache_start(startwith(1)) + i)
-       call open_nodes(stack,istack,node(isrc),isrc,branch,startwith(2),&
+       call open_nodes(dualstack,istack,node(isrc),isrc,branch,startwith(2),&
                        listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                        maxcache,xoffset,yoffset,zoffset,nrem,ntr)
     enddo
  else
     ! start from the top of the branch: the root of the local tree, or of the
     ! combined tree with more than one MPI task
-    istack = istack + 1
-    stack(1,istack) = branch(nparents)
-    stack(2,istack) = branch(nparents)
-    stack(3,istack) = nparents
+    call push_pair(dualstack,istack,branch(nparents),branch(nparents),nparents)
  endif
 !
 !-- parallel select algorithm to check every interactions between the tree and the selected branch
@@ -2309,9 +2319,9 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  do while(istack > 0)
     !-- pop the stack
     npop = npop + 1
-    idst       = stack(1,istack) ! dest node id
-    isrc       = stack(2,istack) ! src node id
-    idstbranch = stack(3,istack) ! dest id in branch array
+    idst       = dualstack(1,istack) ! dest node id
+    isrc       = dualstack(2,istack) ! src node id
+    idstbranch = dualstack(3,istack) ! dest id in branch array
     istack     = istack - 1
 
     if (idst == isrc) then !-- self interaction ignored (directly push onto stack)
@@ -2330,7 +2340,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           neighnode_branch(neighnodecount_branch(idstbranch),idstbranch) = isrc
        endif
 
-       call open_nodes(stack,istack,node(isrc),isrc,branch,idstbranch,&
+       call open_nodes(dualstack,istack,node(isrc),isrc,branch,idstbranch,&
                        listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                        maxcache,xoffset,yoffset,zoffset,nrem,ntr)
     endif
@@ -2354,7 +2364,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           !$omp end atomic
           if (nodestate == 0) then ! if still the winner then cache
              !-- winner: publish fnode first ...
-             fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
+             if (gravity) fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
              ! flush: fnodecache must be visible before the state says it is cached
              !$omp flush
              !$omp atomic write
@@ -2384,7 +2394,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           !-- fetch fnode from the cache array
           ! flush: see the fnodecache published before the state was set
           !$omp flush
-          fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
+          if (gravity) fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif
     endif
 
@@ -2548,7 +2558,6 @@ end subroutine get_list_of_parent_nodes
 subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
                            listneigh,xyzcache,ixyzcachesize,nneigh,leaf_is_active,&
                            maxcache,xoffset,yoffset,zoffset,nremote,ntrunc)
- use io, only:fatal
  type(kdnode), intent(in)    :: srcnode
  integer,      intent(in)    :: isrc,idstbranch
  integer,      intent(in)    :: branch(:)
@@ -2556,7 +2565,8 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
  integer,      intent(in)    :: leaf_is_active(:)
  integer,      intent(inout) :: listneigh(:)
  integer,      intent(inout) :: nneigh
- integer,      intent(inout) :: stack(:,:),istack
+ integer, allocatable, intent(inout) :: stack(:,:)
+ integer,      intent(inout) :: istack
  real,         intent(inout) :: xyzcache(:,:)
  real,         intent(in)    :: xoffset,yoffset,zoffset
  integer,      intent(inout) :: nremote,ntrunc
@@ -2592,26 +2602,14 @@ subroutine open_nodes(stack,istack,srcnode,isrc,branch,idstbranch,&
           call cache_neighbours(nneigh,isrc,ixyzcachesize,maxcache,listneigh,xyzcache,xoffset,yoffset,zoffset)
        endif
     else ! then you're a leaf -> leaf lowering
-       if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
-       istack = istack + 1
-       stack(1,istack) = idstnext
-       stack(2,istack) = isrc
-       stack(3,istack) = ibranchnext
+       call push_pair(stack,istack,idstnext,isrc,ibranchnext)
     endif is_P2P
  else
     if (il /= 0) then
-       if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
-       istack = istack + 1
-       stack(1,istack) = idstnext
-       stack(2,istack) = il
-       stack(3,istack) = ibranchnext
+       call push_pair(stack,istack,idstnext,il,ibranchnext)
     endif
     if (ir /= 0) then
-       if (istack+1 > maxstacksize) call fatal('getneigh','stack overflow in getneigh')
-       istack = istack + 1
-       stack(1,istack) = idstnext
-       stack(2,istack) = ir
-       stack(3,istack) = ibranchnext
+       call push_pair(stack,istack,idstnext,ir,ibranchnext)
     endif
  endif is_src_leaf
 
@@ -2721,7 +2719,9 @@ subroutine node_interaction(idst,node_dst,node_src,tree_acc2,fnode,stackit,xoffs
 
  rcut  = max(rcut_dst,rcut_src)
  rcut2 = (size_dst+size_src+rcut)**2
- wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
+ ! outside the kernels, and with self-gravity also accepted by the opening criterion
+ wellsep = (r2 > rcut2)
+ if (gravity) wellsep = wellsep .and. (tree_acc2*r2 > (size_dst+size_src)**2)
 
  if (wellsep) then
 #ifdef GRAVITY

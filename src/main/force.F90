@@ -411,7 +411,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
  !--import the nodes of other tasks that the dual tree walk could open (the
  !  locally essential tree), and check that the walk never meets a truncated node
- if (exchange .and. gravity .and. use_dualtree) then
+ if (exchange .and. use_dualtree) then
     call get_timings(t1,tcpu1)
     call let_exchange()
     call get_timings(t2,tcpu2)
@@ -533,10 +533,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     cell%owner = id
     do_export = any(remote_export)
-    !--send each task only the particles that interact with its particles. Not with
-    !  self-gravity: the remote task then computes the gravity of its nearby nodes,
-    !  which the global tree walk did not, on every particle of the cell
-    if (do_export .and. .not.gravity) then
+    !--without the dual tree walk or self-gravity, send each task only the particles that
+    !  interact with its particles. With self-gravity the remote task computes the gravity
+    !  of its nearby nodes, which the global tree walk did not, on every particle of the cell
+    if (do_export .and. .not.gravity .and. .not.use_dualtree) then
        call particle_targets(cell,remote_export,ptargets)
        do_export = any(remote_export)
     endif
@@ -545,7 +545,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)
-          if (gravity .and. use_dualtree) then
+          if (use_dualtree) then
              ! to each task, with its leaves that the dual tree walk paired with the cell
              call send_cell_with_leaves(cell,stack_remote,cell_counters)
           elseif (gravity) then
