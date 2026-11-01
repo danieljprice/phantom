@@ -127,7 +127,9 @@ module neighkdtree
  integer(kind=8), public            :: ncells
  real,            public            :: dxcell
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
- logical,         public            :: use_dualtree  = .true.
+ ! the dual tree walk in force: only with self-gravity, since without it the
+ ! single tree walk is faster, on one task and with the exchange between tasks
+ logical,         public            :: use_dualtree  = gravity
  logical,         public            :: use_dualcache = gravity ! set in allocate_neigh
  integer,         parameter         :: maxnodecache_local = 4096
  integer,         parameter         :: maxneigh_per_node  = 16
@@ -212,9 +214,9 @@ subroutine allocate_neigh
  call allocate_array('cachestate', cachestate, ncache)
 
  ! the walk caches are used by the dual tree walk: in force with self-gravity, and in
- ! every force walk with more than one MPI task. Long-range forces are only cached with
- ! self-gravity
- use_dualcache = gravity .or. nprocs > 1
+ ! every force walk with more than one MPI task if the dual tree walk is used. Long-range
+ ! forces are only cached with self-gravity
+ use_dualcache = gravity .or. (nprocs > 1 .and. use_dualtree)
  if (use_dualcache) then
     call allocate_array('fnodecache', fnodecache, lenfgrav, merge(ncache,1,gravity))
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
