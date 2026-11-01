@@ -129,9 +129,6 @@ module neighkdtree
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
  logical,         public            :: use_dualtree  = .true.
  logical,         public            :: use_dualcache = gravity ! set in allocate_neigh
- ! for testing only: the dual tree walk also in force without self-gravity on one task
- ! (slower than the single tree walk in polar on 8 threads, so off)
- logical,         public            :: use_dualtree_hydro = .false.
  integer,         parameter         :: maxnodecache_local = 4096
  integer,         parameter         :: maxneigh_per_node  = 16
  integer,         parameter         :: maxstacksize = 2048
@@ -217,7 +214,7 @@ subroutine allocate_neigh
  ! the walk caches are used by the dual tree walk: in force with self-gravity, and in
  ! every force walk with more than one MPI task. Long-range forces are only cached with
  ! self-gravity
- use_dualcache = gravity .or. nprocs > 1 .or. use_dualtree_hydro
+ use_dualcache = gravity .or. nprocs > 1
  if (use_dualcache) then
     call allocate_array('fnodecache', fnodecache, lenfgrav, merge(ncache,1,gravity))
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
@@ -581,7 +578,7 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  ! Find neighbours of this cell on this node: the dual tree walk in force with self-gravity
  call getused(t1)
- if ((get_f .or. (present(f) .and. use_dualtree_hydro)) .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
+ if (get_f .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
  else
