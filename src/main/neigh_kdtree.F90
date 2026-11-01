@@ -389,10 +389,10 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,nactive,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,nactive,leaf_is_active,ncells,&
                            apr_tree)
     endif
     call get_timings(t1,tcpu1)

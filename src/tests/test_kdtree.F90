@@ -16,8 +16,8 @@ module testkdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpiutils,
-!   neighkdtree, part, testutils, timing, unifdis
+! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpisections,
+!   mpiutils, neighkdtree, part, testutils, timing, unifdis
 !
  implicit none
  public :: test_kdtree
@@ -243,7 +243,7 @@ subroutine test_kdtree(ntests,npass)
     deallocate(leaf_is_active_saved)
  endif
 
- call test_hilbert_keys(ntests,npass)
+ call test_geometric_keys(ntests,npass)
  if (mpi .and. nprocs > 1) call test_global_tree(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- KDTREE TEST COMPLETE'
@@ -252,57 +252,75 @@ end subroutine test_kdtree
 
 !-----------------------------------------------------------------------
 !+
-!   Tests of the Hilbert keys used for the MPI domain decomposition, on
-!   every cell of a 16^3 grid: the key maps back to the cell, consecutive
-!   keys are neighbouring cells, and the cells sharing the first b bits
-!   of their key fill an axis-aligned box, for every b
+!   Tests of the keys used for the MPI domain decomposition: on the
+!   cell centres of a grid in a flat box, the box is split along its
+!   longest axes first, the points sharing the first b bits of their key
+!   fill one cell of the tree of midpoint splits, for every b down to
+!   the grid, and the corners of the box get the first and last keys
 !+
 !-----------------------------------------------------------------------
-subroutine test_hilbert_keys(ntests,npass)
- use hilbert,   only:p_to_h,h_to_p
- use testutils, only:checkval,update_test_scores
+subroutine test_geometric_keys(ntests,npass)
+ use mpisections, only:get_key_box,get_geometric_keys
+ use testutils,   only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer(8), parameter :: m = 4, ngrid = 2**m, ncell = ngrid**3
- integer(8) :: p(3,0:ncell-1),pmin(3),pmax(3),ix,iy,iz,h,b,g,ngroup
- integer    :: nfailed(3),nbad(3)
+ integer, parameter :: ngrid(3) = [16,16,4], np = ngrid(1)*ngrid(2)*ngrid(3), nbmax = 10
+ real,    parameter :: boxlen(3) = [4.,4.,1.]
+ real       :: xyzh(4,np),boxmin(3),boxsize(3),dx(3),corner(4,2)
+ real       :: gmin(3,0:2**nbmax-1),gmax(3,0:2**nbmax-1),cell(3)
+ integer(8) :: key(np),kcorner(2),g
+ integer    :: axis(63),nfailed(3),nbad(2),i,ix,iy,iz,b,ngroup(0:2**nbmax-1),nsplit(3)
 
- ! the cell of each key, checking that the key of that cell is the key
- nbad = 0
- p = -1
- do iz = 0,ngrid-1
-    do iy = 0,ngrid-1
-       do ix = 0,ngrid-1
-          h = p_to_h([ix,iy,iz],m)
-          if (h < 0 .or. h >= ncell) then
-             nbad(1) = nbad(1) + 1
-             cycle
-          endif
-          p(:,h) = [ix,iy,iz]
-          if (any(h_to_p(h,m) /= [ix,iy,iz])) nbad(1) = nbad(1) + 1
+ ! cell centres of the grid, all with h > 0
+ dx = boxlen/ngrid
+ i = 0
+ do iz = 1,ngrid(3)
+    do iy = 1,ngrid(2)
+       do ix = 1,ngrid(1)
+          i = i + 1
+          xyzh(1:3,i) = ([ix,iy,iz] - 0.5)*dx
+          xyzh(4,i)   = 1.
        enddo
     enddo
  enddo
- if (any(p < 0)) nbad(1) = nbad(1) + 1   ! every key used once
- ! consecutive keys are face neighbours
- do h = 1,ncell-1
-    if (sum(abs(p(:,h) - p(:,h-1))) /= 1) nbad(2) = nbad(2) + 1
- enddo
- ! the cells with the same first b bits fill a box with as many cells
- do b = 1,3*m
-    ngroup = 2**(3*m - b)
-    do g = 0,ncell/ngroup - 1
-       pmin = minval(p(:,g*ngroup:(g+1)*ngroup-1),dim=2)
-       pmax = maxval(p(:,g*ngroup:(g+1)*ngroup-1),dim=2)
-       if (product(pmax - pmin + 1) /= ngroup) nbad(3) = nbad(3) + 1
+ ! the box of the points is the grid less half a cell each side
+ call get_key_box(np,xyzh,boxmin,boxsize,axis)
+ call get_geometric_keys(np,xyzh,boxmin,boxsize,axis,key)
+
+ nbad = 0
+ do b = 1,nbmax
+    nsplit = [(count(axis(1:b) == ix),ix=1,3)]
+    cell = boxsize/2.**nsplit
+    gmin = huge(gmin)
+    gmax = -huge(gmax)
+    ngroup = 0
+    do i = 1,np
+       g = shiftr(key(i),63-b)
+       gmin(:,g) = min(gmin(:,g),xyzh(1:3,i))
+       gmax(:,g) = max(gmax(:,g),xyzh(1:3,i))
+       ngroup(g) = ngroup(g) + 1
+    enddo
+    ! each group lies within one cell of the tree, and all cells hold the same number
+    do g = 0,2_8**b-1
+       if (ngroup(g) /= np/2**b) nbad(1) = nbad(1) + 1
+       if (ngroup(g) > 0) then
+          if (any(gmax(:,g) - gmin(:,g) > cell)) nbad(1) = nbad(1) + 1
+       endif
     enddo
  enddo
+ ! the longest axes are split first: x and y twice each before z
+ if (count(axis(1:4) == 3) /= 0) nbad(2) = nbad(2) + 1
+ ! the lower corner gets key 0, the upper corner (and beyond) the last key
+ corner(:,1) = [boxmin,1.]
+ corner(:,2) = [boxmin + 2.*boxsize,1.]
+ call get_geometric_keys(2,corner,boxmin,boxsize,axis,kcorner)
+
  nfailed = 0
- call checkval(nbad(1),0,0,nfailed(1),'Hilbert key maps back to its cell')
- call checkval(nbad(2),0,0,nfailed(2),'consecutive Hilbert keys are neighbours')
- call checkval(nbad(3),0,0,nfailed(3),'Hilbert key prefixes are boxes')
+ call checkval(nbad(1),0,0,nfailed(1),'key prefixes are cells of the tree')
+ call checkval(nbad(2),0,0,nfailed(2),'longest axes split first')
+ call checkval(int(merge(0,1,kcorner(1) == 0 .and. kcorner(2) == huge(kcorner))),0,0,nfailed(3),'keys of the corners')
  call update_test_scores(ntests,nfailed,npass)
 
-end subroutine test_hilbert_keys
+end subroutine test_geometric_keys
 !-----------------------------------------------------------------------
 !+
 !   Tests of the global tree that every MPI task holds a copy of:

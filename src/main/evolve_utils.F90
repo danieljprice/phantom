@@ -384,7 +384,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  call reduce_timers
  if (id==master) call print_timinginfo(iprint,nsteps,nsteplast)
  if (mpi .and. nprocs > 1) call print_task_table(iprint,taskvals)
- if (mpi .and. nprocs > 1) call hilbert_balance(iprint,npart,xyzh,ibin)
+ if (mpi .and. nprocs > 1) call section_balance(iprint,npart,xyzh,ibin)
  if (mpi) call print_cell_exchange_stats(iprint)
  if (mpi) call print_let_stats(iprint)
  !--Write out summary to log file
@@ -454,14 +454,14 @@ end subroutine gather_task_values
 
 !----------------------------------------------------------------
 !+
-!  diagnostic: the balance between tasks that a decomposition along
-!  the Hilbert curve would give, weighting particles by how often they
-!  are active
+!  diagnostic: the balance between tasks now, and that a new
+!  decomposition into sections would give, weighting particles by how
+!  often they are active
 !+
 !----------------------------------------------------------------
-subroutine hilbert_balance(iunit,np,xyzh,ibin)
+subroutine section_balance(iunit,np,xyzh,ibin)
  use dim,           only:ind_timesteps
- use hilbertdomain, only:print_hilbert_diagnostic
+ use mpisections,   only:print_section_diagnostic
  integer,         intent(in) :: iunit,np
  real,            intent(in) :: xyzh(:,:)
  integer(kind=1), intent(in) :: ibin(:)
@@ -474,9 +474,9 @@ subroutine hilbert_balance(iunit,np,xyzh,ibin)
     wt(i) = 1.
     if (ind_timesteps) wt(i) = 2.**ibin(i)
  enddo
- call print_hilbert_diagnostic(np,xyzh,wt,iunit)
+ call print_section_diagnostic(np,xyzh,wt,iunit)
 
-end subroutine hilbert_balance
+end subroutine section_balance
 
 !----------------------------------------------------------------
 !+
