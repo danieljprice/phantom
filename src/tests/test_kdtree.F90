@@ -243,11 +243,66 @@ subroutine test_kdtree(ntests,npass)
     deallocate(leaf_is_active_saved)
  endif
 
+ call test_hilbert_keys(ntests,npass)
  if (mpi .and. nprocs > 1) call test_global_tree(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- KDTREE TEST COMPLETE'
 
 end subroutine test_kdtree
+
+!-----------------------------------------------------------------------
+!+
+!   Tests of the Hilbert keys used for the MPI domain decomposition, on
+!   every cell of a 16^3 grid: the key maps back to the cell, consecutive
+!   keys are neighbouring cells, and the cells sharing the first b bits
+!   of their key fill an axis-aligned box, for every b
+!+
+!-----------------------------------------------------------------------
+subroutine test_hilbert_keys(ntests,npass)
+ use hilbert,   only:p_to_h,h_to_p
+ use testutils, only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer(8), parameter :: m = 4, ngrid = 2**m, ncell = ngrid**3
+ integer(8) :: p(3,0:ncell-1),pmin(3),pmax(3),ix,iy,iz,h,b,g,ngroup
+ integer    :: nfailed(3),nbad(3)
+
+ ! the cell of each key, checking that the key of that cell is the key
+ nbad = 0
+ p = -1
+ do iz = 0,ngrid-1
+    do iy = 0,ngrid-1
+       do ix = 0,ngrid-1
+          h = p_to_h([ix,iy,iz],m)
+          if (h < 0 .or. h >= ncell) then
+             nbad(1) = nbad(1) + 1
+             cycle
+          endif
+          p(:,h) = [ix,iy,iz]
+          if (any(h_to_p(h,m) /= [ix,iy,iz])) nbad(1) = nbad(1) + 1
+       enddo
+    enddo
+ enddo
+ if (any(p < 0)) nbad(1) = nbad(1) + 1   ! every key used once
+ ! consecutive keys are face neighbours
+ do h = 1,ncell-1
+    if (sum(abs(p(:,h) - p(:,h-1))) /= 1) nbad(2) = nbad(2) + 1
+ enddo
+ ! the cells with the same first b bits fill a box with as many cells
+ do b = 1,3*m
+    ngroup = 2**(3*m - b)
+    do g = 0,ncell/ngroup - 1
+       pmin = minval(p(:,g*ngroup:(g+1)*ngroup-1),dim=2)
+       pmax = maxval(p(:,g*ngroup:(g+1)*ngroup-1),dim=2)
+       if (product(pmax - pmin + 1) /= ngroup) nbad(3) = nbad(3) + 1
+    enddo
+ enddo
+ nfailed = 0
+ call checkval(nbad(1),0,0,nfailed(1),'Hilbert key maps back to its cell')
+ call checkval(nbad(2),0,0,nfailed(2),'consecutive Hilbert keys are neighbours')
+ call checkval(nbad(3),0,0,nfailed(3),'Hilbert key prefixes are boxes')
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_hilbert_keys
 !-----------------------------------------------------------------------
 !+
 !   Tests of the global tree that every MPI task holds a copy of:
