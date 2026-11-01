@@ -938,7 +938,9 @@ subroutine let_exchange()
  type(realbuf)        :: records(nprocs)
  real,    allocatable :: sendbuf(:),recvbuf(:)
  integer, allocatable :: list(:),iparent(:),iside(:),implist(:,:,:)
- integer :: nsend(nprocs),nrecv(nprocs),nimp(nprocs),irecv,nlist,nbuf,k,iproc
+ integer, allocatable :: leaf(:),loc(:),idest(:),ioff(:)
+ integer :: nsend(nprocs),nrecv(nprocs),nimp(nprocs),nnode(nprocs),nleafreal(nprocs)
+ integer :: leafseg(2,nprocs),irecv,nlist,nbuf,k,iproc,nleaves
 
  ! forget the nodes imported by a previous call
  call combine_trees()
@@ -946,9 +948,9 @@ subroutine let_exchange()
 
  ! select the nodes and leaves to send to each task, one task per thread at a time
  allocate(implist(2,maximport_leaves,nprocs))
- nsend = 0
+ nnode = 0
  nimp  = 0
- !$omp parallel default(none) shared(nprocs,id,ncomb,ncellsmax,records,implist,nimp,nsend) &
+ !$omp parallel default(none) shared(nprocs,id,ncomb,ncellsmax,records,implist,nimp,nnode) &
  !$omp private(iproc,list,iparent,iside,nlist,k)
  if (allocated(let_mark)) then
     if (size(let_mark) < ncellsmax+1) deallocate(let_mark)
@@ -967,21 +969,30 @@ subroutine let_exchange()
     do k = 1,nlist
        call put_let_record(records(iproc+1)%x((k-1)*nlet_record+1:k*nlet_record),list(k),iparent(k),iside(k))
     enddo
-    nsend(iproc+1) = nlist*nlet_record
+    nnode(iproc+1) = nlist*nlet_record
  enddo
  !$omp enddo
  deallocate(list,iparent,iside)
  !$omp end parallel
 
- ! the records for all tasks, in task order
+ ! one message to each task: the number of reals of node records, the node
+ ! records, then the particles of the leaves of large reach selected for it
+ call leaf_layout(implist,nimp,leaf,loc,idest,ioff,nleafreal,nleaves)
+ nsend = 0
+ do iproc = 0,nprocs-1
+    if (nnode(iproc+1) + nleafreal(iproc+1) > 0) nsend(iproc+1) = 1 + nnode(iproc+1) + nleafreal(iproc+1)
+ enddo
  allocate(sendbuf(max(sum(nsend),1)))
  nbuf = 0
  do iproc = 0,nprocs-1
     if (nsend(iproc+1) == 0) cycle
-    sendbuf(nbuf+1:nbuf+nsend(iproc+1)) = records(iproc+1)%x
+    sendbuf(nbuf+1) = nnode(iproc+1)
+    if (nnode(iproc+1) > 0) sendbuf(nbuf+2:nbuf+1+nnode(iproc+1)) = records(iproc+1)%x
+    leafseg(1,iproc+1) = nbuf + 1 + nnode(iproc+1)  ! where its leaves start
     nbuf = nbuf + nsend(iproc+1)
  enddo
- nlet_sent = nlet_sent + sum(nsend)/nlet_record
+ call pack_leaf_particles(nleaves,leaf,loc,idest,ioff,leafseg(1,:),sendbuf)
+ nlet_sent = nlet_sent + sum(nnode)/nlet_record
 
  call alltoall_mpi(nsend,nrecv)
  allocate(recvbuf(max(sum(nrecv),1)))
@@ -991,14 +1002,19 @@ subroutine let_exchange()
  irecv = 0
  do iproc = 0,nprocs-1
     let_base(iproc+1) = ncomb
-    if (nrecv(iproc+1) > 0) call attach_let_nodes(iproc,recvbuf(irecv+1:irecv+nrecv(iproc+1)))
+    leafseg(:,iproc+1) = irecv
+    if (nrecv(iproc+1) > 0) then
+       nnode(iproc+1) = nint(recvbuf(irecv+1))
+       if (nnode(iproc+1) > 0) call attach_let_nodes(iproc,recvbuf(irecv+2:irecv+1+nnode(iproc+1)))
+       leafseg(:,iproc+1) = [irecv + 1 + nnode(iproc+1),irecv + nrecv(iproc+1)]
+       nlet_recv = nlet_recv + nnode(iproc+1)/nlet_record
+    endif
     irecv = irecv + nrecv(iproc+1)
  enddo
- nlet_recv = nlet_recv + sum(nrecv)/nlet_record
  nlet_calls = nlet_calls + 1
 
- ! the particles of the leaves of large reach
- call exchange_leaf_particles(implist,nimp)
+ ! the particles of the leaves of large reach, once the nodes are attached
+ call unpack_leaf_particles(recvbuf,leafseg)
 
  ! the walk caches refer to the nodes and smoothing lengths before the import
  if (use_dualcache) then
@@ -1091,55 +1107,60 @@ end function is_import_candidate
 
 !-----------------------------------------------------------------------
 !+
-!  send each task the particles of the leaves selected for it, and place
-!  those received after npart in the particle arrays: each such leaf of
-!  the combined tree becomes a local leaf, whose particles the walk takes
-!  as neighbours. Leaves that do not fit stay leaves of another task.
-!  Each leaf is sent as a header (locator, number of particles), then
-!  its particles; the buffer offset of each leaf is found first, so that
-!  leaves are packed and unpacked in parallel
+!  the leaves of large reach selected for each task, in task order: each
+!  is sent as a header (locator, number of particles), then its particles.
+!  ioff is the position of each leaf in its task's (idest) part of the message
 !+
 !-----------------------------------------------------------------------
-subroutine exchange_leaf_particles(implist,nimp)
- use io,       only:nprocs
- use dim,      only:maxpsph
- use mpiutils, only:alltoall_mpi,alltoallv_mpi
- use part,     only:npart,fill_sendbuf,unfill_buffer,ipartbufsize,xyzh,get_pmass,maxphase,maxp,treecache
- use kdtree,   only:inoderange,inodeparts
- integer, intent(in) :: implist(:,:,:),nimp(:)
- real,    allocatable :: sendbuf(:),recvbuf(:)
- integer, allocatable :: newrange(:,:),leaf(:),loc(:),ioff(:),ifirst(:)
- real    :: xtemp(ipartbufsize)
- integer :: nsend(nprocs),nrecv(nprocs),iproc,k,m,n,j,np,nrec,irecv,iend,islot,nleaves
- logical :: use_gas
+subroutine leaf_layout(implist,nimp,leaf,loc,idest,ioff,nleafreal,nleaves)
+ use io,     only:nprocs
+ use kdtree, only:inoderange
+ integer,              intent(in)  :: implist(:,:,:),nimp(:)
+ integer, allocatable, intent(out) :: leaf(:),loc(:),idest(:),ioff(:)
+ integer,              intent(out) :: nleafreal(:),nleaves
+ integer :: iproc,k,m,np,nrec
 
- use_gas = .not.(maxphase==maxp)  ! all particles are gas unless types are stored
- ! the number of reals sent per particle depends only on the build
- call fill_sendbuf(1,xtemp,nrec)
- ! the leaves to send, in task order, and the position of each in the buffer
+ nrec = nreals_per_particle()
  nleaves = sum(nimp)
- allocate(leaf(nleaves),loc(nleaves),ioff(nleaves+1))
+ allocate(leaf(nleaves),loc(nleaves),idest(nleaves),ioff(nleaves))
  m = 0
- ioff(1) = 0
- nsend = 0
+ nleafreal = 0
  do iproc = 0,nprocs-1
     do k = 1,nimp(iproc+1)
        m = m + 1
-       leaf(m) = implist(1,k,iproc+1)
-       loc(m)  = implist(2,k,iproc+1)
+       leaf(m)  = implist(1,k,iproc+1)
+       loc(m)   = implist(2,k,iproc+1)
+       idest(m) = iproc
+       ioff(m)  = nleafreal(iproc+1)
        np = inoderange(2,leaf(m)) - inoderange(1,leaf(m)) + 1
-       ioff(m+1) = ioff(m) + 2 + np*nrec
-       nsend(iproc+1) = nsend(iproc+1) + 2 + np*nrec
+       nleafreal(iproc+1) = nleafreal(iproc+1) + 2 + np*nrec
     enddo
  enddo
- allocate(sendbuf(max(ioff(nleaves+1),1)))
- !$omp parallel do default(none) schedule(dynamic,1) shared(nleaves,leaf,loc,ioff,sendbuf,inoderange,inodeparts) &
- !$omp private(m,n,j,k,xtemp,np)
+
+end subroutine leaf_layout
+
+!-----------------------------------------------------------------------
+!+
+!  pack the particles of the leaves into the message buffer, where each
+!  task's leaves start at istart (one leaf per thread at a time)
+!+
+!-----------------------------------------------------------------------
+subroutine pack_leaf_particles(nleaves,leaf,loc,idest,ioff,istart,sendbuf)
+ use part,   only:fill_sendbuf,ipartbufsize
+ use kdtree, only:inoderange,inodeparts
+ integer, intent(in)    :: nleaves,leaf(:),loc(:),idest(:),ioff(:),istart(:)
+ real,    intent(inout) :: sendbuf(:)
+ integer :: k,m,n,j,np
+ real    :: xtemp(ipartbufsize)
+
+ !$omp parallel do default(none) schedule(dynamic,1) shared(nleaves,leaf,loc,idest,ioff,istart) &
+ !$omp shared(sendbuf,inoderange,inodeparts) private(m,n,j,k,xtemp,np)
  do m = 1,nleaves
     n = leaf(m)
-    sendbuf(ioff(m)+1) = loc(m)
-    sendbuf(ioff(m)+2) = inoderange(2,n) - inoderange(1,n) + 1
-    k = ioff(m) + 2
+    k = istart(idest(m)+1) + ioff(m)
+    sendbuf(k+1) = loc(m)
+    sendbuf(k+2) = inoderange(2,n) - inoderange(1,n) + 1
+    k = k + 2
     do j = inoderange(1,n),inoderange(2,n)
        call fill_sendbuf(inodeparts(j),xtemp,np)   ! np: reals for this particle
        sendbuf(k+1:k+np) = xtemp(1:np)
@@ -1147,28 +1168,46 @@ subroutine exchange_leaf_particles(implist,nimp)
     enddo
  enddo
  !$omp end parallel do
- call alltoall_mpi(nsend,nrecv)
- allocate(recvbuf(max(sum(nrecv),1)))
- call alltoallv_mpi(sendbuf,nsend,recvbuf,nrecv)
 
+end subroutine pack_leaf_particles
+
+!-----------------------------------------------------------------------
+!+
+!  place the particles of the leaves received after npart in the particle
+!  arrays: each such leaf of the combined tree becomes a local leaf, whose
+!  particles the walk takes as neighbours. Leaves that do not fit stay
+!  leaves of another task. The leaves from task iproc are in
+!  recvbuf(leafseg(1,iproc+1)+1:leafseg(2,iproc+1)); each is a node
+!  imported from it (positive locator) or one of its leaves in the global tree
+!+
+!-----------------------------------------------------------------------
+subroutine unpack_leaf_particles(recvbuf,leafseg)
+ use io,     only:nprocs
+ use dim,    only:maxpsph
+ use part,   only:npart,unfill_buffer,xyzh,get_pmass,maxphase,maxp,treecache
+ use kdtree, only:inoderange,inodeparts
+ real,    intent(in) :: recvbuf(:)
+ integer, intent(in) :: leafseg(:,:)
+ integer, allocatable :: newrange(:,:),leaf(:),ioff(:),ifirst(:)
+ integer :: iproc,m,n,j,k,np,nrec,irecv,islot,nleaves
+ logical :: use_gas
+
+ use_gas = .not.(maxphase==maxp)  ! all particles are gas unless types are stored
+ nrec = nreals_per_particle()
  ! the leaves of the combined tree need a range of particles in the tree arrays
  if (size(inoderange,2) < size(node)) then
     allocate(newrange(2,size(node)))
     newrange(:,1:size(inoderange,2)) = inoderange
     call move_alloc(newrange,inoderange)
  endif
- ! the leaves received that fit, with the position of their particles in the buffer
- ! and their first slot after npart; each leaf of the combined tree is a node imported
- ! from the sender (positive locator) or one of the sender's leaves in the global tree
- deallocate(leaf,ioff)
- n = size(recvbuf)/(2 + nrec) + 1
+ ! the leaves that fit, with the position of their particles and their first slot
+ n = sum(leafseg(2,:) - leafseg(1,:))/(2 + nrec) + 1
  allocate(leaf(n),ioff(n),ifirst(n))
  nleaves = 0
  islot = npart
- irecv = 0
  do iproc = 0,nprocs-1
-    iend = irecv + nrecv(iproc+1)
-    do while (irecv < iend)
+    irecv = leafseg(1,iproc+1)
+    do while (irecv < leafseg(2,iproc+1))
        if (nint(recvbuf(irecv+1)) > 0) then
           n = let_base(iproc+1) + nint(recvbuf(irecv+1))
        else
@@ -1202,7 +1241,20 @@ subroutine exchange_leaf_particles(implist,nimp)
  nimp_leaves_recv = nimp_leaves_recv + nleaves
  nimp_part_recv   = nimp_part_recv + (islot - npart)
 
-end subroutine exchange_leaf_particles
+end subroutine unpack_leaf_particles
+
+!-----------------------------------------------------------------------
+!+
+!  the number of reals sent per particle, which depends only on the build
+!+
+!-----------------------------------------------------------------------
+integer function nreals_per_particle()
+ use part, only:fill_sendbuf,ipartbufsize
+ real :: xtemp(ipartbufsize)
+
+ call fill_sendbuf(1,xtemp,nreals_per_particle)
+
+end function nreals_per_particle
 
 !-----------------------------------------------------------------------
 !+
