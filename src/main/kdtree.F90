@@ -117,7 +117,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  integer,         intent(in),    optional :: nptmass
  real,            intent(inout), optional :: xyzmh_ptmass(:,:)
 
- integer :: i,npnode,il,ir,istack,nl,nr,mymum
+ integer :: i,j,npnode,il,ir,istack,nl,nr,mymum,ntarget
  integer :: nnode,minlevel,level,nqueue
  real :: xmini(3),xmaxi(3),xminl(3),xmaxl(3),xminr(3),xmaxr(3)
  integer, parameter :: istacksize = 512
@@ -200,19 +200,24 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  if (.not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
     call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  endif
- ! build using a queue to build level by level until number of nodes = number of threads
- over_queue: do while (istack  <  nqueue)
+ ! then split the largest node in the queue until there is a subtree for each thread
+ ! and none has much more than a thread's share of the particles, e.g. a dense core
+ ! that build_top_parallel cannot split. The subtrees are then handed out largest first
+ ntarget = max(int(1.25*npcounter/nqueue),max(minpart,64))
+ over_queue: do while (istack < nqueue .or. maxval(queue(1:max(istack,1))%npnode) > ntarget)
+    if (istack + 2 > istacksize) exit over_queue
     ! if the tree finished while building the queue, then we should just return
     ! only happens for small particle numbers
     if (istack <= 0) then
        finished = .true.
        exit over_queue
     endif
-    ! pop off front of queue
-    call pop_off_stack(queue(1), istack, nnode, mymum, level, npnode, xmini, xmaxi)
+    ! pop the node with most particles off the queue, so the subtrees end up of similar size
+    j = maxloc(queue(1:istack)%npnode,1)
+    call pop_off_stack(queue(j), istack, nnode, mymum, level, npnode, xmini, xmaxi)
 
-    ! shuffle queue forward
-    do i=1,istack
+    ! shuffle the rest of the queue forward
+    do i=j,istack
        queue(i) = queue(i+1)
     enddo
 
@@ -240,6 +245,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  enddo over_queue
  ! build_top_parallel completes whole levels, so the queue may hold more than nqueue nodes
  if (.not.finished) nqueue = istack
+ if (.not.finished) call sort_queue_by_size(queue,nqueue)
 
  ! the levels built with all threads, then the subtrees built by one thread each
  call get_timings(t2,tcpu2)
@@ -324,6 +330,31 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  endif
 
 end subroutine maketree
+
+!--------------------------------------------------------------------------------
+!+
+!  sort the queue of subtrees by number of particles, largest first
+!  (insertion sort: the queue is short)
+!+
+!--------------------------------------------------------------------------------
+subroutine sort_queue_by_size(queue,nqueue)
+ type(kdbuildstack), intent(inout) :: queue(:)
+ integer,            intent(in)    :: nqueue
+ type(kdbuildstack) :: q
+ integer :: i,j
+
+ do i = 2,nqueue
+    q = queue(i)
+    j = i - 1
+    do while (j >= 1)
+       if (queue(j)%npnode >= q%npnode) exit
+       queue(j+1) = queue(j)
+       j = j - 1
+    enddo
+    queue(j+1) = q
+ enddo
+
+end subroutine sort_queue_by_size
 
 !--------------------------------------------------------------------------------
 !+
