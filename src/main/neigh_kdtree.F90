@@ -1549,7 +1549,8 @@ logical function leaf_may_interact(n,idomain)
  d     = sqrt(r2) - nodeglobal(idomain)%size
  sizes = 2.*nodeglobal(idomain)%size + node(n)%size
  rcut  = radkern*max(nodeglobal(idomain)%hmax,node(n)%hmax)
- leaf_may_interact = (tree_accuracy*d < sizes) .or. (d < sizes + rcut)
+ leaf_may_interact = (d < sizes + rcut)
+ if (gravity) leaf_may_interact = leaf_may_interact .or. (tree_accuracy*d < sizes)
 
 end function leaf_may_interact
 
