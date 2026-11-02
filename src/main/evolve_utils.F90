@@ -16,9 +16,9 @@ module evolve_utils
 !
 ! :Dependencies: analysis, checkconserved, dim, dynamic_dtmax, energies,
 !   evwrite, externalforces, fileutils, forcing, injection, io, io_control,
-!   io_summary, mf_write, mpiutils, options, part, ptmass, readwrite_dumps,
-!   readwrite_infile, subgroup, substepping, timestep, timestep_ind,
-!   timing, utils_apr
+!   io_summary, mf_write, mpiderivs, mpikdtree, mpiutils, options, part,
+!   ptmass, readwrite_dumps, readwrite_infile, subgroup, substepping,
+!   timestep, timestep_ind, timing, utils_apr
 !
  implicit none
  public :: update_time_and_dt
@@ -368,7 +368,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  use io,           only:iprint,id,master,iverbose,nprocs
  use evwrite,      only:write_evlog
  use mpiderivs,    only:print_cell_exchange_stats
- use neighkdtree,  only:print_let_stats
+ use mpikdtree,    only:print_let_stats
  use part,         only:npart,nptmass,iphase,ibin,xyzh
  use io_summary,   only:summary_printout
  use timing,       only:reduce_timers,timers,itimer_lastdump,reset_timers,get_timings
@@ -453,7 +453,7 @@ subroutine print_task_table(iunit,allvals)
  use io, only:id,master,nprocs
  integer,      intent(in) :: iunit
  real(kind=8), intent(in) :: allvals(:)
- integer :: itask
+ integer :: itask,k
  character(len=*), parameter :: fmtrow = &
     "(i5,1x,i9,9(1x,f8.2),2(1x,i10),1x,f9.1)"
 
@@ -462,10 +462,11 @@ subroutine print_task_table(iunit,allvals)
  write(iunit,"(a5,1x,a9,9(1x,a8),2(1x,a10),1x,a9)") 'task','npart','step','tree',&
        'd_lcomp','d_rcomp','d_wait','f_let','f_lcomp','f_rcomp','f_wait',&
        'cells_sent','cells_recv','MB_recv'
+
+ ! one row per task
  do itask = 0,nprocs-1
-    associate(v => allvals(ntaskvals*itask+1:ntaskvals*(itask+1)))
-    write(iunit,fmtrow) itask,nint(v(1)),v(2:10),nint(v(11:12),kind=8),v(13)
-    end associate
+    k = ntaskvals*itask
+    write(iunit,fmtrow) itask,nint(allvals(k+1)),allvals(k+2:k+10),nint(allvals(k+11:k+12),kind=8),allvals(k+13)
  enddo
  write(iunit,*)
 

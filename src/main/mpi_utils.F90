@@ -1706,6 +1706,8 @@ pure function get_displs_mpi(counts) result(displs)
  integer :: i
 
  if (size(counts) < 1) return
+
+ ! each block starts after the previous one
  displs(1) = 0
  do i = 2,size(counts)
     displs(i) = displs(i-1) + counts(i-1)

@@ -41,8 +41,8 @@ module forces
 !
 ! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
 !   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, options,
-!   part, physcon, ptmass, ptmass_heating, radiation_utils,
+!   mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils, neighkdtree,
+!   nicil, options, part, physcon, ptmass, ptmass_heating, radiation_utils,
 !   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
 !   viscosity
 !
@@ -199,8 +199,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
-                        active_leaves,nactive_leaves,ncellchunk,let_exchange,&
-                        get_leaf_neighbours
+                        active_leaves,nactive_leaves,ncellchunk,get_leaf_neighbours,&
+                        reset_dual_cache
+ use mpikdtree,    only:extend_local_tree
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -390,6 +391,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        fxyz_ptmass_tree(:,i) = 0.
     enddo
     !$omp end parallel do
+
     ! the potential of a sink is set only by the task whose tree holds it, and
     ! summed over all tasks: clear any value left from when another task held it
     poten(maxpsph+1:maxpsph+nptmass) = 0.
@@ -408,11 +410,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call reset_stacks
     call reset_cell_counters(cell_counters)
  endif
- !--import the nodes of other tasks that the dual tree walk could open (the
+
+ !--import the nodes of other tasks that the dual tree walk could open(the
  !  locally essential tree), and check that the walk never meets a truncated node
  if (exchange .and. gravity) then
     call get_timings(t1,tcpu1)
-    call let_exchange()
+    call extend_local_tree(1)
+    call reset_dual_cache()
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_force_let,t2-t1,tcpu2-tcpu1)
  endif
@@ -532,6 +536,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     cell%owner = id
     do_export = any(remote_export)
+
     !--without self-gravity, send each task only the particles that interact with its
     !  particles (with self-gravity, the leaves the dual tree walk paired with the cell)
     if (do_export .and. .not.gravity) then
@@ -751,6 +756,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (use_sinktree) then
        fxyz_ptmass_tree   = reduceall_mpi('+',fxyz_ptmass_tree)
        bin_info(ipertg,:) = reduceall_mpi('+',bin_info(ipertg,:))
+
        ! one reduction for all sink pairs, rather than one per sink
        shortsinktree(1:nptmass,1:nptmass) = reshape(reduceall_mpi('max',&
           reshape(shortsinktree(1:nptmass,1:nptmass),[nptmass*nptmass])),[nptmass,nptmass])
@@ -3598,6 +3604,7 @@ subroutine particle_targets(cell,remote_export,ptargets)
  integer :: np
 
  np = cell%npcell
+
  ! a fraction more than the kernel radius, so that rounding can never drop a neighbour
  call get_particle_targets(np,cell%xpartvec(ixi:izi,1:np),radkern*cell%xpartvec(ihi,1:np)*(1. + 1.e-6),&
                            .true.,remote_export,ptargets)
@@ -3613,7 +3620,8 @@ end subroutine particle_targets
 !-----------------------------------------------------------------------
 subroutine send_cell_with_leaves(cell,stack,counters)
  use io,          only:nprocs
- use neighkdtree, only:remote_leaves,nremote_leaves,remote_leaf_owner,remote_local_index
+ use neighkdtree, only:remote_leaves,nremote_leaves
+ use mpikdtree,   only:remote_leaf_owner,remote_local_index
  use mpiderivs,   only:send_cell
  type(cellforce),  intent(in)    :: cell
  type(stackforce), intent(inout) :: stack
@@ -3621,9 +3629,13 @@ subroutine send_cell_with_leaves(cell,stack,counters)
  logical :: target(nprocs)
  integer :: iproc,k,n,nleaves,leaves(maxcellleaves)
 
+ ! for each task, its leaves met by the walk, sent with the cell in messages of at most
+ ! maxcellleaves leaves
  do iproc = 0,nprocs-1
     target = .false.
     target(iproc+1) = .true.
+
+    ! its leaves met by the walk
     nleaves = 0
     do k = 1,nremote_leaves
        n = remote_leaves(k)

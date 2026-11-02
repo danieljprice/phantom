@@ -643,6 +643,7 @@ subroutine test_FMM(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '--> testing linear and angular momentum conservation with symmetric fmm'
  call check_FMM_momentum(ntests,npass,add_outlier=.false.)
+
  ! a particle between the two spheres, whose smoothing length grows to reach both
  if (id==master) write(*,"(/,a)") '--> testing momentum conservation with symmetric fmm and a large-h particle'
  call check_FMM_momentum(ntests,npass,add_outlier=.true.)
@@ -758,6 +759,7 @@ subroutine check_FMM_momentum(ntests,npass,add_outlier)
  enddo
  fsum = fsum*massoftype(istar)
  tsum = tsum*massoftype(istar)
+
  ! round-off in the sums depends on the order of summation (number of threads, MPI tasks)
  ! and on the compiler; a broken symmetry gives errors of order the tree truncation error
  call checkval(fsum(1),0.,1.e-15,nfail(1),"momentum conservation x")

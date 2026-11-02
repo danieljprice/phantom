@@ -81,9 +81,11 @@ module dtypekdtree
     integer                        :: nnodes
  end type ptmasstree
 
+#ifdef MPI
  ! the MPI datatype for kdnode, once committed
  integer :: dtype_kdnode = 0
  logical :: have_dtype_kdnode = .false.
+#endif
 
 contains
 

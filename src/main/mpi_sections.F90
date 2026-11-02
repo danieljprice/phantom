@@ -26,8 +26,10 @@ module mpisections
  integer, parameter :: nbits_total = 63    ! bits in a key: levels of the tree
  real,    parameter :: frac_section = 0.25 ! largest work in a section, as a fraction of a task's share
  real,    parameter :: tol_balance  = 1.1  ! new sections only if a task has more work than this times the mean
- real,    parameter :: frac_maxp    = 0.75 ! most particles a cut puts on a task, as a fraction of the
-                                           ! particle arrays: room for migration, drift and imports
+
+ ! most particles a cut puts on a task, as a fraction of the particle arrays: room for
+ ! migration, drift and imports
+ real,    parameter :: frac_maxp    = 0.75
 
  ! a tree of sections: for each cell, its split axis and position, its
  ! left child (the right one is next to it; 0 for a section), its key and
@@ -86,6 +88,8 @@ subroutine build_sections(np,xyzh,wt,st,nround)
  st%left(1)  = 0
  st%depth(1) = 0
  st%key(1)   = 0
+
+ ! every live particle starts in the root cell
  allocate(icell(np))
  !$omp parallel do default(none) schedule(static) &
  !$omp shared(np,xyzh,icell) &
@@ -99,6 +103,8 @@ subroutine build_sections(np,xyzh,wt,st,nround)
  allocate(cand(1),pos(1))
  cand(1) = 1
  nc = 1
+
+ ! refine one level per round, until no section has more than its share of the work
  wtot = 0.
  ntot = 0.
  nround = 0
@@ -108,10 +114,13 @@ subroutine build_sections(np,xyzh,wt,st,nround)
        deallocate(pos)
        allocate(pos(size(st%axis)))
     endif
+
+    ! the position of each candidate cell in the list
     pos(1:st%ncell) = 0
     do j = 1,nc
        pos(cand(j)) = j
     enddo
+
     ! work, number of particles and bounds (min of x and of -x) of each candidate
     allocate(sums(2,nc),bnd(6,nc))
     sums = 0.
@@ -131,6 +140,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
        bnd(4:6,j) = min(bnd(4:6,j),-real(xyzh(1:3,i),kind=8))
     enddo
     !$omp end parallel do
+
     call reduce_in_place_mpi('+',sums)
     bnd = reduceall_mpi('min',bnd)
     if (nround == 1) then
@@ -157,6 +167,8 @@ subroutine build_sections(np,xyzh,wt,st,nround)
        st%axis(c)   = ia
        st%xsplit(c) = real(0.5*(bnd(ia,j) - bnd(ia+3,j)))
        st%left(c)   = st%ncell + 1
+
+       ! the two children
        do k = 1,2
           i = st%ncell + k
           st%left(i)  = 0
@@ -186,6 +198,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
        endif
     enddo
     !$omp end parallel do
+
     deallocate(sums,bnd,cand)
     call move_alloc(newcand,cand)
     nc = nnew
@@ -232,6 +245,7 @@ subroutine cut_sections(n,work,npart,nprocs,npmax,owner)
  whi = sum(work)
  if (fill_runs(n,work,npart,nprocs,ncap,wlo,owner)) return
 
+ ! bisect on the largest work of a run
  do iter = 1,maxiter
     wmid = 0.5*(wlo + whi)
     if (fill_runs(n,work,npart,nprocs,ncap,wmid,owner)) then
@@ -261,6 +275,8 @@ logical function fill_runs(n,work,npart,nprocs,ncap,wmax,owner)
  integer :: k,itask
  logical :: too_much_work,too_many_particles,need_section_per_task
 
+ ! fill each task's run with sections in order, moving to the next task when the next
+ ! section would exceed the work or particle limit, or each later task needs one
  fill_runs = .false.
  itask = 0
  wrun  = 0.
@@ -296,6 +312,8 @@ subroutine list_sections(st)
  integer :: istack(2*nbits_total+2),nstack,c
 
  allocate(st%seccell(st%ncell))
+
+ ! number the leaves (sections) depth first, left child first, so in key order
  st%isec(1:st%ncell) = 0
  st%nsec = 0
  nstack  = 1
@@ -327,6 +345,7 @@ pure integer function locate_section(st,x)
  real,              intent(in) :: x(3)
  integer :: c
 
+ ! descend from the root to the leaf containing x
  c = 1
  do while (st%left(c) > 0)
     if (x(st%axis(c)) >= st%xsplit(c)) then
@@ -352,19 +371,20 @@ end function locate_section
 !--------------------------------------------------------------------------
 subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptmass,ibelong_sink)
  use io, only:id
- integer,           intent(in)    :: np
- real,              intent(in)    :: xyzh(:,:),wt(:)
- logical,           intent(in)    :: rebalance
- integer,           intent(inout) :: ibelong(:)
- integer, optional, intent(in)    :: nptmass
- real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
- integer, optional, intent(out)   :: ibelong_sink(:)
+ integer, intent(in)    :: np
+ real,    intent(in)    :: xyzh(:,:),wt(:)
+ logical, intent(in)    :: rebalance
+ integer, intent(inout) :: ibelong(:)
+ integer, intent(in),  optional :: nptmass
+ real,    intent(in),  optional :: xyzmh_ptmass(:,:)
+ integer, intent(out), optional :: ibelong_sink(:)
  integer :: i,nround
  logical :: new
 
  new = (cur%nsec == 0)
  if (.not.new) then
     call set_owners(np,xyzh,ibelong)
+
     ! when asked to rebalance, keep the sections unless the work is out of balance
     if (rebalance) new = (work_imbalance(np,xyzh,wt,ibelong) > tol_balance)
  endif
@@ -400,6 +420,7 @@ subroutine set_owners(np,xyzh,ibelong)
  integer, intent(inout) :: ibelong(:)
  integer :: i
 
+ ! the owner of the section of each live particle
  !$omp parallel do default(none) schedule(static) &
  !$omp shared(np,xyzh,cur,ibelong,id) &
  !$omp private(i)
@@ -429,6 +450,7 @@ real function work_imbalance(np,xyzh,wt,ibelong)
  real    :: work(nprocs)
  integer :: i
 
+ ! the work of each task, summed over tasks
  work = 0.
  do i = 1,np
     if (xyzh(4,i) > 0.) work(ibelong(i)+1) = work(ibelong(i)+1) + wt(i)
@@ -457,6 +479,8 @@ subroutine local_section_index(n,xyz,isec,nsecown)
     isec(1:n) = 1
     return
  endif
+
+ ! the index among this task's sections of the section of each particle
  !$omp parallel do default(none) schedule(static) &
  !$omp shared(n,xyz,isec,cur,kfirst_own,nown) &
  !$omp private(i)

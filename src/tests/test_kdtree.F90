@@ -16,8 +16,8 @@ module testkdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpisections,
-!   mpiutils, neighkdtree, part, testutils, timing, unifdis
+! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpikdtree,
+!   mpisections, mpiutils, neighkdtree, part, testutils, timing, unifdis
 !
  implicit none
  public :: test_kdtree
@@ -316,6 +316,8 @@ subroutine test_section_tree(ntests,npass)
     iz = int(xyzh(3,i)/dx(3)) + 1
     layers(k) = ibset(layers(k),iz-1)
  enddo
+
+ ! a section holds all layers of the grid or none
  do k = 1,st%nsec
     layers(k) = int(reduceall_mpi('max',real(layers(k))))
     if (layers(k) /= 0 .and. layers(k) /= 2**ngrid(3) - 1) nbad(3) = nbad(3) + 1
@@ -392,7 +394,8 @@ subroutine test_global_tree(ntests,npass)
  use io,          only:id,master
  use boundary,    only:set_boundary
  use mpiutils,    only:reduceall_mpi
- use neighkdtree, only:build_tree,active_leaves,nactive_leaves,set_hmaxcell,sync_hmax_mpi
+ use neighkdtree, only:build_tree,active_leaves,nactive_leaves,set_hmaxcell
+ use mpikdtree,   only:sync_hmax_mpi
  use kdtree,      only:inoderange,inodeparts
  use part,        only:npart,xyzh,vxyzu,hfact,massoftype,igas,iphase,isetphase,init_part
  use kernel,      only:hfact_default
@@ -413,6 +416,7 @@ subroutine test_global_tree(ntests,npass)
                   psep,hfact,npart,xyzh,periodic,mask=i_belong)
  massoftype(igas) = 1./reduceall_mpi('+',npart)
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
+
  ! one particle whose kernel reaches into several domains
  if (id==master) xyzh(4,1) = 0.2
 
@@ -449,11 +453,13 @@ end subroutine test_global_tree
 !+
 !-----------------------------------------------------------------------
 subroutine walk_global_tree(list,nlist,nbad)
- use neighkdtree, only:nodeglobal,cellatid
+ use mpikdtree,   only:nodeglobal,cellatid
  integer, intent(out) :: list(:),nlist,nbad
  integer :: n,il,ir,i
 
  nbad = 0
+
+ ! list the nodes reachable from the root, breadth first
  nlist = 1
  list(1) = 1
  i = 0
@@ -485,7 +491,7 @@ end subroutine walk_global_tree
 subroutine check_global_links(nfailed)
  use dim,         only:gravity
  use io,          only:id,nprocs
- use neighkdtree, only:nodeglobal,cellatid
+ use mpikdtree,   only:nodeglobal,cellatid
  use part,        only:npart,massoftype,igas
  use testutils,   only:checkval
  integer, intent(out) :: nfailed(2)
@@ -495,6 +501,8 @@ subroutine check_global_links(nfailed)
 
  allocate(list(size(nodeglobal)))
  call walk_global_tree(list,nlist,nbad)
+
+ ! each leaf: one owner, no children, and its mass added to its owner's
  nleaves = 0
  leafmass = 0.
  do i=1,nlist
@@ -508,9 +516,11 @@ subroutine check_global_links(nfailed)
        leafmass(iowner) = leafmass(iowner) + nodeglobal(n)%mass
     endif
  enddo
+
  ! every node marked as a leaf must be reachable from the root
  if (count(cellatid /= 0) /= nleaves) nbad = nbad + 1
  call checkval(nbad,0,0,nfailed(1),'global tree links and leaf owners')
+
  ! node masses are only set with self-gravity
  nfailed(2) = 0
  if (gravity) call checkval(leafmass(id+1),npart*massoftype(igas),1.e-12,nfailed(2),'mass in leaves of this task')
@@ -525,7 +535,7 @@ end subroutine check_global_links
 !-----------------------------------------------------------------------
 subroutine check_global_hmax(nfailed)
  use io,          only:id
- use neighkdtree, only:nodeglobal,cellatid
+ use mpikdtree,   only:nodeglobal,cellatid
  use part,        only:npart,xyzh
  use testutils,   only:checkval
  integer, intent(out) :: nfailed(2)
@@ -535,6 +545,8 @@ subroutine check_global_hmax(nfailed)
 
  allocate(list(size(nodeglobal)))
  call walk_global_tree(list,nlist,nbad)
+
+ ! each internal node's hmax covers its children's
  hmaxleaves = 0.
  do i=1,nlist
     n = list(i)
@@ -562,8 +574,8 @@ subroutine check_combined_tree(nfailed)
  use io,          only:id,nprocs
  use dim,         only:gravity
  use mpiutils,    only:reduceall_mpi
- use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner,&
-                       nsec_top,top_leaf,top_owner,top_root
+ use neighkdtree, only:node,leaf_is_active,ncells
+ use mpikdtree,   only:ncomb,irootcomb,remote_leaf_owner,nsec_top,top_leaf,top_owner,top_root
  use kdtree,      only:irootnode,inoderange
  use testutils,   only:checkval
  integer, intent(out) :: nfailed(4)
@@ -606,6 +618,8 @@ subroutine check_combined_tree(nfailed)
     if (gravity) secdata(6,k) = node(n)%mass
  enddo
  secdata = reduceall_mpi('+',secdata)
+
+ ! the copies of other tasks' section roots match the owners' data
  ndiff = 0
  do k=1,nsec_top
     if (top_owner(k) == id) cycle
@@ -659,6 +673,8 @@ subroutine walk_tree_from(iroot,list,nlist,nbad,local_only)
  logical :: linked
 
  nbad = 0
+
+ ! list the nodes reachable from iroot, breadth first
  nlist = 1
  list(1) = iroot
  i = 0
@@ -666,6 +682,8 @@ subroutine walk_tree_from(iroot,list,nlist,nbad,local_only)
     i = i + 1
     n = list(i)
     if (leaf_is_active(n) /= 0) cycle
+
+    ! each child links back to its parent
     ichild = [node(n)%leftchild,node(n)%rightchild]
     do k=1,2
        if (ichild(k) <= 0) cycle
@@ -721,12 +739,15 @@ subroutine check_exports(getj,nfailed)
  xall(5,ioffset+1:ioffset+npart) = id
  call reduce_in_place_mpi('+',xall)
 
+ ! for each active leaf, the tasks the walk exports to against the tasks with neighbours
  nmissed = 0
  nexport = 0
  nneeded = 0
  do k=1,nactive_leaves
     icell = active_leaves(k)
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,0,getj=getj,remote_export=export)
+
+    ! the tasks holding a neighbour of any particle of the cell
     needed = .false.
     do ip=inoderange(1,icell),inoderange(2,icell)
        i = abs(inodeparts(ip))
