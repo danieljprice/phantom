@@ -71,7 +71,22 @@ module neighkdtree
  ! nodes imported from other tasks (the locally essential tree) are appended after ncomb_tree
  integer                            :: ncomb_tree = 0
  integer                            :: ncells_appended = 0 ! where the global tree was appended
+ ! the leaves of the global tree that imported nodes were attached to, by the last import
+ integer,               allocatable :: let_parent(:)
+ integer                            :: nlet_parent = 0
+ ! this task's leaves of the global tree (local nodes), listed by exchange_size_profiles
+ integer,               allocatable :: own_gleaves(:)
+ integer                            :: nown_gleaves = 0
  integer,               allocatable :: let_mark(:)       ! local nodes opened for the current receiver (per thread)
+ ! the local nodes that the walks of each task could open, as found by each thread in the
+ ! descents of let_exchange, by (thread, task); a node may be listed more than once
+ type intlist
+    integer, allocatable :: x(:)
+    integer              :: n = 0
+ end type intlist
+ type(intlist),         allocatable :: let_opened(:,:)
+ integer                            :: let_round = 0     ! marks of let_opened: -(let_round + task + 1)
+ integer,               parameter   :: nlet_split = 64   ! pairs each task's descent is split into
  integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
  ! for each global leaf of another task, the largest size of a node that its walks can
  ! pair with a node of this task, by the number of steps the walk has taken below the leaf
@@ -82,6 +97,10 @@ module neighkdtree
  real,                  allocatable :: profile_pool(:)
  integer,               allocatable :: profile_start(:),profile_len(:)
  logical,               allocatable :: global_active(:)  ! a global node with active leaves below
+ ! the global leaves given a profile, and the global nodes found inactive, by the last call
+ ! to exchange_size_profiles: only these differ from the values set when the tree was built
+ integer,               allocatable :: prof_set(:),inactive_set(:)
+ integer                            :: nprof_set = 0, ninactive_set = 0
  integer,               allocatable :: branch_mark(:)     ! local nodes above active leaves
  integer                            :: let_stamp = 0
  integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0, nlet_calls = 0
@@ -1158,8 +1177,38 @@ subroutine combine_trees()
  irootcomb = combined_index(1)
  ncomb = int(ncells) + ng
  ncomb_tree = ncomb
+ nlet_parent = 0
+ ! no profiles received yet: every node may have active leaves below it
+ profile_len(1:ng)   = -1
+ global_active(1:ng) = .true.
+ nprof_set     = 0
+ ninactive_set = 0
 
 end subroutine combine_trees
+
+!-----------------------------------------------------------------------
+!+
+!  forget the nodes imported by the last call to let_exchange: the global
+!  leaves they were attached to become leaves again, as combine_trees left
+!  them. The rest of the combined tree is unchanged since the tree was built
+!+
+!-----------------------------------------------------------------------
+subroutine forget_let_nodes()
+ integer :: k,n,g
+
+ do k = 1,nlet_parent
+    n = let_parent(k)
+    g = n - int(ncells)
+    node(n)%leftchild  = combined_index(nodeglobal(g)%leftchild)
+    node(n)%rightchild = combined_index(nodeglobal(g)%rightchild)
+    remote_leaf_owner(n) = cellatid(g)
+    leaf_is_active(n)    = min(cellatid(g),1)
+ enddo
+ nlet_parent = 0
+ if (ncomb > ncomb_tree) remote_leaf_owner(ncomb_tree+1:ncomb) = 0
+ ncomb = ncomb_tree
+
+end subroutine forget_let_nodes
 
 !-----------------------------------------------------------------------
 !+
@@ -1233,26 +1282,33 @@ subroutine let_exchange()
  use io,       only:nprocs,id
  use mpiutils, only:alltoall_mpi,alltoallv_mpi
  use dim,      only:maximport_leaves,ncellsmax
+ use omputils, only:omp_thread_num
  type :: realbuf
     real, allocatable :: x(:)
  end type realbuf
  type(realbuf)        :: records(nprocs)
  real,    allocatable :: sendbuf(:),recvbuf(:)
  integer, allocatable :: list(:),iparent(:),iside(:),implist(:,:,:)
- integer, allocatable :: leaf(:),loc(:),idest(:),ioff(:)
+ integer, allocatable :: leaf(:),loc(:),idest(:),ioff(:),itemr(:,:,:),nitemr(:),items(:,:)
  integer :: nsend(nprocs),nrecv(nprocs),nimp(nprocs),nnode(nprocs),nleafreal(nprocs)
- integer :: leafseg(2,nprocs),irecv,nlist,nbuf,k,iproc,nleaves
+ integer :: leafseg(2,nprocs),irecv,nlist,nbuf,k,iproc,nleaves,nitems,ith
+ logical :: reset
 
- ! forget the nodes imported by a previous call
- call combine_trees()
+ call forget_let_nodes()
  call exchange_size_profiles()
 
- ! select the nodes and leaves to send to each task, one task per thread at a time
- allocate(implist(2,maximport_leaves,nprocs))
- nnode = 0
- nimp  = 0
- !$omp parallel default(none) shared(nprocs,id,ncomb,ncellsmax,records,implist,nimp,nnode) &
- !$omp private(iproc,list,iparent,iside,nlist,k)
+ ! select the nodes and leaves to send to each task. The descent for each task is split
+ ! into pairs near the top of the tree, shared by the threads; the nodes found are then
+ ! listed for each task, one task per thread at a time
+ call start_let_marks(reset)
+ allocate(implist(2,maximport_leaves,nprocs),itemr(3,nlet_split+3,nprocs),nitemr(nprocs))
+ nnode  = 0
+ nimp   = 0
+ nitemr = 0
+ !$omp parallel default(none) &
+ !$omp shared(nprocs,id,ncomb,ncellsmax,records,implist,nimp,nnode,reset) &
+ !$omp shared(itemr,nitemr,items,nitems,let_opened,let_round) &
+ !$omp private(iproc,list,iparent,iside,nlist,k,ith)
  if (allocated(let_mark)) then
     if (size(let_mark) < ncellsmax+1) deallocate(let_mark)
  endif
@@ -1260,11 +1316,36 @@ subroutine let_exchange()
     allocate(let_mark(ncellsmax+1))
     let_mark = 0
  endif
+ if (reset) let_mark = 0
+ ith = omp_thread_num() + 1
+ !$omp do schedule(dynamic,1)
+ do iproc = 0,nprocs-1
+    if (iproc == id) cycle
+    call split_let_descent(iproc,let_opened(ith,iproc+1),itemr(:,:,iproc+1),nitemr(iproc+1))
+ enddo
+ !$omp enddo
+ !$omp single
+ nitems = sum(nitemr)
+ allocate(items(4,max(nitems,1)))
+ nitems = 0
+ do iproc = 0,nprocs-1
+    do k = 1,nitemr(iproc+1)
+       nitems = nitems + 1
+       items(:,nitems) = [iproc,itemr(:,k,iproc+1)]
+    enddo
+ enddo
+ !$omp end single
+ !$omp do schedule(dynamic,1)
+ do k = 1,nitems
+    iproc = items(1,k)
+    call descend_let_pair(iproc,items(2:4,k),let_opened(ith,iproc+1))
+ enddo
+ !$omp enddo
  allocate(list(ncomb),iparent(ncomb),iside(ncomb))
  !$omp do schedule(dynamic,1)
  do iproc = 0,nprocs-1
     if (iproc == id) cycle
-    call select_let_nodes(iproc,list,iparent,iside,nlist)
+    call select_let_nodes(let_opened(:,iproc+1),list,iparent,iside,nlist)
     call select_import_leaves(list,nlist,implist(:,:,iproc+1),nimp(iproc+1))
     allocate(records(iproc+1)%x(nlist*nlet_record))
     do k = 1,nlist
@@ -1341,7 +1422,6 @@ end subroutine let_exchange
 !+
 !-----------------------------------------------------------------------
 subroutine select_import_leaves(list,nlist,implist,nleaves)
- use io,       only:id
  use dim,      only:maximport_leaves,maximport_part,gr,maxpsph,reach_import_factor
  use kernel,   only:radkern
  use kdtree,   only:inoderange,inodeparts
@@ -1352,11 +1432,11 @@ subroutine select_import_leaves(list,nlist,implist,nleaves)
  integer, allocatable :: cand(:),loc(:),indx(:)
  real,    allocatable :: reach(:)
  real    :: reachmin
- integer :: k,n,nc,iglob,np,npsent
+ integer :: k,n,nc,np,npsent
 
  nleaves = 0
  if (gr) return   ! the metric of imported particles is not set up
- allocate(cand(nlist+nmirror+1),loc(nlist+nmirror+1))
+ allocate(cand(nlist+nown_gleaves),loc(nlist+nown_gleaves))
  nc = 0
  do k = 1,nlist
     if (.not.is_import_candidate(list(k))) cycle
@@ -1364,12 +1444,12 @@ subroutine select_import_leaves(list,nlist,implist,nleaves)
     cand(nc) = list(k)
     loc(nc)  = k
  enddo
- do iglob = 1,ncomb_tree - int(ncells)
-    if (.not.is_this_task(iglob) .or. cellatid(iglob) /= id + 1) cycle
-    if (.not.is_import_candidate(combined_index(iglob))) cycle
+ do k = 1,nown_gleaves
+    n = own_gleaves(k)
+    if (.not.is_import_candidate(n)) cycle
     nc = nc + 1
-    cand(nc) = combined_index(iglob)
-    loc(nc)  = -iglob
+    cand(nc) = n
+    loc(nc)  = -nodemap(n)
  enddo
  if (nc == 0) return
  allocate(reach(nc),indx(nc))
@@ -1559,44 +1639,123 @@ end function nreals_per_particle
 
 !-----------------------------------------------------------------------
 !+
-!  the local nodes to send to task iproc: the children of every node
-!  below this task's global leaves that a walk on iproc could open, in
-!  pre-order, with the parent of each (negative: a global node, by its
-!  index in the global tree; positive: a position in the list) and
-!  which child it is (1 left, 2 right)
+!  start the marks of the descents of this call: room for the opened
+!  nodes found by each thread for each task, and a new round of marks
+!  (reset, with the marks of every thread, if the round would overflow)
 !+
 !-----------------------------------------------------------------------
-subroutine select_let_nodes(iproc,list,iparent,iside,nlist)
- use io, only:id
- integer, intent(in)  :: iproc
- integer, intent(out) :: list(:),iparent(:),iside(:),nlist
+subroutine start_let_marks(reset)
+ use io, only:nprocs
+!$ use omp_lib, only:omp_get_max_threads
+ logical, intent(out) :: reset
+ integer :: i,j,nthreads
+
+ nthreads = 1
+!$ nthreads = omp_get_max_threads()
+ if (allocated(let_opened)) then
+    if (size(let_opened,1) /= nthreads .or. size(let_opened,2) /= nprocs) deallocate(let_opened)
+ endif
+ if (.not.allocated(let_opened)) allocate(let_opened(nthreads,nprocs))
+ do j = 1,nprocs
+    do i = 1,nthreads
+       let_opened(i,j)%n = 0
+    enddo
+ enddo
+ reset = (let_round > huge(let_round) - 2*nprocs)
+ if (reset) let_round = 0
+ let_round = let_round + nprocs
+
+end subroutine start_let_marks
+
+!-----------------------------------------------------------------------
+!+
+!  start the descent for task iproc: the walks on iproc could open the
+!  nodes of this task that are met in pairs (node on iproc's side, node
+!  on this task's side) of the combined tree descending together from the
+!  root, as in the unsplit dual tree traversal. Once iproc's side reaches
+!  one of its global leaves, whose nodes below are unknown here, a region
+!  bound stands in for them and only this task's side descends. The pairs
+!  are expanded breadth first until there are nlet_split of them, which
+!  are returned as (node on iproc's side, node on this side, steps below
+!  a global leaf of iproc) for the threads to share
+!+
+!-----------------------------------------------------------------------
+subroutine split_let_descent(iproc,opened,item,nitem)
+ integer,       intent(in)    :: iproc
+ type(intlist), intent(inout) :: opened
+ integer,       intent(out)   :: item(:,:),nitem
+ integer, allocatable :: iqueue(:,:),istack(:,:)
+ integer :: ihead,ntail,nstack,k
+
+ allocate(iqueue(3,4*nlet_split),istack(3,4))
+ ntail = 0
+ call push_pair(iqueue,ntail,irootcomb,irootcomb,0)
+ ihead = 1
+ do while (ihead <= ntail .and. ntail - ihead + 1 < nlet_split)
+    nstack = 1
+    istack(:,1) = iqueue(:,ihead)
+    ihead = ihead + 1
+    call let_pair_step(istack,nstack,iproc,opened)
+    do k = 1,nstack
+       call push_pair(iqueue,ntail,istack(1,k),istack(2,k),istack(3,k))
+    enddo
+ enddo
+ nitem = ntail - ihead + 1
+ item(:,1:nitem) = iqueue(:,ihead:ntail)
+
+end subroutine split_let_descent
+
+!-----------------------------------------------------------------------
+!+
+!  the descent below one pair of the split, for task iproc
+!+
+!-----------------------------------------------------------------------
+subroutine descend_let_pair(iproc,pair,opened)
+ integer,       intent(in)    :: iproc,pair(3)
+ type(intlist), intent(inout) :: opened
  integer, allocatable :: istack(:,:)
- integer :: nstack,iglob,ileaf,n,ichild(2),k,ipos
+ integer :: nstack
+
+ allocate(istack(3,1024))
+ nstack = 1
+ istack(:,1) = pair
+ do while (nstack > 0)
+    call let_pair_step(istack,nstack,iproc,opened)
+ enddo
+
+end subroutine descend_let_pair
+
+!-----------------------------------------------------------------------
+!+
+!  the local nodes to send to a task, given the nodes its walks could
+!  open (found by each thread): the children of the opened nodes below
+!  this task's global leaves, in pre-order, with the parent of each
+!  (negative: a global node, by its index in the global tree; positive:
+!  a position in the list) and which child it is (1 left, 2 right)
+!+
+!-----------------------------------------------------------------------
+subroutine select_let_nodes(opened,list,iparent,iside,nlist)
+ type(intlist), intent(in)  :: opened(:)
+ integer,       intent(out) :: list(:),iparent(:),iside(:),nlist
+ integer, allocatable :: istack(:,:)
+ integer :: nstack,ileaf,n,ichild(2),k,i,ipos
 
  let_stamp = let_stamp + 1
- !
- ! mark the nodes that a walk on iproc could open, following the walk itself:
- ! pairs (node on iproc's side, node on this task's side) of the combined tree
- ! descend together from the root, as in the unsplit dual tree traversal. Once
- ! iproc's side reaches one of its global leaves, whose nodes below are unknown
- ! here, a region bound stands in for them and only this task's side descends
- !
- allocate(istack(3,1024))
- nstack = 0
- call push_pair(istack,nstack,irootcomb,irootcomb,0)
- do while (nstack > 0)
-    call let_pair_step(istack,nstack,iproc)
+ do i = 1,size(opened)
+    do k = 1,opened(i)%n
+       let_mark(opened(i)%x(k)) = let_stamp
+    enddo
  enddo
  !
  ! list the children of the marked nodes in pre-order: a node marked
  ! below a global leaf is itself in the list, so its parent comes first
  !
+ allocate(istack(3,1024))
  nlist = 0
  nstack = 0
- do iglob = 1,ncomb_tree - int(ncells)
-    if (.not.is_this_task(iglob) .or. cellatid(iglob) /= id + 1) cycle
-    ileaf = combined_index(iglob)
-    if (let_mark(ileaf) == let_stamp) call push_pair(istack,nstack,ileaf,-iglob,0)
+ do k = 1,nown_gleaves
+    ileaf = own_gleaves(k)
+    if (let_mark(ileaf) == let_stamp) call push_pair(istack,nstack,ileaf,-nodemap(ileaf),0)
  enddo
  do while (nstack > 0)
     n    = istack(1,nstack)
@@ -1617,16 +1776,17 @@ end subroutine select_let_nodes
 
 !-----------------------------------------------------------------------
 !+
-!  one step of the descent in select_let_nodes: test the pair on top of
+!  one step of the descent for task iproc: test the pair on top of
 !  the stack, a node on iproc's side against a node on this task's side
 !  (both in the combined tree), and push the pairs below it
 !+
 !-----------------------------------------------------------------------
-subroutine let_pair_step(istack,nstack,iproc)
+subroutine let_pair_step(istack,nstack,iproc,opened)
  use io, only:id
  integer, allocatable, intent(inout) :: istack(:,:)
  integer,              intent(inout) :: nstack
  integer,              intent(in)    :: iproc
+ type(intlist),        intent(inout) :: opened
  integer :: ia,ib,istep,ka(2),kb(2),i,j
  real    :: sizemax,hmaxmax
  logical :: may_open
@@ -1652,7 +1812,7 @@ subroutine let_pair_step(istack,nstack,iproc)
     endif
     if (.not.may_open) return
     ! a leaf here can be paired with iproc's leaves (its particles may be imported)
-    call mark_opened(ib)
+    call mark_opened(ib,-(let_round+iproc+1),opened)
     if (all(kb <= 0)) return
     do j = 1,2
        if (kb(j) > 0) call push_pair(istack,nstack,ia,kb(j),istep+1)
@@ -1669,7 +1829,7 @@ subroutine let_pair_step(istack,nstack,iproc)
           if (ka(i) > 0) call push_pair(istack,nstack,ka(i),ib,0)
        enddo
     else
-       call mark_opened(ib)
+       call mark_opened(ib,-(let_round+iproc+1),opened)
        do i = 1,2
           do j = 1,2
              if (ka(i) > 0 .and. kb(j) > 0) call push_pair(istack,nstack,ka(i),kb(j),0)
@@ -1682,19 +1842,23 @@ end subroutine let_pair_step
 
 !-----------------------------------------------------------------------
 !+
-!  mark a local node as opened for the current receiver, if its children
-!  are not already in the global tree
+!  add a local node to the nodes opened for a task, if its children are
+!  not already in the global tree. The thread's marks (with a value for
+!  the task) skip most repeats
 !+
 !-----------------------------------------------------------------------
-subroutine mark_opened(n)
+subroutine mark_opened(n,mark,opened)
  use io, only:id
- integer, intent(in) :: n
+ integer,       intent(in)    :: n,mark
+ type(intlist), intent(inout) :: opened
 
  if (n > ncells) return
  if (nodemap(n) /= 0) then
     if (cellatid(nodemap(n)) /= id + 1) return  ! an internal node of the global tree
  endif
- let_mark(n) = let_stamp
+ if (let_mark(n) == mark) return
+ let_mark(n) = mark
+ call add_to_list(opened%x,opened%n,n)
 
 end subroutine mark_opened
 
@@ -1821,68 +1985,79 @@ end subroutine profile_bounds
 subroutine exchange_size_profiles()
  use io,       only:nprocs,id
  use mpiutils, only:alltoall_mpi,alltoallv_mpi
- real,    allocatable :: sendbuf(:),recvbuf(:)
- integer, allocatable :: leaves(:)
- real    :: prof(2,nprofile)
- integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nleaves,nlen,nbuf,irecv,g,n,ng
+ real,    allocatable :: sendbuf(:),recvbuf(:),prof(:,:,:)
+ integer, allocatable :: nlen(:)
+ integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nbuf,irecv,g,n,np
 
  call mark_active_branches()
  ! this task's global leaves: the roots of its sections that are leaves of the global
  ! tree, and the leaves of its block
- allocate(leaves(nmirror+nown_roots))
- nleaves = 0
+ if (allocated(own_gleaves)) deallocate(own_gleaves)
+ allocate(own_gleaves(nmirror+nown_roots))
+ nown_gleaves = 0
  do k = 1,nown_roots
     if (cellatid(nodemap(own_roots(k))) == id + 1) then
-       nleaves = nleaves + 1
-       leaves(nleaves) = own_roots(k)
+       nown_gleaves = nown_gleaves + 1
+       own_gleaves(nown_gleaves) = own_roots(k)
     endif
  enddo
  do k = 1,nmirror
     if (cellatid(nodemap(mirror_list(k))) == id + 1) then
-       nleaves = nleaves + 1
-       leaves(nleaves) = mirror_list(k)
+       nown_gleaves = nown_gleaves + 1
+       own_gleaves(nown_gleaves) = mirror_list(k)
     endif
  enddo
 
- ! records of (global index, length, values) for each leaf, to each task it can interact with
- allocate(sendbuf(max(1,nleaves*(2*nprofile+2)*min(nprocs-1,4))))
+ ! records of (global index, length, values) for each leaf, to each task it can interact with;
+ ! each leaf's profile is computed when first needed, since it is the same for every task
+ allocate(prof(2,nprofile,nown_gleaves),nlen(nown_gleaves))
+ nlen = -1
+ allocate(sendbuf(max(1,nown_gleaves*(2*nprofile+2)*min(nprocs-1,4))))
  nbuf  = 0
  nsend = 0
  do iproc = 0,nprocs-1
     if (iproc == id) cycle
-    do k = 1,nleaves
-       n = leaves(k)
+    do k = 1,nown_gleaves
+       n = own_gleaves(k)
        if (.not.leaf_may_interact(n,iproc)) cycle
-       call leaf_size_profile(n,prof,nlen)
-       if (nbuf + 2*nlen + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + 2*nlen + 2)
+       if (nlen(k) < 0) call leaf_size_profile(n,prof(:,:,k),nlen(k))
+       np = 2*nlen(k)
+       if (nbuf + np + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + np + 2)
        sendbuf(nbuf+1) = nodemap(n)
-       sendbuf(nbuf+2) = nlen
-       sendbuf(nbuf+3:nbuf+2+2*nlen) = reshape(prof(:,1:nlen),[2*nlen])
-       nbuf = nbuf + 2*nlen + 2
-       nsend(iproc+1) = nsend(iproc+1) + 2*nlen + 2
+       sendbuf(nbuf+2) = nlen(k)
+       sendbuf(nbuf+3:nbuf+2+np) = reshape(prof(:,1:nlen(k),k),[np])
+       nbuf = nbuf + np + 2
+       nsend(iproc+1) = nsend(iproc+1) + np + 2
     enddo
  enddo
  call alltoall_mpi(nsend,nrecv)
  allocate(recvbuf(max(sum(nrecv),1)))
  call alltoallv_mpi(sendbuf,nsend,recvbuf,nrecv)
 
- ! store the profiles received
- ng = ncomb_tree - int(ncells)
- profile_len(1:ng) = -1
+ ! store the profiles received, after undoing those of the last call
+ do k = 1,nprof_set
+    profile_len(prof_set(k)) = -1
+ enddo
+ do k = 1,ninactive_set
+    global_active(inactive_set(k)) = .true.
+ enddo
+ nprof_set     = 0
+ ninactive_set = 0
  if (allocated(profile_pool)) then
     if (size(profile_pool) < sum(nrecv)) deallocate(profile_pool)
  endif
  if (.not.allocated(profile_pool)) allocate(profile_pool(max(sum(nrecv),1)))
  irecv = 0
  do while (irecv < sum(nrecv))
-    g    = nint(recvbuf(irecv+1))
-    nlen = nint(recvbuf(irecv+2))
-    profile_len(g)   = nlen
+    g  = nint(recvbuf(irecv+1))
+    np = 2*nint(recvbuf(irecv+2))
+    profile_len(g)   = np/2
     profile_start(g) = irecv + 3
-    profile_pool(irecv+3:irecv+2+2*nlen) = recvbuf(irecv+3:irecv+2+2*nlen)
-    irecv = irecv + 2*nlen + 2
+    profile_pool(irecv+3:irecv+2+np) = recvbuf(irecv+3:irecv+2+np)
+    irecv = irecv + np + 2
+    call add_to_list(prof_set,nprof_set,g)
+    if (np == 0) call mark_global_inactive(g)
  enddo
- call mark_global_active(ng)
 
 end subroutine exchange_size_profiles
 
@@ -1895,18 +2070,29 @@ end subroutine exchange_size_profiles
 logical function leaf_may_interact(n,iproc)
  use kernel, only:radkern
  integer, intent(in) :: n,iproc
- integer :: k,g
+ integer :: istack(2*maxdepth+2),nstack,g
  real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
 
+ ! descend the top nodes holding sections of iproc, testing the sections (and the
+ ! top nodes above them, if their spheres bound those below)
  leaf_may_interact = .true.
- do k = sec_start(iproc+1),sec_start(iproc+2)-1
-    g = top_leaf(sec_by_owner(k))
-    call get_sep(nodeglobal(g)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
-    d     = sqrt(r2) - nodeglobal(g)%size
-    sizes = 2.*nodeglobal(g)%size + node(n)%size
-    rcut  = radkern*max(nodeglobal(g)%hmax,node(n)%hmax)
-    if (d < sizes + rcut) return
-    if (gravity .and. tree_accuracy*d < sizes) return
+ nstack = 1
+ istack(1) = 1
+ do while (nstack > 0)
+    g = istack(nstack)
+    nstack = nstack - 1
+    if (iproc < own_lo(g) .or. iproc > own_hi(g)) cycle
+    if (section_of(g) > 0 .or. top_bounds_children) then
+       call get_sep(nodeglobal(g)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+       d     = sqrt(r2) - nodeglobal(g)%size
+       sizes = 2.*nodeglobal(g)%size + node(n)%size
+       rcut  = radkern*max(nodeglobal(g)%hmax,node(n)%hmax)
+       if (d >= sizes + rcut .and. .not.(gravity .and. tree_accuracy*d < sizes)) cycle
+       if (section_of(g) > 0) return
+    endif
+    istack(nstack+1) = nodeglobal(g)%rightchild
+    istack(nstack+2) = nodeglobal(g)%leftchild
+    nstack = nstack + 2
  enddo
  leaf_may_interact = .false.
 
@@ -1935,30 +2121,50 @@ end subroutine mark_active_branches
 
 !-----------------------------------------------------------------------
 !+
-!  mark the global nodes with active leaves below them: a leaf of another
-!  task is active unless its profile says it has no active particles (or
-!  none was received for a leaf too far away to matter, kept as active)
+!  a leaf of another task with no active particles (from its profile):
+!  mark it, and the global nodes above it with no other active leaves
+!  below them, as inactive. A leaf with no profile received (too far away
+!  to matter) stays active
 !+
 !-----------------------------------------------------------------------
-subroutine mark_global_active(ng)
- integer, intent(in) :: ng
+subroutine mark_global_inactive(g0)
+ integer, intent(in) :: g0
  integer :: g,il,ir
 
- ! children come after their parents in the global tree, except above the
- ! domains, where the heap order also puts children at larger indices
- do g = ng,1,-1
+ g = g0
+ do
+    global_active(g) = .false.
+    call add_to_list(inactive_set,ninactive_set,g)
+    g = nodeglobal(g)%parent
+    if (g <= 0) exit
     il = nodeglobal(g)%leftchild
     ir = nodeglobal(g)%rightchild
-    if (il <= 0 .and. ir <= 0) then
-       global_active(g) = (profile_len(g) /= 0)
-    else
-       global_active(g) = .false.
-       if (il > 0) global_active(g) = global_active(il)
-       if (ir > 0) global_active(g) = global_active(g) .or. global_active(ir)
+    if (il > 0) then
+       if (global_active(il)) exit
+    endif
+    if (ir > 0) then
+       if (global_active(ir)) exit
     endif
  enddo
 
-end subroutine mark_global_active
+end subroutine mark_global_inactive
+
+!-----------------------------------------------------------------------
+!+
+!  append a value to a list that grows as needed
+!+
+!-----------------------------------------------------------------------
+subroutine add_to_list(list,n,ival)
+ integer, allocatable, intent(inout) :: list(:)
+ integer,              intent(inout) :: n
+ integer,              intent(in)    :: ival
+
+ if (.not.allocated(list)) allocate(list(1024))
+ if (n >= size(list)) call grow_int(list,2*size(list),n)
+ n = n + 1
+ list(n) = ival
+
+end subroutine add_to_list
 
 !-----------------------------------------------------------------------
 !+
@@ -2078,6 +2284,7 @@ subroutine attach_let_nodes(iproc,buf)
        ipar = nbase + ipar
     endif
     node(n)%parent = ipar
+    if (ipar <= ncomb_tree .and. leaf_is_active(ipar) /= 0) call add_to_list(let_parent,nlet_parent,ipar)
     if (nint(buf(ip+8)) == 1) then
        node(ipar)%leftchild = n
     else
