@@ -518,7 +518,9 @@ subroutine expensive_leaves_first()
 
  ! the reach of each leaf, and its median from a sample of the leaves
  allocate(reach(n))
- !$omp parallel do default(none) schedule(static) shared(n,active_leaves,node,reach) private(k,icell)
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(n,active_leaves,node,reach) &
+ !$omp private(k,icell)
  do k = 1,n
     icell = active_leaves(k)
     reach(k) = node(icell)%size + radkern*node(icell)%hmax
@@ -871,14 +873,21 @@ subroutine graft_local_trees(nactive)
 
  ! the local index of each copied node on its owner, negative for a leaf of its local tree
  allocate(ilocal(nmirror))
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(nmirror,ilocal,mirror_list) &
+ !$omp private(p)
  do p = 1,nmirror
     ilocal(p) = local_index_and_leaf(mirror_list(p))
  enddo
+ !$omp end parallel do
  call allgatherv_mpi(ilocal,global_local_index(ifirst:),nmirror_task,mirror_displ)
 
  ! the blocks are linked within themselves: shift them to their place in the global tree
  cellatid = 0
  global_owner(1:nprocs-1) = -1
+ !$omp parallel do default(none) schedule(dynamic,1) &
+ !$omp shared(nprocs,ifirst,mirror_displ,nmirror_task,nodeglobal,cellatid,global_local_index,global_owner) &
+ !$omp private(itask,ibase,idomain,p,g)
  do itask = 1,nprocs
     ibase = ifirst - 1 + mirror_displ(itask)
     idomain = nprocs + itask - 1
@@ -908,6 +917,7 @@ subroutine graft_local_trees(nactive)
        endif
     endif
  enddo
+ !$omp end parallel do
 
  ! where the copied local nodes are in the global tree; the local root is the domain node
  ibase = ifirst - 1 + mirror_displ(id+1)
@@ -946,6 +956,10 @@ subroutine combine_trees()
  node(irootnode)%level      = rootlinks%level
  node(irootnode)%parent     = combined_index(nodeglobal(nprocs + id)%parent)
 
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(ng,ncells,node,nodeglobal,cellatid,global_local_index) &
+ !$omp shared(remote_leaf_owner,remote_local_index,leaf_is_active) &
+ !$omp private(g,n)
  do g = 1,ng
     if (is_this_task(g)) cycle
     n = int(ncells) + g
@@ -957,6 +971,7 @@ subroutine combine_trees()
     remote_local_index(n) = global_local_index(g)
     leaf_is_active(n)    = min(cellatid(g),1)
  enddo
+ !$omp end parallel do
  irootcomb = combined_index(1)
  ncomb = int(ncells) + ng
  ncomb_tree = ncomb
@@ -2189,9 +2204,15 @@ subroutine pack_mirrored_nodes(block)
  integer :: p,n
 
  ! position in the block, temporarily stored in nodemap
+ !$omp parallel default(none) &
+ !$omp shared(nmirror,nodemap,mirror_list,block,node) &
+ !$omp private(p,n)
+ !$omp do schedule(static)
  do p = 1,nmirror
     nodemap(mirror_list(p)) = p
  enddo
+ !$omp enddo
+ !$omp do schedule(static)
  do p = 1,nmirror
     n = mirror_list(p)
     block(p) = node(n)
@@ -2199,6 +2220,8 @@ subroutine pack_mirrored_nodes(block)
     block(p)%rightchild = position_in_block(node(n)%rightchild)
     block(p)%parent     = position_in_block(node(n)%parent)
  enddo
+ !$omp enddo
+ !$omp end parallel
 
 end subroutine pack_mirrored_nodes
 

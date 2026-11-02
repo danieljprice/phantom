@@ -362,32 +362,67 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells)
  integer(kind=8), intent(inout) :: ncells
  type(kdnode), allocatable :: newnode(:)
  integer,      allocatable :: order(:),newindex(:),newactive(:),newrange(:,:)
- integer :: istack(2*maxdepth+2),nstack,n,k,nnode,nold
+ integer,      allocatable :: item(:),nitem(:),ioffset(:)
+ logical,      allocatable :: is_subtree(:)
+ integer :: istack(2*maxdepth+2),nstack,n,k,nnode,nold,nitems,nsmall
 
- ! the order of the nodes, depth first with the left child first
+ ! the top of the tree, depth first with the left child first, down to the
+ ! subtrees with few enough particles to be listed by one thread each
  nold = int(ncells)
- allocate(order(nold),newindex(0:nold))
+ allocate(order(nold),newindex(0:nold),item(nold),is_subtree(nold))
  newindex(0) = 0
- nnode  = 0
+ nsmall = max((inoderange(2,irootnode) - inoderange(1,irootnode) + 1)/(8*max(numthreads,1)),1)
+ nitems = 0
  nstack = 1
  istack(1) = irootnode
  do while (nstack > 0)
     n = istack(nstack)
     nstack = nstack - 1
-    nnode = nnode + 1
-    order(nnode) = n
-    newindex(n)  = nnode
-    if (node(n)%leftchild > 0) then
+    nitems = nitems + 1
+    item(nitems) = n
+    is_subtree(nitems) = (node(n)%leftchild <= 0 .or. inoderange(2,n) - inoderange(1,n) + 1 <= nsmall)
+    if (.not.is_subtree(nitems)) then
        istack(nstack+1) = node(n)%rightchild
        istack(nstack+2) = node(n)%leftchild
        nstack = nstack + 2
     endif
  enddo
 
+ ! the number of nodes of each item, and where its nodes start in the new order
+ allocate(nitem(nitems),ioffset(nitems))
+ !$omp parallel do default(none) schedule(dynamic,1) &
+ !$omp shared(nitems,item,is_subtree,nitem,node) &
+ !$omp private(k)
+ do k = 1,nitems
+    nitem(k) = 1
+    if (is_subtree(k)) nitem(k) = count_subtree(node,item(k))
+ enddo
+ !$omp end parallel do
+ ioffset(1) = 0
+ do k = 2,nitems
+    ioffset(k) = ioffset(k-1) + nitem(k-1)
+ enddo
+ nnode = ioffset(nitems) + nitem(nitems)
+
+ ! the order of the nodes, each subtree listed by one thread
+ !$omp parallel do default(none) schedule(dynamic,1) &
+ !$omp shared(nitems,item,is_subtree,ioffset,node,order,newindex) &
+ !$omp private(k)
+ do k = 1,nitems
+    if (is_subtree(k)) then
+       call order_subtree(node,item(k),ioffset(k),order,newindex)
+    else
+       order(ioffset(k)+1) = item(k)
+       newindex(item(k))   = ioffset(k) + 1
+    endif
+ enddo
+ !$omp end parallel do
+
  ! copy the nodes to their new places, with their links renumbered
  allocate(newnode(nnode),newactive(nnode),newrange(2,nnode))
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(nnode,order,node,newnode,newindex,newactive,leaf_is_active,newrange,inoderange) private(k,n)
+ !$omp shared(nnode,order,node,newnode,newindex,newactive,leaf_is_active,newrange,inoderange) &
+ !$omp private(k,n)
  do k = 1,nnode
     n = order(k)
     newnode(k) = node(n)
@@ -399,7 +434,8 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells)
  enddo
  !$omp end parallel do
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(nold,nnode,node,newnode,leaf_is_active,newactive,inoderange,newrange) private(k)
+ !$omp shared(nold,nnode,node,newnode,leaf_is_active,newactive,inoderange,newrange) &
+ !$omp private(k)
  do k = 1,nold
     if (k <= nnode) then
        node(k) = newnode(k)
@@ -413,6 +449,63 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells)
  ncells = nnode
 
 end subroutine renumber_depth_first
+
+!--------------------------------------------------------------------------------
+!+
+!  the number of nodes in the subtree below n0 (n0 included)
+!+
+!--------------------------------------------------------------------------------
+integer function count_subtree(node,n0)
+ type(kdnode), intent(in) :: node(:)
+ integer,      intent(in) :: n0
+ integer :: istack(2*maxdepth+2),nstack,n
+
+ count_subtree = 0
+ nstack = 1
+ istack(1) = n0
+ do while (nstack > 0)
+    n = istack(nstack)
+    nstack = nstack - 1
+    count_subtree = count_subtree + 1
+    if (node(n)%leftchild > 0) then
+       istack(nstack+1) = node(n)%rightchild
+       istack(nstack+2) = node(n)%leftchild
+       nstack = nstack + 2
+    endif
+ enddo
+
+end function count_subtree
+
+!--------------------------------------------------------------------------------
+!+
+!  list the subtree below n0 depth first, left child first, from position
+!  ioffset+1 of the new order (order: old index of each new position;
+!  newindex: new position of each old index)
+!+
+!--------------------------------------------------------------------------------
+subroutine order_subtree(node,n0,ioffset,order,newindex)
+ type(kdnode), intent(in)    :: node(:)
+ integer,      intent(in)    :: n0,ioffset
+ integer,      intent(inout) :: order(:),newindex(0:)
+ integer :: istack(2*maxdepth+2),nstack,n,k
+
+ k = ioffset
+ nstack = 1
+ istack(1) = n0
+ do while (nstack > 0)
+    n = istack(nstack)
+    nstack = nstack - 1
+    k = k + 1
+    order(k)    = n
+    newindex(n) = k
+    if (node(n)%leftchild > 0) then
+       istack(nstack+1) = node(n)%rightchild
+       istack(nstack+2) = node(n)%leftchild
+       nstack = nstack + 2
+    endif
+ enddo
+
+end subroutine order_subtree
 
 !--------------------------------------------------------------------------------
 !+
@@ -561,7 +654,8 @@ subroutine sort_by_section(n,isec,nsec,istart)
 !$ nchunk = omp_get_max_threads()
  allocate(istart(nsec+1),ncount(nsec,0:nchunk-1))
  ncount = 0
- !$omp parallel default(none) shared(n,isec,nsec,nchunk,ncount,istart,treecache,inodeparts,tcbuf,ipbuf) &
+ !$omp parallel default(none) &
+ !$omp shared(n,isec,nsec,nchunk,ncount,istart,treecache,inodeparts,tcbuf,ipbuf) &
  !$omp private(i,k,j,ic)
  ic = 0
 !$ ic = omp_get_thread_num()
@@ -2379,7 +2473,10 @@ subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
  ! that of where they are (construct_root_node would wrap them after the move)
  if (periodic) then
     ncross = 0
-    !$omp parallel do default(none) schedule(static) shared(np,xyzh,isperiodic) private(i) reduction(+:ncross)
+    !$omp parallel do default(none) schedule(static) &
+    !$omp shared(np,xyzh,isperiodic) &
+    !$omp private(i) &
+    !$omp reduction(+:ncross)
     do i = 1,np
        if (.not.isdead_or_accreted(xyzh(4,i))) call cross_boundary(isperiodic,xyzh(:,i),ncross)
     enddo

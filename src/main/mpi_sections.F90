@@ -86,7 +86,9 @@ subroutine build_sections(np,xyzh,wt,st,nround)
  st%depth(1) = 0
  st%key(1)   = 0
  allocate(icell(np))
- !$omp parallel do default(none) schedule(static) shared(np,xyzh,icell) private(i)
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(np,xyzh,icell) &
+ !$omp private(i)
  do i = 1,np
     icell(i) = merge(1,0,xyzh(4,i) > 0.)
  enddo
@@ -113,8 +115,11 @@ subroutine build_sections(np,xyzh,wt,st,nround)
     allocate(sums(2,nc),bnd(6,nc))
     sums = 0.
     bnd  = huge(1.d0)
-    !$omp parallel do default(none) schedule(static) shared(np,icell,pos,xyzh,wt) private(i,j) &
-    !$omp reduction(+:sums) reduction(min:bnd)
+    !$omp parallel do default(none) schedule(static) &
+    !$omp shared(np,icell,pos,xyzh,wt) &
+    !$omp private(i,j) &
+    !$omp reduction(+:sums) &
+    !$omp reduction(min:bnd)
     do i = 1,np
        if (icell(i) <= 0) cycle
        j = pos(icell(i))
@@ -165,7 +170,9 @@ subroutine build_sections(np,xyzh,wt,st,nround)
     if (nnew == 0) exit refine
 
     ! the particles of the cells that were split move to their children
-    !$omp parallel do default(none) schedule(static) shared(np,icell,st,xyzh) private(i,c)
+    !$omp parallel do default(none) schedule(static) &
+    !$omp shared(np,icell,st,xyzh) &
+    !$omp private(i,c)
     do i = 1,np
        c = icell(i)
        if (c <= 0) cycle
@@ -392,7 +399,9 @@ subroutine set_owners(np,xyzh,ibelong)
  integer, intent(inout) :: ibelong(:)
  integer :: i
 
- !$omp parallel do default(none) schedule(static) shared(np,xyzh,cur,ibelong,id) private(i)
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(np,xyzh,cur,ibelong,id) &
+ !$omp private(i)
  do i = 1,np
     if (xyzh(4,i) > 0.) then
        ibelong(i) = cur%owner(locate_section(cur,xyzh(1:3,i)))
@@ -447,7 +456,9 @@ subroutine local_section_index(n,xyz,isec,nsecown)
     isec(1:n) = 1
     return
  endif
- !$omp parallel do default(none) schedule(static) shared(n,xyz,isec,cur,kfirst_own,nown) private(i)
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(n,xyz,isec,cur,kfirst_own,nown) &
+ !$omp private(i)
  do i = 1,n
     isec(i) = min(max(locate_section(cur,xyz(1:3,i)) - kfirst_own + 1,1),nown)
  enddo
