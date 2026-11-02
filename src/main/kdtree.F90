@@ -42,10 +42,6 @@ module kdtree
 !--runtime options for this module
 !
  real,    public  :: tree_accuracy    = 0.5
- ! for testing only: the MPI domains, split at the centre of mass level by level (0)
- ! or sections of the geometric tree (1), from PHANTOM_MPI_DECOMP (read once)
- integer, private :: mpi_decomp       = 0
- logical, private :: done_decomp_env  = .false.
  logical, public  :: use_geosplit     = gravity ! only debug flag / should be on with gravity
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned   = .false.
@@ -57,7 +53,7 @@ module kdtree
 
  public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree,kdnode
- public :: maketreeglobal,global_top_from_sections
+ public :: maketreeglobal
  public :: empty_tree
  integer, public :: maxlevel_indexed, maxlevel
  ! with the domains from sections: the root of the subtree of each section this task owns
@@ -250,11 +246,11 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
     if (sinktree) then
        call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
                            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, leaf_is_active, &
-                           minlevel, maxlevel, wassplit, .false., apr_tree, xyzmh_ptmass)
+                           minlevel, maxlevel, wassplit, apr_tree, xyzmh_ptmass)
     else
        call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
                            il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, leaf_is_active, &
-                           minlevel, maxlevel, wassplit, .false., apr_tree)
+                           minlevel, maxlevel, wassplit, apr_tree)
     endif
 
     if (wassplit) then ! add children to back of queue
@@ -311,11 +307,11 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
           if (sinktree) then
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
                                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, leaf_is_active, &
-                                 minlevel, maxlevel, wassplit, .false., apr_tree, xyzmh_ptmass)
+                                 minlevel, maxlevel, wassplit, apr_tree, xyzmh_ptmass)
           else
              call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
                                  il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, ncells, leaf_is_active, &
-                                 minlevel, maxlevel, wassplit, .false., apr_tree)
+                                 minlevel, maxlevel, wassplit, apr_tree)
           endif
 
           if (wassplit) then ! add children to top of stack
@@ -776,7 +772,7 @@ subroutine combine_join_nodes(node,join,njoin,leaf_is_active)
     xmini  = 0.  ! only used for the global (MPI) tree
     xmaxi  = 0.
     call compute_nodes_cofm(npnode,n,x0,totmass_node,.true.)
-    call set_nodes_properties(npnode,n,x0,totmass_node,mymum,node(n),xmini,xmaxi,level,.false.,.true.)
+    call set_nodes_properties(npnode,n,x0,totmass_node,mymum,node(n),xmini,xmaxi,level,.true.)
     node(n)%mass       = totmass_node
     node(n)%leftchild  = join(2,k)
     node(n)%rightchild = join(3,k)
@@ -1441,14 +1437,12 @@ subroutine compute_nodes_cofm(npnode,nnode,xyzcofm,totmass_node,doparallel)
 end subroutine compute_nodes_cofm
 
 subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                                level,global_build,doparallel)
- use mpitree,   only:reduce_group
- use dim,       only:mpi
+                                level,doparallel)
  type(kdnode),    intent(out)   :: nodeentry
  integer,         intent(in)    :: npnode,mymum,level,nnode
  real,            intent(inout) :: xmini(3), xmaxi(3), totmass_node
  real,            intent(in)    :: x0(3)
- logical,         intent(in)    :: doparallel,global_build
+ logical,         intent(in)    :: doparallel
  real    :: pmassi
  real    :: dx,dy,dz,dr2,xi,yi,zi,hi
  real    :: hmax,r2max,totmass
@@ -1519,38 +1513,6 @@ subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmi
        call add_node_moments(pmassi,dx,dy,dz,quads,octs)
 #endif
     enddo
- endif
-
- ! reduce node limits and quads across MPI tasks belonging to this group
- if (mpi .and. global_build) then
-    r2max     = reduce_group(r2max,'max',level)
-    hmax      = reduce_group(hmax,'max',level)
-
-    xmini(1)  = reduce_group(xmini(1),'min',level)
-    xmini(2)  = reduce_group(xmini(2),'min',level)
-    xmini(3)  = reduce_group(xmini(3),'min',level)
-
-    xmaxi(1)  = reduce_group(xmaxi(1),'max',level)
-    xmaxi(2)  = reduce_group(xmaxi(2),'max',level)
-    xmaxi(3)  = reduce_group(xmaxi(3),'max',level)
-#ifdef GRAVITY
-    quads(1)  = reduce_group(quads(1),'+',level)
-    quads(2)  = reduce_group(quads(2),'+',level)
-    quads(3)  = reduce_group(quads(3),'+',level)
-    quads(4)  = reduce_group(quads(4),'+',level)
-    quads(5)  = reduce_group(quads(5),'+',level)
-    quads(6)  = reduce_group(quads(6),'+',level)
-    octs(1)   = reduce_group(octs(1),'+',level)
-    octs(2)   = reduce_group(octs(2),'+',level)
-    octs(3)   = reduce_group(octs(3),'+',level)
-    octs(4)   = reduce_group(octs(4),'+',level)
-    octs(5)   = reduce_group(octs(5),'+',level)
-    octs(6)   = reduce_group(octs(6),'+',level)
-    octs(7)   = reduce_group(octs(7),'+',level)
-    octs(8)   = reduce_group(octs(8),'+',level)
-    octs(9)   = reduce_group(octs(9),'+',level)
-    octs(10)  = reduce_group(octs(10),'+',level)
-#endif
  endif
 
  ! assign properties to node
@@ -1641,11 +1603,10 @@ end subroutine add_child_moments
 !--------------------------------------------------------------------
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, leaf_is_active, &
-                          minlevel, maxlevel, wassplit, global_build,apr_tree, &
+                          minlevel, maxlevel, wassplit, apr_tree, &
                           xyzmh_ptmass)
- use dim,       only:maxtypes,mpi,ind_timesteps
+ use dim,       only:maxtypes,ind_timesteps
  use io,        only:fatal,error
- use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),    intent(out)   :: nodeentry
  integer,         intent(in)    :: nnode, mymum, level
  real,            intent(inout) :: xmini(3), xmaxi(3)
@@ -1657,16 +1618,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer,         intent(out)   :: leaf_is_active(:)
  integer,         intent(inout) :: maxlevel, minlevel
  logical,         intent(out)   :: wassplit
- logical,         intent(in)    :: global_build
  logical,         intent(in)    :: apr_tree
  real,            intent(in), optional :: xyzmh_ptmass(:,:)
 
  integer(kind=8) :: myslot
  real    :: xyzcofm(3)
  real    :: totmass_node
- real    :: xyzcofmg(3)
- real    :: totmassg
- integer :: npnodetot
  logical :: nodeisactive
  integer :: i,npcounter,ipart
  real    :: x0(3)
@@ -1691,49 +1648,33 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     call fatal('maketree', 'expected number of particles in node differed from actual number')
  endif
 
- if (mpi .and. global_build) then
-    npnodetot = reduce_group(npnode,'+',level)
- else
-    npnodetot = npnode
- endif
-
  ! following lines to avoid compiler warnings on intent(out) variables
  ir = 0
  il = 0
  nl = 0
  nr = 0
 
- wassplit    = (npnodetot > minpart)
+ wassplit    = (npnode > minpart)
 
  xminl = 0.
  xmaxl = 0.
  xminr = 0.
  xmaxr = 0.
 
- if ((.not. global_build) .and. (npnode  <  1)) return ! node has no particles, just quit
+ if (npnode  <  1) return ! node has no particles, just quit
 
  xyzcofm(:) = 0.
 
  call compute_nodes_cofm(npnode,nnode,xyzcofm,totmass_node,doparallel)
- ! if this is global node construction, get the cofm and total mass
- ! of all particles in this node (some on other MPI tasks)
- if (mpi .and. global_build) then
-    call get_group_cofm(xyzcofm,totmass_node,level,xyzcofmg,totmassg)
-    xyzcofm = xyzcofmg
-    totmass_node = totmassg
- endif
- ! checks the reduced mass in the case of global maketree
  if (totmass_node<=0. .and. use_apr) call fatal('mtree + apr', &
     'totmass_node==0, something almost certainly wrong with aprmassoftype')
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
  call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                           level,global_build,doparallel)
+                           level,doparallel)
 
- ! for gravity KDtree, we need the geo centre to split the node. The global (MPI) levels
- ! decide which particles each task owns, so are split at the centre of mass, which keeps the
- ! domains balanced: a box centre set by a few distant particles would overload one task
- if (use_geosplit .and. .not.global_build) then
+ ! for gravity KDtree, we need the geo centre to split the node
+ if (use_geosplit) then
     x0 = (xmaxi+xmini)*0.5
  else  !--for default KDtree, we need the split centre to be the centre of mass
     x0 = xyzcofm
@@ -1769,8 +1710,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     maxlevel = max(level,maxlevel)
     if (maxlevel > maxdepth) call fatal('maketree','maximum tree depth reached !!')
     ! create two children nodes and point to them from current node
-    ! always use G&R indexing for global tree
-    if (((level < maxlevel_indexed) .or. global_build)) then !.and. (.not. use_geosplit)) then
+    if (level < maxlevel_indexed) then
        il = 2*nnode   ! indexing as per Gafton & Rosswog (2011)
        ir = il + 1
     else
@@ -1795,12 +1735,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
                                     inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,treecache,inodeparts,&
                                     npnode)
-       elseif (global_build .and. doparallel) then
-          ! a global (MPI) level holds all of this task's particles: partition with all threads
-          call partition_parallel(iaxis,inoderange(1,nnode),inoderange(2,nnode),xpivot,nl,xminl,xmaxl,xminr,xmaxr)
-          nr = npnode - nl
-          inoderange(:,il) = [inoderange(1,nnode),inoderange(1,nnode)+nl-1]
-          inoderange(:,ir) = [inoderange(1,nnode)+nl,inoderange(2,nnode)]
        else
           ! regular sort
           call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
@@ -1812,7 +1746,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        endif
 
        ! see if all the particles ended up in one node, if so, arbitrarily build 2 cells. This should never happen
-       if ((.not. global_build) .and. ((nl==npnode) .or. (nr==npnode))) then
+       if ((nl==npnode) .or. (nr==npnode)) then
           ! no need to move particles because if they all ended up in one node,
           ! then they are still in the original order
           nl = npnode / 2
@@ -1823,9 +1757,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           nr = npnode - nl
        endif
 
-       ! compute min/max with explicit loops for better cache behavior (the parallel
-       ! partition of a global level already has them)
-       if (.not.(global_build .and. doparallel)) then
+       ! compute min/max with explicit loops for better cache behavior
        xminl(:) =  huge(xminl)
        xmaxl(:) = -huge(xmaxl)
        do ipart=inoderange(1,il),inoderange(2,il)
@@ -1847,7 +1779,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           xmaxr(2) = max(xmaxr(2),treecache(2,ipart))
           xmaxr(3) = max(xmaxr(3),treecache(3,ipart))
        enddo
-       endif
     else
        nl = 0
        nr = 0
@@ -1857,124 +1788,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        xmaxr = -huge(xmaxr)
     endif
 
-    ! Reduce node limits of children across MPI tasks belonging to this group.
-    ! The synchronisation needs to happen here, not at the next level, because
-    ! the groups will be independent by then.
-    if (mpi .and. global_build) then
-       xminl(1) = reduce_group(xminl(1),'min',level)
-       xminl(2) = reduce_group(xminl(2),'min',level)
-       xminl(3) = reduce_group(xminl(3),'min',level)
-
-       xmaxl(1) = reduce_group(xmaxl(1),'max',level)
-       xmaxl(2) = reduce_group(xmaxl(2),'max',level)
-       xmaxl(3) = reduce_group(xmaxl(3),'max',level)
-
-       xminr(1) = reduce_group(xminr(1),'min',level)
-       xminr(2) = reduce_group(xminr(2),'min',level)
-       xminr(3) = reduce_group(xminr(3),'min',level)
-
-       xmaxr(1) = reduce_group(xmaxr(1),'max',level)
-       xmaxr(2) = reduce_group(xmaxr(2),'max',level)
-       xmaxr(3) = reduce_group(xmaxr(3),'max',level)
-    endif
 
  endif
 
 end subroutine construct_node
-
-!----------------------------------------------------------------
-!+
-!  partition the particles in positions imin..imax of the tree
-!  arrays about xpivot along axis iaxis with all threads: those
-!  at or below the pivot first (nl of them), then the rest, with
-!  the bounds of each side. Each thread counts and bounds a chunk,
-!  then copies it to its offsets in the scratch buffers
-!+
-!----------------------------------------------------------------
-subroutine partition_parallel(iaxis,imin,imax,xpivot,nl,xminl,xmaxl,xminr,xmaxr)
-!$ use omp_lib, only:omp_get_max_threads
- integer, intent(in)  :: iaxis,imin,imax
- real,    intent(in)  :: xpivot
- integer, intent(out) :: nl
- real,    intent(out) :: xminl(3),xmaxl(3),xminr(3),xmaxr(3)
- integer, allocatable :: nlc(:),offl(:),offr(:)
- real,    allocatable :: bnd(:,:)
- integer :: nchunk,c,i,i1,i2,pl,pr,n
-
- if (allocated(tcbuf)) then
-    if (size(tcbuf,2) /= size(treecache,2) .or. size(tcbuf,1) /= size(treecache,1)) deallocate(tcbuf,ipbuf)
- endif
- if (.not.allocated(tcbuf)) allocate(tcbuf(size(treecache,1),size(treecache,2)),ipbuf(size(inodeparts)))
- n = imax - imin + 1
- nchunk = 1
-!$ nchunk = omp_get_max_threads()
- nchunk = max(1,min(nchunk,n))
- allocate(nlc(nchunk),offl(nchunk),offr(nchunk),bnd(12,nchunk))
- ! count and bound each side in each chunk
- !$omp parallel do default(none) schedule(static) shared(nchunk,imin,n,iaxis,xpivot,treecache,nlc,bnd) &
- !$omp private(c,i,i1,i2)
- do c = 1,nchunk
-    i1 = imin + int((int(c-1,8)*n)/nchunk)
-    i2 = imin + int((int(c,8)*n)/nchunk) - 1
-    nlc(c) = 0
-    bnd(1:3,c)  =  huge(0.)
-    bnd(4:6,c)  = -huge(0.)
-    bnd(7:9,c)  =  huge(0.)
-    bnd(10:12,c) = -huge(0.)
-    do i = i1,i2
-       if (treecache(iaxis,i) <= xpivot) then
-          nlc(c) = nlc(c) + 1
-          bnd(1:3,c) = min(bnd(1:3,c),treecache(1:3,i))
-          bnd(4:6,c) = max(bnd(4:6,c),treecache(1:3,i))
-       else
-          bnd(7:9,c)   = min(bnd(7:9,c),treecache(1:3,i))
-          bnd(10:12,c) = max(bnd(10:12,c),treecache(1:3,i))
-       endif
-    enddo
- enddo
- !$omp end parallel do
- nl = sum(nlc)
- offl(1) = imin
- offr(1) = imin + nl
- do c = 2,nchunk
-    offl(c) = offl(c-1) + nlc(c-1)
-    offr(c) = offr(c-1) + (int((int(c-1,8)*n)/nchunk) - int((int(c-2,8)*n)/nchunk)) - nlc(c-1)
- enddo
- ! each chunk to its place in the scratch buffers, then back
- !$omp parallel default(none) shared(nchunk,imin,imax,n,iaxis,xpivot,treecache,inodeparts,tcbuf,ipbuf,offl,offr) &
- !$omp private(c,i,i1,i2,pl,pr)
- !$omp do schedule(static)
- do c = 1,nchunk
-    i1 = imin + int((int(c-1,8)*n)/nchunk)
-    i2 = imin + int((int(c,8)*n)/nchunk) - 1
-    pl = offl(c)
-    pr = offr(c)
-    do i = i1,i2
-       if (treecache(iaxis,i) <= xpivot) then
-          tcbuf(:,pl) = treecache(:,i)
-          ipbuf(pl)   = inodeparts(i)
-          pl = pl + 1
-       else
-          tcbuf(:,pr) = treecache(:,i)
-          ipbuf(pr)   = inodeparts(i)
-          pr = pr + 1
-       endif
-    enddo
- enddo
- !$omp enddo
- !$omp do schedule(static)
- do i = imin,imax
-    treecache(:,i) = tcbuf(:,i)
-    inodeparts(i)  = ipbuf(i)
- enddo
- !$omp enddo
- !$omp end parallel
- xminl = minval(bnd(1:3,:),dim=2)
- xmaxl = maxval(bnd(4:6,:),dim=2)
- xminr = minval(bnd(7:9,:),dim=2)
- xmaxr = maxval(bnd(10:12,:),dim=2)
-
-end subroutine partition_parallel
 
 !----------------------------------------------------------------
 !+
@@ -2333,7 +2150,7 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
           xmaxi = 0.
           call compute_nodes_cofm(n,inode,x0,totmass_node,.false.)
           call set_nodes_properties(n,inode,x0,totmass_node,mymum,node(inode),xmini,xmaxi,&
-                                    level,.false.,.false.)
+                                    level,.false.)
           node(inode)%leftchild  = 0
           node(inode)%rightchild = 0
           node(inode)%mass       = totmass_node
@@ -2404,70 +2221,14 @@ end subroutine combine_child_nodes
 
 !--------------------------------------------------------------------------------
 !+
-!  Routine to build the global level tree, by one of two decompositions of
-!  the particles between tasks: splits at the centre of mass, level by
-!  level, or sections of the geometric tree (PHANTOM_MPI_DECOMP=1)
+!  Routine to build the global tree (MPI): the particles are moved to the
+!  task that owns their section of the geometric tree, each task builds its
+!  local tree from its sections, and the cells of the geometric tree above
+!  the sections are built from the section roots of all tasks, identically
+!  on every task
 !+
 !-------------------------------------------------------------------------------
 subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
-                          np,nactive,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
- type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
- type(kdnode),    intent(out)   :: node(:)          ! ncellsmax+1
- integer,         intent(out)   :: globallevel
- integer,         intent(inout) :: np
- integer,         intent(in)    :: nactive  ! number of active particles on this task
- real,            intent(inout) :: xyzh(:,:)
- integer,         intent(out)   :: leaf_is_active(:)  ! ncellsmax+1)
- integer(kind=8), intent(out)   :: ncells
- logical,         intent(in)    :: apr_tree
- integer,         intent(in),    optional :: nptmass
- real,            intent(inout), optional :: xyzmh_ptmass(:,:)
-
- if (.not.done_decomp_env) call read_decomp_env()
- if (mpi_decomp == 1) then
-    call build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
-                                  np,nactive,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
- else
-    call build_global_by_levels(nodeglobal,node,globallevel,xyzh,&
-                                np,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
- endif
-
-end subroutine maketreeglobal
-
-!--------------------------------------------------------------------
-!+
-!  the decomposition of the MPI domains, from the environment variable
-!  PHANTOM_MPI_DECOMP (read once): 1 for sections of the geometric tree,
-!  otherwise splits at the centre of mass level by level
-!+
-!--------------------------------------------------------------------
-subroutine read_decomp_env()
- use io, only:id,master
- character(len=8) :: string
-
- call get_environment_variable('PHANTOM_MPI_DECOMP',string)
- mpi_decomp = 0
- if (trim(string) == '1') mpi_decomp = 1
- if (id == master) then
-    if (mpi_decomp == 1) then
-       print "(a)",' global tree: MPI domains from sections of the geometric tree (PHANTOM_MPI_DECOMP=1)'
-    else
-       print "(a)",' global tree: MPI domains split at the centre of mass level by level'
-    endif
- endif
- done_decomp_env = .true.
-
-end subroutine read_decomp_env
-
-!--------------------------------------------------------------------------------
-!+
-!  the global levels of the tree from sections: the particles are moved to the
-!  task that owns their section of the geometric tree, each task builds its
-!  local tree, and the levels above the local roots (the domain nodes) are
-!  built from the local roots of all tasks, identically on every task
-!+
-!-------------------------------------------------------------------------------
-subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
                           np,nactive,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
  use io,           only:fatal,nprocs
  use mpibalance,   only:balancedomains
@@ -2504,7 +2265,7 @@ subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
  sinktree = .false.
  if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.
 
- ! root is level 0, the domain nodes are at globallevel
+ ! the level of the nodes of the global tree, as for a binary split between tasks
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
  if (2**globallevel /= nprocs) call fatal('maketreeglobal','number of MPI tasks must be a power of 2')
 
@@ -2528,6 +2289,7 @@ subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
  rebalance = (ncount(1) >= ncount(2))
  allocate(wt(np))
  call get_work_weights(np,work_per_particle,ind_timesteps,ibin,wt)
+
  ! busy time of each task (step minus waiting for the others) since the last check
  busy = 0.
  if (rebalance) then
@@ -2563,230 +2325,14 @@ subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
  call build_section_top(nodeglobal,node,globallevel)
  call set_exact_top_sizes(nodeglobal)
  call get_timings(tg2,tcpug2)
+
  ! the global time excludes the local tree, which has its own timers
  call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2),(tcpug2-tcpug1)-(tcpu1-tcpu2))
 
  ! the nodes of the local trees near the domains of other tasks are then
- ! copied into the global tree below the domain nodes (graft_local_trees in neighkdtree)
+ ! copied into the global tree below the sections (graft_local_trees in neighkdtree)
 
-end subroutine build_global_by_sections
-
-!--------------------------------------------------------------------------------
-!+
-!  the global levels of the tree built level by level: each level is split
-!  at the centre of mass of its particles on the tasks of its group, which
-!  then move to the task of their side, down to one task per domain
-!+
-!-------------------------------------------------------------------------------
-subroutine build_global_by_levels(nodeglobal,node,globallevel,xyzh,&
-                          np,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
- use io,           only:fatal,warning,id,nprocs,master
- use mpiutils,     only:reduceall_mpi
- use mpibalance,   only:balancedomains
- use mpitree,      only:tree_sync,tree_bcast
- use part,         only:isdead_or_accreted,iactive,ibelong,isink,massoftype,igas,&
-                        iamtype,maxphase,maxp,aprmassoftype,apr_level,ihsoft
- use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global
- use dim,          only:ind_timesteps
-
- type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
- type(kdnode),    intent(out)   :: node(:)          ! ncellsmax+1
- integer,         intent(out)   :: globallevel
- integer,         intent(inout) :: np
- real,            intent(inout) :: xyzh(:,:)
- integer,         intent(out)   :: leaf_is_active(:)  ! ncellsmax+1)
- integer(kind=8), intent(out)   :: ncells
- logical,         intent(in)    :: apr_tree
- integer,         intent(in),    optional :: nptmass
- real,            intent(inout), optional :: xyzmh_ptmass(:,:)
- real                              :: xmini(3),xmaxi(3)
- real                              :: xminl(3),xmaxl(3)
- real                              :: xminr(3),xmaxr(3)
- integer                           :: minlevel, maxlevel
- integer                           :: idleft, idright
- integer                           :: groupsize,ifirstingroup,groupsplit
- type(kdnode)                      :: mynode(1)
- integer                           :: nl, nr
- integer                           :: il, ir, iself, parent
- integer                           :: level
- integer                           :: nnodestart, nnodeend
- integer                           :: npcounter
- integer                           :: i
- integer                           :: npnode
- logical                           :: wassplit,sinktree
- real(kind=4)                      :: t1,t2,tcpu1,tcpu2,tg1,tg2,tcpug1,tcpug2
-
- call get_timings(tg1,tcpug1)
- sinktree = .false.
- if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.
- parent = 0
- iself = irootnode
- leaf_is_active = 0
- npnode = 0 ! set for each level below the root at the end of the previous level
-
- ! root is level 0
- globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
- if (2**globallevel /= nprocs) call fatal('maketreeglobal','number of MPI tasks must be a power of 2')
-
- minlevel = maxdepth - 1
- maxlevel = 0
- npnode = 0  ! set at the end of each level, used from level 1 onwards
-
- levels: do level = 0, globallevel
-    groupsize = 2**(globallevel - level)
-    ifirstingroup = (id / groupsize) * groupsize
-    if (level == 0) then
-       if (sinktree) then
-          call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,&
-                                   apr_tree,xyzmh_ptmass,nptmass)
-       else
-          call construct_root_node(np,npcounter,irootnode,xmini,xmaxi,leaf_is_active,xyzh,apr_tree)
-       endif
-    else
-       npcounter = npnode
-    endif
-    if (sinktree) then
-       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .true., &
-                           il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, leaf_is_active, &
-                           minlevel, maxlevel, wassplit,.true.,apr_tree,xyzmh_ptmass)
-    else
-       call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .true., &
-                        il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr,ncells, leaf_is_active, &
-                        minlevel, maxlevel, wassplit,.true.,apr_tree)
-    endif
-
-    if (.not.wassplit) then
-       call fatal('maketreeglobal','insufficient particles for splitting at the global level: '// &
-            'use more particles or less MPI threads')
-    endif
-
-    ! set which tree child this proc will belong to next
-    groupsplit = ifirstingroup + (groupsize / 2)
-
-    ! record parent for next round
-    parent = iself
-
-    ! which half of the tree this task is on
-    if (id < groupsplit) then
-       ! i for the next node we construct
-       iself = il
-       ! the left and right task IDs
-       idleft = id
-       idright = id + 2**(globallevel - level - 1)
-       xmini = xminl
-       xmaxi = xmaxl
-    else
-       iself = ir
-       idleft = id - 2**(globallevel - level - 1)
-       idright = id
-       xmini = xminr
-       xmaxi = xmaxr
-    endif
-    if (sinktree) then
-       if (nptmass>0) then
-          ibelong(maxpsph+1:maxpsph+nptmass) = -1
-       endif
-    endif
-    if (npcounter > 0) then
-       !$omp parallel do default(none) schedule(static) shared(inoderange,inodeparts,ibelong,il,ir,idleft,idright) &
-       !$omp private(i)
-       do i = inoderange(1,il), inoderange(2,ir)
-          if (i <= inoderange(2,il)) then
-             ibelong(abs(inodeparts(i))) = idleft
-          else
-             ibelong(abs(inodeparts(i))) = idright
-          endif
-       enddo
-       !$omp end parallel do
-    endif
-
-    call get_timings(t1,tcpu1)
-    ! move particles to where they belong
-    call balancedomains(np)
-    call get_timings(t2,tcpu2)
-    if (sinktree) ibelong(maxpsph+1:maxpsph+nptmass) = int(reduceall_mpi("max", ibelong(maxpsph+1:maxpsph+nptmass)))
-    call increment_timer(itimer_balance,t2-t1,tcpu2-tcpu1)
-    ! move particles from old array
-    ! this is a waste of time, but maintains compatibility
-    ! position i in the tree arrays holds particle i
-    !$omp parallel do default(none) schedule(static) &
-    !$omp shared(np,inodeparts,treecache,xyzh,iphase,massoftype,aprmassoftype,apr_level,maxphase,maxp) private(i)
-    do i=1,np
-       !
-       ! tag inactive particles with negative index
-       ! in the particle list for the node
-       !
-       if (ind_timesteps) then
-          if (iactive(iphase(i))) then
-             inodeparts(i) = i
-          else
-             inodeparts(i) = -i
-          endif
-       else
-          inodeparts(i) = i
-       endif
-       treecache(1:4,i) = xyzh(1:4,i)
-       if (maxphase==maxp) then
-          if (use_apr) then
-             treecache(5,i) = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-          else
-             treecache(5,i) = massoftype(iamtype(iphase(i)))
-          endif
-       elseif (use_apr) then
-          treecache(5,i) = aprmassoftype(igas,apr_level(i))
-       else
-          treecache(5,i) = massoftype(igas)
-       endif
-    enddo
-    !$omp end parallel do
-    npnode = np
-    if (sinktree) then
-       if (nptmass > 0) then
-          do i=1,nptmass
-             if (ibelong(maxpsph + i) /= id) cycle
-             if (xyzmh_ptmass(4,i) < 0.) cycle ! dead sink particle
-             npnode = npnode + 1
-             inodeparts(npnode) = maxpsph + i
-             treecache(1:3,npnode) = xyzmh_ptmass(1:3,i)
-             treecache(4,npnode)   = xyzmh_ptmass(ihsoft,i)
-             treecache(5,npnode)   = xyzmh_ptmass(4,i)
-          enddo
-       endif
-    endif
-
-    ! set all particles to belong to this node
-    inoderange(1,iself) = 1
-    inoderange(2,iself) = npnode
-
-    ! range of newly written tree
-    nnodestart = 2**level
-    nnodeend = 2**(level + 1) - 1
-
-    ! synchronize tree with other owners if this proc is the first in group
-    call tree_sync(mynode,1,nodeglobal(nnodestart:nnodeend),nprocs/groupsize,ifirstingroup,level)
-
-    ! at level 0, tree_sync already 'broadcasts'
-    if (level > 0) then
-       ! tree broadcast to non-owners
-       call tree_bcast(nodeglobal(nnodestart:nnodeend), nnodeend - nnodestart + 1, level)
-    endif
-
- enddo levels
-
- call get_timings(tg2,tcpug2)
- call increment_timer(itimer_tree_global,tg2-tg1,tcpug2-tcpug1)
-
- ! local tree
- if (sinktree) then
-    call maketree(node,xyzh,np,leaf_is_active,ncells,apr_tree,nptmass=nptmass,xyzmh_ptmass=xyzmh_ptmass)
- else
-    call maketree(node,xyzh,np,leaf_is_active,ncells,apr_tree)
- endif
-
- ! the nodes of the local trees near the domains of other tasks are then
- ! copied into the global tree below the domain nodes (graft_local_trees in neighkdtree)
-
-end subroutine build_global_by_levels
+end subroutine maketreeglobal
 
 !--------------------------------------------------------------------------------
 !+
@@ -2957,19 +2503,5 @@ subroutine set_exact_top_sizes(nodeglobal)
  enddo
 
 end subroutine set_exact_top_sizes
-
-!--------------------------------------------------------------------------------
-!+
-!  whether the top of the global tree is built from the sections (and
-!  is then in sec_leaf, sec_owner and sec_root), or is the heap of the
-!  domains split level by level
-!+
-!--------------------------------------------------------------------------------
-logical function global_top_from_sections()
-
- if (.not.done_decomp_env) call read_decomp_env()
- global_top_from_sections = (mpi_decomp >= 1)
-
-end function global_top_from_sections
 
 end module kdtree

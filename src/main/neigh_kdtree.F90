@@ -35,15 +35,12 @@ module neighkdtree
  ! the leaves of the top nodes are the sections, each owned by one task: the global index of
  ! section k (top_leaf), its owner (top_owner) and the owner's local index of the root of its
  ! subtree (top_root); own_lo and own_hi are the range of tasks owning the sections below each
- ! top node, and section_of(g) the section of top node g (0 if not a leaf). With the domains
- ! split level by level, the top nodes are a heap with the domain of task r at nprocs+r
+ ! top node, and section_of(g) the section of top node g (0 if not a leaf)
  integer,      public               :: ntop = 0,nsec_top = 0
  integer,      public,  allocatable :: top_leaf(:),top_owner(:),top_root(:)
  integer,               allocatable :: own_lo(:),own_hi(:),section_of(:)
  ! the sections of each task r: sec_by_owner(sec_start(r+1):sec_start(r+2)-1)
  integer,               allocatable :: sec_start(:),sec_by_owner(:)
- ! whether the sphere of each top node bounds those of the nodes below it
- logical                            :: top_bounds_children = .false.
  integer,               parameter   :: maxsec_per_task = 64  ! room for the top nodes
  ! the roots of the sections owned by this task, in the last global tree
  integer,               allocatable :: own_roots(:)
@@ -397,7 +394,7 @@ end subroutine get_distance_from_centre_of_mass
 !-----------------------------------------------------------------------
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use kdtree,       only:maketree,maketreeglobal,revtree,global_top_from_sections
+ use kdtree,       only:maketree,maketreeglobal,revtree
  use dim,          only:mpi,use_sinktree
  use timing,       only:get_timings,increment_timer,itimer_tree_revise,itimer_tree_graft
  use part,         only:nptmass,xyzmh_ptmass,maxp
@@ -431,11 +428,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
                            apr_tree)
     endif
     call get_timings(t1,tcpu1)
-    if (global_top_from_sections()) then
-       call set_top_sections()
-    else
-       call set_top_heap()
-    endif
+    call set_top_sections()
     call graft_local_trees(nactive)
     call combine_trees()
     call get_timings(t2,tcpu2)
@@ -983,32 +976,10 @@ end function ntop_max
 
 !-----------------------------------------------------------------------
 !+
-!  the top nodes when the domains are split level by level: the heap
-!  built by maketreeglobal (nodes 1 to 2*nprocs-1, children of node g at
-!  2g and 2g+1), with one section per task, its whole local tree, at
-!  node nprocs+r for task r
-!+
-!-----------------------------------------------------------------------
-subroutine set_top_heap()
- use io, only:nprocs
- integer :: k
-
- call allocate_top(2*nprocs-1,nprocs)
- do k = 1,nprocs
-    top_leaf(k)  = nprocs + k - 1
-    top_owner(k) = k - 1
-    top_root(k)  = irootnode
- enddo
- top_bounds_children = .false.
- call set_top_owners()
-
-end subroutine set_top_heap
-
-!-----------------------------------------------------------------------
-!+
-!  the top nodes when the domains are made of sections: the tree of
-!  sections built by maketreeglobal (build_section_top), whose node
-!  spheres bound those of their children
+!  the top nodes: the cells of the geometric tree above the sections, built
+!  by maketreeglobal (build_section_top). All particles below a cell are
+!  within its sphere, so a node below it has its centre inside the sphere
+!  and is at most twice its size
 !+
 !-----------------------------------------------------------------------
 subroutine set_top_sections()
@@ -1018,7 +989,6 @@ subroutine set_top_sections()
  top_leaf  = sec_leaf(1:nsec_nonempty)
  top_owner = sec_owner(1:nsec_nonempty)
  top_root  = sec_root(1:nsec_nonempty)
- top_bounds_children = .true.
  call set_top_owners()
 
 end subroutine set_top_sections
@@ -1202,7 +1172,7 @@ end subroutine forget_let_nodes
 
 !-----------------------------------------------------------------------
 !+
-!  whether a node of the global tree is this task's domain node or one
+!  whether a node of the global tree is a section of this task or one
 !  of the local nodes it copied into the global tree
 !+
 !-----------------------------------------------------------------------
@@ -2063,8 +2033,7 @@ logical function leaf_may_interact(n,iproc)
  integer :: istack(2*maxdepth+2),nstack,g
  real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
 
- ! descend the top nodes holding sections of iproc, testing the sections (and the
- ! top nodes above them, if their spheres bound those below)
+ ! descend the top nodes holding sections of iproc
  leaf_may_interact = .true.
  nstack = 1
  istack(1) = 1
@@ -2072,14 +2041,19 @@ logical function leaf_may_interact(n,iproc)
     g = istack(nstack)
     nstack = nstack - 1
     if (iproc < own_lo(g) .or. iproc > own_hi(g)) cycle
-    if (section_of(g) > 0 .or. top_bounds_children) then
-       call get_sep(nodeglobal(g)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
-       d     = sqrt(r2) - nodeglobal(g)%size
-       sizes = 2.*nodeglobal(g)%size + node(n)%size
-       rcut  = radkern*max(nodeglobal(g)%hmax,node(n)%hmax)
-       if (d >= sizes + rcut .and. .not.(gravity .and. tree_accuracy*d < sizes)) cycle
-       if (section_of(g) > 0) return
-    endif
+
+    ! skip a top node whose nodes cannot interact with the leaf: their centres
+    ! are inside its sphere and they are at most twice its size
+    call get_sep(nodeglobal(g)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+    d     = sqrt(r2) - nodeglobal(g)%size
+    sizes = 2.*nodeglobal(g)%size + node(n)%size
+    rcut  = radkern*max(nodeglobal(g)%hmax,node(n)%hmax)
+    if (d >= sizes + rcut .and. .not.(gravity .and. tree_accuracy*d < sizes)) cycle
+
+    ! a section of iproc in reach
+    if (section_of(g) > 0) return
+
+    ! otherwise, the top nodes below it
     istack(nstack+1) = nodeglobal(g)%rightchild
     istack(nstack+2) = nodeglobal(g)%leftchild
     nstack = nstack + 2
@@ -2519,16 +2493,19 @@ logical function reaches_other_domain(n)
     g = istack(nstack)
     nstack = nstack - 1
     if (own_lo(g) == id .and. own_hi(g) == id) cycle  ! only sections of this task below
-    ! a section of another task, or (if its sphere bounds those below) a top node above them
-    if (section_of(g) > 0 .or. top_bounds_children) then
-       call get_sep(node(n)%xcen,nodeglobal(g)%xcen,dx,dy,dz,xoff,yoff,zoff)
-       r = sqrt(dx*dx + dy*dy + dz*dz)
-       sized  = nodeglobal(g)%size
-       reachd = sized + radkern*nodeglobal(g)%hmax
-       ! a cell of the other domain is at least r - sized away, and no larger than sized
-       if (r >= reachn + reachd .and. .not.(gravity .and. tree_accuracy*(r - sized) < sizen + sized)) cycle
-       if (section_of(g) > 0) return
-    endif
+
+    ! skip a top node whose cells cannot reach the node: they are at least
+    ! r - sized away from it and at most twice sized
+    call get_sep(node(n)%xcen,nodeglobal(g)%xcen,dx,dy,dz,xoff,yoff,zoff)
+    r      = sqrt(dx*dx + dy*dy + dz*dz)
+    sized  = nodeglobal(g)%size
+    reachd = sized + radkern*nodeglobal(g)%hmax
+    if (r >= reachn + reachd .and. .not.(gravity .and. tree_accuracy*(r - sized) < sizen + 2.*sized)) cycle
+
+    ! a section of another task in reach
+    if (section_of(g) > 0) return
+
+    ! otherwise, the top nodes below it
     istack(nstack+1) = nodeglobal(g)%rightchild
     istack(nstack+2) = nodeglobal(g)%leftchild
     nstack = nstack + 2

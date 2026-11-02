@@ -390,6 +390,7 @@ subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptma
  new = (cur%nsec == 0)
  if (.not.new) then
     call set_owners(np,xyzh,ibelong)
+
     ! when asked to rebalance, keep the sections unless the work or the
     ! measured busy time is out of balance
     if (rebalance) then

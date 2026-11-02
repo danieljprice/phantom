@@ -553,7 +553,7 @@ end subroutine check_global_hmax
 !   check the combined tree (local tree with the global tree above it):
 !   its links, that walking down from its root reaches every local leaf
 !   and only leaves of other tasks outside this task, and that every task
-!   has exactly the same copy of each domain node as its owner, and that
+!   has exactly the same copy of each section root as its owner, and that
 !   every section has one owner, the same on all tasks, with the roots of
 !   a task's sections holding exactly the particles of its local tree
 !+
@@ -574,6 +574,7 @@ subroutine check_combined_tree(nfailed)
  real    :: nodedata(6)
 
  allocate(list(ncomb))
+
  ! walk from the root of the combined tree
  call walk_tree_from(irootcomb,list,nlist,nbad)
  nlocal = 0
@@ -587,6 +588,7 @@ subroutine check_combined_tree(nfailed)
        nbadremote = nbadremote + 1
     endif
  enddo
+
  ! the local leaves reached from the local root
  call walk_tree_from(irootnode,list,nlist,ndiff,local_only=.true.)
  nlocal_root = count(leaf_is_active(list(1:nlist)) /= 0)
