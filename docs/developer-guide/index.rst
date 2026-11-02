@@ -13,6 +13,7 @@ Here is the Phantom developer guide.
    styleguide
    setup
    testing
+   mpi
    bots
    datafiles
    staging
