@@ -107,9 +107,10 @@ subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,
                                     dtprint,dtinject,ntot)
  endif
 
- !   check that MPI threads are synchronised in time
+ !   check that MPI threads are synchronised in time (relative to the time, since
+ !   the mean over a task count that is not a power of two is not exact)
  timecheck = reduceall_mpi('+',time)
- if (abs(timecheck/nprocs - time) > 1.e-13) then
+ if (abs(timecheck/nprocs - time) > 1.e-13*max(abs(time),1.)) then
     call fatal('evolve','time differs between MPI threads',var='time',val=timecheck/nprocs)
  endif
 !
