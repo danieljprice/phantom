@@ -65,10 +65,6 @@ module kdtree
  integer, public :: ntop_sec = 0,nsec_nonempty = 0
  integer, public, allocatable :: sec_leaf(:),sec_owner(:),sec_root(:)
 
- ! busy time of this task (step minus waiting for the others) at the last
- ! check of the balance between tasks
- real :: busy_last = 0.
-
  ! neighbour cache indices (xyzcache); imported with only: from dens/force
  integer, parameter, public :: ix=1, iy=2, iz=3, ih1=4, im=5
 
@@ -2232,13 +2228,12 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
                           np,nactive,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
  use io,           only:nprocs
  use mpibalance,   only:balancedomains
- use mpisections,  only:assign_section_owners,get_work_weights
- use mpiutils,     only:reduceall_mpi,allgather_mpi
- use part,         only:ibelong,ibin,isdead_or_accreted,work_per_particle
+ use mpisections,  only:assign_section_owners
+ use mpiutils,     only:reduceall_mpi
+ use part,         only:ibelong,ibin,isdead_or_accreted
  use boundary,     only:cross_boundary
  use mpidomain,    only:isperiodic
- use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global,&
-                        timers,itimer_step,itimer_dens_wait,itimer_force_wait
+ use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global
  use dim,          only:ind_timesteps,periodic
 
  type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
@@ -2254,7 +2249,6 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  real,            intent(inout), optional :: xyzmh_ptmass(:,:)
  real,    allocatable :: wt(:)
  real    :: ncount(2)  ! active and live particles on all tasks
- real    :: busy(nprocs),busy_now
  logical :: rebalance
  integer, allocatable :: isinkowner(:)
  integer      :: i,ncross
@@ -2283,26 +2277,21 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  endif
 
  ! the owner of each particle, from new sections only on full steps (all particles
- ! active), weighting particles by their cost and how often they are active
+ ! active), weighting particles by how often they are active
  ncount = reduceall_mpi('+',real([nactive,count(xyzh(4,1:np) > 0.)]))
  rebalance = (ncount(1) >= ncount(2))
  allocate(wt(np))
- call get_work_weights(np,work_per_particle,ind_timesteps,ibin,wt)
-
- ! busy time of each task (step minus waiting for the others) since the last check
- busy = 0.
- if (rebalance) then
-    busy_now = timers(itimer_step)%wall - timers(itimer_dens_wait)%wall - timers(itimer_force_wait)%wall
-    if (busy_now < busy_last) busy_last = 0.  ! the timers were reset
-    call allgather_mpi(busy_now - busy_last,busy)
-    busy_last = busy_now
+ if (ind_timesteps) then
+    wt = 2.**ibin(1:np)
+ else
+    wt = 1.
  endif
  if (sinktree) then
     allocate(isinkowner(max(nptmass,1)))
-    call assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptmass,isinkowner,busy=busy)
+    call assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptmass,isinkowner)
     ibelong(maxpsph+1:maxpsph+nptmass) = isinkowner(1:nptmass)
  else
-    call assign_section_owners(np,xyzh,wt,rebalance,ibelong,busy=busy)
+    call assign_section_owners(np,xyzh,wt,rebalance,ibelong)
  endif
  deallocate(wt)
 

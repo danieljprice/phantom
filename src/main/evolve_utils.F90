@@ -455,22 +455,25 @@ end subroutine gather_task_values
 !----------------------------------------------------------------
 !+
 !  diagnostic: the balance between tasks now, and that a new
-!  decomposition into sections would give, weighting particles by their
-!  cost and how often they are active
+!  decomposition into sections would give, weighting particles by how
+!  often they are active
 !+
 !----------------------------------------------------------------
 subroutine section_balance(iunit,np,xyzh,ibin)
  use dim,           only:ind_timesteps
- use mpisections,   only:print_section_diagnostic,get_work_weights
- use part,          only:work_per_particle
+ use mpisections,   only:print_section_diagnostic
  integer,         intent(in) :: iunit,np
  real,            intent(in) :: xyzh(:,:)
  integer(kind=1), intent(in) :: ibin(:)
  real, allocatable :: wt(:)
+ integer :: i
 
- ! work weight of each particle: its cost and how often it is active
+ ! work weight of each particle: how often it is active
  allocate(wt(np))
- call get_work_weights(np,work_per_particle,ind_timesteps,ibin,wt)
+ do i = 1,np
+    wt(i) = 1.
+    if (ind_timesteps) wt(i) = 2.**ibin(i)
+ enddo
  call print_section_diagnostic(np,xyzh,wt,iunit)
 
 end subroutine section_balance

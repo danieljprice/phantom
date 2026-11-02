@@ -44,7 +44,7 @@ module mpisections
 
  public :: sectiontree,build_sections,locate_section,cut_sections
  public :: assign_section_owners,local_section_index,owned_section_keys,print_section_diagnostic
- public :: get_section_tree,get_work_weights
+ public :: get_section_tree
 
  private
 
@@ -52,12 +52,6 @@ module mpisections
  ! (kfirst_own to kfirst_own+nown-1)
  type(sectiontree) :: cur
  integer :: kfirst_own = 1,nown = 0
-
- ! each task's share of the work in a cut (mean 1), corrected from the
- ! measured busy time of the tasks; their busy time and the checks since
- ! the last cut
- real, allocatable :: share(:),busy_cut(:)
- integer :: nchecks = 0
 
 contains
 
@@ -207,7 +201,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
 
  ! cut the sections into one run per task, keeping room in the particle arrays
  npmax = frac_maxp*size(xyzh,2)
- call cut_sections(st%nsec,st%secw,st%secn,nprocs,npmax,st%owner,share)
+ call cut_sections(st%nsec,st%secw,st%secn,nprocs,npmax,st%owner)
 
 end subroutine build_sections
 
@@ -221,56 +215,47 @@ end subroutine build_sections
 !  per task, and all the work
 !+
 !--------------------------------------------------------------------------
-subroutine cut_sections(n,work,npart,nprocs,npmax,owner,share)
+subroutine cut_sections(n,work,npart,nprocs,npmax,owner)
  use io, only:fatal
  integer, intent(in)  :: n,nprocs
  real(8), intent(in)  :: work(n),npart(n),npmax
  integer, intent(out) :: owner(n)
- real,    intent(in), optional :: share(:)
  integer, parameter :: maxiter = 60
  real(8) :: wlo,whi,wmid,ncap
- real    :: s(nprocs)
  integer :: iter
-
- ! the work of task k is limited to s(k) times the work limit of the cut
- s = 1.
- if (present(share)) then
-    if (size(share) == nprocs) s = share
- endif
 
  ! drop the cap on particles if no cut can meet it
  ncap = npmax
- if (.not.fill_runs(n,work,npart,nprocs,ncap,s,sum(work)/minval(s),owner)) ncap = huge(ncap)
+ if (.not.fill_runs(n,work,npart,nprocs,ncap,sum(work),owner)) ncap = huge(ncap)
 
- wlo = max(maxval(work)/maxval(s),sum(work)/sum(s))
- whi = sum(work)/minval(s)
- if (fill_runs(n,work,npart,nprocs,ncap,s,wlo,owner)) return
+ wlo = max(maxval(work),sum(work)/nprocs)
+ whi = sum(work)
+ if (fill_runs(n,work,npart,nprocs,ncap,wlo,owner)) return
 
  do iter = 1,maxiter
     wmid = 0.5*(wlo + whi)
-    if (fill_runs(n,work,npart,nprocs,ncap,s,wmid,owner)) then
+    if (fill_runs(n,work,npart,nprocs,ncap,wmid,owner)) then
        whi = wmid
     else
        wlo = wmid
     endif
  enddo
 
- if (.not.fill_runs(n,work,npart,nprocs,ncap,s,whi,owner)) call fatal('cut_sections','no cut found')
+ if (.not.fill_runs(n,work,npart,nprocs,ncap,whi,owner)) call fatal('cut_sections','no cut found')
 
 end subroutine cut_sections
 
 !--------------------------------------------------------------------------
 !+
 !  fill the runs in turn with sections, in order, starting a new run when
-!  the next section would take it over s(task) times wmax work or ncap
-!  particles, or when only as many sections are left as tasks without one.
-!  Returns .false. if that needs more than nprocs runs
+!  the next section would take it over wmax work or ncap particles, or
+!  when only as many sections are left as tasks without one. Returns
+!  .false. if that needs more than nprocs runs
 !+
 !--------------------------------------------------------------------------
-logical function fill_runs(n,work,npart,nprocs,ncap,s,wmax,owner)
+logical function fill_runs(n,work,npart,nprocs,ncap,wmax,owner)
  integer, intent(in)  :: n,nprocs
  real(8), intent(in)  :: work(n),npart(n),ncap,wmax
- real,    intent(in)  :: s(nprocs)
  integer, intent(out) :: owner(n)
  real(8) :: wrun,nrun
  integer :: k,itask
@@ -282,7 +267,7 @@ logical function fill_runs(n,work,npart,nprocs,ncap,s,wmax,owner)
  nrun  = 0.
  do k = 1,n
     if (k > 1) then
-       too_much_work         = (wrun + work(k) > s(itask+1)*wmax)
+       too_much_work         = (wrun + work(k) > wmax)
        too_many_particles    = (nrun + npart(k) > ncap)
        need_section_per_task = (n - k + 1 <= nprocs - 1 - itask)
        if (too_much_work .or. too_many_particles .or. need_section_per_task) then
@@ -358,17 +343,15 @@ end function locate_section
 !+
 !  the task each particle belongs to (ibelong), from the section it is in.
 !  The sections are chosen for the work weights wt on the first call, and
-!  again when rebalance is set and either the work of the tasks under the
-!  current sections (over their shares) or their busy time since the last
-!  cut, if given, is out of balance; otherwise they are kept. A new cut
-!  first corrects the shares from the busy times. Dead or accreted
+!  again when rebalance is set and the work of the tasks under the current
+!  sections is out of balance; otherwise they are kept. Dead or accreted
 !  particles stay on this task. Optionally the sink particles (xyzmh_ptmass,
 !  held by every task) are given the owner of their section, or -1 if they
 !  have been accreted, the same on every task
 !+
 !--------------------------------------------------------------------------
-subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptmass,ibelong_sink,busy)
- use io, only:id,nprocs,master,iprint
+subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptmass,ibelong_sink)
+ use io, only:id
  integer,           intent(in)    :: np
  real,              intent(in)    :: xyzh(:,:),wt(:)
  logical,           intent(in)    :: rebalance
@@ -376,42 +359,16 @@ subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptma
  integer, optional, intent(in)    :: nptmass
  real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
  integer, optional, intent(out)   :: ibelong_sink(:)
- real,    optional, intent(in)    :: busy(:)  ! busy time of each task since the last check
- integer, parameter :: nchecks_min = 2  ! checks before the busy times are trusted
  integer :: i,nround
- real    :: imb_work,imb_busy
  logical :: new
 
- if (.not.allocated(share)) then
-    allocate(share(nprocs),busy_cut(nprocs))
-    share    = 1.
-    busy_cut = 0.
- endif
  new = (cur%nsec == 0)
  if (.not.new) then
     call set_owners(np,xyzh,ibelong)
-
-    ! when asked to rebalance, keep the sections unless the work or the
-    ! measured busy time is out of balance
-    if (rebalance) then
-       nchecks  = nchecks + 1
-       imb_work = work_imbalance(np,xyzh,wt,ibelong)
-       imb_busy = 1.
-       if (present(busy)) then
-          busy_cut = busy_cut + busy
-          if (nchecks >= nchecks_min) imb_busy = busy_imbalance(busy_cut)
-       endif
-       new = (imb_work > tol_balance .or. imb_busy > tol_balance)
-       if (new) then
-          if (present(busy) .and. nchecks >= nchecks_min) call update_shares(busy_cut)
-          if (id == master) write(iprint,"(a,f6.3,a,f6.3,a,2(1x,f6.3))") ' MPI sections renewed: work',&
-             imb_work,' busy',imb_busy,' shares min/max',minval(share),maxval(share)
-       endif
-    endif
+    ! when asked to rebalance, keep the sections unless the work is out of balance
+    if (rebalance) new = (work_imbalance(np,xyzh,wt,ibelong) > tol_balance)
  endif
  if (new) then
-    nchecks    = 0
-    busy_cut   = 0.
     call build_sections(np,xyzh,wt,cur,nround)
     nown       = count(cur%owner == id)
     kfirst_own = max(findloc(cur%owner,id,1),1)
@@ -459,8 +416,8 @@ end subroutine set_owners
 
 !--------------------------------------------------------------------------
 !+
-!  the largest work of a task over its share of the mean, if the particles
-!  moved to the tasks given by ibelong
+!  the largest work of a task, over the mean, if the particles moved to
+!  the tasks given by ibelong
 !+
 !--------------------------------------------------------------------------
 real function work_imbalance(np,xyzh,wt,ibelong)
@@ -477,74 +434,9 @@ real function work_imbalance(np,xyzh,wt,ibelong)
     if (xyzh(4,i) > 0.) work(ibelong(i)+1) = work(ibelong(i)+1) + wt(i)
  enddo
  call reduce_in_place_mpi('+',work,nprocs)
- work_imbalance = real(maxval(work/share)/max(sum(work)/nprocs,tiny(1.d0)))
+ work_imbalance = real(maxval(work)/max(sum(work)/nprocs,tiny(1.d0)))
 
 end function work_imbalance
-
-!--------------------------------------------------------------------------
-!+
-!  the largest busy time of a task, over the mean
-!+
-!--------------------------------------------------------------------------
-real function busy_imbalance(busy)
- real, intent(in) :: busy(:)
-
- busy_imbalance = maxval(busy)/max(sum(busy)/size(busy),tiny(1.))
-
-end function busy_imbalance
-
-!--------------------------------------------------------------------------
-!+
-!  correct the shares of the work from the busy time of each task under
-!  the current cut: a task busier than the mean gets a smaller share. The
-!  change per cut is limited, as the busy time also depends on the
-!  boundaries the cut moves
-!+
-!--------------------------------------------------------------------------
-subroutine update_shares(busy)
- real, intent(in) :: busy(:)
- real, parameter :: fmin = 0.8, fmax = 1.25  ! limits on the change per cut
- real :: bmean
-
- if (size(busy) /= size(share) .or. minval(busy) <= 0.) return
- bmean = sum(busy)/size(busy)
- share = share*min(max(bmean/busy,fmin),fmax)
- share = share*size(share)/sum(share)
-
-end subroutine update_shares
-
-!--------------------------------------------------------------------------
-!+
-!  the work weight of each particle: its cost per step, its number of
-!  neighbours (cost), times how often it is active
-!  (2^ibin with individual timesteps). Particles without a cost yet (before
-!  the first density calculation, or new ones) take the mean of the others
-!+
-!--------------------------------------------------------------------------
-subroutine get_work_weights(np,cost,ind_timesteps,ibin,wt)
- integer,         intent(in)  :: np
- real(kind=4),    intent(in)  :: cost(:)
- logical,         intent(in)  :: ind_timesteps
- integer(kind=1), intent(in)  :: ibin(:)
- real,            intent(out) :: wt(:)
- real    :: cost_mean
- integer :: i,nknown
-
- nknown = count(cost(1:np) > 0.)
- cost_mean = 1.
- if (nknown > 0) cost_mean = real(sum(cost(1:np),mask=(cost(1:np) > 0.)))/nknown
-
- !$omp parallel do default(none) schedule(static) &
- !$omp shared(np,cost,ind_timesteps,ibin,wt,cost_mean) &
- !$omp private(i)
- do i = 1,np
-    wt(i) = cost(i)
-    if (wt(i) <= 0.) wt(i) = cost_mean
-    if (ind_timesteps) wt(i) = wt(i)*2.**ibin(i)
- enddo
- !$omp end parallel do
-
-end subroutine get_work_weights
 
 !--------------------------------------------------------------------------
 !+

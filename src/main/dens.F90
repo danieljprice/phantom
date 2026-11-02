@@ -1718,10 +1718,10 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          maxneighact,minneighact,np,ncalc,radprop)
  use part,        only:hn,get_partinfo,iamgas,&
                        mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,treecache,&
-                       maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype,rho,work_per_particle
+                       maxgradh,idust,ifluxx,ifluxz,ithick,aprmassoftype,rho
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlB,nalpha,use_dust,do_radiation,use_apr,gravity,&
-                       igradomega,igradzeta,igradsoft,mpi
+                       igradomega,igradzeta,igradsoft
  use options,     only:use_dustfrac,implicit_radiation,two_kernel
  use viscosity,   only:bulkvisc,shearparam
  use neighkdtree, only:set_hmaxcell
@@ -1896,8 +1896,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        maxneightry = max(int(maxneightry),cell%nneightry)
        maxneighact = max(maxneighact,cell%nneigh(i))
        minneighact = min(minneighact,cell%nneigh(i))
-       ! work of the particle for the domain decomposition
-       if (mpi) work_per_particle(lli) = real(cell%nneigh(i),kind=kind(work_per_particle))
     endif
  enddo
  np = np + cell%npcell
