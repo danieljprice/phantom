@@ -19,7 +19,7 @@ module neighkdtree
 !   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!   kdtree, kernel, mpitree, mpiutils, part
+!   kdtree, kernel, mpitree, mpiutils, part, sortutils
 !
  use dim,          only:ncellsmax,gravity
  use dtypekdtree,  only:kdnode,lenfgrav
@@ -91,6 +91,10 @@ module neighkdtree
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
  integer,      public               :: nactive_leaves = 0
+ ! for testing only: the leaves that reach much further than most first in the
+ ! loops over cells (PHANTOM_BIG_FIRST=1, read once)
+ logical,      private              :: big_first = .false.
+ logical,      private              :: done_big_first_env = .false.
  ! number of active leaves handed to a thread at a time in the density and force loops:
  ! cells nearby in the list share neighbours, so small chunks keep them on one thread,
  ! but with self-gravity the cost per cell varies widely, so the cells are handed out one at a time
@@ -422,6 +426,8 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
     endif
  endif
  call list_active_leaves()
+ if (.not.done_big_first_env) call read_big_first_env()
+ if (big_first) call expensive_leaves_first()
 
  ! the dual tree walk cache refers to the old nodes: reset it for the new tree
  if (use_dualcache) then
@@ -485,6 +491,97 @@ subroutine list_active_leaves()
  deallocate(nlist)
 
 end subroutine list_active_leaves
+
+!-----------------------------------------------------------------------
+!+
+!  move the leaves that reach much further than most (a particle with a
+!  large smoothing length) to the front of the list of active leaves,
+!  the most expensive first, so that the threads that take them start
+!  early rather than leaving the others waiting at the end of the loop.
+!  The cost of a leaf is taken as its number of particles times the
+!  volume it reaches over its own; the rest stay in tree order
+!+
+!-----------------------------------------------------------------------
+subroutine expensive_leaves_first()
+ use kernel,    only:radkern
+ use kdtree,    only:inoderange
+ use sortutils, only:indexx
+ integer, parameter :: nsample_max = 4096
+ real,    parameter :: reach_factor = 4.  ! a leaf is moved if it reaches this many times the median
+ real,    allocatable :: reach(:),sample(:),cost(:)
+ integer, allocatable :: indx(:),ibig(:),list(:)
+ real    :: reachmed,size
+ integer :: n,k,j,m,nsample,nbig,icell
+
+ n = nactive_leaves
+ if (n < 2) return
+
+ ! the reach of each leaf, and its median from a sample of the leaves
+ allocate(reach(n))
+ !$omp parallel do default(none) schedule(static) shared(n,active_leaves,node,reach) private(k,icell)
+ do k = 1,n
+    icell = active_leaves(k)
+    reach(k) = node(icell)%size + radkern*node(icell)%hmax
+ enddo
+ !$omp end parallel do
+ nsample = min(n,nsample_max)
+ allocate(sample(nsample),indx(nsample))
+ do j = 1,nsample
+    sample(j) = reach(1 + int((int(j-1,8)*n)/nsample))
+ enddo
+ call indexx(nsample,sample,indx)
+ reachmed = sample(indx((nsample+1)/2))
+
+ ! the leaves that reach much further, by decreasing cost
+ nbig = count(reach > reach_factor*reachmed)
+ if (nbig == 0) return
+ allocate(ibig(nbig),cost(nbig))
+ m = 0
+ do k = 1,n
+    if (reach(k) > reach_factor*reachmed) then
+       m = m + 1
+       ibig(m) = k
+       icell = active_leaves(k)
+       size  = max(node(icell)%size,tiny(size))
+       cost(m) = -(inoderange(2,icell) - inoderange(1,icell) + 1)*(reach(k)/size)**3
+    endif
+ enddo
+ deallocate(indx)
+ allocate(indx(nbig),list(n))
+ call indexx(nbig,cost,indx)
+
+ ! the list: those leaves first, then the others in their order
+ do j = 1,nbig
+    list(j) = active_leaves(ibig(indx(j)))
+ enddo
+ m = nbig
+ do k = 1,n
+    if (reach(k) <= reach_factor*reachmed) then
+       m = m + 1
+       list(m) = active_leaves(k)
+    endif
+ enddo
+ active_leaves(1:n) = list
+
+end subroutine expensive_leaves_first
+
+!-----------------------------------------------------------------------
+!+
+!  whether to put the leaves of large reach first, from the environment
+!  variable PHANTOM_BIG_FIRST (read once)
+!+
+!-----------------------------------------------------------------------
+subroutine read_big_first_env()
+ use io, only:id,master
+ character(len=8) :: string
+
+ call get_environment_variable('PHANTOM_BIG_FIRST',string)
+ big_first = (trim(string) == '1')
+ if (big_first .and. id == master) &
+    print "(a)",' cell loops: leaves of large reach first (PHANTOM_BIG_FIRST=1)'
+ done_big_first_env = .true.
+
+end subroutine read_big_first_env
 
 !-----------------------------------------------------------------------
 !+
