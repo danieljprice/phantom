@@ -322,9 +322,13 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  call get_timings(t1,tcpu1)
  if (.not.apr_tree) call increment_timer(itimer_tree_sub,t1-t2,tcpu1-tcpu2)
 
- ! decrease number of cells if tree is entirely within 2^k indexing limit
- if (maxlevel < maxlevel_indexed) then
-    ncells = 2**(maxlevel+1) - 1
+ ! store the nodes contiguously, in depth first order: the indexing used while building
+ ! leaves most slots of the node array empty, and the walks are faster on a compact tree
+ if (apr_tree) then
+    ! decrease number of cells if tree is entirely within 2^k indexing limit
+    if (maxlevel < maxlevel_indexed) ncells = 2**(maxlevel+1) - 1
+ else
+    call renumber_depth_first(node,leaf_is_active,ncells)
  endif
 
  if (maxlevel > maxlevel_indexed .and. .not.already_warned) then
@@ -340,6 +344,71 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  endif
 
 end subroutine maketree
+
+!--------------------------------------------------------------------------------
+!+
+!  renumber the nodes of the tree in depth first order from the root (which
+!  stays node 1), so that they fill node(1:ncells) with no gaps, remapping
+!  the links between them and the arrays indexed by node
+!+
+!--------------------------------------------------------------------------------
+subroutine renumber_depth_first(node,leaf_is_active,ncells)
+ type(kdnode),    intent(inout) :: node(:)
+ integer,         intent(inout) :: leaf_is_active(:)
+ integer(kind=8), intent(inout) :: ncells
+ type(kdnode), allocatable :: newnode(:)
+ integer,      allocatable :: order(:),newindex(:),newactive(:),newrange(:,:)
+ integer :: istack(2*maxdepth+2),nstack,n,k,nnode,nold
+
+ ! the order of the nodes, depth first with the left child first
+ nold = int(ncells)
+ allocate(order(nold),newindex(0:nold))
+ newindex(0) = 0
+ nnode  = 0
+ nstack = 1
+ istack(1) = irootnode
+ do while (nstack > 0)
+    n = istack(nstack)
+    nstack = nstack - 1
+    nnode = nnode + 1
+    order(nnode) = n
+    newindex(n)  = nnode
+    if (node(n)%leftchild > 0) then
+       istack(nstack+1) = node(n)%rightchild
+       istack(nstack+2) = node(n)%leftchild
+       nstack = nstack + 2
+    endif
+ enddo
+
+ ! copy the nodes to their new places, with their links renumbered
+ allocate(newnode(nnode),newactive(nnode),newrange(2,nnode))
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(nnode,order,node,newnode,newindex,newactive,leaf_is_active,newrange,inoderange) private(k,n)
+ do k = 1,nnode
+    n = order(k)
+    newnode(k) = node(n)
+    newnode(k)%leftchild  = newindex(max(node(n)%leftchild,0))
+    newnode(k)%rightchild = newindex(max(node(n)%rightchild,0))
+    newnode(k)%parent     = newindex(max(node(n)%parent,0))
+    newactive(k)  = leaf_is_active(n)
+    newrange(:,k) = inoderange(:,n)
+ enddo
+ !$omp end parallel do
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(nold,nnode,node,newnode,leaf_is_active,newactive,inoderange,newrange) private(k)
+ do k = 1,nold
+    if (k <= nnode) then
+       node(k) = newnode(k)
+       leaf_is_active(k) = newactive(k)
+       inoderange(:,k)   = newrange(:,k)
+    else
+       leaf_is_active(k) = 0
+    endif
+ enddo
+ !$omp end parallel do
+ ncells = nnode
+
+end subroutine renumber_depth_first
 
 !--------------------------------------------------------------------------------
 !+
