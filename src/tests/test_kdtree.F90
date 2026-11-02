@@ -559,14 +559,16 @@ end subroutine check_global_hmax
 subroutine check_combined_tree(nfailed)
  use io,          only:id,nprocs
  use dim,         only:gravity
- use mpiutils,    only:allgatherv_mpi
- use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner
+ use mpiutils,    only:reduceall_mpi
+ use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner,&
+                       nsec_top,top_leaf,top_owner,top_root
  use kdtree,      only:irootnode
  use testutils,   only:checkval
  integer, intent(out) :: nfailed(3)
  integer, allocatable :: list(:)
- integer :: n,i,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff,itask
- real    :: rootdata(6),nodedata(6),alldata(6*nprocs)
+ real,    allocatable :: secdata(:,:)
+ integer :: n,i,k,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff
+ real    :: nodedata(6)
 
  allocate(list(ncomb))
  ! walk from the root of the combined tree
@@ -588,20 +590,26 @@ subroutine check_combined_tree(nfailed)
  call checkval(nbad+ndiff+nbadremote,0,0,nfailed(1),'combined tree links and leaf owners')
  call checkval(nlocal,nlocal_root,0,nfailed(2),'combined tree reaches every local leaf')
 
- ! the domain node of each task, as the task itself has it (its local root);
+ ! each section's root, as its owner has it, against its leaf on the other tasks;
  ! node masses are only set with self-gravity
- rootdata = [node(irootnode)%xcen,node(irootnode)%size,node(irootnode)%hmax,0.]
- if (gravity) rootdata(6) = node(irootnode)%mass
- call allgatherv_mpi(rootdata,alldata)
+ allocate(secdata(6,nsec_top))
+ secdata = 0.
+ do k=1,nsec_top
+    if (top_owner(k) /= id) cycle
+    n = top_root(k)
+    secdata(:,k) = [node(n)%xcen,node(n)%size,node(n)%hmax,0.]
+    if (gravity) secdata(6,k) = node(n)%mass
+ enddo
+ secdata = reduceall_mpi('+',secdata)
  ndiff = 0
- do itask=0,nprocs-1
-    if (itask == id) cycle
-    n = int(ncells) + nprocs + itask
+ do k=1,nsec_top
+    if (top_owner(k) == id) cycle
+    n = int(ncells) + top_leaf(k)
     nodedata = [node(n)%xcen,node(n)%size,node(n)%hmax,0.]
     if (gravity) nodedata(6) = node(n)%mass
-    if (any(nodedata /= alldata(6*itask+1:6*itask+6))) ndiff = ndiff + 1
+    if (any(nodedata /= secdata(:,k))) ndiff = ndiff + 1
  enddo
- call checkval(ndiff,0,0,nfailed(3),'domain nodes identical on all tasks')
+ call checkval(ndiff,0,0,nfailed(3),'section roots identical on all tasks')
 
 end subroutine check_combined_tree
 

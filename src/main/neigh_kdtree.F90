@@ -28,10 +28,26 @@ module neighkdtree
  implicit none
 
  ! the global tree, replicated on every MPI task: cellatid is owner+1 for its leaves, 0 otherwise.
- ! Its top levels split the domains of the tasks (the domain of task r is node nprocs+r),
- ! and below them each task's block of nodes copied from its local tree is stored in task order
+ ! Its top nodes (1 to ntop) are the same on every task, and below them each task's block of
+ ! nodes copied from its local tree is stored in task order
  integer,      public,  allocatable :: cellatid(:)
  type(kdnode), public,  allocatable :: nodeglobal(:)
+ ! the leaves of the top nodes are the sections, each owned by one task: the global index of
+ ! section k (top_leaf), its owner (top_owner) and the owner's local index of the root of its
+ ! subtree (top_root); own_lo and own_hi are the range of tasks owning the sections below each
+ ! top node, and section_of(g) the section of top node g (0 if not a leaf). With the domains
+ ! split level by level, the top nodes are a heap with the domain of task r at nprocs+r
+ integer,      public               :: ntop = 0,nsec_top = 0
+ integer,      public,  allocatable :: top_leaf(:),top_owner(:),top_root(:)
+ integer,               allocatable :: own_lo(:),own_hi(:),section_of(:)
+ ! the sections of each task r: sec_by_owner(sec_start(r+1):sec_start(r+2)-1)
+ integer,               allocatable :: sec_start(:),sec_by_owner(:)
+ ! whether the sphere of each top node bounds those of the nodes below it
+ logical                            :: top_bounds_children = .false.
+ integer,               parameter   :: maxsec_per_task = 64  ! room for the top nodes
+ ! the roots of the sections owned by this task, in the last global tree
+ integer,               allocatable :: own_roots(:)
+ integer                            :: nown_roots = 0
  ! index in the global tree of each node of the local tree copied into it, 0 for the others
  integer,               allocatable :: nodemap(:)
  ! the local nodes copied into the global tree, in the order of this task's block
@@ -171,8 +187,8 @@ subroutine allocate_neigh
 
  integer :: nnodes,ncache,nthreads
 
- ! the top levels, which split the domains of the tasks, then each task's block of nodes
- nglobal = 2*nprocs + int(nprocs,kind=8)*mirror_budget()
+ ! the top nodes, then each task's block of nodes
+ nglobal = ntop_max() + int(nprocs,kind=8)*mirror_budget()
  ! room for the combined tree: the global tree appended after the local tree, then as
  ! many nodes again imported from other tasks. The walk caches only the nodes on the
  ! branches of local leaves: the local nodes and the top levels of the global tree
@@ -180,7 +196,7 @@ subroutine allocate_neigh
  ncache = ncellsmax + 1
  if (nprocs > 1) then
     nnodes = nnodes + 2*int(nglobal)
-    ncache = ncache + 2*nprocs
+    ncache = ncache + ntop_max()
  endif
  call allocate_array('cellatid',       cellatid,       nglobal           )
  call allocate_array('leaf_is_active', leaf_is_active, nnodes            )
@@ -316,7 +332,7 @@ subroutine set_hmaxcell(inode,hmaxcell)
  ! Other threads update the same ancestors, so both the test and the update are atomic.
  ! Stop at the local root: the global nodes above it are updated by sync_hmax_mpi,
  ! so that they stay the same on every MPI task
- do while (n /= irootnode .and. node(n)%parent /= 0)
+ do while (node(n)%parent > 0 .and. node(n)%parent <= ncells)
     n = node(n)%parent
 !$omp atomic read
     hmaxn = node(n)%hmax
@@ -396,6 +412,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
                            apr_tree)
     endif
     call get_timings(t1,tcpu1)
+    call set_top_heap()
     call graft_local_trees(nactive)
     call combine_trees()
     call get_timings(t2,tcpu2)
@@ -843,11 +860,17 @@ subroutine graft_local_trees(nactive)
  integer, intent(in) :: nactive  ! number of active particles on this task
  type(kdnode), allocatable :: block(:)
  integer,      allocatable :: ilocal(:)
- integer :: ntot,ifirst,itask,ibase,p,g,idomain
+ integer :: ntot,ifirst,itask,ibase,p,g,k,ileaf
 
  ! forget the nodes copied from the previous tree
- nodemap(1) = 0
+ if (nown_roots > 0) nodemap(own_roots(1:nown_roots)) = 0
  if (nmirror > 0) nodemap(mirror_list(1:nmirror)) = 0
+ call list_own_roots()
+ ! the roots of this task's sections, as the (negative) top leaf that their copied children
+ ! are attached to (pack_mirrored_nodes)
+ do k = 1,nsec_top
+    if (top_owner(k) == id) nodemap(top_root(k)) = -top_leaf(k)
+ enddo
 
  call select_mirrored_nodes(nactive)
  allocate(block(nmirror))
@@ -857,7 +880,7 @@ subroutine graft_local_trees(nactive)
  call allgather_mpi(nmirror,nmirror_task)
  mirror_displ = get_displs_mpi(nmirror_task)
  ntot = sum(nmirror_task)
- ifirst = 2*nprocs     ! first node after the top levels
+ ifirst = ntop + 1     ! first node after the top nodes
  if (ifirst + ntot - 1 > size(nodeglobal)) call fatal('graft_local_trees','global tree exceeds its node budget')
  call allgatherv_nodes(block,nodeglobal(ifirst:),nmirror_task,mirror_displ)
 
@@ -872,15 +895,24 @@ subroutine graft_local_trees(nactive)
  !$omp end parallel do
  call allgatherv_mpi(ilocal,global_local_index(ifirst:),nmirror_task,mirror_displ)
 
- ! the blocks are linked within themselves: shift them to their place in the global tree
+ ! the top nodes: the leaves (sections) get their children from the blocks below
  cellatid = 0
- global_owner(1:nprocs-1) = -1
+ global_owner(1:ntop) = -1
+ do k = 1,nsec_top
+    ileaf = top_leaf(k)
+    global_owner(ileaf) = top_owner(k)
+    global_local_index(ileaf) = top_root(k)
+    nodeglobal(ileaf)%leftchild  = 0
+    nodeglobal(ileaf)%rightchild = 0
+ enddo
+
+ ! the blocks are linked within themselves: shift them to their place in the global tree,
+ ! with the nodes copied from the root of a section attached to that section's leaf
  !$omp parallel do default(none) schedule(dynamic,1) &
- !$omp shared(nprocs,ifirst,mirror_displ,nmirror_task,nodeglobal,cellatid,global_local_index,global_owner) &
- !$omp private(itask,ibase,idomain,p,g)
+ !$omp shared(nprocs,ifirst,mirror_displ,nmirror_task,nodeglobal,cellatid,global_owner) &
+ !$omp private(itask,ibase,p,g,ileaf)
  do itask = 1,nprocs
     ibase = ifirst - 1 + mirror_displ(itask)
-    idomain = nprocs + itask - 1
     do p = 1,nmirror_task(itask)
        g = ibase + p
        if (nodeglobal(g)%leftchild > 0)  nodeglobal(g)%leftchild  = nodeglobal(g)%leftchild  + ibase
@@ -888,30 +920,36 @@ subroutine graft_local_trees(nactive)
        if (nodeglobal(g)%parent > 0) then
           nodeglobal(g)%parent = nodeglobal(g)%parent + ibase
        else
-          nodeglobal(g)%parent = idomain
+          ! the left child first: the children of a section root come in that order
+          ileaf = -nodeglobal(g)%parent
+          nodeglobal(g)%parent = ileaf
+          if (nodeglobal(ileaf)%leftchild == 0) then
+             nodeglobal(ileaf)%leftchild = g
+          else
+             nodeglobal(ileaf)%rightchild = g
+          endif
        endif
        if (nodeglobal(g)%leftchild == 0 .and. nodeglobal(g)%rightchild == 0) cellatid(g) = itask
     enddo
-    global_local_index(idomain) = merge(-irootnode,irootnode,nmirror_task(itask) == 0)
-    global_owner(idomain) = itask - 1
     global_owner(ibase+1:ibase+nmirror_task(itask)) = itask - 1
-    ! the children of the domain node come first in the block
-    nodeglobal(idomain)%leftchild = 0
-    nodeglobal(idomain)%rightchild = 0
-    if (nmirror_task(itask) == 0) then
-       cellatid(idomain) = itask
-    else
-       nodeglobal(idomain)%leftchild = ibase + 1
-       if (nmirror_task(itask) > 1) then
-          if (nodeglobal(ibase+2)%parent == idomain) nodeglobal(idomain)%rightchild = ibase + 2
-       endif
-    endif
  enddo
  !$omp end parallel do
 
- ! where the copied local nodes are in the global tree; the local root is the domain node
+ ! a section with no copied children is a leaf of the global tree, and of its owner's tree
+ do k = 1,nsec_top
+    ileaf = top_leaf(k)
+    if (nodeglobal(ileaf)%leftchild == 0) then
+       cellatid(ileaf) = top_owner(k) + 1
+       global_local_index(ileaf) = -top_root(k)
+    endif
+ enddo
+
+ ! where the copied local nodes are in the global tree; the roots of this task's sections
+ ! are their leaves
  ibase = ifirst - 1 + mirror_displ(id+1)
- nodemap(irootnode) = nprocs + id
+ do k = 1,nsec_top
+    if (top_owner(k) == id) nodemap(top_root(k)) = top_leaf(k)
+ enddo
  do p = 1,nmirror
     nodemap(mirror_list(p)) = ibase + p
  enddo
@@ -920,31 +958,163 @@ end subroutine graft_local_trees
 
 !-----------------------------------------------------------------------
 !+
+!  the most top nodes of the global tree: two per section
+!+
+!-----------------------------------------------------------------------
+integer function ntop_max()
+ use io, only:nprocs
+
+ ntop_max = 2*maxsec_per_task*nprocs
+
+end function ntop_max
+
+!-----------------------------------------------------------------------
+!+
+!  the top nodes when the domains are split level by level: the heap
+!  built by maketreeglobal (nodes 1 to 2*nprocs-1, children of node g at
+!  2g and 2g+1), with one section per task, its whole local tree, at
+!  node nprocs+r for task r
+!+
+!-----------------------------------------------------------------------
+subroutine set_top_heap()
+ use io, only:nprocs
+ integer :: k
+
+ call allocate_top(2*nprocs-1,nprocs)
+ do k = 1,nprocs
+    top_leaf(k)  = nprocs + k - 1
+    top_owner(k) = k - 1
+    top_root(k)  = irootnode
+ enddo
+ top_bounds_children = .false.
+ call set_top_owners()
+
+end subroutine set_top_heap
+
+!-----------------------------------------------------------------------
+!+
+!  room for ntop top nodes and nsec sections
+!+
+!-----------------------------------------------------------------------
+subroutine allocate_top(ntopnew,nsec)
+ use io, only:nprocs,fatal
+ integer, intent(in) :: ntopnew,nsec
+
+ if (ntopnew > ntop_max()) call fatal('allocate_top','too many sections for the global tree')
+ ntop = ntopnew
+ nsec_top = nsec
+ if (allocated(top_leaf)) deallocate(top_leaf,top_owner,top_root,own_lo,own_hi,section_of,sec_start,sec_by_owner)
+ allocate(top_leaf(nsec),top_owner(nsec),top_root(nsec))
+ allocate(own_lo(ntop),own_hi(ntop),section_of(ntop),sec_start(nprocs+1),sec_by_owner(nsec))
+
+end subroutine allocate_top
+
+!-----------------------------------------------------------------------
+!+
+!  from the sections and their owners: the section of each top node, the
+!  range of tasks owning the sections below each top node (the children
+!  of a top node come after it), and the sections of each task
+!+
+!-----------------------------------------------------------------------
+subroutine set_top_owners()
+ use io, only:nprocs
+ integer :: g,k,il,ir,r
+ integer :: next(nprocs)
+
+ section_of = 0
+ own_lo = huge(1)
+ own_hi = -1
+ do k = 1,nsec_top
+    g = top_leaf(k)
+    section_of(g) = k
+    own_lo(g) = top_owner(k)
+    own_hi(g) = top_owner(k)
+ enddo
+ do g = ntop,1,-1
+    if (section_of(g) > 0) cycle
+    il = nodeglobal(g)%leftchild
+    ir = nodeglobal(g)%rightchild
+    if (il > 0) then
+       own_lo(g) = min(own_lo(g),own_lo(il))
+       own_hi(g) = max(own_hi(g),own_hi(il))
+    endif
+    if (ir > 0) then
+       own_lo(g) = min(own_lo(g),own_lo(ir))
+       own_hi(g) = max(own_hi(g),own_hi(ir))
+    endif
+ enddo
+
+ ! the sections of each task, in the order of their indices
+ sec_start = 0
+ do k = 1,nsec_top
+    sec_start(top_owner(k)+2) = sec_start(top_owner(k)+2) + 1
+ enddo
+ sec_start(1) = 1
+ do r = 2,nprocs+1
+    sec_start(r) = sec_start(r) + sec_start(r-1)
+ enddo
+ next = sec_start(1:nprocs)
+ do k = 1,nsec_top
+    r = top_owner(k) + 1
+    sec_by_owner(next(r)) = k
+    next(r) = next(r) + 1
+ enddo
+
+end subroutine set_top_owners
+
+!-----------------------------------------------------------------------
+!+
+!  the roots of the sections owned by this task
+!+
+!-----------------------------------------------------------------------
+subroutine list_own_roots()
+ use io, only:id
+ integer :: k
+
+ if (allocated(own_roots)) deallocate(own_roots)
+ allocate(own_roots(max(nsec_top,1)))
+ nown_roots = 0
+ do k = 1,nsec_top
+    if (top_owner(k) == id) then
+       nown_roots = nown_roots + 1
+       own_roots(nown_roots) = top_root(k)
+    endif
+ enddo
+
+end subroutine list_own_roots
+
+!-----------------------------------------------------------------------
+!+
 !  build the combined tree: append the global tree after the local tree,
-!  except for this task's domain node and block, which are the local root
-!  and the local nodes they were copied from. The local root takes the
-!  data of the domain node, which the other tasks use, so that every task
-!  sees exactly the same node there
+!  except for this task's sections and block, which are the roots of its
+!  sections and the local nodes they were copied from. The root of each section of
+!  this task takes the data of its leaf, which the other tasks use, so that
+!  every task sees exactly the same node there
 !+
 !-----------------------------------------------------------------------
 subroutine combine_trees()
- use io, only:nprocs,id,fatal
+ use io, only:id,fatal
  type(kdnode) :: rootlinks
- integer :: g,n,ng
+ integer :: g,n,ng,k
 
- ng = 2*nprocs - 1 + sum(nmirror_task)
+ ng = ntop + sum(nmirror_task)
  if (int(ncells) + ng > size(node)) call fatal('combine_trees','no room to append the global tree')
  ! forget the nodes of other tasks appended to the previous tree, which may
  ! have started at a different place if the local tree has changed size
  if (ncomb > ncells_appended) remote_leaf_owner(ncells_appended+1:ncomb) = 0
  ncells_appended = int(ncells)
 
- rootlinks = node(irootnode)
- node(irootnode) = nodeglobal(nprocs + id)
- node(irootnode)%leftchild  = rootlinks%leftchild
- node(irootnode)%rightchild = rootlinks%rightchild
- node(irootnode)%level      = rootlinks%level
- node(irootnode)%parent     = combined_index(nodeglobal(nprocs + id)%parent)
+ ! the root of each of this task's sections takes the data of its leaf, links kept
+ do k = 1,nsec_top
+    if (top_owner(k) /= id) cycle
+    n = top_root(k)
+    rootlinks = node(n)
+    node(n) = nodeglobal(top_leaf(k))
+    node(n)%leftchild  = rootlinks%leftchild
+    node(n)%rightchild = rootlinks%rightchild
+    node(n)%level      = rootlinks%level
+    node(n)%parent     = combined_index(nodeglobal(top_leaf(k))%parent)
+ enddo
 
  !$omp parallel do default(none) schedule(static) &
  !$omp shared(ng,ncells,node,nodeglobal,cellatid,global_local_index) &
@@ -975,12 +1145,17 @@ end subroutine combine_trees
 !+
 !-----------------------------------------------------------------------
 logical function is_this_task(g)
- use io, only:nprocs,id
+ use io, only:id
  integer, intent(in) :: g
  integer :: ibase
 
- ibase = 2*nprocs - 1 + mirror_displ(id+1)
- is_this_task = (g == nprocs + id) .or. (g > ibase .and. g <= ibase + nmirror)
+ ibase = ntop + mirror_displ(id+1)
+ if (g <= ntop) then
+    is_this_task = (section_of(g) > 0)
+    if (is_this_task) is_this_task = (top_owner(section_of(g)) == id)
+ else
+    is_this_task = (g > ibase .and. g <= ibase + nmirror)
+ endif
 
 end function is_this_task
 
@@ -990,19 +1165,21 @@ end function is_this_task
 !+
 !-----------------------------------------------------------------------
 integer function combined_index(g)
- use io, only:nprocs,id
+ use io, only:id
  integer, intent(in) :: g
- integer :: ibase
+ integer :: ibase,k
 
- ibase = 2*nprocs - 1 + mirror_displ(id+1)
+ ibase = ntop + mirror_displ(id+1)
+ combined_index = int(ncells) + g
  if (g <= 0) then
     combined_index = 0
- elseif (g == nprocs + id) then
-    combined_index = irootnode
+ elseif (g <= ntop) then
+    k = section_of(g)
+    if (k > 0) then
+       if (top_owner(k) == id) combined_index = top_root(k)
+    endif
  elseif (g > ibase .and. g <= ibase + nmirror) then
     combined_index = mirror_list(g - ibase)
- else
-    combined_index = int(ncells) + g
  endif
 
 end function combined_index
@@ -1505,24 +1682,20 @@ end subroutine mark_opened
 !+
 !-----------------------------------------------------------------------
 logical function on_side(n,itask)
- use io, only:id,nprocs
+ use io, only:id
  integer, intent(in) :: n,itask
- integer :: g,k
+ integer :: g
 
  if (n <= ncells) then
     on_side = (itask == id)
     return
  endif
  g = n - int(ncells)
- if (global_owner(g) >= 0) then
-    on_side = (global_owner(g) == itask)
+ if (g <= ntop) then
+    ! a top node: does it hold sections of itask?
+    on_side = (itask >= own_lo(g) .and. itask <= own_hi(g))
  else
-    ! a top node (heap indexed): an ancestor of the domain node of itask?
-    k = nprocs + itask
-    do while (k > g)
-       k = k/2
-    enddo
-    on_side = (k == g)
+    on_side = (global_owner(g) == itask)
  endif
 
 end function on_side
@@ -1631,13 +1804,16 @@ subroutine exchange_size_profiles()
  integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nleaves,nlen,nbuf,irecv,g,n,ng
 
  call mark_active_branches()
- ! this task's global leaves: its domain node, if a leaf, or the leaves of its block
- allocate(leaves(nmirror+1))
+ ! this task's global leaves: the roots of its sections that are leaves of the global
+ ! tree, and the leaves of its block
+ allocate(leaves(nmirror+nown_roots))
  nleaves = 0
- if (nmirror == 0) then
-    nleaves = 1
-    leaves(1) = irootnode
- endif
+ do k = 1,nown_roots
+    if (cellatid(nodemap(own_roots(k))) == id + 1) then
+       nleaves = nleaves + 1
+       leaves(nleaves) = own_roots(k)
+    endif
+ enddo
  do k = 1,nmirror
     if (cellatid(nodemap(mirror_list(k))) == id + 1) then
        nleaves = nleaves + 1
@@ -1653,7 +1829,7 @@ subroutine exchange_size_profiles()
     if (iproc == id) cycle
     do k = 1,nleaves
        n = leaves(k)
-       if (.not.leaf_may_interact(n,nprocs + iproc)) cycle
+       if (.not.leaf_may_interact(n,iproc)) cycle
        call leaf_size_profile(n,prof,nlen)
        if (nbuf + 2*nlen + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + 2*nlen + 2)
        sendbuf(nbuf+1) = nodemap(n)
@@ -1693,17 +1869,23 @@ end subroutine exchange_size_profiles
 !  another task: the domain region bound, conservative
 !+
 !-----------------------------------------------------------------------
-logical function leaf_may_interact(n,idomain)
+logical function leaf_may_interact(n,iproc)
  use kernel, only:radkern
- integer, intent(in) :: n,idomain
+ integer, intent(in) :: n,iproc
+ integer :: k,g
  real :: dx,dy,dz,xoff,yoff,zoff,r2,d,sizes,rcut
 
- call get_sep(nodeglobal(idomain)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
- d     = sqrt(r2) - nodeglobal(idomain)%size
- sizes = 2.*nodeglobal(idomain)%size + node(n)%size
- rcut  = radkern*max(nodeglobal(idomain)%hmax,node(n)%hmax)
- leaf_may_interact = (d < sizes + rcut)
- if (gravity) leaf_may_interact = leaf_may_interact .or. (tree_accuracy*d < sizes)
+ leaf_may_interact = .true.
+ do k = sec_start(iproc+1),sec_start(iproc+2)-1
+    g = top_leaf(sec_by_owner(k))
+    call get_sep(nodeglobal(g)%xcen,node(n)%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
+    d     = sqrt(r2) - nodeglobal(g)%size
+    sizes = 2.*nodeglobal(g)%size + node(n)%size
+    rcut  = radkern*max(nodeglobal(g)%hmax,node(n)%hmax)
+    if (d < sizes + rcut) return
+    if (gravity .and. tree_accuracy*d < sizes) return
+ enddo
+ leaf_may_interact = .false.
 
 end function leaf_may_interact
 
@@ -1720,7 +1902,8 @@ subroutine mark_active_branches()
     n = active_leaves(k)
     do while (branch_mark(n) /= let_stamp)
        branch_mark(n) = let_stamp
-       if (n == irootnode .or. node(n)%parent <= 0) exit
+       ! stop at the root of a section: above it are nodes of the global tree
+       if (node(n)%parent <= 0 .or. node(n)%parent > ncells) exit
        n = node(n)%parent
     enddo
  enddo
@@ -2042,13 +2225,13 @@ subroutine select_mirrored_nodes(nactive)
  integer, intent(in)  :: nactive
  integer, allocatable :: heapnode(:)
  real,    allocatable :: heapkey(:)
- integer :: nbudget,nheap,n
+ integer :: nbudget,nheap,n,k
 
  ! copy a number of nodes proportional to the active particles: gathering and syncing
  ! them then costs a small fraction of the work on those particles, however many tasks
  ! there are, and deep in the timestep hierarchy (few active, the tree rebuilt often,
  ! few exports) only a few nodes are copied
- nbudget = min(mirror_budget(),max(nmirror_min,nactive/nactive_per_mirror))
+ nbudget = min(mirror_budget(),max(nmirror_min,nactive/nactive_per_mirror,2*nown_roots))
  if (allocated(mirror_list)) then
     if (size(mirror_list) < nbudget) deallocate(mirror_list)
  endif
@@ -2057,7 +2240,9 @@ subroutine select_mirrored_nodes(nactive)
 
  nmirror = 0
  nheap = 0
- call add_children(irootnode,heapnode,heapkey,nheap)
+ do k = 1,nown_roots
+    call add_children(own_roots(k),heapnode,heapkey,nheap)
+ enddo
  do while (nheap > 0 .and. nmirror + 2 <= nbudget)
     call heap_pop(heapnode,heapkey,nheap,n)
     if (node(n)%leftchild <= 0 .and. node(n)%rightchild <= 0) cycle  ! a leaf of the local tree
@@ -2099,24 +2284,34 @@ end subroutine add_children
 !+
 !-----------------------------------------------------------------------
 logical function reaches_other_domain(n)
- use io,     only:nprocs,id
+ use io,     only:id
  use kernel, only:radkern
  integer, intent(in) :: n
- integer :: idomain
+ integer :: istack(2*maxdepth+2),nstack,g
  real    :: dx,dy,dz,xoff,yoff,zoff,r,sizen,sized,reachn,reachd
 
  reaches_other_domain = .true.
  sizen  = node(n)%size
  reachn = sizen + radkern*node(n)%hmax
- do idomain = nprocs,2*nprocs-1
-    if (idomain == nprocs + id) cycle
-    call get_sep(node(n)%xcen,nodeglobal(idomain)%xcen,dx,dy,dz,xoff,yoff,zoff)
-    r = sqrt(dx*dx + dy*dy + dz*dz)
-    sized  = nodeglobal(idomain)%size
-    reachd = sized + radkern*nodeglobal(idomain)%hmax
-    if (r < reachn + reachd) return
-    ! a cell of the other domain is at least r - sized away, and no larger than sized
-    if (gravity .and. tree_accuracy*(r - sized) < sizen + sized) return
+ nstack = 1
+ istack(1) = 1
+ do while (nstack > 0)
+    g = istack(nstack)
+    nstack = nstack - 1
+    if (own_lo(g) == id .and. own_hi(g) == id) cycle  ! only sections of this task below
+    ! a section of another task, or (if its sphere bounds those below) a top node above them
+    if (section_of(g) > 0 .or. top_bounds_children) then
+       call get_sep(node(n)%xcen,nodeglobal(g)%xcen,dx,dy,dz,xoff,yoff,zoff)
+       r = sqrt(dx*dx + dy*dy + dz*dz)
+       sized  = nodeglobal(g)%size
+       reachd = sized + radkern*nodeglobal(g)%hmax
+       ! a cell of the other domain is at least r - sized away, and no larger than sized
+       if (r >= reachn + reachd .and. .not.(gravity .and. tree_accuracy*(r - sized) < sizen + sized)) cycle
+       if (section_of(g) > 0) return
+    endif
+    istack(nstack+1) = nodeglobal(g)%rightchild
+    istack(nstack+2) = nodeglobal(g)%leftchild
+    nstack = nstack + 2
  enddo
  reaches_other_domain = .false.
 
@@ -2236,10 +2431,10 @@ end function position_in_block
 !+
 !-----------------------------------------------------------------------
 subroutine sync_hmax_mpi
- use io,       only:nprocs,id
  use mpiutils, only:allgatherv_mpi
+ use io,       only:id
  real, allocatable :: hmirror(:),hall(:)
- integer :: p,k,n,idomain,il,ir
+ integer :: p,k,n,g,il,ir
  real    :: hchild
 
  allocate(hmirror(nmirror),hall(sum(nmirror_task)))
@@ -2248,16 +2443,18 @@ subroutine sync_hmax_mpi
  enddo
  call allgatherv_mpi(hmirror,hall,nmirror_task,mirror_displ)
  do k = 1,size(hall)
-    nodeglobal(2*nprocs-1+k)%hmax = hall(k)
+    nodeglobal(ntop+k)%hmax = hall(k)
  enddo
 
- do idomain = nprocs,2*nprocs-1
-    il = nodeglobal(idomain)%leftchild
-    ir = nodeglobal(idomain)%rightchild
+ ! raise the hmax of each section and the top nodes above it to cover its children
+ do k = 1,nsec_top
+    g  = top_leaf(k)
+    il = nodeglobal(g)%leftchild
+    ir = nodeglobal(g)%rightchild
     if (il == 0) cycle
     hchild = nodeglobal(il)%hmax
     if (ir > 0) hchild = max(hchild,nodeglobal(ir)%hmax)
-    n = idomain
+    n = g
     nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     do while (nodeglobal(n)%parent /= 0)
        n = nodeglobal(n)%parent
@@ -2269,7 +2466,9 @@ subroutine sync_hmax_mpi
  do k = 1,ncomb_tree - int(ncells)  ! the global tree only, not the imported nodes
     if (.not.is_this_task(k)) node(int(ncells) + k)%hmax = nodeglobal(k)%hmax
  enddo
- node(irootnode)%hmax = nodeglobal(nprocs + id)%hmax
+ do k = 1,nsec_top
+    if (top_owner(k) == id) node(top_root(k))%hmax = nodeglobal(top_leaf(k))%hmax
+ enddo
 
 end subroutine sync_hmax_mpi
 
