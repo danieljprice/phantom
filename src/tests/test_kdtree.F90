@@ -244,6 +244,7 @@ subroutine test_kdtree(ntests,npass)
  endif
 
  call test_section_tree(ntests,npass)
+ call test_cut_sections(ntests,npass)
  if (mpi .and. nprocs > 1) call test_global_tree(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- KDTREE TEST COMPLETE'
@@ -291,6 +292,7 @@ subroutine test_section_tree(ntests,npass)
  call build_sections(np,xyzh,wt,st,nround)
 
  nbad = 0
+
  ! the particles located in each section, on all tasks, are those it was built from
  allocate(nsec(st%nsec))
  nsec = 0.
@@ -300,10 +302,12 @@ subroutine test_section_tree(ntests,npass)
  enddo
  nsec = reduceall_mpi('+',nsec)
  if (any(abs(nsec - st%secn) > 0.5)) nbad(1) = nbad(1) + 1
+
  ! keys in increasing order
  do k = 2,st%nsec
     if (st%key(st%seccell(k)) <= st%key(st%seccell(k-1))) nbad(2) = nbad(2) + 1
  enddo
+
  ! no section cuts through the plane: each holding grid particles has all its layers
  allocate(layers(st%nsec))
  layers = 0
@@ -316,6 +320,7 @@ subroutine test_section_tree(ntests,npass)
     layers(k) = int(reduceall_mpi('max',real(layers(k))))
     if (layers(k) /= 0 .and. layers(k) /= 2**ngrid(3) - 1) nbad(3) = nbad(3) + 1
  enddo
+
  ! the root is split at the midpoint of the bounds of all particles, along z
  xmid = 0.5*(xyzh(3,np) + xyzh(3,np-1))
  if (st%axis(1) /= 3 .or. abs(st%xsplit(1) - xmid) > epsilon(xmid)) nbad(4) = nbad(4) + 1
@@ -325,9 +330,56 @@ subroutine test_section_tree(ntests,npass)
  call checkval(nbad(2),0,0,nfailed(2),'section keys in depth first order')
  call checkval(nbad(3),0,0,nfailed(3),'flat distribution not cut through its plane')
  call checkval(nbad(4),0,0,nfailed(4),'split at the midpoint of the particle bounds')
+
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_section_tree
+
+!-----------------------------------------------------------------------
+!+
+!   Tests of the cut of the sections into runs, one per task: the
+!   largest work of a run is the least possible, every task gets a
+!   section, and the cap on particles per task is respected
+!+
+!-----------------------------------------------------------------------
+subroutine test_cut_sections(ntests,npass)
+ use mpisections, only:cut_sections
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ real(8) :: w(10),np(10),wrun(4),nrun(4)
+ integer :: owner(10),nfailed(3),k
+
+ nfailed = 0
+
+ ! ten sections of equal work on three tasks: the best cut has 4 in the largest run
+ w  = 1.d0
+ np = 1.d0
+ call cut_sections(10,w,np,3,huge(1.d0),owner)
+ wrun = 0.d0
+ do k = 1,10
+    wrun(owner(k)+1) = wrun(owner(k)+1) + w(k)
+ enddo
+ call checkval(maxval(wrun(1:3)),4.d0,0.d0,nfailed(1),'least largest work of a run')
+
+ ! four sections on four tasks: one each, whatever their work
+ w(1:4) = [10.d0,1.d0,1.d0,1.d0]
+ call cut_sections(4,w(1:4),np(1:4),4,huge(1.d0),owner(1:4))
+ call checkval(count(owner(1:4) == [0,1,2,3]),4,0,nfailed(2),'one section for every task')
+
+ ! equal work, but the first five sections hold most of the particles: with at
+ ! most 12 particles on a task they cannot share a run
+ w  = 1.d0
+ np = [5.d0,5.d0,5.d0,5.d0,5.d0,1.d0,1.d0,1.d0,1.d0,1.d0]
+ call cut_sections(10,w,np,4,12.d0,owner)
+ nrun = 0.d0
+ do k = 1,10
+    nrun(owner(k)+1) = nrun(owner(k)+1) + np(k)
+ enddo
+ call checkval(count(nrun > 12.d0),0,0,nfailed(3),'particles per task within the cap')
+
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_cut_sections
 !-----------------------------------------------------------------------
 !+
 !   Tests of the global tree that every MPI task holds a copy of:

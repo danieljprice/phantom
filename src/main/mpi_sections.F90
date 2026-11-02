@@ -26,6 +26,8 @@ module mpisections
  integer, parameter :: nbits_total = 63    ! bits in a key: levels of the tree
  real,    parameter :: frac_section = 0.25 ! largest work in a section, as a fraction of a task's share
  real,    parameter :: tol_balance  = 1.1  ! new sections only if a task has more work than this times the mean
+ real,    parameter :: frac_maxp    = 0.75 ! most particles a cut puts on a task, as a fraction of the
+                                           ! particle arrays: room for migration, drift and imports
 
  ! a tree of sections: for each cell, its split axis and position, its
  ! left child (the right one is next to it; 0 for a section), its key and
@@ -40,7 +42,7 @@ module mpisections
     real(8),    allocatable :: secw(:),secn(:)
  end type sectiontree
 
- public :: sectiontree,build_sections,locate_section
+ public :: sectiontree,build_sections,locate_section,cut_sections
  public :: assign_section_owners,local_section_index,owned_section_keys,print_section_diagnostic
 
  private
@@ -58,8 +60,10 @@ contains
 !  (those with h > 0): starting from the root, every cell whose work,
 !  summed over all tasks, exceeds frac_section times a task's share is
 !  split, one level per round, at the midpoint of the bounds of its
-!  particles along their longest axis. The sections, in key order, are
-!  then cut into nprocs runs of about equal work
+!  particles along their longest axis (as is every cell with more than
+!  frac_section of a task's share of the particles). The sections, in key
+!  order, are then cut into nprocs runs (cut_sections), with at most
+!  frac_maxp of the particle arrays (the size of xyzh) on each task
 !+
 !--------------------------------------------------------------------------
 subroutine build_sections(np,xyzh,wt,st,nround)
@@ -71,7 +75,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
  integer,           intent(out) :: nround
  integer, allocatable :: icell(:),cand(:),pos(:),newcand(:)
  real(8), allocatable :: sums(:,:),bnd(:,:),cellw(:),celln(:)
- real(8) :: wtot,wmax,wshare,wbefore
+ real(8) :: wtot,wmax,ntot,nmax,npmax
  real    :: ext(3)
  integer :: i,j,k,c,nc,nnew,ia
 
@@ -93,6 +97,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
  cand(1) = 1
  nc = 1
  wtot = 0.
+ ntot = 0.
  nround = 0
  refine: do
     nround = nround + 1
@@ -122,8 +127,12 @@ subroutine build_sections(np,xyzh,wt,st,nround)
     !$omp end parallel do
     call reduce_in_place_mpi('+',sums)
     bnd = reduceall_mpi('min',bnd)
-    if (nround == 1) wtot = sums(1,1)
+    if (nround == 1) then
+       wtot = sums(1,1)
+       ntot = sums(2,1)
+    endif
     wmax = frac_section*wtot/nprocs
+    nmax = frac_section*ntot/nprocs
 
     ! split the cells with too much work in two
     if (size(cellw) < st%ncell + 2*nc) call grow_real8(cellw,celln,st%ncell + 2*nc)
@@ -134,7 +143,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
        cellw(c) = sums(1,j)
        celln(c) = sums(2,j)
        st%left(c) = 0
-       if (sums(1,j) <= wmax .or. sums(2,j) < 2. .or. st%depth(c) >= nbits_total) cycle
+       if ((sums(1,j) <= wmax .and. sums(2,j) <= nmax) .or. sums(2,j) < 2. .or. st%depth(c) >= nbits_total) cycle
        ext = real(-bnd(4:6,j) - bnd(1:3,j))
        if (maxval(ext) <= 0.) cycle  ! all its particles at one point
        ia = maxloc(ext,1)
@@ -182,16 +191,91 @@ subroutine build_sections(np,xyzh,wt,st,nround)
     st%secn(k) = celln(st%seccell(k))
  enddo
 
- ! cut the sections into nprocs runs of about equal work:
- ! each section goes to the task whose share contains its middle
- wshare  = max(wtot/nprocs,tiny(wtot))
- wbefore = 0.
- do k = 1,st%nsec
-    st%owner(k) = min(nprocs-1,int((wbefore + 0.5*st%secw(k))/wshare))
-    wbefore = wbefore + st%secw(k)
- enddo
+ ! cut the sections into one run per task, keeping room in the particle arrays
+ npmax = frac_maxp*size(xyzh,2)
+ call cut_sections(st%nsec,st%secw,st%secn,nprocs,npmax,st%owner)
 
 end subroutine build_sections
+
+!--------------------------------------------------------------------------
+!+
+!  cut n sections, in order, into runs, one per task (owner 0 to nprocs-1),
+!  so that the work of the busiest task is as small as possible, with at
+!  most npmax particles on a task (unless that cannot be done at all).
+!  The least work per run for which fill_runs succeeds is found by
+!  bisection, between the largest of a section's work and the mean work
+!  per task, and all the work
+!+
+!--------------------------------------------------------------------------
+subroutine cut_sections(n,work,npart,nprocs,npmax,owner)
+ use io, only:fatal
+ integer, intent(in)  :: n,nprocs
+ real(8), intent(in)  :: work(n),npart(n),npmax
+ integer, intent(out) :: owner(n)
+ integer, parameter :: maxiter = 60
+ real(8) :: wlo,whi,wmid,ncap
+ integer :: iter
+
+ ! drop the cap on particles if no cut can meet it
+ ncap = npmax
+ if (.not.fill_runs(n,work,npart,nprocs,ncap,sum(work),owner)) ncap = huge(ncap)
+
+ wlo = max(maxval(work),sum(work)/nprocs)
+ whi = sum(work)
+ if (fill_runs(n,work,npart,nprocs,ncap,wlo,owner)) return
+
+ do iter = 1,maxiter
+    wmid = 0.5*(wlo + whi)
+    if (fill_runs(n,work,npart,nprocs,ncap,wmid,owner)) then
+       whi = wmid
+    else
+       wlo = wmid
+    endif
+ enddo
+
+ if (.not.fill_runs(n,work,npart,nprocs,ncap,whi,owner)) call fatal('cut_sections','no cut found')
+
+end subroutine cut_sections
+
+!--------------------------------------------------------------------------
+!+
+!  fill the runs in turn with sections, in order, starting a new run when
+!  the next section would take it over wmax work or ncap particles, or
+!  when only as many sections are left as tasks without one. Returns
+!  .false. if that needs more than nprocs runs
+!+
+!--------------------------------------------------------------------------
+logical function fill_runs(n,work,npart,nprocs,ncap,wmax,owner)
+ integer, intent(in)  :: n,nprocs
+ real(8), intent(in)  :: work(n),npart(n),ncap,wmax
+ integer, intent(out) :: owner(n)
+ real(8) :: wrun,nrun
+ integer :: k,itask
+ logical :: too_much_work,too_many_particles,need_section_per_task
+
+ fill_runs = .false.
+ itask = 0
+ wrun  = 0.
+ nrun  = 0.
+ do k = 1,n
+    if (k > 1) then
+       too_much_work         = (wrun + work(k) > wmax)
+       too_many_particles    = (nrun + npart(k) > ncap)
+       need_section_per_task = (n - k + 1 <= nprocs - 1 - itask)
+       if (too_much_work .or. too_many_particles .or. need_section_per_task) then
+          itask = itask + 1
+          if (itask > nprocs - 1) return
+          wrun = 0.
+          nrun = 0.
+       endif
+    endif
+    owner(k) = itask
+    wrun = wrun + work(k)
+    nrun = nrun + npart(k)
+ enddo
+ fill_runs = .true.
+
+end function fill_runs
 
 !--------------------------------------------------------------------------
 !+
