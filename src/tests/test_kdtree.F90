@@ -400,7 +400,7 @@ subroutine test_global_tree(ntests,npass)
  use mpidomain,   only:i_belong
  use testutils,   only:update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(9),i,ip,icell,k
+ integer :: nfailed(10),i,ip,icell,k
  real    :: psep,hmaxcell
 
  if (id==master) write(*,"(/,a)") '--> testing global tree'
@@ -437,7 +437,7 @@ subroutine test_global_tree(ntests,npass)
  call sync_hmax_mpi()
  call check_global_hmax(nfailed(4:5))
  call check_exports(.true.,nfailed(6))
- call check_combined_tree(nfailed(7:9))
+ call check_combined_tree(nfailed(7:10))
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_global_tree
@@ -553,7 +553,9 @@ end subroutine check_global_hmax
 !   check the combined tree (local tree with the global tree above it):
 !   its links, that walking down from its root reaches every local leaf
 !   and only leaves of other tasks outside this task, and that every task
-!   has exactly the same copy of each domain node as its owner
+!   has exactly the same copy of each domain node as its owner, and that
+!   every section has one owner, the same on all tasks, with the roots of
+!   a task's sections holding exactly the particles of its local tree
 !+
 !-----------------------------------------------------------------------
 subroutine check_combined_tree(nfailed)
@@ -562,12 +564,13 @@ subroutine check_combined_tree(nfailed)
  use mpiutils,    only:reduceall_mpi
  use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner,&
                        nsec_top,top_leaf,top_owner,top_root
- use kdtree,      only:irootnode
+ use kdtree,      only:irootnode,inoderange
  use testutils,   only:checkval
- integer, intent(out) :: nfailed(3)
- integer, allocatable :: list(:)
+ integer, intent(out) :: nfailed(4)
+ integer, allocatable :: list(:),ownmin(:),ownmax(:)
  real,    allocatable :: secdata(:,:)
  integer :: n,i,k,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff
+ integer :: nbadown,nown,npown,nproot
  real    :: nodedata(6)
 
  allocate(list(ncomb))
@@ -610,6 +613,30 @@ subroutine check_combined_tree(nfailed)
     if (any(nodedata /= secdata(:,k))) ndiff = ndiff + 1
  enddo
  call checkval(ndiff,0,0,nfailed(3),'section roots identical on all tasks')
+
+ ! every section has a valid owner, the same on all tasks, and a top leaf of
+ ! its own; every task owns a section, and the roots of its sections hold
+ ! exactly the particles of its local tree
+ nbadown = 0
+ ownmin = int(reduceall_mpi('min',top_owner(1:nsec_top)))
+ ownmax = int(reduceall_mpi('max',top_owner(1:nsec_top)))
+ nown  = 0
+ npown = 0
+ do k=1,nsec_top
+    if (top_owner(k) < 0 .or. top_owner(k) >= nprocs) nbadown = nbadown + 1
+    if (ownmin(k) /= ownmax(k)) nbadown = nbadown + 1
+    if (count(top_leaf(1:nsec_top) == top_leaf(k)) /= 1) nbadown = nbadown + 1
+    if (top_owner(k) == id) then
+       nown = nown + 1
+       n = top_root(k)
+       npown = npown + inoderange(2,n) - inoderange(1,n) + 1
+    endif
+ enddo
+ if (nown == 0) nbadown = nbadown + 1
+ nproot = inoderange(2,irootnode) - inoderange(1,irootnode) + 1
+ if (npown /= nproot) nbadown = nbadown + 1
+ nbadown = int(reduceall_mpi('+',nbadown))
+ call checkval(nbadown,0,0,nfailed(4),'every section owned by one task')
 
 end subroutine check_combined_tree
 
