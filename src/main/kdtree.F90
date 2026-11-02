@@ -2561,6 +2561,7 @@ subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
 
  call get_timings(t1,tcpu1)
  call build_section_top(nodeglobal,node,globallevel)
+ call set_exact_top_sizes(nodeglobal)
  call get_timings(tg2,tcpug2)
  ! the global time excludes the local tree, which has its own timers
  call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2),(tcpug2-tcpug1)-(tcpu1-tcpu2))
@@ -2900,6 +2901,62 @@ subroutine build_section_top(nodeglobal,node,globallevel)
  nodeglobal(1)%parent = 0
 
 end subroutine build_section_top
+
+!--------------------------------------------------------------------------------
+!+
+!  the exact size of the cells of the global tree above the sections: the
+!  largest distance from each cell's centre of mass to the particles below
+!  it, over all tasks. Combining the children only bounds it, which opens
+!  these cells more often than needed. Each task measures the particles of
+!  its own sections; every task then holds the same sizes
+!+
+!--------------------------------------------------------------------------------
+subroutine set_exact_top_sizes(nodeglobal)
+ use io,       only:id
+ use mpiutils, only:reduceall_mpi
+ type(kdnode), intent(inout) :: nodeglobal(:)
+ integer, parameter :: maxanc = 64
+ real,    allocatable :: r2max(:)
+ real    :: r2anc(maxanc),dx(3)
+ integer :: ianc(maxanc),nanc,k,g,n,ip,j
+
+ allocate(r2max(ntop_sec))
+ r2max = 0.
+ do k = 1,nsec_nonempty
+    if (sec_owner(k) /= id) cycle
+    ! the cells above this section
+    nanc = 0
+    g = nodeglobal(sec_leaf(k))%parent
+    do while (g > 0 .and. nanc < maxanc)
+       nanc = nanc + 1
+       ianc(nanc) = g
+       g = nodeglobal(g)%parent
+    enddo
+    if (nanc == 0) cycle
+    ! the farthest particle of the section from each of their centres
+    n = sec_root(k)
+    r2anc = 0.
+    !$omp parallel do default(none) schedule(static) &
+    !$omp shared(n,inoderange,treecache,nodeglobal,ianc,nanc) &
+    !$omp private(ip,j,dx) &
+    !$omp reduction(max:r2anc)
+    do ip = inoderange(1,n),inoderange(2,n)
+       do j = 1,nanc
+          dx = treecache(1:3,ip) - nodeglobal(ianc(j))%xcen
+          r2anc(j) = max(r2anc(j),dot_product(dx,dx))
+       enddo
+    enddo
+    !$omp end parallel do
+    do j = 1,nanc
+       r2max(ianc(j)) = max(r2max(ianc(j)),r2anc(j))
+    enddo
+ enddo
+ r2max = reduceall_mpi('max',r2max)
+ do g = 1,ntop_sec
+    if (nodeglobal(g)%leftchild > 0) nodeglobal(g)%size = sqrt(r2max(g)) + epsilon(r2max)
+ enddo
+
+end subroutine set_exact_top_sizes
 
 !--------------------------------------------------------------------------------
 !+
