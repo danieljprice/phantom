@@ -27,7 +27,7 @@ module evolve_utils
  public :: check_and_write_dump
  public :: print_log
 
- integer, parameter :: ntaskvals = 23 ! values per task in the per-task summary
+ integer, parameter :: ntaskvals = 13 ! values per task in the per-task summary
 
  private
 
@@ -385,7 +385,6 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  call reduce_timers
  if (id==master) call print_timinginfo(iprint,nsteps,nsteplast)
  if (mpi .and. nprocs > 1) call print_task_table(iprint,taskvals)
- if (mpi .and. nprocs > 1) call section_balance(iprint,npart,xyzh,ibin)
  if (mpi) call print_cell_exchange_stats(iprint)
  if (mpi) call print_let_stats(iprint)
  !--Write out summary to log file
@@ -420,16 +419,13 @@ subroutine gather_task_values(allvals)
  use part,        only:npart
  use mpiutils,    only:allgatherv_mpi
  use mpiderivs,   only:get_exchange_counts
- use neighkdtree, only:get_let_counts,get_walk_stats
  use timing,      only:timers,itimer_step,itimer_tree,itimer_dens_lcomp,itimer_dens_rcomp,&
-                       itimer_dens_wait,itimer_force_let,itimer_force_lcomp,itimer_force_lsend,&
-                       itimer_force_rcomp,itimer_force_wait,itimer_dens_export,itimer_force_export,&
-                       itimer_force_lwalk
+                       itimer_dens_wait,itimer_force_let,itimer_force_lcomp,&
+                       itimer_force_rcomp,itimer_force_wait
  real(kind=8), allocatable, intent(out) :: allvals(:)
- real(kind=8) :: vals(ntaskvals),exch(3),let(3)
+ real(kind=8) :: vals(ntaskvals),exch(3)
 
  call get_exchange_counts(exch)
- call get_let_counts(let)
  vals(1)  = npart
  vals(2)  = timers(itimer_step)%wall
  vals(3)  = timers(itimer_tree)%wall
@@ -438,16 +434,9 @@ subroutine gather_task_values(allvals)
  vals(6)  = timers(itimer_dens_wait)%wall
  vals(7)  = timers(itimer_force_let)%wall
  vals(8)  = timers(itimer_force_lcomp)%wall
- vals(9)  = timers(itimer_force_lsend)%wall
- vals(10) = timers(itimer_force_rcomp)%wall
- vals(11) = timers(itimer_force_wait)%wall
- vals(12:14) = exch
- vals(15) = let(1)/max(let(3),1._8)  ! nodes imported per call
- vals(16) = let(2)
- vals(17) = timers(itimer_dens_export)%wall
- vals(18) = timers(itimer_force_export)%wall
- vals(19) = timers(itimer_force_lwalk)%wall
- call get_walk_stats(vals(20:23))
+ vals(9)  = timers(itimer_force_rcomp)%wall
+ vals(10) = timers(itimer_force_wait)%wall
+ vals(11:13) = exch
  allocate(allvals(ntaskvals*nprocs))
  call allgatherv_mpi(vals,allvals)
 
@@ -455,37 +444,9 @@ end subroutine gather_task_values
 
 !----------------------------------------------------------------
 !+
-!  diagnostic: the balance between tasks now, and that a new
-!  decomposition into sections would give, weighting particles by how
-!  often they are active
-!+
-!----------------------------------------------------------------
-subroutine section_balance(iunit,np,xyzh,ibin)
- use dim,           only:ind_timesteps
- use mpisections,   only:print_section_diagnostic
- integer,         intent(in) :: iunit,np
- real,            intent(in) :: xyzh(:,:)
- integer(kind=1), intent(in) :: ibin(:)
- real, allocatable :: wt(:)
- integer :: i
-
- ! work weight of each particle: how often it is active
- allocate(wt(np))
- do i = 1,np
-    wt(i) = 1.
-    if (ind_timesteps) wt(i) = 2.**ibin(i)
- enddo
- call print_section_diagnostic(np,xyzh,wt,iunit)
-
-end subroutine section_balance
-
-!----------------------------------------------------------------
-!+
 !  print one row per task of the values from gather_task_values:
-!  wall times of each phase on that task (s), the exchange and import
-!  statistics since the last summary, and the dual tree walk statistics
-!  (node pairs per walk, % of walks starting from a cached list, lists
-!  too long to cache, hmax of the local root)
+!  wall times of each phase on that task (s), and the cells and data
+!  exchanged since the last summary
 !+
 !----------------------------------------------------------------
 subroutine print_task_table(iunit,allvals)
@@ -494,18 +455,16 @@ subroutine print_task_table(iunit,allvals)
  real(kind=8), intent(in) :: allvals(:)
  integer :: itask
  character(len=*), parameter :: fmtrow = &
-    "(i5,1x,i9,10(1x,f8.2),2(1x,i10),1x,f9.1,1x,i9,1x,i11,3(1x,f8.2),1x,f9.1,1x,f7.1,1x,i9,1x,es10.3)"
+    "(i5,1x,i9,9(1x,f8.2),2(1x,i10),1x,f9.1)"
 
  if (id /= master) return
- write(iunit,"(/,a)") ' MPI per task: wall time (s) of each phase, and exchange and import since the last summary'
- write(iunit,"(a5,1x,a9,10(1x,a8),2(1x,a10),1x,a9,1x,a9,1x,a11,3(1x,a8),1x,a9,1x,a7,1x,a9,1x,a10)") 'task','npart','step','tree',&
-       'd_lcomp','d_rcomp','d_wait','f_let','f_lcomp','f_lsend','f_rcomp','f_wait',&
-       'cells_sent','cells_recv','MB_recv','LET/call','leaf_pairs','d_export','f_export','f_lwalk',&
-       'pairs/wk','cached%','overflow','hmax_root'
+ write(iunit,"(/,a)") ' MPI per task: wall time (s) of each phase, and cells and data exchanged since the last summary'
+ write(iunit,"(a5,1x,a9,9(1x,a8),2(1x,a10),1x,a9)") 'task','npart','step','tree',&
+       'd_lcomp','d_rcomp','d_wait','f_let','f_lcomp','f_rcomp','f_wait',&
+       'cells_sent','cells_recv','MB_recv'
  do itask = 0,nprocs-1
     associate(v => allvals(ntaskvals*itask+1:ntaskvals*(itask+1)))
-    write(iunit,fmtrow) itask,nint(v(1)),v(2:11),nint(v(12:13),kind=8),v(14),nint(v(15)),&
-                        nint(v(16),kind=8),v(17:19),v(20),v(21),nint(v(22),kind=8),v(23)
+    write(iunit,fmtrow) itask,nint(v(1)),v(2:10),nint(v(11:12),kind=8),v(13)
     end associate
  enddo
  write(iunit,*)

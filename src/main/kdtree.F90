@@ -60,8 +60,10 @@ module kdtree
  ! (secroot, 0 for a section with no particles here) and the join nodes above them, children
  ! first; then the top of the global tree, from the sections: the global index of the leaf of
  ! each section with particles (sec_leaf), its owner and the owner's local index of its root
- integer, public, allocatable :: secroot(:),joinnode(:)
- integer, public :: nsecroot = 0,njoinnode = 0
+ integer, allocatable :: secroot(:)
+ integer, public, allocatable :: joinnode(:)
+ integer :: nsecroot = 0
+ integer, public :: njoinnode = 0
  integer, public :: ntop_sec = 0,nsec_nonempty = 0
  integer, public, allocatable :: sec_leaf(:),sec_owner(:),sec_root(:)
 
@@ -250,9 +252,6 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
     endif
 
     if (wassplit) then ! add children to back of queue
-       if (istack+2 > size(queue)) call fatal('maketree',&
-                                       'queue size exceeded in tree build, increase maxqueue and recompile')
-
        istack = istack + 1
        call push_onto_stack(queue(istack),il,nnode,level+1,nl,xminl,xmaxl)
        istack = istack + 1
@@ -573,7 +572,7 @@ subroutine seed_queue_with_sections(nproot,queue,istack,join,njoin,seeded,ncells
  logical,              intent(inout) :: seeded
  integer(kind=8),      intent(inout) :: ncells
  integer,    allocatable :: isec(:),istart(:),ifirst(:),ilast(:),todo(:,:),kown(:)
- integer(8), allocatable :: keyfirst(:),keysec(:)
+ integer(kind=8), allocatable :: keyfirst(:),keysec(:)
  integer :: nsecown,nsec,k,ntodo,n,a,b,m,level,mymum,ibit,il,ir
  real    :: xmin(3),xmax(3)
 
@@ -757,7 +756,7 @@ subroutine combine_join_nodes(node,join,njoin,leaf_is_active)
  type(kdnode), intent(inout) :: node(:)
  integer,      intent(in)    :: join(:,:),njoin
  integer,      intent(inout) :: leaf_is_active(:)
- real    :: x0(3),totmass_node,xmini(3),xmaxi(3)
+ real    :: x0(3),totmass_node
  integer :: k,n,npnode,mymum,level
 
  do k = njoin,1,-1
@@ -765,10 +764,8 @@ subroutine combine_join_nodes(node,join,njoin,leaf_is_active)
     npnode = inoderange(2,n) - inoderange(1,n) + 1
     mymum = join(4,k)
     level = join(5,k)
-    xmini  = 0.  ! only used for the global (MPI) tree
-    xmaxi  = 0.
     call compute_nodes_cofm(npnode,n,x0,totmass_node,.true.)
-    call set_nodes_properties(npnode,n,x0,totmass_node,mymum,node(n),xmini,xmaxi,level,.true.)
+    call set_nodes_properties(npnode,n,x0,totmass_node,mymum,node(n),level,.true.)
     node(n)%mass       = totmass_node
     node(n)%leftchild  = join(2,k)
     node(n)%rightchild = join(3,k)
@@ -1432,11 +1429,10 @@ subroutine compute_nodes_cofm(npnode,nnode,xyzcofm,totmass_node,doparallel)
 
 end subroutine compute_nodes_cofm
 
-subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                                level,doparallel)
+subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,level,doparallel)
  type(kdnode),    intent(out)   :: nodeentry
  integer,         intent(in)    :: npnode,mymum,level,nnode
- real,            intent(inout) :: xmini(3), xmaxi(3), totmass_node
+ real,            intent(inout) :: totmass_node
  real,            intent(in)    :: x0(3)
  logical,         intent(in)    :: doparallel
  real    :: pmassi
@@ -1666,8 +1662,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     'totmass_node==0, something almost certainly wrong with aprmassoftype')
  if (totmass_node<=0.) call fatal('mtree','totmass_node==0',val=totmass_node)
 
- call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,xmini,xmaxi,&
-                           level,doparallel)
+ call set_nodes_properties(npnode,nnode,xyzcofm,totmass_node,mymum,nodeentry,level,doparallel)
 
  ! for gravity KDtree, we need the geo centre to split the node
  if (use_geosplit) then
@@ -2059,7 +2054,7 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  integer, allocatable :: nodelist(:)
  integer :: ilevel(0:maxdepth+1)
  integer :: nproot,nlive,nbad,ip,i,j,n,inode,il,level,nlevel,mymum
- real    :: x0(3),xmini(3),xmaxi(3),totmass_node
+ real    :: x0(3),totmass_node
  logical :: nodeisactive
 
  ok = .false.
@@ -2131,7 +2126,7 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  !
  !$omp parallel default(none) &
  !$omp shared(nlevel,ilevel,nodelist,node,inoderange,inodeparts,leaf_is_active) &
- !$omp private(level,j,inode,il,n,ip,mymum,x0,xmini,xmaxi,totmass_node,nodeisactive)
+ !$omp private(level,j,inode,il,n,ip,mymum,x0,totmass_node,nodeisactive)
  do level=nlevel-1,0,-1
     !$omp do schedule(guided)
     do j=ilevel(level),ilevel(level+1)-1
@@ -2142,11 +2137,8 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
           n = inoderange(2,inode) - inoderange(1,inode) + 1
           if (inoderange(1,inode) <= 0 .or. n < 1) cycle
           mymum = node(inode)%parent
-          xmini = 0. ! only used for the global (MPI) tree
-          xmaxi = 0.
           call compute_nodes_cofm(n,inode,x0,totmass_node,.false.)
-          call set_nodes_properties(n,inode,x0,totmass_node,mymum,node(inode),xmini,xmaxi,&
-                                    level,.false.)
+          call set_nodes_properties(n,inode,x0,totmass_node,mymum,node(inode),level,.false.)
           node(inode)%leftchild  = 0
           node(inode)%rightchild = 0
           node(inode)%mass       = totmass_node
@@ -2224,9 +2216,8 @@ end subroutine combine_child_nodes
 !  on every task
 !+
 !-------------------------------------------------------------------------------
-subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
+subroutine maketreeglobal(nodeglobal,node,xyzh,&
                           np,nactive,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
- use io,           only:nprocs
  use mpibalance,   only:balancedomains
  use mpisections,  only:assign_section_owners
  use mpiutils,     only:reduceall_mpi
@@ -2238,7 +2229,6 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
 
  type(kdnode),    intent(out)   :: nodeglobal(:)    ! ncellsmax+1
  type(kdnode),    intent(out)   :: node(:)          ! ncellsmax+1
- integer,         intent(out)   :: globallevel
  integer,         intent(inout) :: np
  integer,         intent(in)    :: nactive  ! number of active particles on this task
  real,            intent(inout) :: xyzh(:,:)
@@ -2258,9 +2248,6 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  call get_timings(tg1,tcpug1)
  sinktree = .false.
  if (present(nptmass).and.present(xyzmh_ptmass)) sinktree=.true.
-
- ! the level of the nodes of the global tree, as for a binary split between tasks
- globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
 
  ! particles that crossed a periodic boundary are wrapped first, so that their key is
  ! that of where they are (construct_root_node would wrap them after the move)
@@ -2310,7 +2297,7 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
  endif
 
  call get_timings(t1,tcpu1)
- call build_section_top(nodeglobal,node,globallevel)
+ call build_section_top(nodeglobal,node)
  call set_exact_top_sizes(nodeglobal)
  call get_timings(tg2,tcpug2)
 
@@ -2334,14 +2321,12 @@ end subroutine maketreeglobal
 !  sec_root
 !+
 !--------------------------------------------------------------------------------
-subroutine build_section_top(nodeglobal,node,globallevel)
- use io,          only:nprocs
+subroutine build_section_top(nodeglobal,node)
  use mpisections, only:get_section_tree
  use mpitree,     only:allgatherv_nodes
  use mpiutils,    only:allgather_mpi,allgatherv_mpi,get_displs_mpi
  type(kdnode), intent(inout) :: nodeglobal(:)
  type(kdnode), intent(in)    :: node(:)
- integer,      intent(in)    :: globallevel
  integer,      allocatable :: left(:),isec(:),owner(:),idrec(:),idall(:),rep(:),gidx(:)
  integer,      allocatable :: rootof(:),irec(:),istack(:)
  type(kdnode), allocatable :: block(:),blockall(:)
@@ -2430,7 +2415,7 @@ subroutine build_section_top(nodeglobal,node,globallevel)
        nodeglobal(cl)%parent = g
        nodeglobal(cr)%parent = g
     endif
-    nodeglobal(g)%level = globallevel
+    nodeglobal(g)%level = 0
  enddo
  nodeglobal(1)%parent = 0
 

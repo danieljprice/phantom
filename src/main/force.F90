@@ -199,8 +199,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
-                        active_leaves,nactive_leaves,ncellchunk,let_exchange,use_dualtree,&
-                        get_leaf_neighbours,record_walk_times
+                        active_leaves,nactive_leaves,ncellchunk,let_exchange,&
+                        get_leaf_neighbours
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -239,7 +239,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote,itimer_force_let,&
                         itimer_force_lcomp,itimer_force_rcomp,&
-                        itimer_force_lwalk,itimer_force_rwalk,itimer_force_export,&
                         itimer_force_lsend,itimer_force_rsend
  use eos,          only:iresistive_heating
 
@@ -411,7 +410,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
  !--import the nodes of other tasks that the dual tree walk could open (the
  !  locally essential tree), and check that the walk never meets a truncated node
- if (exchange .and. use_dualtree) then
+ if (exchange .and. gravity) then
     call get_timings(t1,tcpu1)
     call let_exchange()
     call get_timings(t2,tcpu2)
@@ -503,7 +502,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2) &
-!$omp shared(tc1,tcpuc1,tc2,tcpuc2,use_dualtree)
+!$omp shared(tc1,tcpuc1,tc2,tcpuc2)
 
  if (exchange) call init_cell_exchange(stack_remote)
 
@@ -533,10 +532,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     cell%owner = id
     do_export = any(remote_export)
-    !--without the dual tree walk or self-gravity, send each task only the particles that
-    !  interact with its particles. With self-gravity the remote task computes the gravity
-    !  of its nearby nodes, which the global tree walk did not, on every particle of the cell
-    if (do_export .and. .not.gravity .and. .not.use_dualtree) then
+    !--without self-gravity, send each task only the particles that interact with its
+    !  particles (with self-gravity, the leaves the dual tree walk paired with the cell)
+    if (do_export .and. .not.gravity) then
        call particle_targets(cell,remote_export,ptargets)
        do_export = any(remote_export)
     endif
@@ -545,11 +543,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)
-          if (use_dualtree) then
+          if (gravity) then
              ! to each task, with its leaves that the dual tree walk paired with the cell
              call send_cell_with_leaves(cell,stack_remote,cell_counters)
-          elseif (gravity) then
-             call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
           else
              call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets)
           endif
@@ -590,7 +586,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (exchange) then
     call increment_timer(itimer_force_lcomp,tc2-t1,tcpuc2-tcpu1)
     call record_send_wait(itimer_force_lsend)
-    call record_walk_times(itimer_force_lwalk,itimer_force_export)
  endif
  !$omp end single
 
@@ -641,7 +636,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call get_timings(tc2,tcpuc2)
     call increment_timer(itimer_force_rcomp,tc2-tc1,tcpuc2-tcpuc1)
     call record_send_wait(itimer_force_rsend)
-    call record_walk_times(itimer_force_rwalk,itimer_force_export)
     !$omp end single
 
     !$omp single

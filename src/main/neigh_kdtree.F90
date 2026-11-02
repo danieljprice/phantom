@@ -101,18 +101,7 @@ module neighkdtree
  integer,               allocatable :: branch_mark(:)     ! local nodes above active leaves
  integer                            :: branch_stamp = 0  ! the value of branch_mark on those nodes
  integer                            :: let_stamp = 0
- integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0, nlet_calls = 0
- ! wall time each thread spends in neighbour walks since the last call to record_walk_times:
- ! walks of this task's tree (including the dual tree walk), and the walks of the global tree
- ! that find which tasks to export a cell or its particles to
- integer, parameter                 :: iwalk_tree = 1, iwalk_export = 2
- real(kind=4),          allocatable :: twalk(:,:)
- ! counts in the dual tree walk since the last summary, per thread: walks, node pairs
- ! popped from the stack, walks starting from a cached interaction list, and interaction
- ! lists of branch nodes too long to cache (more than maxnodecache_local nodes)
- integer, parameter                 :: istat_walks = 1, istat_pops = 2, istat_cached = 3, &
-                                       istat_overflow = 4, nwalkstats = 4
- integer(kind=8),       allocatable :: walkstats(:,:)
+ integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0
  ! particles of other tasks' leaves of large reach, imported for force: they are placed after
  ! npart in the particle arrays, and the leaf becomes a local leaf of the combined tree, so that
  ! the cells meeting it need not be sent to its owner
@@ -160,10 +149,11 @@ module neighkdtree
  integer(kind=8), public            :: ncells
  real,            public            :: dxcell
  real,            public            :: dcellx = 0.,dcelly = 0.,dcellz = 0.
- ! the dual tree walk in force: only with self-gravity, since without it the
- ! single tree walk is faster, on one task and with the exchange between tasks
+ ! self-gravity on one task uses the dual tree walk, unless set false to compare with the
+ ! single tree walk (test_gravity); with more than one MPI task it always does. Without
+ ! self-gravity the single tree walk is faster
  logical,         public            :: use_dualtree  = gravity
- logical,         public            :: use_dualcache = gravity ! set in allocate_neigh
+ logical,         parameter         :: use_dualcache = gravity
  integer,         parameter         :: maxnodecache_local = 4096
  integer,         parameter         :: maxneigh_per_node  = 16
  integer,         parameter         :: maxstacksize = 2048
@@ -171,7 +161,6 @@ module neighkdtree
  ! until the particles have had about one step each since the tree was built
  real,            parameter         :: frac_active_revtree = 0.1
  integer(kind=8)                    :: nactive_since_build = 0
- integer                            :: globallevel
 
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
@@ -179,8 +168,7 @@ module neighkdtree
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: sync_hmax_mpi
- public :: let_exchange,print_let_stats,get_leaf_neighbours,get_let_counts,record_walk_times
- public :: get_walk_stats
+ public :: let_exchange,print_let_stats,get_leaf_neighbours
  public :: get_particle_targets
  public :: get_node_node_interaction,expand_fgrav_in_taylor_series
 
@@ -199,10 +187,8 @@ subroutine allocate_neigh
  use kdtree,     only:allocate_kdtree,maxdepth
  use dim,        only:maxp
  use io,         only:nprocs
-!$ use omp_lib,   only:omp_get_max_threads
  integer(kind=8) :: nglobal
-
- integer :: nnodes,ncache,nthreads
+ integer :: nnodes,ncache
 
  ! the top nodes, then each task's block of nodes
  nglobal = ntop_max() + int(nprocs,kind=8)*mirror_budget()
@@ -232,12 +218,6 @@ subroutine allocate_neigh
     call allocate_array('branch_mark',  branch_mark,  ncellsmax+1)
     branch_mark = 0
  endif
- ! time in the walks, per thread
- nthreads = 1
-!$ nthreads = omp_get_max_threads()
- allocate(twalk(2,nthreads),walkstats(nwalkstats,nthreads))
- twalk = 0.
- walkstats = 0
  nodemap = 0
  nmirror = 0
  remote_leaf_owner = 0
@@ -246,12 +226,9 @@ subroutine allocate_neigh
  call allocate_array('listneigh_global',listneigh_global,maxp)
  call allocate_array('cachestate', cachestate, ncache)
 
- ! the walk caches are used by the dual tree walk: in force with self-gravity, and in
- ! every force walk with more than one MPI task if the dual tree walk is used. Long-range
- ! forces are only cached with self-gravity
- use_dualcache = gravity .or. (nprocs > 1 .and. use_dualtree)
+ ! the walk caches of the dual tree walk, used in force with self-gravity
  if (use_dualcache) then
-    call allocate_array('fnodecache', fnodecache, lenfgrav, merge(ncache,1,gravity))
+    call allocate_array('fnodecache', fnodecache, lenfgrav, ncache)
     call allocate_array('neighnodecache',neighnodecache,ncellsmax*maxneigh_per_node)
     call allocate_array('neighnodecache_start',neighnodecache_start,ncache)
     call allocate_array('neighnodecache_count',neighnodecache_count,ncache)
@@ -278,8 +255,6 @@ subroutine deallocate_neigh
  use kdtree,   only:deallocate_kdtree
 
  if (allocated(cellatid)) deallocate(cellatid)
- if (allocated(twalk)) deallocate(twalk)
- if (allocated(walkstats)) deallocate(walkstats)
  if (allocated(leaf_is_active)) deallocate(leaf_is_active)
  if (allocated(active_leaves)) deallocate(active_leaves)
  if (allocated(nodeglobal)) deallocate(nodeglobal)
@@ -422,10 +397,10 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,nactive,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,xyzh,npart,nactive,leaf_is_active,ncells,&
                            apr_tree,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(nodeglobal,node,globallevel,xyzh,npart,nactive,leaf_is_active,ncells,&
+       call maketreeglobal(nodeglobal,node,xyzh,npart,nactive,leaf_is_active,ncells,&
                            apr_tree)
     endif
     call get_timings(t1,tcpu1)
@@ -614,7 +589,6 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  use kernel,   only:radkern
  use part,     only:gravity,periodic
  use boundary, only:dxbound,dybound,dzbound
- use timing,   only:getused
  integer, intent(in)  :: inode,ixyzcachesize
  integer, intent(out) :: mylistneigh(:)
  integer, intent(out) :: nneigh
@@ -625,10 +599,9 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
  logical, intent(out), optional :: remote_export(:)
  real,    intent(in),  optional :: cell_xpos(3),cell_xsizei,cell_rcuti
  real :: xpos(3)
- real :: fgrav(lenfgrav),fgrav_global(lenfgrav)
+ real :: fgrav(lenfgrav)
  real :: xsizei,rcuti
  integer :: nrem,ntr,k
- real(kind=4) :: t1
  logical :: get_j,global_search,get_f
 !
 !--retrieve geometric centre of the node and the search radius (e.g. 2*hmax)
@@ -663,36 +636,26 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
 
  get_f = (gravity .and. present(f))
 
- if (mpi .and. global_search .and. present(f) .and. use_dualtree) then
+ if (mpi .and. global_search .and. get_f) then
     ! with more than one MPI task, the force walk (f present) is the dual tree walk of
     ! the combined tree, with the nodes imported from other tasks. Leaves of other tasks
     ! paired with this cell are listed in remote_leaves, and the cell is sent to their owners
-    call getused(t1)
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                        leaf_is_active,get_j,get_f,f,inode,nrem,ntr)
-    call add_walk_time(iwalk_tree,t1)
     if (ntr > 0) call fatal('get_neighbour_list','dual tree walk met a node of another task whose children were not imported')
     do k = 1,nremote_leaves
        remote_export(remote_leaf_owner(remote_leaves(k))) = .true.
     enddo
-    !$omp atomic
-    nlet_p2p = nlet_p2p + nrem
     return
  endif
 
- if (mpi .and. global_search) then ! no sym fmm for now...
+ if (mpi .and. global_search) then
     ! Find MPI tasks that have neighbours of this cell, output to remote_export
-    call getused(t1)
     call getneigh(nodeglobal,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
-                  cellatid,get_j,get_f,fgrav_global,remote_export)
-    call add_walk_time(iwalk_export,t1)
- elseif (get_f) then
-    ! Set fgrav to zero, which matters if gravity is enabled but global search is not
-    fgrav_global = 0.0
+                  cellatid,get_j,.false.,remote_export=remote_export)
  endif
 
  ! Find neighbours of this cell on this node: the dual tree walk in force with self-gravity
- call getused(t1)
  if (get_f .and. .not.(mpi .and. nprocs > 1) .and. use_dualtree) then
     call getneigh_dual(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                           leaf_is_active,get_j,get_f,fgrav,inode)
@@ -700,9 +663,8 @@ subroutine get_neighbour_list(inode,mylistneigh,nneigh,xyzh,xyzcache,ixyzcachesi
     call getneigh(node,xpos,xsizei,rcuti,mylistneigh,nneigh,xyzcache,ixyzcachesize,&
                      leaf_is_active,get_j,get_f,fgrav)
  endif
- call add_walk_time(iwalk_tree,t1)
 
- if (get_f) f = fgrav + fgrav_global
+ if (get_f) f = fgrav
 
 end subroutine get_neighbour_list
 
@@ -788,7 +750,6 @@ end subroutine get_cell_location
 !+
 !-----------------------------------------------------------------------
 subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
- use timing, only:getused
  integer, intent(in)    :: np
  real,    intent(in)    :: xpos(:,:),rcut(:)
  logical, intent(in)    :: getj
@@ -796,10 +757,8 @@ subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
  logical, intent(out)   :: ptargets(:,:)
  logical :: pexport(size(remote_export))
  integer :: i,j,listdummy(1),ndummy
- real(kind=4) :: t1
  real    :: cachedummy(1,1)
 
- call getused(t1)
  ptargets = .false.
  do i=1,np
     call getneigh(nodeglobal,xpos(:,i),0.,rcut(i),listdummy,ndummy,cachedummy,0,cellatid,&
@@ -809,49 +768,8 @@ subroutine get_particle_targets(np,xpos,rcut,getj,remote_export,ptargets)
  do j=1,size(remote_export)
     remote_export(j) = any(ptargets(1:np,j))
  enddo
- call add_walk_time(iwalk_export,t1)
 
 end subroutine get_particle_targets
-
-!-----------------------------------------------------------------------
-!+
-!  add the wall time since t1 to this thread's time in a kind of walk
-!+
-!-----------------------------------------------------------------------
-subroutine add_walk_time(iwalk,t1)
- use timing,   only:getused
- use omputils, only:omp_thread_num
- integer,      intent(in) :: iwalk
- real(kind=4), intent(in) :: t1
- real(kind=4) :: t2
- integer :: ith
-
- if (.not.allocated(twalk)) return
- ith = omp_thread_num() + 1
- if (ith > size(twalk,2)) return
- call getused(t2)
- twalk(iwalk,ith) = twalk(iwalk,ith) + (t2 - t1)
-
-end subroutine add_walk_time
-
-!-----------------------------------------------------------------------
-!+
-!  add the time threads spent in walks of this task's tree and in the
-!  export walks since the last call to two timers, then reset (called
-!  by one thread). As for send_wait, the wall time is that of the
-!  thread that spent longest, the cpu time is the sum over threads
-!+
-!-----------------------------------------------------------------------
-subroutine record_walk_times(itimer_walk,itimer_export)
- use timing, only:increment_timer
- integer, intent(in) :: itimer_walk,itimer_export
-
- if (.not.allocated(twalk)) return
- call increment_timer(itimer_walk,maxval(twalk(iwalk_tree,:)),sum(twalk(iwalk_tree,:)))
- call increment_timer(itimer_export,maxval(twalk(iwalk_export,:)),sum(twalk(iwalk_export,:)))
- twalk = 0.
-
-end subroutine record_walk_times
 
 !-----------------------------------------------------------------------
 !+
@@ -1354,7 +1272,6 @@ subroutine let_exchange()
     endif
     irecv = irecv + nrecv(iproc+1)
  enddo
- nlet_calls = nlet_calls + 1
 
  ! the particles of the leaves of large reach, once the nodes are attached
  call unpack_leaf_particles(recvbuf,leafseg)
@@ -1882,8 +1799,8 @@ logical function well_separated(node1,node2)
 
  call get_sep(node1%xcen,node2%xcen,dx,dy,dz,xoff,yoff,zoff,r2)
  rcut = radkern*max(node1%hmax,node2%hmax)
- well_separated = (r2 > (node1%size + node2%size + rcut)**2)
- if (gravity) well_separated = well_separated .and. (tree_accuracy**2*r2 > (node1%size + node2%size)**2)
+ well_separated = (r2 > (node1%size + node2%size + rcut)**2) .and. &
+                  (tree_accuracy**2*r2 > (node1%size + node2%size)**2)
 
 end function well_separated
 
@@ -1905,8 +1822,7 @@ logical function profile_may_open(noded,sizemax,hmaxmax,n_node)
  d     = sqrt(r2) - noded%size
  sizes = sizemax + n_node%size
  rcut  = radkern*max(hmaxmax,n_node%hmax)
- profile_may_open = (d < sizes + rcut)
- if (gravity) profile_may_open = profile_may_open .or. (tree_accuracy*d < sizes)
+ profile_may_open = (d < sizes + rcut) .or. (tree_accuracy*d < sizes)
 
 end function profile_may_open
 
@@ -2060,7 +1976,7 @@ logical function leaf_may_interact(n,iproc)
     d     = sqrt(r2) - nodeglobal(g)%size
     sizes = 2.*nodeglobal(g)%size + node(n)%size
     rcut  = radkern*max(nodeglobal(g)%hmax,node(n)%hmax)
-    if (d >= sizes + rcut .and. .not.(gravity .and. tree_accuracy*d < sizes)) cycle
+    if (d >= sizes + rcut .and. tree_accuracy*d >= sizes) cycle
 
     ! a section of iproc in reach
     if (section_of(g) > 0) return
@@ -2341,17 +2257,15 @@ subroutine print_let_stats(iunit)
  use io,       only:id,master,nprocs
  use mpiutils, only:reduceall_mpi
  integer, intent(in) :: iunit
- integer(kind=8) :: nsent,nrecv,np2p,nrecvmax,nimpl,nimpp
+ integer(kind=8) :: nsent,nrecv,nrecvmax,nimpl,nimpp
 
  nsent  = reduceall_mpi('+',nlet_sent)
  nrecv  = reduceall_mpi('+',nlet_recv)
  nrecvmax = reduceall_mpi('max',nlet_recv)
- np2p   = reduceall_mpi('+',nlet_p2p)
  if (id == master .and. nsent > 0) then
     write(iunit,"(a,i0,a,f10.3,a,f10.3)") ' MPI LET nodes imported (all tasks): ',nrecv,&
           '  MB per task (mean,max): ',1.e-6*8*nlet_record*real(nrecv)/nprocs,&
           ' ',1.e-6*8*nlet_record*real(nrecvmax)
-    write(iunit,"(a,i0)") ' MPI LET leaf pairs with other tasks: ',np2p
  endif
  nimpl = reduceall_mpi('+',nimp_leaves_recv)
  nimpp = reduceall_mpi('+',nimp_part_recv)
@@ -2359,25 +2273,10 @@ subroutine print_let_stats(iunit)
        nimpl,' with ',nimpp,' particles'
  nlet_sent = 0
  nlet_recv = 0
- nlet_p2p  = 0
- nlet_calls = 0
  nimp_leaves_recv = 0
  nimp_part_recv = 0
 
 end subroutine print_let_stats
-
-!-----------------------------------------------------------------------
-!+
-!  this task's import statistics since the last summary: nodes
-!  imported, leaf pairs with other tasks and calls to let_exchange
-!+
-!-----------------------------------------------------------------------
-subroutine get_let_counts(counts)
- real(kind=8), intent(out) :: counts(3)
-
- counts = real([nlet_recv,nlet_p2p,nlet_calls],kind=8)
-
-end subroutine get_let_counts
 
 !-----------------------------------------------------------------------
 !+
@@ -2746,7 +2645,6 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
 #ifdef GRAVITY
  real :: quads(6)
  real :: dr,totmass_node
- logical :: count_gravity
 #endif
  tree_acc2 = tree_accuracy*tree_accuracy
  if (get_f .and. .not.present(fnode)) then
@@ -2815,33 +2713,12 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
        endif if_leaf
 #ifdef GRAVITY
     elseif (get_f) then ! if_open_node
-       ! When searching for neighbours of this node, the tree walk may encounter
-       ! nodes on the global tree that it does not need to open, so it should
-       ! just add the contribution to fnode. However, when walking a different
-       ! part of the tree, it may then become necessary to export this node to
-       ! a remote task. When it arrives at the remote task, it will then walk
-       ! the remote tree.
        !
-       ! The complication arises when tree refinment is enabled, which puts part
-       ! of the remote tree onto the global tree. fnode will be double counted
-       ! if a contribution is made on the global tree and a separate branch
-       ! causes it to be sent to a remote task, where that contribution is
-       ! counted again.
+       !--long range force on node due to distant node, along node centres
+       !  along with derivatives in order to perform series expansion
        !
-       ! The solution is to not count the parts of the local tree that have been
-       ! added onto the global tree (those with nodemap /= 0). In the global
-       ! walk, n indexes the global tree, so nodemap must not be read.
-       count_gravity = global_walk
-       if (.not.global_walk) count_gravity = (nodemap(n) == 0)
-       if_count_gravity: if (count_gravity) then
-          !
-          !--long range force on node due to distant node, along node centres
-          !  along with derivatives in order to perform series expansion
-          !
-          dr = 1./sqrt(r2)
-          call compute_M2L(dx,dy,dz,dr,totmass_node,quads,fnode)
-
-       endif if_count_gravity
+       dr = 1./sqrt(r2)
+       call compute_M2L(dx,dy,dz,dr,totmass_node,quads,fnode)
 #endif
 
     endif if_open_node
@@ -2873,7 +2750,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  integer,      intent(in)    :: icell
  integer,      intent(out), optional :: nremote,ntrunc ! leaf pairs with other tasks' leaves, and with truncated ones
  integer :: istack,i,iparent,idstbranch,idst,isrc,maxcache,ibase,nodestate,nrem,ntr
- integer :: branch(maxdepth+1),nparents,startwith(2),npop,noverflow
+ integer :: branch(maxdepth+1),nparents,startwith(2)
  real    :: dx,dy,dz,xoffset,yoffset,zoffset
  real    :: tree_acc2
  real    :: fnode_acc(lenfgrav)
@@ -2917,10 +2794,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
 !
 !-- parallel select algorithm to check every interactions between the tree and the selected branch
 !
- npop = 0
  do while(istack > 0)
     !-- pop the stack
-    npop = npop + 1
     idst       = dualstack(1,istack) ! dest node id
     isrc       = dualstack(2,istack) ! src node id
     idstbranch = dualstack(3,istack) ! dest id in branch array
@@ -2953,7 +2828,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  !
  !-- Downward pass to accumulate on each leaf / Cache and fetch fgrav optimisation
  !
- noverflow = 0
  do i=nparents,2,-1 ! parents(1) is equal to icell
     iparent = branch(i)
     ! -- Cache node if first thread to reach it or fetch fnode in memory
@@ -2966,7 +2840,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           !$omp end atomic
           if (nodestate == 0) then ! if still the winner then cache
              !-- winner: publish fnode first ...
-             if (gravity) fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
+             fnodecache(1:lenfgrav,iparent) = fnode_branch(1:lenfgrav,i)
              ! flush: fnodecache must be visible before the state says it is cached
              !$omp flush
              !$omp atomic write
@@ -2974,7 +2848,6 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
              !$omp end atomic
 
              !-- then store interaction list in the cache array if it fits
-             if (neighnodecount_branch(i) > maxnodecache_local) noverflow = noverflow + 1
              if (neighnodecount_branch(i)> 0 .and. neighnodecount_branch(i) <= maxnodecache_local) then
                 !$omp atomic capture
                 ibase = itail_neigh
@@ -2996,7 +2869,7 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
           !-- fetch fnode from the cache array
           ! flush: see the fnodecache published before the state was set
           !$omp flush
-          if (gravity) fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
+          fnode_branch(1:lenfgrav,i) = fnodecache(1:lenfgrav,iparent)
        endif
     endif
 
@@ -3006,54 +2879,8 @@ subroutine getneigh_dual(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzca
  enddo
 
  fnode = fnode_acc + fnode_branch(:,1)
- call add_walk_stats(npop,(use_dualcache .and. startwith(2) > 0),noverflow)
 
 end subroutine getneigh_dual
-
-!-----------------------------------------------------------------------
-!+
-!  add the counts of one dual tree walk to this thread's statistics
-!+
-!-----------------------------------------------------------------------
-subroutine add_walk_stats(npop,cached,noverflow)
- use omputils, only:omp_thread_num
- integer, intent(in) :: npop,noverflow
- logical, intent(in) :: cached
- integer :: ith
-
- if (.not.allocated(walkstats)) return
- ith = omp_thread_num() + 1
- if (ith > size(walkstats,2)) return
- walkstats(istat_walks,ith)    = walkstats(istat_walks,ith) + 1
- walkstats(istat_pops,ith)     = walkstats(istat_pops,ith) + npop
- if (cached) walkstats(istat_cached,ith) = walkstats(istat_cached,ith) + 1
- walkstats(istat_overflow,ith) = walkstats(istat_overflow,ith) + noverflow
-
-end subroutine add_walk_stats
-
-!-----------------------------------------------------------------------
-!+
-!  statistics of the dual tree walks on this task since the last call:
-!  node pairs per walk, percentage of walks starting from a cached
-!  interaction list, interaction lists too long to cache, and the hmax
-!  of the local root, then reset
-!+
-!-----------------------------------------------------------------------
-subroutine get_walk_stats(stats)
- use kdtree, only:irootnode
- real(kind=8), intent(out) :: stats(4)
- integer(kind=8) :: tot(nwalkstats)
-
- stats = 0.
- if (.not.allocated(walkstats)) return
- tot = sum(walkstats,dim=2)
- stats(1) = real(tot(istat_pops),kind=8)/real(max(tot(istat_walks),1_8),kind=8)
- stats(2) = 100.*real(tot(istat_cached),kind=8)/real(max(tot(istat_walks),1_8),kind=8)
- stats(3) = real(tot(istat_overflow),kind=8)
- if (allocated(node)) stats(4) = node(irootnode)%hmax
- walkstats = 0
-
-end subroutine get_walk_stats
 
 !-----------------------------------------------------------
 !+
@@ -3321,9 +3148,7 @@ subroutine node_interaction(idst,node_dst,node_src,tree_acc2,fnode,stackit,xoffs
 
  rcut  = max(rcut_dst,rcut_src)
  rcut2 = (size_dst+size_src+rcut)**2
- ! outside the kernels, and with self-gravity also accepted by the opening criterion
- wellsep = (r2 > rcut2)
- if (gravity) wellsep = wellsep .and. (tree_acc2*r2 > (size_dst+size_src)**2)
+ wellsep = (tree_acc2*r2 > (size_dst+size_src)**2) .and. (r2 > rcut2)
 
  if (wellsep) then
 #ifdef GRAVITY

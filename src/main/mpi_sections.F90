@@ -35,15 +35,15 @@ module mpisections
  ! with their cells, work, number of particles and owners
  type sectiontree
     integer :: ncell = 0, nsec = 0
-    integer,    allocatable :: axis(:),left(:),depth(:),isec(:)
-    real,       allocatable :: xsplit(:)
-    integer(8), allocatable :: key(:)
-    integer,    allocatable :: seccell(:),owner(:)
-    real(8),    allocatable :: secw(:),secn(:)
+    integer,         allocatable :: axis(:),left(:),depth(:),isec(:)
+    real,            allocatable :: xsplit(:)
+    integer(kind=8), allocatable :: key(:)
+    integer,         allocatable :: seccell(:),owner(:)
+    real,            allocatable :: secw(:),secn(:)
  end type sectiontree
 
  public :: sectiontree,build_sections,locate_section,cut_sections
- public :: assign_section_owners,local_section_index,owned_section_keys,print_section_diagnostic
+ public :: assign_section_owners,local_section_index,owned_section_keys
  public :: get_section_tree
 
  private
@@ -75,8 +75,8 @@ subroutine build_sections(np,xyzh,wt,st,nround)
  type(sectiontree), intent(out) :: st
  integer,           intent(out) :: nround
  integer, allocatable :: icell(:),cand(:),pos(:),newcand(:)
- real(8), allocatable :: sums(:,:),bnd(:,:),cellw(:),celln(:)
- real(8) :: wtot,wmax,ntot,nmax,npmax
+ real,    allocatable :: sums(:,:),bnd(:,:),cellw(:),celln(:)
+ real    :: wtot,wmax,ntot,nmax,npmax
  real    :: ext(3)
  integer :: i,j,k,c,nc,nnew,ia
 
@@ -115,7 +115,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
     ! work, number of particles and bounds (min of x and of -x) of each candidate
     allocate(sums(2,nc),bnd(6,nc))
     sums = 0.
-    bnd  = huge(1.d0)
+    bnd  = huge(1.)
     !$omp parallel do default(none) schedule(static) &
     !$omp shared(np,icell,pos,xyzh,wt) &
     !$omp private(i,j) &
@@ -141,7 +141,7 @@ subroutine build_sections(np,xyzh,wt,st,nround)
     nmax = frac_section*ntot/nprocs
 
     ! split the cells with too much work in two
-    if (size(cellw) < st%ncell + 2*nc) call grow_real8(cellw,celln,st%ncell + 2*nc)
+    if (size(cellw) < st%ncell + 2*nc) call grow_real2(cellw,celln,st%ncell + 2*nc)
     allocate(newcand(2*nc))
     nnew = 0
     do j = 1,nc
@@ -218,10 +218,10 @@ end subroutine build_sections
 subroutine cut_sections(n,work,npart,nprocs,npmax,owner)
  use io, only:fatal
  integer, intent(in)  :: n,nprocs
- real(8), intent(in)  :: work(n),npart(n),npmax
+ real,    intent(in)  :: work(n),npart(n),npmax
  integer, intent(out) :: owner(n)
  integer, parameter :: maxiter = 60
- real(8) :: wlo,whi,wmid,ncap
+ real    :: wlo,whi,wmid,ncap
  integer :: iter
 
  ! drop the cap on particles if no cut can meet it
@@ -255,9 +255,9 @@ end subroutine cut_sections
 !--------------------------------------------------------------------------
 logical function fill_runs(n,work,npart,nprocs,ncap,wmax,owner)
  integer, intent(in)  :: n,nprocs
- real(8), intent(in)  :: work(n),npart(n),ncap,wmax
+ real,    intent(in)  :: work(n),npart(n),ncap,wmax
  integer, intent(out) :: owner(n)
- real(8) :: wrun,nrun
+ real    :: wrun,nrun
  integer :: k,itask
  logical :: too_much_work,too_many_particles,need_section_per_task
 
@@ -426,7 +426,7 @@ real function work_imbalance(np,xyzh,wt,ibelong)
  integer, intent(in) :: np
  real,    intent(in) :: xyzh(:,:),wt(:)
  integer, intent(in) :: ibelong(:)
- real(8) :: work(nprocs)
+ real    :: work(nprocs)
  integer :: i
 
  work = 0.
@@ -434,7 +434,7 @@ real function work_imbalance(np,xyzh,wt,ibelong)
     if (xyzh(4,i) > 0.) work(ibelong(i)+1) = work(ibelong(i)+1) + wt(i)
  enddo
  call reduce_in_place_mpi('+',work,nprocs)
- work_imbalance = real(maxval(work)/max(sum(work)/nprocs,tiny(1.d0)))
+ work_imbalance = real(maxval(work)/max(sum(work)/nprocs,tiny(1.)))
 
 end function work_imbalance
 
@@ -474,7 +474,7 @@ end subroutine local_section_index
 !+
 !--------------------------------------------------------------------------
 subroutine owned_section_keys(keyfirst)
- integer(8), allocatable, intent(out) :: keyfirst(:)
+ integer(kind=8), allocatable, intent(out) :: keyfirst(:)
 
  allocate(keyfirst(max(nown,1)))
  keyfirst = 0
@@ -515,7 +515,7 @@ subroutine grow_cells(st,n)
  type(sectiontree), intent(inout) :: st
  integer,           intent(in)    :: n
  real,       allocatable :: rtmp(:)
- integer(8), allocatable :: ktmp(:)
+ integer(kind=8), allocatable :: ktmp(:)
  integer :: nold,nnew
 
  nold = 0
@@ -554,13 +554,13 @@ end subroutine grow_int
 
 !--------------------------------------------------------------------------
 !+
-!  room for at least n entries in two real(8) arrays
+!  room for at least n entries in two real arrays
 !+
 !--------------------------------------------------------------------------
-subroutine grow_real8(a,b,n)
- real(8), allocatable, intent(inout) :: a(:),b(:)
- integer,              intent(in)    :: n
- real(8), allocatable :: tmp(:)
+subroutine grow_real2(a,b,n)
+ real, allocatable, intent(inout) :: a(:),b(:)
+ integer,           intent(in)    :: n
+ real, allocatable :: tmp(:)
  integer :: nold
 
  nold = size(a)
@@ -571,50 +571,6 @@ subroutine grow_real8(a,b,n)
  tmp(1:nold) = b
  call move_alloc(tmp,b)
 
-end subroutine grow_real8
-
-!--------------------------------------------------------------------------
-!+
-!  diagnostic: the work and particles of each task now, against those of
-!  a new decomposition for the work weights wt (per particle, h > 0)
-!+
-!--------------------------------------------------------------------------
-subroutine print_section_diagnostic(np,xyzh,wt,iprint)
- use io,       only:id,master,nprocs
- use mpiutils, only:reduce_in_place_mpi
- integer, intent(in) :: np,iprint
- real,    intent(in) :: xyzh(:,:),wt(:)
- type(sectiontree) :: st
- real(8), allocatable :: pred(:,:),now(:,:)
- integer :: k,nround
-
- call build_sections(np,xyzh,wt,st,nround)
-
- ! work and particles per task: as cut, and as now
- allocate(pred(2,nprocs),now(2,nprocs))
- pred = 0.
- do k = 1,st%nsec
-    pred(1,st%owner(k)+1) = pred(1,st%owner(k)+1) + st%secw(k)
-    pred(2,st%owner(k)+1) = pred(2,st%owner(k)+1) + st%secn(k)
- enddo
- now = 0.
- now(1,id+1) = sum(wt(1:np),mask=(xyzh(4,1:np) > 0.))
- now(2,id+1) = count(xyzh(4,1:np) > 0.)
- call reduce_in_place_mpi('+',now)
-
- if (id == master) then
-    write(iprint,"(a,i8,a,i3,a,i3)") ' MPI sections: ',st%nsec,' in ',nround, &
-         ' rounds, deepest level ',maxval(st%depth(st%seccell(1:st%nsec)))
-    write(iprint,"(a,2(2x,a,f6.2,a,f6.2))") ' MPI sections max/mean:', &
-         'now work',maxval(now(1,:))/(sum(now(1,:))/nprocs),' particles',maxval(now(2,:))/(sum(now(2,:))/nprocs), &
-         'cut work',maxval(pred(1,:))/(sum(pred(1,:))/nprocs),' particles',maxval(pred(2,:))/(sum(pred(2,:))/nprocs)
-    write(iprint,"(a)") ' task   particles now  particles cut   work now/mean   work cut/mean'
-    do k = 1,nprocs
-       write(iprint,"(i5,2(i15),2(f16.3))") k-1,nint(now(2,k)),nint(pred(2,k)), &
-            now(1,k)/(sum(now(1,:))/nprocs),pred(1,k)/(sum(pred(1,:))/nprocs)
-    enddo
- endif
-
-end subroutine print_section_diagnostic
+end subroutine grow_real2
 
 end module mpisections

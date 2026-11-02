@@ -81,6 +81,10 @@ module dtypekdtree
     integer                        :: nnodes
  end type ptmasstree
 
+ ! the MPI datatype for kdnode, once committed
+ integer :: dtype_kdnode = 0
+ logical :: have_dtype_kdnode = .false.
+
 contains
 
 !----------------------------------------------------------------
@@ -100,10 +104,9 @@ subroutine get_mpitype_of_kdnode(dtype)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
  type(kdnode)                    :: node
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
- integer, save                   :: dtype_saved = MPI_DATATYPE_NULL
 
- if (dtype_saved /= MPI_DATATYPE_NULL) then
-    dtype = dtype_saved
+ if (have_dtype_kdnode) then
+    dtype = dtype_kdnode
     return
  endif
  nblock = 0
@@ -174,7 +177,8 @@ subroutine get_mpitype_of_kdnode(dtype)
 
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
- dtype_saved = dtype
+ dtype_kdnode      = dtype
+ have_dtype_kdnode = .true.
 
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
