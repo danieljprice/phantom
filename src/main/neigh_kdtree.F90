@@ -529,13 +529,15 @@ end subroutine list_active_leaves
 
 !-----------------------------------------------------------------------
 !+
-!  move the leaves that reach much further than most (a particle with a
-!  large smoothing length) to the front of the list of active leaves,
-!  the most expensive first, so that the threads that take them start
-!  early rather than leaving the others waiting at the end of the loop.
-!  The cost of a leaf is taken as its number of particles times the
-!  volume it reaches over its own; the rest stay in tree order. Nothing is
-!  moved unless the costliest leaf is a large part of a thread's share
+!  move the most expensive leaves (those with particles of large smoothing
+!  length) to the front of the list of active leaves, the costliest first,
+!  so that the threads that take them start early rather than leaving the
+!  others waiting at the end of the loop. The cost of a leaf is taken as
+!  its number of particles times the volume it reaches over its own. Only
+!  leaves costing a sizeable part of a thread's share are moved (at most
+!  1/frac_move per thread), so the rest stay in tree order and keep their
+!  locality. Nothing is moved unless the costliest leaf is a large part of
+!  a thread's share
 !+
 !-----------------------------------------------------------------------
 subroutine expensive_leaves_first()
@@ -543,29 +545,28 @@ subroutine expensive_leaves_first()
  use kernel,    only:radkern
  use kdtree,    only:inoderange
  use sortutils, only:indexx
- integer, parameter :: nsample_max = 4096
- real,    parameter :: reach_factor = 4.   ! a leaf is moved if it reaches this many times the median
- real,    parameter :: frac_tail    = 0.25 ! only if the costliest leaf is this fraction of a thread's share
- real,    allocatable :: reach(:),sample(:),cost(:),costbig(:)
+ real, parameter :: frac_tail = 0.25 ! only if the costliest leaf is this fraction of a thread's share
+ real, parameter :: frac_move = 0.02 ! move the leaves costing more than this fraction of a thread's share
+ real,    allocatable :: cost(:),costbig(:)
  integer, allocatable :: indx(:),ibig(:),list(:)
- real    :: reachmed,costtot
- integer :: n,k,j,m,nsample,nbig,icell,nthreads
+ real    :: costtot,share,reach
+ integer :: n,k,j,m,nbig,icell,nthreads
 
  n = nactive_leaves
  if (n < 2) return
 
- ! the reach and estimated cost of each leaf: its particles, each searching
- ! the volume it reaches, relative to its own
- allocate(reach(n),cost(n))
+ ! the estimated cost of each leaf: its particles, each searching the
+ ! volume it reaches, relative to its own
+ allocate(cost(n))
  costtot = 0.
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(n,active_leaves,node,reach,cost,inoderange) &
- !$omp private(k,icell) &
+ !$omp shared(n,active_leaves,node,cost,inoderange) &
+ !$omp private(k,icell,reach) &
  !$omp reduction(+:costtot)
  do k = 1,n
     icell = active_leaves(k)
-    reach(k) = node(icell)%size + radkern*node(icell)%hmax
-    cost(k)  = (inoderange(2,icell) - inoderange(1,icell) + 1)*(reach(k)/max(node(icell)%size,tiny(1.)))**3
+    reach = node(icell)%size + radkern*node(icell)%hmax
+    cost(k)  = (inoderange(2,icell) - inoderange(1,icell) + 1)*(reach/max(node(icell)%size,tiny(1.)))**3
     costtot  = costtot + cost(k)
  enddo
  !$omp end parallel do
@@ -573,31 +574,20 @@ subroutine expensive_leaves_first()
  ! nothing to do unless one leaf is a large part of a thread's share of the work
  nthreads = 1
 !$ nthreads = omp_get_max_threads()
- if (maxval(cost) < frac_tail*costtot/nthreads) return
+ share = costtot/nthreads
+ if (maxval(cost) < frac_tail*share) return
 
- ! the median reach, from a sample of the leaves
- nsample = min(n,nsample_max)
- allocate(sample(nsample),indx(nsample))
- do j = 1,nsample
-    sample(j) = reach(1 + int((int(j-1,8)*n)/nsample))
- enddo
- call indexx(nsample,sample,indx)
- reachmed = sample(indx((nsample+1)/2))
-
- ! the leaves that reach much further, by decreasing cost
- nbig = count(reach > reach_factor*reachmed)
- if (nbig == 0) return
- allocate(ibig(nbig),costbig(nbig))
+ ! the leaves costing a sizeable part of a thread's share, by decreasing cost
+ nbig = count(cost > frac_move*share)
+ allocate(ibig(nbig),costbig(nbig),indx(nbig),list(n))
  m = 0
  do k = 1,n
-    if (reach(k) > reach_factor*reachmed) then
+    if (cost(k) > frac_move*share) then
        m = m + 1
        ibig(m) = k
        costbig(m) = -cost(k)
     endif
  enddo
- deallocate(indx)
- allocate(indx(nbig),list(n))
  call indexx(nbig,costbig,indx)
 
  ! the list: those leaves first, then the others in their order
@@ -606,7 +596,7 @@ subroutine expensive_leaves_first()
  enddo
  m = nbig
  do k = 1,n
-    if (reach(k) <= reach_factor*reachmed) then
+    if (cost(k) <= frac_move*share) then
        m = m + 1
        list(m) = active_leaves(k)
     endif
