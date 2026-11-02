@@ -83,7 +83,7 @@ module neighkdtree
  end type intlist
  type(intlist),         allocatable :: let_opened(:,:)
  integer                            :: let_round = 0     ! marks of let_opened: -(let_round + task + 1)
- integer,               parameter   :: nlet_split = 64   ! pairs each task's descent is split into
+ integer,               parameter   :: nlet_split = 8192 ! pairs each task's descent is split into
  integer,               allocatable :: global_owner(:)   ! task owning each global node, -1 above the domains
  ! for each global leaf of another task, the largest size of a node that its walks can
  ! pair with a node of this task, by the number of steps the walk has taken below the leaf
@@ -99,6 +99,7 @@ module neighkdtree
  integer,               allocatable :: prof_set(:),inactive_set(:)
  integer                            :: nprof_set = 0, ninactive_set = 0
  integer,               allocatable :: branch_mark(:)     ! local nodes above active leaves
+ integer                            :: branch_stamp = 0  ! the value of branch_mark on those nodes
  integer                            :: let_stamp = 0
  integer(kind=8)                    :: nlet_sent = 0, nlet_recv = 0, nlet_p2p = 0, nlet_calls = 0
  ! wall time each thread spends in neighbour walks since the last call to record_walk_times:
@@ -1947,6 +1948,7 @@ subroutine exchange_size_profiles()
  use mpiutils, only:alltoall_mpi,alltoallv_mpi
  real,    allocatable :: sendbuf(:),recvbuf(:),prof(:,:,:)
  integer, allocatable :: nlen(:)
+ logical, allocatable :: interacts(:,:)
  integer :: nsend(nprocs),nrecv(nprocs),iproc,k,nbuf,irecv,g,n,np
 
  call mark_active_branches()
@@ -1968,19 +1970,29 @@ subroutine exchange_size_profiles()
     endif
  enddo
 
- ! records of (global index, length, values) for each leaf, to each task it can interact with;
- ! each leaf's profile is computed when first needed, since it is the same for every task
- allocate(prof(2,nprofile,nown_gleaves),nlen(nown_gleaves))
- nlen = -1
+ ! the tasks each leaf can interact with, and the leaf's profile if there are any
+ allocate(prof(2,nprofile,nown_gleaves),nlen(nown_gleaves),interacts(nprocs,nown_gleaves))
+ !$omp parallel do default(none) schedule(dynamic,16) &
+ !$omp shared(nown_gleaves,own_gleaves,nprocs,id,interacts,prof,nlen) &
+ !$omp private(k,iproc)
+ do k = 1,nown_gleaves
+    do iproc = 0,nprocs-1
+       interacts(iproc+1,k) = (iproc /= id)
+       if (interacts(iproc+1,k)) interacts(iproc+1,k) = leaf_may_interact(own_gleaves(k),iproc)
+    enddo
+    nlen(k) = 0
+    if (any(interacts(:,k))) call leaf_size_profile(own_gleaves(k),prof(:,:,k),nlen(k))
+ enddo
+ !$omp end parallel do
+
+ ! records of (global index, length, values) for each leaf, to each task it can interact with
  allocate(sendbuf(max(1,nown_gleaves*(2*nprofile+2)*min(nprocs-1,4))))
  nbuf  = 0
  nsend = 0
  do iproc = 0,nprocs-1
-    if (iproc == id) cycle
     do k = 1,nown_gleaves
-       n = own_gleaves(k)
-       if (.not.leaf_may_interact(n,iproc)) cycle
-       if (nlen(k) < 0) call leaf_size_profile(n,prof(:,:,k),nlen(k))
+       if (.not.interacts(iproc+1,k)) cycle
+       n  = own_gleaves(k)
        np = 2*nlen(k)
        if (nbuf + np + 2 > size(sendbuf)) call grow_real(sendbuf,nbuf + np + 2)
        sendbuf(nbuf+1) = nodemap(n)
@@ -2070,11 +2082,11 @@ end function leaf_may_interact
 subroutine mark_active_branches()
  integer :: k,n
 
- let_stamp = let_stamp + 1
+ branch_stamp = branch_stamp + 1
  do k = 1,nactive_leaves
     n = active_leaves(k)
-    do while (branch_mark(n) /= let_stamp)
-       branch_mark(n) = let_stamp
+    do while (branch_mark(n) /= branch_stamp)
+       branch_mark(n) = branch_stamp
        ! stop at the root of a section: above it are nodes of the global tree
        if (node(n)%parent <= 0 .or. node(n)%parent > ncells) exit
        n = node(n)%parent
@@ -2149,7 +2161,7 @@ subroutine leaf_size_profile(n0,prof,nlen)
 
  nlen = 0
  prof = 0.
- if (branch_mark(n0) /= let_stamp) return
+ if (branch_mark(n0) /= branch_stamp) return
  sdepth = 0.
  sleaf  = 0.
  allocate(istack(3,256))
@@ -2169,7 +2181,7 @@ subroutine leaf_size_profile(n0,prof,nlen)
     else
        do j = 1,2
           if (ichild(j) > 0) then
-             if (branch_mark(ichild(j)) == let_stamp) call push_pair(istack,nstack,ichild(j),idepth+1,0)
+             if (branch_mark(ichild(j)) == branch_stamp) call push_pair(istack,nstack,ichild(j),idepth+1,0)
           endif
        enddo
     endif
