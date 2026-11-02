@@ -44,6 +44,7 @@ module mpisections
 
  public :: sectiontree,build_sections,locate_section,cut_sections
  public :: assign_section_owners,local_section_index,owned_section_keys,print_section_diagnostic
+ public :: get_section_tree
 
  private
 
@@ -480,6 +481,30 @@ subroutine owned_section_keys(keyfirst)
  if (nown > 0) keyfirst(1:nown) = cur%key(cur%seccell(kfirst_own:kfirst_own+nown-1))
 
 end subroutine owned_section_keys
+
+!--------------------------------------------------------------------------
+!+
+!  the current tree of sections (from the last call to
+!  assign_section_owners): for each cell its left child (the right one is
+!  next to it; 0 for a section) and, for a section, its index; the owner
+!  of each section; and the index of the first section owned by this task
+!  (it owns nown in a run from there)
+!+
+!--------------------------------------------------------------------------
+subroutine get_section_tree(ncell,left,isec,nsec,owner,kfirst,nowned)
+ integer,              intent(out) :: ncell,nsec,kfirst,nowned
+ integer, allocatable, intent(out) :: left(:),isec(:),owner(:)
+
+ ncell  = cur%ncell
+ nsec   = cur%nsec
+ kfirst = kfirst_own
+ nowned = nown
+ allocate(left(ncell),isec(ncell),owner(nsec))
+ left  = cur%left(1:ncell)
+ isec  = cur%isec(1:ncell)
+ owner = cur%owner(1:nsec)
+
+end subroutine get_section_tree
 
 !--------------------------------------------------------------------------
 !+

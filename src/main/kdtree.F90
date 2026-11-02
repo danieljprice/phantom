@@ -57,9 +57,17 @@ module kdtree
 
  public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree,kdnode
- public :: maketreeglobal
+ public :: maketreeglobal,global_top_from_sections
  public :: empty_tree
  integer, public :: maxlevel_indexed, maxlevel
+ ! with the domains from sections: the root of the subtree of each section this task owns
+ ! (secroot, 0 for a section with no particles here) and the join nodes above them, children
+ ! first; then the top of the global tree, from the sections: the global index of the leaf of
+ ! each section with particles (sec_leaf), its owner and the owner's local index of its root
+ integer, public, allocatable :: secroot(:),joinnode(:)
+ integer, public :: nsecroot = 0,njoinnode = 0
+ integer, public :: ntop_sec = 0,nsec_nonempty = 0
+ integer, public, allocatable :: sec_leaf(:),sec_owner(:),sec_root(:)
 
  ! neighbour cache indices (xyzcache); imported with only: from dens/force
  integer, parameter, public :: ix=1, iy=2, iz=3, ih1=4, im=5
@@ -323,6 +331,13 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
 
  endif done
  if (seeded) call combine_join_nodes(node,join,njoin,leaf_is_active)
+ if (present(by_section)) then
+    if (allocated(joinnode)) deallocate(joinnode)
+    njoinnode = 0
+    if (seeded) njoinnode = njoin
+    allocate(joinnode(max(njoinnode,1)))
+    if (seeded) joinnode(1:njoin) = join(1,njoin:1:-1)  ! children before their parents
+ endif
  call get_timings(t1,tcpu1)
  if (.not.apr_tree) call increment_timer(itimer_tree_sub,t1-t2,tcpu1-tcpu2)
 
@@ -332,7 +347,11 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
     ! decrease number of cells if tree is entirely within 2^k indexing limit
     if (maxlevel < maxlevel_indexed) ncells = 2**(maxlevel+1) - 1
  else
-    call renumber_depth_first(node,leaf_is_active,ncells)
+    if (present(by_section)) then
+       call renumber_depth_first(node,leaf_is_active,ncells,secroot(1:nsecroot),joinnode(1:njoinnode))
+    else
+       call renumber_depth_first(node,leaf_is_active,ncells)
+    endif
  endif
 
  if (maxlevel > maxlevel_indexed .and. .not.already_warned) then
@@ -356,10 +375,11 @@ end subroutine maketree
 !  the links between them and the arrays indexed by node
 !+
 !--------------------------------------------------------------------------------
-subroutine renumber_depth_first(node,leaf_is_active,ncells)
+subroutine renumber_depth_first(node,leaf_is_active,ncells,list1,list2)
  type(kdnode),    intent(inout) :: node(:)
  integer,         intent(inout) :: leaf_is_active(:)
  integer(kind=8), intent(inout) :: ncells
+ integer,         intent(inout), optional :: list1(:),list2(:)  ! node indices to renumber (0 kept)
  type(kdnode), allocatable :: newnode(:)
  integer,      allocatable :: order(:),newindex(:),newactive(:),newrange(:,:)
  integer,      allocatable :: item(:),nitem(:),ioffset(:)
@@ -446,6 +466,8 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells)
     endif
  enddo
  !$omp end parallel do
+ if (present(list1)) list1 = newindex(max(list1,0))
+ if (present(list2)) list2 = newindex(max(list2,0))
  ncells = nnode
 
 end subroutine renumber_depth_first
@@ -554,7 +576,7 @@ subroutine seed_queue_with_sections(nproot,queue,istack,join,njoin,seeded,ncells
  integer,              intent(out)   :: njoin
  logical,              intent(inout) :: seeded
  integer(kind=8),      intent(inout) :: ncells
- integer,    allocatable :: isec(:),istart(:),ifirst(:),ilast(:),todo(:,:)
+ integer,    allocatable :: isec(:),istart(:),ifirst(:),ilast(:),todo(:,:),kown(:)
  integer(8), allocatable :: keyfirst(:),keysec(:)
  integer :: nsecown,nsec,k,ntodo,n,a,b,m,level,mymum,ibit,il,ir
  real    :: xmin(3),xmax(3)
@@ -562,7 +584,13 @@ subroutine seed_queue_with_sections(nproot,queue,istack,join,njoin,seeded,ncells
  njoin = 0
  allocate(isec(max(nproot,1)))
  call local_section_index(nproot,treecache(:,1:nproot),isec,nsecown)
+ if (allocated(secroot)) deallocate(secroot)
+ allocate(secroot(max(nsecown,1)))
+ secroot = 0
+ nsecroot = max(nsecown,1)
  if (nsecown <= 1) then
+    ! one section: the whole local tree
+    if (nproot > 0) secroot(1) = irootnode
     seeded = .false.
     return
  endif
@@ -570,7 +598,7 @@ subroutine seed_queue_with_sections(nproot,queue,istack,join,njoin,seeded,ncells
 
  ! the sections with particles, as ranges of the particle list, and their first keys
  call owned_section_keys(keyfirst)
- allocate(ifirst(nsecown),ilast(nsecown),keysec(nsecown))
+ allocate(ifirst(nsecown),ilast(nsecown),keysec(nsecown),kown(nsecown))
  nsec = 0
  do k = 1,nsecown
     if (istart(k+1) > istart(k)) then
@@ -578,9 +606,13 @@ subroutine seed_queue_with_sections(nproot,queue,istack,join,njoin,seeded,ncells
        ifirst(nsec) = istart(k)
        ilast(nsec)  = istart(k+1) - 1
        keysec(nsec) = keyfirst(k)
+       kown(nsec)   = k
     endif
  enddo
- if (nsec <= 1 .or. nsec > size(queue)) then
+ if (nsec > size(queue)) call fatal('maketree','more sections than room in the queue')
+ if (nsec <= 1) then
+    ! one section with particles: the whole local tree
+    if (nsec == 1) secroot(kown(1)) = irootnode
     seeded = .false.
     return
  endif
@@ -596,6 +628,7 @@ subroutine seed_queue_with_sections(nproot,queue,istack,join,njoin,seeded,ncells
     ntodo = ntodo - 1
     inoderange(:,n) = [ifirst(a),ilast(b)]
     if (a == b) then
+       secroot(kown(a)) = n
        call particle_bounds(ifirst(a),ilast(a),xmin,xmax)
        istack = istack + 1
        call push_onto_stack(queue(istack),n,mymum,level,ilast(a)-ifirst(a)+1,xmin,xmax)
@@ -2517,7 +2550,7 @@ subroutine build_global_by_sections(nodeglobal,node,globallevel,xyzh,&
  endif
 
  call get_timings(t1,tcpu1)
- call build_global_top(nodeglobal,node(irootnode),globallevel)
+ call build_section_top(nodeglobal,node,globallevel)
  call get_timings(tg2,tcpug2)
  ! the global time excludes the local tree, which has its own timers
  call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2),(tcpug2-tcpug1)-(tcpu1-tcpu2))
@@ -2746,37 +2779,130 @@ end subroutine build_global_by_levels
 
 !--------------------------------------------------------------------------------
 !+
-!  the levels of the global tree above the domain nodes: the domain node of
-!  task i is nprocs+i, a copy of its local root, and node k has children 2k
-!  and 2k+1. Every task combines the same nodes in the same order, so they
-!  all hold identical top levels
+!  the top of the global tree from the sections: the cells of the tree of
+!  sections, numbered top down, with the sections that hold particles as
+!  leaves (cells with one such child are skipped). Each leaf is the root of
+!  its section on its owner, gathered from all tasks, and the cells above
+!  are built from their children in the same order on every task, so that
+!  all tasks hold identical top nodes. The leaves, their owners and the
+!  owners' local index of their roots are left in sec_leaf, sec_owner and
+!  sec_root
 !+
 !--------------------------------------------------------------------------------
-subroutine build_global_top(nodeglobal,localroot,globallevel)
- use io,       only:nprocs
- use mpitree,  only:allgatherv_nodes
+subroutine build_section_top(nodeglobal,node,globallevel)
+ use io,          only:nprocs
+ use mpisections, only:get_section_tree
+ use mpitree,     only:allgatherv_nodes
+ use mpiutils,    only:allgather_mpi,allgatherv_mpi,get_displs_mpi
  type(kdnode), intent(inout) :: nodeglobal(:)
- type(kdnode), intent(in)    :: localroot
+ type(kdnode), intent(in)    :: node(:)
  integer,      intent(in)    :: globallevel
- integer :: counts(nprocs),displs(nprocs),k,g
+ integer,      allocatable :: left(:),isec(:),owner(:),idrec(:),idall(:),rep(:),gidx(:)
+ integer,      allocatable :: rootof(:),irec(:),istack(:)
+ type(kdnode), allocatable :: block(:),blockall(:)
+ integer :: ncell,nsec,kfirst,nowned,nrec,ntot,j,k,c,cl,cr,g,nstack,counts(nprocs),displs(nprocs)
 
- counts = 1
- displs = [(k,k=0,nprocs-1)]
- call allgatherv_nodes([localroot],nodeglobal(nprocs:2*nprocs-1),counts,displs)
- do g = nprocs,2*nprocs-1
-    nodeglobal(g)%leftchild  = 0
-    nodeglobal(g)%rightchild = 0
-    nodeglobal(g)%parent     = g/2
-    nodeglobal(g)%level      = globallevel
+ ! the roots of this task's sections with particles, with the index of each section
+ call get_section_tree(ncell,left,isec,nsec,owner,kfirst,nowned)
+ nrec = count(secroot(1:min(nowned,nsecroot)) > 0)
+ allocate(block(max(nrec,1)),idrec(2*max(nrec,1)))
+ nrec = 0
+ do j = 1,min(nowned,nsecroot)
+    if (secroot(j) <= 0) cycle
+    nrec = nrec + 1
+    block(nrec) = node(secroot(j))
+    idrec(2*nrec-1:2*nrec) = [kfirst+j-1,secroot(j)]
  enddo
- do g = nprocs-1,1,-1
-    call combine_child_nodes(nodeglobal(2*g),nodeglobal(2*g+1),nodeglobal(g))
-    nodeglobal(g)%leftchild  = 2*g
-    nodeglobal(g)%rightchild = 2*g + 1
-    nodeglobal(g)%parent     = g/2
-    nodeglobal(g)%level      = int(log(real(g))/log(2.) + 1.e-6)
+ call allgather_mpi(nrec,counts)
+ displs = get_displs_mpi(counts)
+ ntot = sum(counts)
+ allocate(blockall(ntot),idall(2*ntot))
+ call allgatherv_nodes(block(1:nrec),blockall,counts,displs)
+ call allgatherv_mpi(idrec(1:2*nrec),idall,2*counts,2*displs)
+ allocate(irec(nsec),rootof(nsec))
+ irec = 0
+ do j = 1,ntot
+    irec(idall(2*j-1))   = j
+    rootof(idall(2*j-1)) = idall(2*j)
  enddo
 
-end subroutine build_global_top
+ ! the cell standing for each cell: itself, its one child holding particles, or none
+ allocate(rep(ncell))
+ do c = ncell,1,-1
+    if (left(c) == 0) then
+       rep(c) = 0
+       if (irec(isec(c)) > 0) rep(c) = c
+    else
+       cl = rep(left(c))
+       cr = rep(left(c)+1)
+       rep(c) = c
+       if (cl == 0) rep(c) = cr
+       if (cr == 0) rep(c) = cl
+    endif
+ enddo
+
+ ! number the cells that stand for themselves, top down (children after their parents)
+ allocate(gidx(ncell),istack(2*ncell+2))
+ gidx = 0
+ ntop_sec = 0
+ nstack = 1
+ istack(1) = rep(1)
+ do while (nstack > 0)
+    c = istack(nstack)
+    nstack = nstack - 1
+    if (c == 0) cycle
+    ntop_sec = ntop_sec + 1
+    gidx(c) = ntop_sec
+    if (left(c) > 0) then
+       istack(nstack+1) = rep(left(c)+1)
+       istack(nstack+2) = rep(left(c))
+       nstack = nstack + 2
+    endif
+ enddo
+
+ ! the leaves from the roots of the sections, the cells above from their children
+ if (allocated(sec_leaf)) deallocate(sec_leaf,sec_owner,sec_root)
+ allocate(sec_leaf(ntot),sec_owner(ntot),sec_root(ntot))
+ nsec_nonempty = 0
+ do c = ncell,1,-1
+    g = gidx(c)
+    if (g == 0) cycle
+    if (left(c) == 0) then
+       k = isec(c)
+       nodeglobal(g) = blockall(irec(k))
+       nodeglobal(g)%leftchild  = 0
+       nodeglobal(g)%rightchild = 0
+       nsec_nonempty = nsec_nonempty + 1
+       sec_leaf(nsec_nonempty)  = g
+       sec_owner(nsec_nonempty) = owner(k)
+       sec_root(nsec_nonempty)  = rootof(k)
+    else
+       cl = gidx(rep(left(c)))
+       cr = gidx(rep(left(c)+1))
+       call combine_child_nodes(nodeglobal(cl),nodeglobal(cr),nodeglobal(g))
+       nodeglobal(g)%leftchild  = cl
+       nodeglobal(g)%rightchild = cr
+       nodeglobal(cl)%parent = g
+       nodeglobal(cr)%parent = g
+    endif
+    nodeglobal(g)%level = globallevel
+ enddo
+ nodeglobal(1)%parent = 0
+
+end subroutine build_section_top
+
+!--------------------------------------------------------------------------------
+!+
+!  whether the top of the global tree is built from the sections (and
+!  is then in sec_leaf, sec_owner and sec_root), or is the heap of the
+!  domains split level by level
+!+
+!--------------------------------------------------------------------------------
+logical function global_top_from_sections()
+
+ if (.not.done_decomp_env) call read_decomp_env()
+ global_top_from_sections = (mpi_decomp >= 1)
+
+end function global_top_from_sections
 
 end module kdtree

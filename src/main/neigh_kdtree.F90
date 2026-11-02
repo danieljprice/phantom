@@ -378,7 +378,7 @@ end subroutine get_distance_from_centre_of_mass
 !-----------------------------------------------------------------------
 subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
- use kdtree,       only:maketree,maketreeglobal,revtree
+ use kdtree,       only:maketree,maketreeglobal,revtree,global_top_from_sections
  use dim,          only:mpi,use_sinktree
  use timing,       only:get_timings,increment_timer,itimer_tree_revise,itimer_tree_graft
  use part,         only:nptmass,xyzmh_ptmass,maxp
@@ -412,7 +412,11 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
                            apr_tree)
     endif
     call get_timings(t1,tcpu1)
-    call set_top_heap()
+    if (global_top_from_sections()) then
+       call set_top_sections()
+    else
+       call set_top_heap()
+    endif
     call graft_local_trees(nactive)
     call combine_trees()
     call get_timings(t2,tcpu2)
@@ -990,6 +994,25 @@ subroutine set_top_heap()
  call set_top_owners()
 
 end subroutine set_top_heap
+
+!-----------------------------------------------------------------------
+!+
+!  the top nodes when the domains are made of sections: the tree of
+!  sections built by maketreeglobal (build_section_top), whose node
+!  spheres bound those of their children
+!+
+!-----------------------------------------------------------------------
+subroutine set_top_sections()
+ use kdtree, only:ntop_sec,nsec_nonempty,sec_leaf,sec_owner,sec_root
+
+ call allocate_top(ntop_sec,nsec_nonempty)
+ top_leaf  = sec_leaf(1:nsec_nonempty)
+ top_owner = sec_owner(1:nsec_nonempty)
+ top_root  = sec_root(1:nsec_nonempty)
+ top_bounds_children = .true.
+ call set_top_owners()
+
+end subroutine set_top_sections
 
 !-----------------------------------------------------------------------
 !+
@@ -2433,7 +2456,10 @@ end function position_in_block
 subroutine sync_hmax_mpi
  use mpiutils, only:allgatherv_mpi
  use io,       only:id
- real, allocatable :: hmirror(:),hall(:)
+ use io,       only:nprocs
+ use kdtree,   only:joinnode,njoinnode
+ real,    allocatable :: hmirror(:),hall(:),hroot(:),hsec(:)
+ integer, allocatable :: nsec_task(:)
  integer :: p,k,n,g,il,ir
  real    :: hchild
 
@@ -2446,13 +2472,25 @@ subroutine sync_hmax_mpi
     nodeglobal(ntop+k)%hmax = hall(k)
  enddo
 
+ ! the roots of the sections (some are leaves of the global tree, with no copied children)
+ allocate(hroot(nown_roots),hsec(nsec_top),nsec_task(nprocs))
+ do k = 1,nown_roots
+    hroot(k) = node(own_roots(k))%hmax
+ enddo
+ nsec_task = sec_start(2:nprocs+1) - sec_start(1:nprocs)
+ call allgatherv_mpi(hroot,hsec,nsec_task,sec_start(1:nprocs)-1)
+ do k = 1,nsec_top
+    g = top_leaf(sec_by_owner(k))
+    nodeglobal(g)%hmax = max(nodeglobal(g)%hmax,hsec(k))
+ enddo
+
  ! raise the hmax of each section and the top nodes above it to cover its children
  do k = 1,nsec_top
     g  = top_leaf(k)
     il = nodeglobal(g)%leftchild
     ir = nodeglobal(g)%rightchild
-    if (il == 0) cycle
-    hchild = nodeglobal(il)%hmax
+    hchild = nodeglobal(g)%hmax
+    if (il > 0) hchild = max(hchild,nodeglobal(il)%hmax)
     if (ir > 0) hchild = max(hchild,nodeglobal(ir)%hmax)
     n = g
     nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
@@ -2460,6 +2498,15 @@ subroutine sync_hmax_mpi
        n = nodeglobal(n)%parent
        nodeglobal(n)%hmax = max(nodeglobal(n)%hmax,hchild)
     enddo
+ enddo
+
+ ! the join nodes of the local tree above the roots of the sections, which the local
+ ! walks pass through (listed children first)
+ do k = 1,njoinnode
+    n  = joinnode(k)
+    il = node(n)%leftchild
+    ir = node(n)%rightchild
+    node(n)%hmax = max(node(n)%hmax,node(il)%hmax,node(ir)%hmax)
  enddo
 
  ! the same values in the combined tree

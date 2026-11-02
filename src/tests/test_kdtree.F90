@@ -585,7 +585,7 @@ subroutine check_combined_tree(nfailed)
     endif
  enddo
  ! the local leaves reached from the local root
- call walk_tree_from(irootnode,list,nlist,ndiff)
+ call walk_tree_from(irootnode,list,nlist,ndiff,local_only=.true.)
  nlocal_root = count(leaf_is_active(list(1:nlist)) /= 0)
  call checkval(nbad+ndiff+nbadremote,0,0,nfailed(1),'combined tree links and leaf owners')
  call checkval(nlocal,nlocal_root,0,nfailed(2),'combined tree reaches every local leaf')
@@ -616,14 +616,18 @@ end subroutine check_combined_tree
 !-----------------------------------------------------------------------
 !+
 !   list the nodes below (and including) iroot in node, stopping at
-!   leaves, counting nodes whose children do not point back to them
+!   leaves, counting nodes whose children do not point back to them.
+!   With local_only, children whose parent is in the global tree (the
+!   roots of the sections, linked to it in the combined tree) are fine
 !+
 !-----------------------------------------------------------------------
-subroutine walk_tree_from(iroot,list,nlist,nbad)
- use neighkdtree, only:node,leaf_is_active
+subroutine walk_tree_from(iroot,list,nlist,nbad,local_only)
+ use neighkdtree, only:node,leaf_is_active,ncells
  integer, intent(in)  :: iroot
  integer, intent(out) :: list(:),nlist,nbad
- integer :: i,n,ichild(2),k
+ logical, intent(in), optional :: local_only
+ integer :: i,n,ichild(2),k,iparent
+ logical :: linked
 
  nbad = 0
  nlist = 1
@@ -636,7 +640,10 @@ subroutine walk_tree_from(iroot,list,nlist,nbad)
     ichild = [node(n)%leftchild,node(n)%rightchild]
     do k=1,2
        if (ichild(k) <= 0) cycle
-       if (node(ichild(k))%parent /= n .or. nlist >= size(list)) then
+       iparent = node(ichild(k))%parent
+       linked = (iparent == n)
+       if (present(local_only)) linked = linked .or. (local_only .and. iparent > ncells)
+       if (.not.linked .or. nlist >= size(list)) then
           nbad = nbad + 1
        else
           nlist = nlist + 1
