@@ -91,10 +91,6 @@ module neighkdtree
  integer,      public,  allocatable :: leaf_is_active(:) ! : 0 internal node or empty cell, : 1 active cell, :- inactive cell
  integer,      public,  allocatable :: active_leaves(:)  ! the cells with leaf_is_active > 0, in order (set by build_tree)
  integer,      public               :: nactive_leaves = 0
- ! for testing only: the leaves that reach much further than most first in the
- ! loops over cells (PHANTOM_BIG_FIRST=1, read once)
- logical,      private              :: big_first = .false.
- logical,      private              :: done_big_first_env = .false.
  ! number of active leaves handed to a thread at a time in the density and force loops:
  ! cells nearby in the list share neighbours, so small chunks keep them on one thread,
  ! but with self-gravity the cost per cell varies widely, so the cells are handed out one at a time
@@ -426,8 +422,7 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
     endif
  endif
  call list_active_leaves()
- if (.not.done_big_first_env) call read_big_first_env()
- if (big_first) call expensive_leaves_first()
+ call expensive_leaves_first()
 
  ! the dual tree walk cache refers to the old nodes: reset it for the new tree
  if (use_dualcache) then
@@ -499,33 +494,48 @@ end subroutine list_active_leaves
 !  the most expensive first, so that the threads that take them start
 !  early rather than leaving the others waiting at the end of the loop.
 !  The cost of a leaf is taken as its number of particles times the
-!  volume it reaches over its own; the rest stay in tree order
+!  volume it reaches over its own; the rest stay in tree order. Nothing is
+!  moved unless the costliest leaf is a large part of a thread's share
 !+
 !-----------------------------------------------------------------------
 subroutine expensive_leaves_first()
+!$ use omp_lib,  only:omp_get_max_threads
  use kernel,    only:radkern
  use kdtree,    only:inoderange
  use sortutils, only:indexx
  integer, parameter :: nsample_max = 4096
- real,    parameter :: reach_factor = 4.  ! a leaf is moved if it reaches this many times the median
- real,    allocatable :: reach(:),sample(:),cost(:)
+ real,    parameter :: reach_factor = 4.   ! a leaf is moved if it reaches this many times the median
+ real,    parameter :: frac_tail    = 0.25 ! only if the costliest leaf is this fraction of a thread's share
+ real,    allocatable :: reach(:),sample(:),cost(:),costbig(:)
  integer, allocatable :: indx(:),ibig(:),list(:)
- real    :: reachmed,size
- integer :: n,k,j,m,nsample,nbig,icell
+ real    :: reachmed,costtot
+ integer :: n,k,j,m,nsample,nbig,icell,nthreads
 
  n = nactive_leaves
  if (n < 2) return
 
- ! the reach of each leaf, and its median from a sample of the leaves
- allocate(reach(n))
+ ! the reach and estimated cost of each leaf: its particles, each searching
+ ! the volume it reaches, relative to its own
+ allocate(reach(n),cost(n))
+ costtot = 0.
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(n,active_leaves,node,reach) &
- !$omp private(k,icell)
+ !$omp shared(n,active_leaves,node,reach,cost,inoderange) &
+ !$omp private(k,icell) &
+ !$omp reduction(+:costtot)
  do k = 1,n
     icell = active_leaves(k)
     reach(k) = node(icell)%size + radkern*node(icell)%hmax
+    cost(k)  = (inoderange(2,icell) - inoderange(1,icell) + 1)*(reach(k)/max(node(icell)%size,tiny(1.)))**3
+    costtot  = costtot + cost(k)
  enddo
  !$omp end parallel do
+
+ ! nothing to do unless one leaf is a large part of a thread's share of the work
+ nthreads = 1
+!$ nthreads = omp_get_max_threads()
+ if (maxval(cost) < frac_tail*costtot/nthreads) return
+
+ ! the median reach, from a sample of the leaves
  nsample = min(n,nsample_max)
  allocate(sample(nsample),indx(nsample))
  do j = 1,nsample
@@ -537,20 +547,18 @@ subroutine expensive_leaves_first()
  ! the leaves that reach much further, by decreasing cost
  nbig = count(reach > reach_factor*reachmed)
  if (nbig == 0) return
- allocate(ibig(nbig),cost(nbig))
+ allocate(ibig(nbig),costbig(nbig))
  m = 0
  do k = 1,n
     if (reach(k) > reach_factor*reachmed) then
        m = m + 1
        ibig(m) = k
-       icell = active_leaves(k)
-       size  = max(node(icell)%size,tiny(size))
-       cost(m) = -(inoderange(2,icell) - inoderange(1,icell) + 1)*(reach(k)/size)**3
+       costbig(m) = -cost(k)
     endif
  enddo
  deallocate(indx)
  allocate(indx(nbig),list(n))
- call indexx(nbig,cost,indx)
+ call indexx(nbig,costbig,indx)
 
  ! the list: those leaves first, then the others in their order
  do j = 1,nbig
@@ -566,24 +574,6 @@ subroutine expensive_leaves_first()
  active_leaves(1:n) = list
 
 end subroutine expensive_leaves_first
-
-!-----------------------------------------------------------------------
-!+
-!  whether to put the leaves of large reach first, from the environment
-!  variable PHANTOM_BIG_FIRST (read once)
-!+
-!-----------------------------------------------------------------------
-subroutine read_big_first_env()
- use io, only:id,master
- character(len=8) :: string
-
- call get_environment_variable('PHANTOM_BIG_FIRST',string)
- big_first = (trim(string) == '1')
- if (big_first .and. id == master) &
-    print "(a)",' cell loops: leaves of large reach first (PHANTOM_BIG_FIRST=1)'
- done_big_first_env = .true.
-
-end subroutine read_big_first_env
 
 !-----------------------------------------------------------------------
 !+
