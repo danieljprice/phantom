@@ -322,7 +322,6 @@ end subroutine init_celldens_exchange
 !+
 !-----------------------------------------------------------------------
 subroutine send_celldens(cell,targets,stack,counters,ptargets)
- use io,       only:fatal
  use omputils, only:omp_thread_num
  use mpidens, only:stackdens,pack_celldens
  type(celldens),  intent(in)    :: cell
@@ -331,7 +330,7 @@ subroutine send_celldens(cell,targets,stack,counters,ptargets)
  integer,         intent(inout) :: counters(nprocs,3)
  logical,         intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
 #ifdef MPI
- integer :: newproc,mpierr,ith,ibuf,n,nbuf
+ integer :: newproc,iproc,ith,ibuf,nbuf
 
  ith = omp_thread_num() + 1
  if (present(ptargets) .and. cell%owner == id) then
@@ -341,40 +340,50 @@ subroutine send_celldens(cell,targets,stack,counters,ptargets)
        if (.not.any(ptargets(1:cell%npcell,newproc+1))) cycle
        call next_sendbuf(ith,ibuf,stack,counters)
        call pack_celldens(cell,.true.,sendbuf_dens(:,ibuf,ith),nbuf,mask=ptargets(1:cell%npcell,newproc+1))
-       !$omp critical (mpi_cell_exchange)
-       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_dens,comm_cellexchange,&
-                      sendreq(1,ibuf,ith),mpierr)
-       !$omp end critical (mpi_cell_exchange)
-       if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
-       nsendreq(ibuf,ith) = 1
-       !$omp atomic
-       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+       call isend_buffer(sendbuf_dens(1,ibuf,ith),nbuf,(/(iproc == newproc,iproc=0,nprocs-1)/),itag_dens,ibuf,ith,counters)
     enddo
     return
  endif
 
  call next_sendbuf(ith,ibuf,stack,counters)
+
  !--outbound if this task owns the cell, otherwise the results returned to the owner
  call pack_celldens(cell,(cell%owner == id),sendbuf_dens(:,ibuf,ith),nbuf)
- n = 0
- !$omp critical (mpi_cell_exchange)
- do newproc=0,nprocs-1
-    if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       n = n + 1
-       call MPI_ISEND(sendbuf_dens(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_dens,comm_cellexchange,&
-                      sendreq(n,ibuf,ith),mpierr)
-       if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
-       !$omp atomic
-       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
-    endif
- enddo
- !$omp end critical (mpi_cell_exchange)
- nsendreq(ibuf,ith) = n
+ call isend_buffer(sendbuf_dens(1,ibuf,ith),nbuf,targets,itag_dens,ibuf,ith,counters)
 #endif
 
 end subroutine send_celldens
 
 #ifdef MPI
+!-----------------------------------------------------------------------
+!+
+!  send buffer ibuf of this thread to the tasks in targets (not this
+!  one), counting the cells sent to each task
+!+
+!-----------------------------------------------------------------------
+subroutine isend_buffer(buf,nbuf,targets,itag,ibuf,ith,counters)
+ use io, only:fatal
+ real,    intent(in)    :: buf(*)
+ integer, intent(in)    :: nbuf,itag,ibuf,ith
+ logical, intent(in)    :: targets(nprocs)
+ integer, intent(inout) :: counters(nprocs,3)
+ integer :: newproc,n,mpierr
+
+ n = 0
+ !$omp critical (mpi_cell_exchange)
+ do newproc=0,nprocs-1
+    if (newproc == id .or. .not.targets(newproc+1)) cycle
+    n = n + 1
+    call MPI_ISEND(buf,nbuf,MPI_DEFAULT_REAL,newproc,itag,comm_cellexchange,sendreq(n,ibuf,ith),mpierr)
+    if (mpierr /= 0) call fatal('isend_buffer','error in MPI_ISEND')
+    !$omp atomic
+    counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+ enddo
+ !$omp end critical (mpi_cell_exchange)
+ nsendreq(ibuf,ith) = n
+
+end subroutine isend_buffer
+
 !-----------------------------------------------------------------------
 !+
 !  the next send buffer of this thread, waiting (and receiving cells into
@@ -658,17 +667,16 @@ end subroutine init_cellforce_exchange
 !+
 !-----------------------------------------------------------------------
 subroutine send_cellforce(cell,targets,stack,counters,ptargets,leaves)
- use io,       only:fatal
  use omputils, only:omp_thread_num
  use mpiforce, only:stackforce,pack_cellforce
  type(cellforce),  intent(in)    :: cell
- logical,         intent(in)    :: targets(nprocs)
+ logical,          intent(in)    :: targets(nprocs)
  type(stackforce), intent(inout) :: stack
- integer,         intent(inout) :: counters(nprocs,3)
- logical,         intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
- integer,         intent(in), optional :: leaves(:)     ! leaves of the (single) target task, as trial neighbours
+ integer,          intent(inout) :: counters(nprocs,3)
+ logical,          intent(in), optional :: ptargets(:,:) ! (particle, task): particles each task needs
+ integer,          intent(in), optional :: leaves(:)     ! leaves of the (single) target task, as trial neighbours
 #ifdef MPI
- integer :: newproc,mpierr,ith,ibuf,n,nbuf
+ integer :: newproc,iproc,ith,ibuf,nbuf
 
  ith = omp_thread_num() + 1
  if (present(ptargets) .and. cell%owner == id) then
@@ -678,14 +686,7 @@ subroutine send_cellforce(cell,targets,stack,counters,ptargets,leaves)
        if (.not.any(ptargets(1:cell%npcell,newproc+1))) cycle
        call next_sendbuf(ith,ibuf,stack,counters)
        call pack_cellforce(cell,.true.,sendbuf_force(:,ibuf,ith),nbuf,mask=ptargets(1:cell%npcell,newproc+1))
-       !$omp critical (mpi_cell_exchange)
-       call MPI_ISEND(sendbuf_force(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_force,comm_cellexchange,&
-                      sendreq(1,ibuf,ith),mpierr)
-       !$omp end critical (mpi_cell_exchange)
-       if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
-       nsendreq(ibuf,ith) = 1
-       !$omp atomic
-       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
+       call isend_buffer(sendbuf_force(1,ibuf,ith),nbuf,(/(iproc == newproc,iproc=0,nprocs-1)/),itag_force,ibuf,ith,counters)
     enddo
     return
  endif
@@ -693,20 +694,7 @@ subroutine send_cellforce(cell,targets,stack,counters,ptargets,leaves)
  call next_sendbuf(ith,ibuf,stack,counters)
  !--outbound if this task owns the cell, otherwise the results returned to the owner
  call pack_cellforce(cell,(cell%owner == id),sendbuf_force(:,ibuf,ith),nbuf,leaves=leaves)
- n = 0
- !$omp critical (mpi_cell_exchange)
- do newproc=0,nprocs-1
-    if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       n = n + 1
-       call MPI_ISEND(sendbuf_force(1,ibuf,ith),nbuf,MPI_DEFAULT_REAL,newproc,itag_force,comm_cellexchange,&
-                      sendreq(n,ibuf,ith),mpierr)
-       if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
-       !$omp atomic
-       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
-    endif
- enddo
- !$omp end critical (mpi_cell_exchange)
- nsendreq(ibuf,ith) = n
+ call isend_buffer(sendbuf_force(1,ibuf,ith),nbuf,targets,itag_force,ibuf,ith,counters)
 #endif
 
 end subroutine send_cellforce
@@ -719,9 +707,9 @@ end subroutine send_cellforce
 !-----------------------------------------------------------------------
 subroutine complete_sends_force(ibuf,ith,stack,counters)
  use mpiforce, only:stackforce
- integer,         intent(in)    :: ibuf,ith
+ integer,          intent(in)    :: ibuf,ith
  type(stackforce), intent(inout) :: stack
- integer,         intent(inout) :: counters(nprocs,3)
+ integer,          intent(inout) :: counters(nprocs,3)
 
  do while (nsendreq(ibuf,ith) > 0)
     if (sends_complete(nsendreq(ibuf,ith),sendreq(:,ibuf,ith))) then
@@ -749,7 +737,7 @@ subroutine recv_cellforce(target_stack,counters)
 #endif
  use mpiforce, only:stackforce,unpack_cellforce
  type(stackforce), intent(inout) :: target_stack
- integer,         intent(inout) :: counters(nprocs,3)
+ integer,          intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  type(cellforce),  pointer :: target_cell
  type(cellforce)           :: cell
@@ -815,7 +803,7 @@ subroutine recv_while_wait_force(stack,counters)
  use timing,   only:get_timings,increment_timer,itimer_force_wait
  use mpiforce, only:stackforce
  type(stackforce), intent(inout) :: stack
- integer,         intent(inout) :: counters(nprocs,3)
+ integer,          intent(inout) :: counters(nprocs,3)
 #ifdef MPI
  real(kind=4) :: t1,t2,tcpu1,tcpu2
  integer      :: ith,ibuf

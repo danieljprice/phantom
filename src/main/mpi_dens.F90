@@ -27,7 +27,7 @@ module mpidens
  public :: get_mpitype_of_celldens
  public :: free_mpitype_of_celldens
  public :: pack_celldens,unpack_celldens
- public :: put_reals,get_reals
+ public :: put_reals,get_reals,select_packed_particles
 
  !
  ! cells are sent as real buffers holding only what the other task needs:
@@ -279,30 +279,18 @@ subroutine pack_celldens(cell,outbound,buf,n,mask)
  real,           intent(out) :: buf(:)
  integer,        intent(out) :: n
  logical,        intent(in), optional :: mask(:)
- integer :: np,i,k,idx(minpart)
+ integer :: np,k,idx(minpart)
 
  !--particles sent: those selected by mask (outbound only), each with its
  !  position in the owner's cell, so that the results can be added back
- if (outbound .and. present(mask)) then
-    np = 0
-    do i=1,cell%npcell
-       if (mask(i)) then
-          np = np + 1
-          idx(np) = i
-       endif
-    enddo
- elseif (outbound) then
-    np = cell%npcell
-    idx(1:np) = (/(i,i=1,np)/)
- else
-    np = cell%npcell
-    idx(1:np) = cell%arr_index(1:np)
- endif
+ call select_packed_particles(cell%npcell,outbound,cell%arr_index,idx,np,mask)
  n  = 0
  call put_reals(buf,n,real((/np,cell%owner,cell%waiting_index/)))
  if (outbound) then
     call put_reals(buf,n,(/cell%xpos,cell%xsizei,cell%rcuti/))
     call put_reals(buf,n,cell%h(idx(1:np)))
+
+    ! the data of each particle
     do k=1,np
        call put_reals(buf,n,cell%xpartvec(:,idx(k)))
     enddo
@@ -317,6 +305,39 @@ subroutine pack_celldens(cell,outbound,buf,n,mask)
  call put_reals(buf,n,real(idx(1:np)))
 
 end subroutine pack_celldens
+
+!-----------------------------------------------------------------------
+!+
+!  the particles of a cell to pack: outbound, all of them or those
+!  selected by mask, by their position in the owner's cell; returned,
+!  all of them, with ireturn their position in the owner's cell
+!+
+!-----------------------------------------------------------------------
+subroutine select_packed_particles(npcell,outbound,ireturn,idx,np,mask)
+ integer, intent(in)  :: npcell
+ logical, intent(in)  :: outbound
+ integer, intent(in)  :: ireturn(:)
+ integer, intent(out) :: idx(:),np
+ logical, intent(in), optional :: mask(:)
+ integer :: i
+
+ if (outbound .and. present(mask)) then
+    np = 0
+    do i=1,npcell
+       if (mask(i)) then
+          np = np + 1
+          idx(np) = i
+       endif
+    enddo
+ elseif (outbound) then
+    np = npcell
+    idx(1:np) = (/(i,i=1,np)/)
+ else
+    np = npcell
+    idx(1:np) = ireturn(1:np)
+ endif
+
+end subroutine select_packed_particles
 
 !-----------------------------------------------------------------------
 !+
