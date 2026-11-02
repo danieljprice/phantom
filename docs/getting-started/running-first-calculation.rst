@@ -127,6 +127,9 @@ To run the code, just run phantom with the name of the input file::
 
    ./phantom blast.in
 
+This uses openMP, with the number of threads set by OMP_NUM_THREADS. For larger calculations on a cluster,
+compile with MPI=yes and run several MPI tasks, each with several threads (see :doc:`running phantom with MPI </user-guide/mpi>`).
+
 Note that the first thing that the code does is to compute density, and hence replaces the .tmp file with a “real” dump file::
 
 

@@ -82,7 +82,7 @@ Code performance and accuracy
 | *Variable*      | *Setting*       | *Default value* | *Description*   |
 +=================+=================+=================+=================+
 | MPI             | yes/no/openmpi/ | no              | compile with    |
-|                 | zen/apac        |                 | MPI             |
+|                 | intel/cray      |                 | MPI             |
 |                 |                 |                 | parallelisation |
 +-----------------+-----------------+-----------------+-----------------+
 | OPENMP          | yes/no          | yes             | compile with    |

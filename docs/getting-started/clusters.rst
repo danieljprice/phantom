@@ -233,6 +233,10 @@ You can then proceed to submit the job to the queue using::
 
   qsub run.q
 
+To use more than one node, compile with MPI=yes and give the number of MPI tasks and
+openMP threads per task, e.g. ``make qscript INFILE=tde.in NMPI=8 NOMP=12``
+(see :doc:`running phantom with MPI </user-guide/mpi>`).
+
 Check the status using::
 
   qstat -u $USER
