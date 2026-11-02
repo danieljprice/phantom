@@ -34,7 +34,7 @@ module part
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
                inucleation,itau_alloc,itauL_alloc,inject_parts,use_apr,apr_maxlevel,&
-               maxp_apr,maxptmassgr,use_sinktree,nvel_ptmass
+               maxp_apr,maxptmassgr,use_sinktree,nvel_ptmass,mpi
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only:krome_nmols
@@ -402,15 +402,21 @@ module part
 !--particle belong
 !
  integer, allocatable :: ibelong(:)
+!
+!--estimated work of each particle per step, used to weight the domain
+!  decomposition (MPI only): its number of neighbours in the last density
+!  calculation
+!
+ real(kind=4), allocatable :: work_per_particle(:)
 
 !
 !
 !--size of the buffer required for transferring particle
 !  information between MPI threads: an upper bound on the values packed by
-!  fill_sendbuf, i.e. 142 for all optional fields that do not depend on the
+!  fill_sendbuf, i.e. 143 for all optional fields that do not depend on the
 !  number of dust species, plus the dust arrays and the chemical abundances
 !
- integer, parameter :: ipartbufsize = 142 + 6*maxdustsmall + 2*maxdusttypes &
+ integer, parameter :: ipartbufsize = 143 + 6*maxdustsmall + 2*maxdusttypes &
                                     + max(nabundances,krome_nmols)
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
@@ -550,6 +556,7 @@ subroutine allocate_part
  call allocate_array('tstop', tstop, maxdusttypes, maxan)
  call allocate_array('ll', ll, maxan)
  call allocate_array('ibelong', ibelong, maxp)
+ call allocate_array('work_per_particle', work_per_particle, merge(maxp,0,mpi))
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
  call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
@@ -639,6 +646,7 @@ subroutine deallocate_part
  if (allocated(ibin_old))     deallocate(ibin_old)
  if (allocated(ibin_wake))    deallocate(ibin_wake)
  if (allocated(dt_in))        deallocate(dt_in)
+ if (allocated(work_per_particle)) deallocate(work_per_particle)
  if (allocated(twas))         deallocate(twas)
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
@@ -745,6 +753,7 @@ subroutine init_part
     dt_in(:)      = 0.
     twas(:)       = 0.
  endif
+ if (mpi) work_per_particle(:) = 0.
  if (use_sinktree) iphase(maxpsph+1:maxp) = isink
 
  ideadhead = 0
@@ -1404,6 +1413,7 @@ subroutine copy_particle(src,dst,new_part)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
  rho(dst) = rho(src)
+ if (mpi) work_per_particle(dst) = work_per_particle(src)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (ind_timesteps) then
@@ -1491,6 +1501,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxalpha ==maxp) alphaind(:,dst) = alphaind(:,src)
  if (maxgradh ==maxp) gradh(:,dst) = gradh(:,src)
  rho(dst) = rho(src)
+ if (mpi) work_per_particle(dst) = work_per_particle(src)
  if (maxphase ==maxp) iphase(dst) = iphase(src)
  ! iphase is phase-per-particle; tree-building no longer needs a separate SOA copy
  if (maxgrav  ==maxp) poten(dst) = poten(src)
@@ -1606,6 +1617,7 @@ subroutine combine_two_particles(keep,discard)
  if (maxalpha ==maxp) alphaind(:,keep) = factor*(alphaind(:,keep) + alphaind(:,discard))
  if (maxgradh ==maxp) gradh(:,keep) = factor*(gradh(:,keep) + gradh(:,discard))
  rho(keep) = factor*(rho(keep) + rho(discard))
+ if (mpi) work_per_particle(keep) = max(work_per_particle(keep),work_per_particle(discard))
  if (maxphase ==maxp .and. (iphase(keep) /= iphase(discard))) make_warning = .true.
  if (maxgrav  ==maxp) poten(keep) = factor*(poten(keep) + poten(discard))
  if (maxlum   ==maxp) luminosity(keep) = factor*(luminosity(keep) + luminosity(discard))
@@ -1884,6 +1896,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
+    if (mpi) call fill_buffer(xtemp,work_per_particle(i),nbuf)
     if (inject_parts) call fill_buffer(xtemp,iseed_sink(i),nbuf)
     if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
  endif
@@ -1988,6 +2001,7 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
+ if (mpi) work_per_particle(ipart) = real(unfill_buf(xbuf,j),kind=kind(work_per_particle))
  if (inject_parts) iseed_sink(ipart) = nint(unfill_buf(xbuf,j),kind=8)
  if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
 
