@@ -2230,7 +2230,7 @@ end subroutine combine_child_nodes
 !-------------------------------------------------------------------------------
 subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
                           np,nactive,leaf_is_active,ncells,apr_tree,nptmass,xyzmh_ptmass)
- use io,           only:fatal,nprocs
+ use io,           only:nprocs
  use mpibalance,   only:balancedomains
  use mpisections,  only:assign_section_owners,get_work_weights
  use mpiutils,     only:reduceall_mpi,allgather_mpi
@@ -2267,7 +2267,6 @@ subroutine maketreeglobal(nodeglobal,node,globallevel,xyzh,&
 
  ! the level of the nodes of the global tree, as for a binary split between tasks
  globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
- if (2**globallevel /= nprocs) call fatal('maketreeglobal','number of MPI tasks must be a power of 2')
 
  ! particles that crossed a periodic boundary are wrapped first, so that their key is
  ! that of where they are (construct_root_node would wrap them after the move)
