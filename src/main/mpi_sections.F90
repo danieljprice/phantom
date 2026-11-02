@@ -6,13 +6,13 @@
 !--------------------------------------------------------------------------!
 module mpisections
 !
-! Domain decomposition by sections of a geometric tree: a box enclosing
-! all particles is split at the midpoint of its longest axis, and so on
-! down, as in the tree used for gravity. The path of a particle down this
-! tree is its key, so every cell of the tree is a range of keys and the
-! depth first order of the cells is the order of their keys. The cells
-! where the work is concentrated are refined (sections), and each task
-! gets a run of sections, in key order, with about the same work.
+! Domain decomposition by sections of a geometric tree, built as the tree
+! used for gravity: each cell is split at the midpoint of the bounds of
+! its particles (on all tasks) along their longest axis, where the work is
+! concentrated. The leaves of this tree are the sections. A cell's key is
+! its path from the root (one bit per level, left aligned), so the depth
+! first order of the sections is the order of their keys, and each task
+! gets a run of sections, in that order, with about the same work.
 !
 ! :References: None
 !
@@ -26,257 +26,236 @@ module mpisections
  integer, parameter :: nbits_total = 63    ! bits in a key: levels of the tree
  real,    parameter :: frac_section = 0.25 ! largest work in a section, as a fraction of a task's share
  real,    parameter :: tol_balance  = 1.1  ! new sections only if a task has more work than this times the mean
- real,    parameter :: frac_margin  = 0.1  ! margin of the box of the sections around the particles, each axis
 
- public :: get_key_box,get_geometric_keys,choose_sections
+ ! a tree of sections: for each cell, its split axis and position, its
+ ! left child (the right one is next to it; 0 for a section), its key and
+ ! depth, and for a section its index; then the sections in key order,
+ ! with their cells, work, number of particles and owners
+ type sectiontree
+    integer :: ncell = 0, nsec = 0
+    integer,    allocatable :: axis(:),left(:),depth(:),isec(:)
+    real,       allocatable :: xsplit(:)
+    integer(8), allocatable :: key(:)
+    integer,    allocatable :: seccell(:),owner(:)
+    real(8),    allocatable :: secw(:),secn(:)
+ end type sectiontree
+
+ public :: sectiontree,build_sections,locate_section
  public :: assign_section_owners,local_section_index,owned_section_keys,print_section_diagnostic
 
  private
 
- ! the current decomposition: the box and the split axis at each level,
- ! the section boundaries, and the run of sections owned by this task
+ ! the current decomposition, and the run of sections owned by this task
  ! (kfirst_own to kfirst_own+nown-1)
- integer(8), allocatable :: ilo_cur(:)
- integer, allocatable :: owner_cur(:)
- real    :: boxmin_cur(3),boxsize_cur(3)
- integer :: axis_cur(nbits_total)
- integer :: nsec_cur = 0,kfirst_own = 1,nown = 0
- integer :: nlev_cur = nbits_total  ! depth of the deepest section: keys are only needed to there
+ type(sectiontree) :: cur
+ integer :: kfirst_own = 1,nown = 0
 
 contains
 
 !--------------------------------------------------------------------------
 !+
-!  the box enclosing the particles on all tasks (those with h > 0),
-!  slightly enlarged so that no particle lies on its upper faces, and the
-!  axis along which the cells of each level are split: their longest
-!  (all the cells of a level have the same shape), the lowest on ties
+!  build the tree of sections for the work weights wt of the particles
+!  (those with h > 0): starting from the root, every cell whose work,
+!  summed over all tasks, exceeds frac_section times a task's share is
+!  split, one level per round, at the midpoint of the bounds of its
+!  particles along their longest axis. The sections, in key order, are
+!  then cut into nprocs runs of about equal work
 !+
 !--------------------------------------------------------------------------
-subroutine get_key_box(np,xyzh,boxmin,boxsize,axis)
- use mpiutils, only:reduceall_mpi
- integer, intent(in)  :: np
- real,    intent(in)  :: xyzh(:,:)
- real,    intent(out) :: boxmin(3),boxsize(3)
- integer, intent(out) :: axis(nbits_total)
- real    :: xmax(3),dims(3)
- integer :: i,d
+subroutine build_sections(np,xyzh,wt,st,nround)
+ use io,       only:nprocs
+ use mpiutils, only:reduce_in_place_mpi,reduceall_mpi
+ integer,           intent(in)  :: np
+ real,              intent(in)  :: xyzh(:,:),wt(:)
+ type(sectiontree), intent(out) :: st
+ integer,           intent(out) :: nround
+ integer, allocatable :: icell(:),cand(:),pos(:),newcand(:)
+ real(8), allocatable :: sums(:,:),bnd(:,:),cellw(:),celln(:)
+ real(8) :: wtot,wmax,wshare,wbefore
+ real    :: ext(3)
+ integer :: i,j,k,c,nc,nnew,ia
 
- boxmin =  huge(boxmin)
- xmax   = -huge(xmax)
- !$omp parallel do default(none) schedule(static) shared(np,xyzh) private(i) &
- !$omp reduction(min:boxmin) reduction(max:xmax)
+ call grow_cells(st,64)
+ allocate(cellw(size(st%axis)),celln(size(st%axis)))
+ st%ncell = 1
+ st%left(1)  = 0
+ st%depth(1) = 0
+ st%key(1)   = 0
+ allocate(icell(np))
+ !$omp parallel do default(none) schedule(static) shared(np,xyzh,icell) private(i)
  do i = 1,np
-    if (xyzh(4,i) > 0.) then
-       boxmin = min(boxmin,xyzh(1:3,i))
-       xmax   = max(xmax,xyzh(1:3,i))
-    endif
- enddo
- !$omp end parallel do
- boxmin = reduceall_mpi('min',boxmin)
- xmax   = reduceall_mpi('max',xmax)
- boxsize = (xmax - boxmin)*(1. + 1.e-6) + tiny(boxsize)
-
- dims = boxsize
- do d = 1,nbits_total
-    axis(d) = maxloc(dims,1)
-    dims(axis(d)) = 0.5*dims(axis(d))
- enddo
-
-end subroutine get_key_box
-
-!--------------------------------------------------------------------------
-!+
-!  the key of each position xyz(1:3,i): its path down the tree of
-!  midpoint splits of the box, one bit per level (1 for the upper half
-!  along axis(d)). Positions outside the box are moved onto its surface
-!+
-!--------------------------------------------------------------------------
-subroutine get_geometric_keys(np,xyz,boxmin,boxsize,axis,key,nlevels)
- integer,    intent(in)  :: np
- real,       intent(in)  :: xyz(:,:),boxmin(3),boxsize(3)
- integer,    intent(in)  :: axis(nbits_total)
- integer(8), intent(out) :: key(:)
- integer,    intent(in), optional :: nlevels  ! only the first nlevels bits, the rest zero
- real    :: x(3),lo(3),hi(3),xmid
- integer :: i,d,ia,nlev
-
- nlev = nbits_total
- if (present(nlevels)) nlev = min(nlevels,nbits_total)
- !$omp parallel do default(none) schedule(static) shared(np,xyz,boxmin,boxsize,axis,key,nlev) &
- !$omp private(i,d,ia,x,lo,hi,xmid)
- do i = 1,np
-    lo = boxmin
-    hi = boxmin + boxsize
-    x  = min(max(xyz(1:3,i),lo),hi)
-    key(i) = 0
-    do d = 1,nlev
-       ia = axis(d)
-       xmid = 0.5*(lo(ia) + hi(ia))
-       if (x(ia) >= xmid) then
-          key(i) = ior(shiftl(key(i),1),1_8)
-          lo(ia) = xmid
-       else
-          key(i) = shiftl(key(i),1)
-          hi(ia) = xmid
-       endif
-    enddo
-    key(i) = shiftl(key(i),nbits_total-nlev)
+    icell(i) = merge(1,0,xyzh(4,i) > 0.)
  enddo
  !$omp end parallel do
 
-end subroutine get_geometric_keys
-
-!--------------------------------------------------------------------------
-!+
-!  sections and their owners, from the keys and work weights wt of the n
-!  particles on this task (in any order). Starting from the cells at
-!  level 3*lev0, every cell whose work (summed over all tasks) exceeds
-!  frac times a task's share is split into the 8 cells three levels
-!  below it, until none does or the keys run out of bits. The sections,
-!  in key order, are then cut into nprocs runs of about equal work.
-!
-!  Each section is the key range [ilo,ihi]; secw and secn are its work
-!  and number of particles summed over all tasks, and owner its task.
-!+
-!--------------------------------------------------------------------------
-subroutine choose_sections(n,key,wt,nprocs,frac,ilo,ihi,secw,secn,owner,nsec,nround)
- use mpiutils, only:reduce_in_place_mpi
- integer,                 intent(in)  :: n,nprocs
- integer(8),              intent(in)  :: key(:)
- real,                    intent(in)  :: wt(:)
- real,                    intent(in)  :: frac
- integer(8), allocatable, intent(out) :: ilo(:),ihi(:)
- real(8),    allocatable, intent(out) :: secw(:),secn(:)
- integer,    allocatable, intent(out) :: owner(:)
- integer,                 intent(out) :: nsec,nround
- integer(8), allocatable :: newlo(:),newhi(:)
- real(8),    allocatable :: sums(:,:)
- integer(8) :: width,step
- real(8)    :: wtot,wmax,wshare,wbefore
- integer    :: lev0,k,j,m,nsplit,nnew,i
-
- ! starting level: at least 8 cells per task
- lev0 = 1
- do while (8**lev0 < 8*nprocs .and. 3*lev0 < nbits_total - 3)
-    lev0 = lev0 + 1
- enddo
- nsec = 8**lev0
- width = shiftl(1_8,nbits_total - 3*lev0)
- allocate(ilo(nsec),ihi(nsec))
- do k = 1,nsec
-    ilo(k) = (k-1)*width
-    ihi(k) = ilo(k) + width - 1
- enddo
-
+ ! the cells created in the last round, whose work and bounds are needed
+ allocate(cand(1),pos(1))
+ cand(1) = 1
+ nc = 1
+ wtot = 0.
  nround = 0
  refine: do
     nround = nround + 1
-    ! the work and number of particles in each section, summed over all tasks
-    if (allocated(sums)) deallocate(sums)
-    allocate(sums(2,nsec))
+    if (size(pos) < st%ncell) then
+       deallocate(pos)
+       allocate(pos(size(st%axis)))
+    endif
+    pos(1:st%ncell) = 0
+    do j = 1,nc
+       pos(cand(j)) = j
+    enddo
+    ! work, number of particles and bounds (min of x and of -x) of each candidate
+    allocate(sums(2,nc),bnd(6,nc))
     sums = 0.
-    !$omp parallel do default(none) schedule(static) shared(n,key,wt,nsec,ilo) private(i,k) &
-    !$omp reduction(+:sums)
-    do i = 1,n
-       k = find_section(nsec,ilo,key(i))
-       sums(1,k) = sums(1,k) + wt(i)
-       sums(2,k) = sums(2,k) + 1.
+    bnd  = huge(1.d0)
+    !$omp parallel do default(none) schedule(static) shared(np,icell,pos,xyzh,wt) private(i,j) &
+    !$omp reduction(+:sums) reduction(min:bnd)
+    do i = 1,np
+       if (icell(i) <= 0) cycle
+       j = pos(icell(i))
+       if (j <= 0) cycle
+       sums(1,j) = sums(1,j) + wt(i)
+       sums(2,j) = sums(2,j) + 1.
+       bnd(1:3,j) = min(bnd(1:3,j),real(xyzh(1:3,i),kind=8))
+       bnd(4:6,j) = min(bnd(4:6,j),-real(xyzh(1:3,i),kind=8))
     enddo
     !$omp end parallel do
     call reduce_in_place_mpi('+',sums)
-    wtot = sum(sums(1,:))
-    wmax = frac*wtot/nprocs
-    ! split the sections with too much work into the 8 cells three levels below
-    nsplit = 0
-    do k = 1,nsec
-       if (sums(1,k) > wmax .and. ihi(k) - ilo(k) >= 7) nsplit = nsplit + 1
+    bnd = reduceall_mpi('min',bnd)
+    if (nround == 1) wtot = sums(1,1)
+    wmax = frac_section*wtot/nprocs
+
+    ! split the cells with too much work in two
+    if (size(cellw) < st%ncell + 2*nc) call grow_real8(cellw,celln,st%ncell + 2*nc)
+    allocate(newcand(2*nc))
+    nnew = 0
+    do j = 1,nc
+       c = cand(j)
+       cellw(c) = sums(1,j)
+       celln(c) = sums(2,j)
+       st%left(c) = 0
+       if (sums(1,j) <= wmax .or. sums(2,j) < 2. .or. st%depth(c) >= nbits_total) cycle
+       ext = real(-bnd(4:6,j) - bnd(1:3,j))
+       if (maxval(ext) <= 0.) cycle  ! all its particles at one point
+       ia = maxloc(ext,1)
+       call grow_cells(st,st%ncell + 2)
+       st%axis(c)   = ia
+       st%xsplit(c) = real(0.5*(bnd(ia,j) - bnd(ia+3,j)))
+       st%left(c)   = st%ncell + 1
+       do k = 1,2
+          i = st%ncell + k
+          st%left(i)  = 0
+          st%depth(i) = st%depth(c) + 1
+          st%key(i)   = st%key(c)
+          if (k == 2) st%key(i) = ibset(st%key(c),nbits_total - 1 - st%depth(c))
+          nnew = nnew + 1
+          newcand(nnew) = i
+       enddo
+       st%ncell = st%ncell + 2
     enddo
-    if (nsplit == 0) exit refine
-    nnew = nsec + 7*nsplit
-    allocate(newlo(nnew),newhi(nnew))
-    m = 0
-    do k = 1,nsec
-       if (sums(1,k) > wmax .and. ihi(k) - ilo(k) >= 7) then
-          step = (ihi(k) - ilo(k) + 1)/8
-          do j = 0,7
-             m = m + 1
-             newlo(m) = ilo(k) + j*step
-             newhi(m) = newlo(m) + step - 1
-          enddo
-       else
-          m = m + 1
-          newlo(m) = ilo(k)
-          newhi(m) = ihi(k)
+    if (nnew == 0) exit refine
+
+    ! the particles of the cells that were split move to their children
+    !$omp parallel do default(none) schedule(static) shared(np,icell,st,xyzh) private(i,c)
+    do i = 1,np
+       c = icell(i)
+       if (c <= 0) cycle
+       if (st%left(c) > 0) then
+          if (xyzh(st%axis(c),i) >= st%xsplit(c)) then
+             icell(i) = st%left(c) + 1
+          else
+             icell(i) = st%left(c)
+          endif
        endif
     enddo
-    call move_alloc(newlo,ilo)
-    call move_alloc(newhi,ihi)
-    nsec = nnew
+    !$omp end parallel do
+    deallocate(sums,bnd,cand)
+    call move_alloc(newcand,cand)
+    nc = nnew
  enddo refine
 
- ! cut the sections, in key order, into nprocs runs of about equal work:
+ ! the sections are the leaves, in depth first (key) order
+ call list_sections(st)
+ allocate(st%secw(st%nsec),st%secn(st%nsec),st%owner(st%nsec))
+ do k = 1,st%nsec
+    st%secw(k) = cellw(st%seccell(k))
+    st%secn(k) = celln(st%seccell(k))
+ enddo
+
+ ! cut the sections into nprocs runs of about equal work:
  ! each section goes to the task whose share contains its middle
- allocate(secw(nsec),secn(nsec),owner(nsec))
- secw = sums(1,1:nsec)
- secn = sums(2,1:nsec)
  wshare  = max(wtot/nprocs,tiny(wtot))
  wbefore = 0.
- do k = 1,nsec
-    owner(k) = min(nprocs-1,int((wbefore + 0.5*secw(k))/wshare))
-    wbefore  = wbefore + secw(k)
+ do k = 1,st%nsec
+    st%owner(k) = min(nprocs-1,int((wbefore + 0.5*st%secw(k))/wshare))
+    wbefore = wbefore + st%secw(k)
  enddo
 
-end subroutine choose_sections
+end subroutine build_sections
 
 !--------------------------------------------------------------------------
 !+
-!  a new decomposition in the box with split axes axis, for the work
-!  weights wt (per particle, those with h > 0 only): the keys of the
-!  particles, and the sections and their owners
+!  the sections (leaves of the tree) in depth first order, left first,
+!  which is the order of their keys
 !+
 !--------------------------------------------------------------------------
-subroutine new_sections(np,xyzh,wt,boxmin,boxsize,axis,key,ilo,ihi,secw,secn,owner,nsec,nround)
- use io, only:nprocs
- integer,                 intent(in)  :: np
- real,                    intent(in)  :: xyzh(:,:),wt(:)
- real,                    intent(in)  :: boxmin(3),boxsize(3)
- integer,                 intent(in)  :: axis(nbits_total)
- integer(8),              intent(out) :: key(:)
- integer(8), allocatable, intent(out) :: ilo(:),ihi(:)
- real(8),    allocatable, intent(out) :: secw(:),secn(:)
- integer,    allocatable, intent(out) :: owner(:)
- integer,                 intent(out) :: nsec,nround
- integer(8), allocatable :: keylive(:)
- real,       allocatable :: wtlive(:)
- integer :: i,n
+subroutine list_sections(st)
+ type(sectiontree), intent(inout) :: st
+ integer :: istack(2*nbits_total+2),nstack,c
 
- call get_geometric_keys(np,xyzh,boxmin,boxsize,axis,key)
- ! keys and weights of the particles with h > 0
- allocate(keylive(np),wtlive(np))
- n = 0
- do i = 1,np
-    if (xyzh(4,i) <= 0.) cycle
-    n = n + 1
-    keylive(n) = key(i)
-    wtlive(n)  = wt(i)
+ allocate(st%seccell(st%ncell))
+ st%isec(1:st%ncell) = 0
+ st%nsec = 0
+ nstack  = 1
+ istack(1) = 1
+ do while (nstack > 0)
+    c = istack(nstack)
+    nstack = nstack - 1
+    if (st%left(c) > 0) then
+       istack(nstack+1) = st%left(c) + 1
+       istack(nstack+2) = st%left(c)
+       nstack = nstack + 2
+    else
+       st%nsec = st%nsec + 1
+       st%seccell(st%nsec) = c
+       st%isec(c) = st%nsec
+    endif
  enddo
 
- call choose_sections(n,keylive,wtlive,nprocs,frac_section,ilo,ihi,secw,secn,owner,nsec,nround)
-
-end subroutine new_sections
+end subroutine list_sections
 
 !--------------------------------------------------------------------------
 !+
-!  the task each particle belongs to (ibelong), from the section its key
-!  falls in. The sections are chosen for the work weights wt on the
-!  first call, when the particles leave the box of the sections or fill
-!  less than half of it along an axis, and when rebalance is set and the
-!  work of the tasks under the current sections is out of balance;
-!  otherwise they are kept. Dead or accreted particles stay on this task.
-!  Optionally the sink particles (xyzmh_ptmass, held by every task) are
-!  given the owner of their section, or -1 if they have been accreted,
-!  the same on every task
+!  the section containing the position x: down the tree from the root,
+!  on the side of each split that x is on
+!+
+!--------------------------------------------------------------------------
+pure integer function locate_section(st,x)
+ type(sectiontree), intent(in) :: st
+ real,              intent(in) :: x(3)
+ integer :: c
+
+ c = 1
+ do while (st%left(c) > 0)
+    if (x(st%axis(c)) >= st%xsplit(c)) then
+       c = st%left(c) + 1
+    else
+       c = st%left(c)
+    endif
+ enddo
+ locate_section = st%isec(c)
+
+end function locate_section
+
+!--------------------------------------------------------------------------
+!+
+!  the task each particle belongs to (ibelong), from the section it is in.
+!  The sections are chosen for the work weights wt on the first call, and
+!  again when rebalance is set and the work of the tasks under the current
+!  sections is out of balance; otherwise they are kept. Dead or accreted
+!  particles stay on this task. Optionally the sink particles (xyzmh_ptmass,
+!  held by every task) are given the owner of their section, or -1 if they
+!  have been accreted, the same on every task
 !+
 !--------------------------------------------------------------------------
 subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptmass,ibelong_sink)
@@ -288,72 +267,51 @@ subroutine assign_section_owners(np,xyzh,wt,rebalance,ibelong,nptmass,xyzmh_ptma
  integer, optional, intent(in)    :: nptmass
  real,    optional, intent(in)    :: xyzmh_ptmass(:,:)
  integer, optional, intent(out)   :: ibelong_sink(:)
- integer(8), allocatable :: key(:),ihi(:),keysink(:)
- real(8),    allocatable :: secw(:),secn(:)
- real    :: boxmin(3),boxsize(3)
- integer :: axis(nbits_total),i,nround
+ integer :: i,nround
  logical :: new
 
- allocate(key(np))
- ! new sections if the particles have left the box, or fill much less of it
- call get_key_box(np,xyzh,boxmin,boxsize,axis)
- new = (nsec_cur == 0)
- if (.not.new) new = any(boxmin < boxmin_cur) .or. any(boxmin + boxsize > boxmin_cur + boxsize_cur) &
-                     .or. any(boxsize < 0.5*boxsize_cur)
+ new = (cur%nsec == 0)
  if (.not.new) then
-    call get_geometric_keys(np,xyzh,boxmin_cur,boxsize_cur,axis_cur,key,nlev_cur)
-    call set_owners(np,xyzh,key,ibelong)
+    call set_owners(np,xyzh,ibelong)
     ! when asked to rebalance, keep the sections unless the work is out of balance
     if (rebalance) new = (work_imbalance(np,xyzh,wt,ibelong) > tol_balance)
  endif
  if (new) then
-    ! a margin around the particles, so that the sections last while they spread out
-    boxmin_cur  = boxmin - 0.5*frac_margin*boxsize
-    boxsize_cur = boxsize*(1. + frac_margin)
-    axis_cur    = axis
-    call new_sections(np,xyzh,wt,boxmin_cur,boxsize_cur,axis_cur,key,ilo_cur,ihi,secw,secn,&
-                      owner_cur,nsec_cur,nround)
-    nown       = count(owner_cur == id)
-    kfirst_own = max(findloc(owner_cur,id,1),1)
-    nlev_cur   = maxval(nbits_total - trailz(ihi - ilo_cur + 1))
-    call set_owners(np,xyzh,key,ibelong)
+    call build_sections(np,xyzh,wt,cur,nround)
+    nown       = count(cur%owner == id)
+    kfirst_own = max(findloc(cur%owner,id,1),1)
+    call set_owners(np,xyzh,ibelong)
  endif
 
  if (present(nptmass) .and. present(xyzmh_ptmass) .and. present(ibelong_sink)) then
-    if (nptmass > 0) then
-       allocate(keysink(nptmass))
-       call get_geometric_keys(nptmass,xyzmh_ptmass,boxmin_cur,boxsize_cur,axis_cur,keysink,nlev_cur)
-       do i = 1,nptmass
-          if (xyzmh_ptmass(4,i) > 0.) then
-             ibelong_sink(i) = owner_cur(find_section(nsec_cur,ilo_cur,keysink(i)))
-          else
-             ibelong_sink(i) = -1
-          endif
-       enddo
-    endif
+    do i = 1,nptmass
+       if (xyzmh_ptmass(4,i) > 0.) then
+          ibelong_sink(i) = cur%owner(locate_section(cur,xyzmh_ptmass(1:3,i)))
+       else
+          ibelong_sink(i) = -1
+       endif
+    enddo
  endif
 
 end subroutine assign_section_owners
 
 !--------------------------------------------------------------------------
 !+
-!  the task each particle belongs to, from the current sections and the
-!  keys of the particles. Dead or accreted particles stay on this task
+!  the task each particle belongs to, from the current sections. Dead or
+!  accreted particles stay on this task
 !+
 !--------------------------------------------------------------------------
-subroutine set_owners(np,xyzh,key,ibelong)
+subroutine set_owners(np,xyzh,ibelong)
  use io, only:id
- integer,    intent(in)    :: np
- real,       intent(in)    :: xyzh(:,:)
- integer(8), intent(in)    :: key(:)
- integer,    intent(inout) :: ibelong(:)
+ integer, intent(in)    :: np
+ real,    intent(in)    :: xyzh(:,:)
+ integer, intent(inout) :: ibelong(:)
  integer :: i
 
- !$omp parallel do default(none) schedule(static) shared(np,xyzh,key,ilo_cur,owner_cur,nsec_cur,ibelong,id) &
- !$omp private(i)
+ !$omp parallel do default(none) schedule(static) shared(np,xyzh,cur,ibelong,id) private(i)
  do i = 1,np
     if (xyzh(4,i) > 0.) then
-       ibelong(i) = owner_cur(find_section(nsec_cur,ilo_cur,key(i)))
+       ibelong(i) = cur%owner(locate_section(cur,xyzh(1:3,i)))
     else
        ibelong(i) = id
     endif
@@ -398,7 +356,6 @@ subroutine local_section_index(n,xyz,isec,nsecown)
  integer, intent(in)  :: n
  real,    intent(in)  :: xyz(:,:)
  integer, intent(out) :: isec(:),nsecown
- integer(8), allocatable :: key(:)
  integer :: i
 
  nsecown = nown
@@ -406,11 +363,9 @@ subroutine local_section_index(n,xyz,isec,nsecown)
     isec(1:n) = 1
     return
  endif
- allocate(key(n))
- call get_geometric_keys(n,xyz,boxmin_cur,boxsize_cur,axis_cur,key,nlev_cur)
- !$omp parallel do default(none) schedule(static) shared(n,key,isec,nsec_cur,ilo_cur,kfirst_own,nown) private(i)
+ !$omp parallel do default(none) schedule(static) shared(n,xyz,isec,cur,kfirst_own,nown) private(i)
  do i = 1,n
-    isec(i) = min(max(find_section(nsec_cur,ilo_cur,key(i)) - kfirst_own + 1,1),nown)
+    isec(i) = min(max(locate_section(cur,xyz(1:3,i)) - kfirst_own + 1,1),nown)
  enddo
  !$omp end parallel do
 
@@ -418,8 +373,8 @@ end subroutine local_section_index
 
 !--------------------------------------------------------------------------
 !+
-!  the first key of each section this task owns, in key order (from the
-!  last call to assign_section_owners)
+!  the key of each section this task owns, in key order (from the last
+!  call to assign_section_owners)
 !+
 !--------------------------------------------------------------------------
 subroutine owned_section_keys(keyfirst)
@@ -427,34 +382,76 @@ subroutine owned_section_keys(keyfirst)
 
  allocate(keyfirst(max(nown,1)))
  keyfirst = 0
- if (nown > 0) keyfirst(1:nown) = ilo_cur(kfirst_own:kfirst_own+nown-1)
+ if (nown > 0) keyfirst(1:nown) = cur%key(cur%seccell(kfirst_own:kfirst_own+nown-1))
 
 end subroutine owned_section_keys
 
 !--------------------------------------------------------------------------
 !+
-!  the section containing key kval: the last one starting at or below it
-!  (the sections cover all keys, in increasing order)
+!  room for at least n cells in the tree of sections
 !+
 !--------------------------------------------------------------------------
-pure integer function find_section(nsec,ilo,kval)
- integer,    intent(in) :: nsec
- integer(8), intent(in) :: ilo(:),kval
- integer :: lo,hi,mid
+subroutine grow_cells(st,n)
+ type(sectiontree), intent(inout) :: st
+ integer,           intent(in)    :: n
+ real,       allocatable :: rtmp(:)
+ integer(8), allocatable :: ktmp(:)
+ integer :: nold,nnew
 
- lo = 1
- hi = nsec
- do while (lo < hi)
-    mid = (lo + hi + 1)/2
-    if (ilo(mid) <= kval) then
-       lo = mid
-    else
-       hi = mid - 1
-    endif
- enddo
- find_section = lo
+ nold = 0
+ if (allocated(st%axis)) nold = size(st%axis)
+ if (n <= nold) return
+ nnew = max(n,2*nold)
+ call grow_int(st%axis,nold,nnew)
+ call grow_int(st%left,nold,nnew)
+ call grow_int(st%depth,nold,nnew)
+ call grow_int(st%isec,nold,nnew)
+ allocate(rtmp(nnew))
+ if (nold > 0) rtmp(1:nold) = st%xsplit(1:nold)
+ call move_alloc(rtmp,st%xsplit)
+ allocate(ktmp(nnew))
+ if (nold > 0) ktmp(1:nold) = st%key(1:nold)
+ call move_alloc(ktmp,st%key)
 
-end function find_section
+end subroutine grow_cells
+
+!--------------------------------------------------------------------------
+!+
+!  grow an integer array from nold to nnew entries, keeping its values
+!+
+!--------------------------------------------------------------------------
+subroutine grow_int(a,nold,nnew)
+ integer, allocatable, intent(inout) :: a(:)
+ integer,              intent(in)    :: nold,nnew
+ integer, allocatable :: itmp(:)
+
+ allocate(itmp(nnew))
+ itmp = 0
+ if (nold > 0) itmp(1:nold) = a(1:nold)
+ call move_alloc(itmp,a)
+
+end subroutine grow_int
+
+!--------------------------------------------------------------------------
+!+
+!  room for at least n entries in two real(8) arrays
+!+
+!--------------------------------------------------------------------------
+subroutine grow_real8(a,b,n)
+ real(8), allocatable, intent(inout) :: a(:),b(:)
+ integer,              intent(in)    :: n
+ real(8), allocatable :: tmp(:)
+ integer :: nold
+
+ nold = size(a)
+ allocate(tmp(max(n,2*nold)))
+ tmp(1:nold) = a
+ call move_alloc(tmp,a)
+ allocate(tmp(max(n,2*nold)))
+ tmp(1:nold) = b
+ call move_alloc(tmp,b)
+
+end subroutine grow_real8
 
 !--------------------------------------------------------------------------
 !+
@@ -467,22 +464,18 @@ subroutine print_section_diagnostic(np,xyzh,wt,iprint)
  use mpiutils, only:reduce_in_place_mpi
  integer, intent(in) :: np,iprint
  real,    intent(in) :: xyzh(:,:),wt(:)
- integer(8), allocatable :: key(:),ilo(:),ihi(:)
- integer,    allocatable :: owner(:)
- real(8),    allocatable :: secw(:),secn(:),pred(:,:),now(:,:)
- real    :: boxmin(3),boxsize(3)
- integer :: axis(nbits_total),k,nsec,nround
+ type(sectiontree) :: st
+ real(8), allocatable :: pred(:,:),now(:,:)
+ integer :: k,nround
 
- allocate(key(np))
- call get_key_box(np,xyzh,boxmin,boxsize,axis)
- call new_sections(np,xyzh,wt,boxmin,boxsize,axis,key,ilo,ihi,secw,secn,owner,nsec,nround)
+ call build_sections(np,xyzh,wt,st,nround)
 
  ! work and particles per task: as cut, and as now
  allocate(pred(2,nprocs),now(2,nprocs))
  pred = 0.
- do k = 1,nsec
-    pred(1,owner(k)+1) = pred(1,owner(k)+1) + secw(k)
-    pred(2,owner(k)+1) = pred(2,owner(k)+1) + secn(k)
+ do k = 1,st%nsec
+    pred(1,st%owner(k)+1) = pred(1,st%owner(k)+1) + st%secw(k)
+    pred(2,st%owner(k)+1) = pred(2,st%owner(k)+1) + st%secn(k)
  enddo
  now = 0.
  now(1,id+1) = sum(wt(1:np),mask=(xyzh(4,1:np) > 0.))
@@ -490,8 +483,8 @@ subroutine print_section_diagnostic(np,xyzh,wt,iprint)
  call reduce_in_place_mpi('+',now)
 
  if (id == master) then
-    write(iprint,"(a,i8,a,i3,a,i3)") ' MPI sections: ',nsec,' in ',nround, &
-         ' rounds, deepest level ',maxval(nbits_total - trailz(ihi-ilo+1))
+    write(iprint,"(a,i8,a,i3,a,i3)") ' MPI sections: ',st%nsec,' in ',nround, &
+         ' rounds, deepest level ',maxval(st%depth(st%seccell(1:st%nsec)))
     write(iprint,"(a,2(2x,a,f6.2,a,f6.2))") ' MPI sections max/mean:', &
          'now work',maxval(now(1,:))/(sum(now(1,:))/nprocs),' particles',maxval(now(2,:))/(sum(now(2,:))/nprocs), &
          'cut work',maxval(pred(1,:))/(sum(pred(1,:))/nprocs),' particles',maxval(pred(2,:))/(sum(pred(2,:))/nprocs)

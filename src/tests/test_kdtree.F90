@@ -243,7 +243,7 @@ subroutine test_kdtree(ntests,npass)
     deallocate(leaf_is_active_saved)
  endif
 
- call test_geometric_keys(ntests,npass)
+ call test_section_tree(ntests,npass)
  if (mpi .and. nprocs > 1) call test_global_tree(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- KDTREE TEST COMPLETE'
@@ -252,25 +252,28 @@ end subroutine test_kdtree
 
 !-----------------------------------------------------------------------
 !+
-!   Tests of the keys used for the MPI domain decomposition: on the
-!   cell centres of a grid in a flat box, the box is split along its
-!   longest axes first, the points sharing the first b bits of their key
-!   fill one cell of the tree of midpoint splits, for every b down to
-!   the grid, and the corners of the box get the first and last keys
+!   Tests of the tree of sections used for the MPI domain decomposition,
+!   on the cell centres of a grid in a flat box with two outliers far
+!   above and below it: every particle lies in the section it is located
+!   in (counts agree), the keys of the sections increase in depth first
+!   order, no section cuts through the plane of the grid, and the first
+!   split is at the midpoint of the bounds of the particles
 !+
 !-----------------------------------------------------------------------
-subroutine test_geometric_keys(ntests,npass)
- use mpisections, only:get_key_box,get_geometric_keys
+subroutine test_section_tree(ntests,npass)
+ use mpisections, only:sectiontree,build_sections,locate_section
+ use mpiutils,    only:reduceall_mpi
  use testutils,   only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer, parameter :: ngrid(3) = [16,16,4], np = ngrid(1)*ngrid(2)*ngrid(3), nbmax = 10
- real,    parameter :: boxlen(3) = [4.,4.,1.]
- real       :: xyzh(4,np),boxmin(3),boxsize(3),dx(3),corner(4,2)
- real       :: gmin(3,0:2**nbmax-1),gmax(3,0:2**nbmax-1),cell(3)
- integer(8) :: key(np),kcorner(2),g
- integer    :: axis(63),nfailed(3),nbad(2),i,ix,iy,iz,b,ngroup(0:2**nbmax-1),nsplit(3)
+ integer, parameter :: ngrid(3) = [16,16,4], np = ngrid(1)*ngrid(2)*ngrid(3) + 2
+ real,    parameter :: boxlen(3) = [4.,4.,0.25]
+ type(sectiontree) :: st
+ real       :: xyzh(4,np),wt(np),dx(3),xmid
+ integer    :: nfailed(4),nbad(4),i,ix,iy,iz,k,nround
+ integer, allocatable :: layers(:)
+ real(8), allocatable :: nsec(:)
 
- ! cell centres of the grid, all with h > 0
+ ! cell centres of the grid, plus two particles far above and below it
  dx = boxlen/ngrid
  i = 0
  do iz = 1,ngrid(3)
@@ -278,49 +281,53 @@ subroutine test_geometric_keys(ntests,npass)
        do ix = 1,ngrid(1)
           i = i + 1
           xyzh(1:3,i) = ([ix,iy,iz] - 0.5)*dx
-          xyzh(4,i)   = 1.
        enddo
     enddo
  enddo
- ! the box of the points is the grid less half a cell each side
- call get_key_box(np,xyzh,boxmin,boxsize,axis)
- call get_geometric_keys(np,xyzh,boxmin,boxsize,axis,key)
+ xyzh(1:3,np-1) = [2.,2., 10.]
+ xyzh(1:3,np)   = [2.,2.,-10.]
+ xyzh(4,:) = 1.
+ wt = 1.
+ call build_sections(np,xyzh,wt,st,nround)
 
  nbad = 0
- do b = 1,nbmax
-    nsplit = [(count(axis(1:b) == ix),ix=1,3)]
-    cell = boxsize/2.**nsplit
-    gmin = huge(gmin)
-    gmax = -huge(gmax)
-    ngroup = 0
-    do i = 1,np
-       g = shiftr(key(i),63-b)
-       gmin(:,g) = min(gmin(:,g),xyzh(1:3,i))
-       gmax(:,g) = max(gmax(:,g),xyzh(1:3,i))
-       ngroup(g) = ngroup(g) + 1
-    enddo
-    ! each group lies within one cell of the tree, and all cells hold the same number
-    do g = 0,2_8**b-1
-       if (ngroup(g) /= np/2**b) nbad(1) = nbad(1) + 1
-       if (ngroup(g) > 0) then
-          if (any(gmax(:,g) - gmin(:,g) > cell)) nbad(1) = nbad(1) + 1
-       endif
-    enddo
+ ! the particles located in each section, on all tasks, are those it was built from
+ allocate(nsec(st%nsec))
+ nsec = 0.
+ do i = 1,np
+    k = locate_section(st,xyzh(1:3,i))
+    nsec(k) = nsec(k) + 1.
  enddo
- ! the longest axes are split first: x and y twice each before z
- if (count(axis(1:4) == 3) /= 0) nbad(2) = nbad(2) + 1
- ! the lower corner gets key 0, the upper corner (and beyond) the last key
- corner(:,1) = [boxmin,1.]
- corner(:,2) = [boxmin + 2.*boxsize,1.]
- call get_geometric_keys(2,corner,boxmin,boxsize,axis,kcorner)
+ nsec = reduceall_mpi('+',nsec)
+ if (any(abs(nsec - st%secn) > 0.5)) nbad(1) = nbad(1) + 1
+ ! keys in increasing order
+ do k = 2,st%nsec
+    if (st%key(st%seccell(k)) <= st%key(st%seccell(k-1))) nbad(2) = nbad(2) + 1
+ enddo
+ ! no section cuts through the plane: each holding grid particles has all its layers
+ allocate(layers(st%nsec))
+ layers = 0
+ do i = 1,np-2
+    k = locate_section(st,xyzh(1:3,i))
+    iz = int(xyzh(3,i)/dx(3)) + 1
+    layers(k) = ibset(layers(k),iz-1)
+ enddo
+ do k = 1,st%nsec
+    layers(k) = int(reduceall_mpi('max',real(layers(k))))
+    if (layers(k) /= 0 .and. layers(k) /= 2**ngrid(3) - 1) nbad(3) = nbad(3) + 1
+ enddo
+ ! the root is split at the midpoint of the bounds of all particles, along z
+ xmid = 0.5*(xyzh(3,np) + xyzh(3,np-1))
+ if (st%axis(1) /= 3 .or. abs(st%xsplit(1) - xmid) > epsilon(xmid)) nbad(4) = nbad(4) + 1
 
  nfailed = 0
- call checkval(nbad(1),0,0,nfailed(1),'key prefixes are cells of the tree')
- call checkval(nbad(2),0,0,nfailed(2),'longest axes split first')
- call checkval(int(merge(0,1,kcorner(1) == 0 .and. kcorner(2) == huge(kcorner))),0,0,nfailed(3),'keys of the corners')
+ call checkval(nbad(1),0,0,nfailed(1),'particles located in their sections')
+ call checkval(nbad(2),0,0,nfailed(2),'section keys in depth first order')
+ call checkval(nbad(3),0,0,nfailed(3),'flat distribution not cut through its plane')
+ call checkval(nbad(4),0,0,nfailed(4),'split at the midpoint of the particle bounds')
  call update_test_scores(ntests,nfailed,npass)
 
-end subroutine test_geometric_keys
+end subroutine test_section_tree
 !-----------------------------------------------------------------------
 !+
 !   Tests of the global tree that every MPI task holds a copy of:
