@@ -644,8 +644,8 @@ end subroutine test_directsum
 !  the leaves of the halo are of large reach, so other tasks import
 !  their particles, alongside the sinks in their trees. The forces on
 !  gas and sinks sum to zero, the potential energy is close to that of
-!  one uniform sphere, and a second force calculation on the same tree
-!  (importing the leaves again) gives the same forces
+!  one uniform sphere, and the forces still sum to zero in a second force
+!  calculation on the same tree after the halo has moved
 !+
 !-----------------------------------------------------------------------
 subroutine test_sinks_in_tree(ntests,npass)
@@ -666,10 +666,10 @@ subroutine test_sinks_in_tree(ntests,npass)
  use mpiutils,       only:reduceall_mpi
  use setup_params,   only:npart_total
  integer, intent(inout) :: ntests,npass
- integer, parameter :: nhalo = 24
+ integer, parameter :: nhalo = 50
  real,    parameter :: rmax = 1., rhalo = 6., hsoft = 0.05
- real, allocatable  :: xyzs(:,:),fgas(:,:),fsink(:,:)
- integer :: nfailed(9),i,ns,merge_n,merge_ij(maxptmass),boundi,boundf
+ real, allocatable  :: xyzs(:,:)
+ integer :: nfailed(4),i,ns,merge_n,merge_ij(maxptmass),boundi,boundf
  integer(kind=8) :: nstot
  real    :: psep,totmass,epoti,dtsinksink,fsum(3),tree_acc_prev,z,phi
 
@@ -775,19 +775,26 @@ subroutine test_sinks_in_tree(ntests,npass)
  call compute_energies(0.)
  call checkval(epot,epoti,1.e-12,nfailed(3),'epot in compute_energies')
 
- ! a second force calculation on the same tree, as in the corrector step of the
- ! integrator: the leaves are imported again, and the forces must not change
- allocate(fgas(3,npart),fsink(3,nptmass))
- fgas  = fxyzu(1:3,1:npart)
- fsink = fxyz_ptmass_tree(1:3,1:nptmass)
+ ! a second force calculation on the same tree, as in the corrector step of the integrator,
+ ! after moving the halo outwards a little: the leaves are imported again, and the copies
+ ! of their particles must be the new ones, else the forces between tasks do not balance
+ do i=1,npart
+    if (dot_product(xyzh(1:3,i),xyzh(1:3,i)) > 4.*rmax**2) xyzh(1:3,i) = 1.001*xyzh(1:3,i)
+ enddo
  fxyz_ptmass_tree = 0.
  call get_derivs_global(icall=2)
- call checkval(npart,fxyzu(1,1:npart),fgas(1,:),1.e-12,nfailed(4),'fgas(x) again')
- call checkval(npart,fxyzu(2,1:npart),fgas(2,:),1.e-12,nfailed(5),'fgas(y) again')
- call checkval(npart,fxyzu(3,1:npart),fgas(3,:),1.e-12,nfailed(6),'fgas(z) again')
- call checkval(nptmass,fxyz_ptmass_tree(1,1:nptmass),fsink(1,:),1.e-12,nfailed(7),'fsink(x) again')
- call checkval(nptmass,fxyz_ptmass_tree(2,1:nptmass),fsink(2,:),1.e-12,nfailed(8),'fsink(y) again')
- call checkval(nptmass,fxyz_ptmass_tree(3,1:nptmass),fsink(3,:),1.e-12,nfailed(9),'fsink(z) again')
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
+ fxyz_ptmass(1:3,1:nptmass) = fxyz_ptmass(1:3,1:nptmass) + fxyz_ptmass_tree(1:3,1:nptmass)
+ fsum = 0.
+ do i=1,npart
+    fsum = fsum + massoftype(igas)*fxyzu(1:3,i)
+ enddo
+ fsum = reduceall_mpi('+',fsum)
+ do i=1,nptmass
+    fsum = fsum + xyzmh_ptmass(4,i)*fxyz_ptmass(1:3,i)
+ enddo
+ call checkval(sqrt(dot_product(fsum,fsum)),0.,1.e-14,nfailed(4),'total force again')
  call update_test_scores(ntests,nfailed,npass)
 
  ! clean up
