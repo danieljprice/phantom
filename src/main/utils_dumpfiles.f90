@@ -1609,6 +1609,9 @@ end subroutine write_header
 !  Write int*1 array to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
+!  The writers of 1-D arrays below evaluate a function of each element, or a change of
+!  kind, into a contiguous buffer and write that, not an implied-do, which the I/O library
+!  transfers one element at a time.  The records on disk are the same bytes.
 subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  integer(kind=1),  intent(in)    :: iarr(:)
  character(len=*), intent(in)    :: my_tag
@@ -1624,6 +1627,7 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  optional :: func
  !integer(kind=1), optional :: func
  integer :: i,ierr
+ integer(kind=1), allocatable :: buf(:)
 
  ierr = 0
  ! check if kind matches
@@ -1633,13 +1637,18 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
     elseif (ipass==2) then
        write(iunit,iostat=ierr) tag(my_tag)
        if (present(func)) then
-          write(iunit,iostat=ierr) (func(iarr(i)),i=1,len)
+          allocate(buf(len))
+          do i=1,len
+             buf(i) = func(iarr(i))
+          enddo
+          write(iunit,iostat=ierr) buf
        else
           write(iunit,iostat=ierr) iarr(1:len)
        endif
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
 
 end subroutine write_array_int1
 
@@ -1663,6 +1672,7 @@ subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  optional :: func
  !integer(kind=1), optional :: func
  integer :: i,ierr
+ integer(kind=4), allocatable :: buf(:)
 
  ierr = 0
  ! check if kind matches
@@ -1672,13 +1682,18 @@ subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
     elseif (ipass==2) then
        write(iunit,iostat=ierr) tag(my_tag)
        if (present(func)) then
-          write(iunit,iostat=ierr) (func(iarr(i)),i=1,len)
+          allocate(buf(len))
+          do i=1,len
+             buf(i) = func(iarr(i))
+          enddo
+          write(iunit,iostat=ierr) buf
        else
           write(iunit,iostat=ierr) iarr(1:len)
        endif
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
 
 end subroutine write_array_int4
 
@@ -1702,6 +1717,7 @@ subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  optional :: func
  !integer(kind=1), optional :: func
  integer :: i,ierr
+ integer(kind=8), allocatable :: buf(:)
 
  ierr = 0
  ! check if kind matches
@@ -1711,13 +1727,18 @@ subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
     elseif (ipass==2) then
        write(iunit,iostat=ierr) tag(my_tag)
        if (present(func)) then
-          write(iunit,iostat=ierr) (func(iarr(i)),i=1,len)
+          allocate(buf(len))
+          do i=1,len
+             buf(i) = func(iarr(i))
+          enddo
+          write(iunit,iostat=ierr) buf
        else
           write(iunit,iostat=ierr) iarr(1:len)
        endif
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
 
 end subroutine write_array_int8
 
@@ -1789,6 +1810,7 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
  integer :: i,imatch,ierr
+ real(kind=4), allocatable :: buf(:)
 
  ierr = 0
  ! use default real if it matches, unless kind is specified
@@ -1804,13 +1826,18 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
     elseif (ipass==2) then
        write(iunit,iostat=ierr) tag(my_tag)
        if (present(func)) then
-          write(iunit,iostat=ierr) (func(arr(i)),i=1,len)
+          allocate(buf(len))
+          do i=1,len
+             buf(i) = func(arr(i))
+          enddo
+          write(iunit,iostat=ierr) buf
        else
           write(iunit,iostat=ierr) arr(1:len)
        endif
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
 
 end subroutine write_array_real4
 
@@ -1835,6 +1862,8 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
  integer :: i,imatch,ierr
+ real(kind=8), allocatable :: buf(:)
+ real(kind=4), allocatable :: buf4(:)
  logical :: use_singleprec
 
  ierr = 0
@@ -1860,10 +1889,16 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
     elseif (ipass==2) then
        write(iunit,iostat=ierr) tag(my_tag)
        if (present(func)) then
-          write(iunit,iostat=ierr) (func(arr(i)),i=1,len)
+          allocate(buf(len))
+          do i=1,len
+             buf(i) = func(arr(i))
+          enddo
+          write(iunit,iostat=ierr) buf
        else
           if (imatch==i_real4 .or. use_singleprec) then
-             write(iunit,iostat=ierr) (real(arr(i),kind=4),i=1,len)
+             allocate(buf4(len))
+             buf4(:) = real(arr(1:len),kind=4)
+             write(iunit,iostat=ierr) buf4
           else
              write(iunit,iostat=ierr) arr(1:len)
           endif
@@ -1871,6 +1906,8 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
+ if (allocated(buf4)) deallocate(buf4)
 
 end subroutine write_array_real8
 
