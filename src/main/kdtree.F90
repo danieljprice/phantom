@@ -1535,8 +1535,8 @@ subroutine set_nodes_properties(npnode,nnode,x0,totmass_node,mymum,nodeentry,lev
  nodeentry%hmax       = hmax
  nodeentry%parent     = mymum
  nodeentry%level      = level
-#ifdef GRAVITY
  nodeentry%mass       = totmass_node
+#ifdef GRAVITY
  nodeentry%quads      = quads
  nodeentry%octs       = octs
 #endif
@@ -2194,19 +2194,16 @@ end subroutine revtree
 
 !--------------------------------------------------------------------------------
 !+
-!  the properties of a parent node from those of its two children: a
-!  sphere bounding theirs, the largest smoothing length and, with
-!  self-gravity, the centre of mass, mass and multipole moments about it
-!  (without self-gravity the masses are not set: the centre is the midpoint).
+!  the properties of a parent node from those of its two children: the
+!  centre of mass, a sphere bounding theirs, the largest smoothing length
+!  and, with self-gravity, the multipole moments about the centre of mass.
 !  The links and level of the parent are left unchanged
 !+
 !--------------------------------------------------------------------------------
 pure subroutine combine_child_nodes(left,right,parent)
  type(kdnode), intent(in)    :: left,right
  type(kdnode), intent(inout) :: parent
- real :: x0(3),dxl(3),dxr(3)
-#ifdef GRAVITY
- real :: ml,mr
+ real :: ml,mr,x0(3),dxl(3),dxr(3)
 
  ml = left%mass
  mr = right%mass
@@ -2215,17 +2212,14 @@ pure subroutine combine_child_nodes(left,right,parent)
  else
     x0 = 0.5*(left%xcen + right%xcen)
  endif
-#else
- x0 = 0.5*(left%xcen + right%xcen)
-#endif
  dxl = left%xcen - x0
  dxr = right%xcen - x0
  parent%xcen = x0
  parent%size = max(sqrt(dot_product(dxl,dxl)) + left%size, &
                    sqrt(dot_product(dxr,dxr)) + right%size)
  parent%hmax = max(left%hmax,right%hmax)
+ parent%mass = ml + mr
 #ifdef GRAVITY
- parent%mass  = ml + mr
  parent%quads = 0.
  parent%octs  = 0.
  call add_child_moments(ml,left%quads,left%octs,dxl,parent%quads,parent%octs)

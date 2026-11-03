@@ -136,8 +136,8 @@ subroutine build_sections(np,xyzh,wt,st,nround)
        if (j <= 0) cycle
        sums(1,j) = sums(1,j) + wt(i)
        sums(2,j) = sums(2,j) + 1.
-       bnd(1:3,j) = min(bnd(1:3,j),real(xyzh(1:3,i),kind=8))
-       bnd(4:6,j) = min(bnd(4:6,j),-real(xyzh(1:3,i),kind=8))
+       bnd(1:3,j) = min(bnd(1:3,j),xyzh(1:3,i))
+       bnd(4:6,j) = min(bnd(4:6,j),-xyzh(1:3,i))
     enddo
     !$omp end parallel do
 
