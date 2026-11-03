@@ -54,7 +54,7 @@ module kdtree
 
  public :: allocate_kdtree, deallocate_kdtree
  public :: maketree, revtree,kdnode
- public :: empty_tree,combine_child_nodes,get_sep,push_pair
+ public :: empty_tree,combine_child_nodes,push_pair
  integer, public :: maxlevel_indexed, maxlevel
 
  ! with the domains from sections: the root of the subtree of each section this task owns
@@ -963,9 +963,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        totmass = sum(psum(4,nodecl(j):nodecr(j)))
        if (totmass <= 0.) call fatal('mtree','totmass_node==0',val=totmass)
        nodecom(:,j) = sum(psum(1:3,nodecl(j):nodecr(j)),dim=2)/(totmass*dfac)
-#ifdef GRAVITY
        node(queue(j)%node)%mass = totmass
-#endif
     enddo
     !$omp enddo
     !
@@ -1154,8 +1152,8 @@ subroutine empty_tree(node)
     node(i)%rightchild = 0
     node(i)%parent = 0
     node(i)%level  = 0
+    node(i)%mass   = 0.
 #ifdef GRAVITY
-    node(i)%mass  = 0.
     node(i)%quads = 0.
     node(i)%octs  = 0.
 #endif
@@ -2238,46 +2236,6 @@ pure subroutine combine_child_nodes(left,right,parent)
 #endif
 
 end subroutine combine_child_nodes
-
-!-----------------------------------------------------------
-!+
-!  get the separation in 3D between two nodes of the tree
-!+
-!-----------------------------------------------------------
-pure subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
-#ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound,hdlx,hdly,hdlz
-#endif
- real, intent(in)  :: x1(3),x2(3)
- real, intent(out) :: dx,dy,dz,xoffset,yoffset,zoffset
- real, intent(out), optional :: r2
-
- xoffset = 0.
- yoffset = 0.
- zoffset = 0.
-
- dx = x2(1) - x1(1)
- dy = x2(2) - x1(2)
- dz = x2(3) - x1(3)
-
-#ifdef PERIODIC
- if (abs(dx) > hdlx) then ! mod distances across boundary if periodic BCs
-    xoffset = -dxbound*SIGN(1.0,dx)
-    dx = dx + xoffset
- endif
- if (abs(dy) > hdly) then
-    yoffset = -dybound*SIGN(1.0,dy)
-    dy = dy + yoffset
- endif
- if (abs(dz) > hdlz) then
-    zoffset = -dzbound*SIGN(1.0,dz)
-    dz = dz + zoffset
- endif
-#endif
-
- if (present(r2)) r2 = dx*dx+dy*dy+dz*dz
-
-end subroutine get_sep
 
 !-----------------------------------------------------------------------
 !+

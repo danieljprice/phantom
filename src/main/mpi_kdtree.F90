@@ -24,7 +24,7 @@ module mpikdtree
 !
  use dim,          only:ncellsmax,gravity
  use dtypekdtree,  only:kdnode,node,leaf_is_active,active_leaves,nactive_leaves,ncells
- use kdtree,       only:irootnode,maxdepth,tree_accuracy,maketree,get_sep,push_pair
+ use kdtree,       only:irootnode,maxdepth,tree_accuracy,maketree,push_pair
  implicit none
 
  integer, parameter :: maxsec_per_task    = 64    ! room for the top nodes, per task
@@ -2462,5 +2462,47 @@ subroutine sync_hmax_mpi
  enddo
 
 end subroutine sync_hmax_mpi
+
+!-----------------------------------------------------------
+!+
+!  get the separation in 3D between two nodes of the tree
+!  (mpikdtree and neighkdtree each have a copy, so that it can be
+!  inlined in their tree walks without link-time optimisation)
+!+
+!-----------------------------------------------------------
+pure subroutine get_sep(x1,x2,dx,dy,dz,xoffset,yoffset,zoffset,r2)
+#ifdef PERIODIC
+ use boundary, only:dxbound,dybound,dzbound,hdlx,hdly,hdlz
+#endif
+ real, intent(in)  :: x1(3),x2(3)
+ real, intent(out) :: dx,dy,dz,xoffset,yoffset,zoffset
+ real, intent(out), optional :: r2
+
+ xoffset = 0.
+ yoffset = 0.
+ zoffset = 0.
+
+ dx = x2(1) - x1(1)
+ dy = x2(2) - x1(2)
+ dz = x2(3) - x1(3)
+
+#ifdef PERIODIC
+ if (abs(dx) > hdlx) then ! mod distances across boundary if periodic BCs
+    xoffset = -dxbound*SIGN(1.0,dx)
+    dx = dx + xoffset
+ endif
+ if (abs(dy) > hdly) then
+    yoffset = -dybound*SIGN(1.0,dy)
+    dy = dy + yoffset
+ endif
+ if (abs(dz) > hdlz) then
+    zoffset = -dzbound*SIGN(1.0,dz)
+    dz = dz + zoffset
+ endif
+#endif
+
+ if (present(r2)) r2 = dx*dx+dy*dy+dz*dz
+
+end subroutine get_sep
 
 end module mpikdtree
