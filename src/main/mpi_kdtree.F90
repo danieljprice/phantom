@@ -1974,11 +1974,26 @@ subroutine attach_let_nodes(iproc,buf)
  real,    intent(in) :: buf(:)
  integer :: nrec,k,n,nbase,ipar,ip
 
- ! append each node after the combined tree, linked to its parent: a node earlier in
- ! the message, or a global leaf of iproc
+ ! room for the nodes after the combined tree
  nrec  = size(buf)/nlet_record
  nbase = ncomb
  if (nbase + nrec > size(node)) call grow_combined_tree(nbase + nrec)
+
+ ! the global leaves of iproc given children are no longer leaves of the combined tree
+ do k = 1,nrec
+    ipar = nint(buf((k-1)*nlet_record+7))
+    if (ipar >= 0) cycle
+    ipar = int(ncells) - ipar
+    if (leaf_is_active(ipar) == 0) cycle  ! already listed
+    call add_to_list(let_parent,nlet_parent,ipar)
+    leaf_is_active(ipar)    = 0
+    remote_leaf_owner(ipar) = 0
+ enddo
+
+ ! the data of each node, and its parent: a node earlier in the message, or a global leaf of iproc
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(nrec,nbase,buf,node,ncells,remote_local_index) &
+ !$omp private(k,ip,n,ipar)
  do k = 1,nrec
     ip = (k-1)*nlet_record
     n  = nbase + k
@@ -1995,25 +2010,45 @@ subroutine attach_let_nodes(iproc,buf)
     node(n)%level      = 0
     ipar = nint(buf(ip+7))
     if (ipar < 0) then
-       ipar = int(ncells) - ipar   ! a global node of iproc
+       ipar = int(ncells) - ipar
     else
        ipar = nbase + ipar
     endif
     node(n)%parent = ipar
-    if (ipar <= ncomb_tree .and. leaf_is_active(ipar) /= 0) call add_to_list(let_parent,nlet_parent,ipar)
-    if (nint(buf(ip+8)) == 1) then
+    remote_local_index(n) = nint(buf(ip+9))
+ enddo
+ !$omp end parallel do
+
+ ! link each node to its parent (the two children of a parent set different links)
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(nrec,nbase,buf,node) &
+ !$omp private(k,n,ipar)
+ do k = 1,nrec
+    n    = nbase + k
+    ipar = node(n)%parent
+    if (nint(buf((k-1)*nlet_record+8)) == 1) then
        node(ipar)%leftchild = n
     else
        node(ipar)%rightchild = n
     endif
-
-    ! the parent is no longer a leaf of the combined tree
-    leaf_is_active(ipar)    = 0
-    remote_leaf_owner(ipar) = 0
-    leaf_is_active(n)       = 1
-    remote_leaf_owner(n)    = iproc + 1
-    remote_local_index(n)   = nint(buf(ip+9))
  enddo
+ !$omp end parallel do
+
+ ! the nodes with no children are leaves of iproc
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(nrec,nbase,node,leaf_is_active,remote_leaf_owner,iproc) &
+ !$omp private(k,n)
+ do k = 1,nrec
+    n = nbase + k
+    if (node(n)%leftchild > 0 .or. node(n)%rightchild > 0) then
+       leaf_is_active(n)    = 0
+       remote_leaf_owner(n) = 0
+    else
+       leaf_is_active(n)    = 1
+       remote_leaf_owner(n) = iproc + 1
+    endif
+ enddo
+ !$omp end parallel do
 
  ncomb = nbase + nrec
 
