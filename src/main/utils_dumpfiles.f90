@@ -1727,6 +1727,10 @@ end subroutine write_array_int8
 !  to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
+!  The writers of 2-D arrays below copy each row (xyzh(j,:), one quantity for every
+!  particle: in memory every size(xyzh,1)-th value) into a contiguous buffer, in file order,
+!  and write that, not an implied-do over the row, which the I/O library transfers one
+!  element at a time.  The records on disk are the same bytes.
 subroutine write_array_int4arr(ib,iarr,my_tag,len1,len2,ikind,ipass,iunit,nums,nerr,index)
  integer(kind=4),  intent(in)    :: iarr(:,:)
  character(len=*), intent(in)    :: my_tag(:)
@@ -1734,7 +1738,8 @@ subroutine write_array_int4arr(ib,iarr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
  integer,          intent(inout) :: nums(:,:)
  integer,          intent(inout) :: nerr
  integer,          intent(in), optional :: index
- integer :: j,i,istart,iend,ierr
+ integer :: j,istart,iend,ierr
+ integer(kind=4), allocatable :: buf(:)
 
  ierr = 0
  if (present(index)) then
@@ -1750,13 +1755,16 @@ subroutine write_array_int4arr(ib,iarr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
     if (ipass==1) then
        nums(i_int4,ib) = nums(i_int4,ib) + (iend - istart) + 1
     elseif (ipass==2) then
+       allocate(buf(len2))
        do j=istart,iend
           write(iunit,iostat=ierr) tag(my_tag(j))
-          write(iunit,iostat=ierr) (iarr(j,i),i=1,len2)
+          buf(:) = iarr(j,1:len2)
+          write(iunit,iostat=ierr) buf
        enddo
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
 
 end subroutine write_array_int4arr
 
@@ -1880,7 +1888,8 @@ subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
  integer,          intent(inout) :: nerr
  integer,          intent(in), optional :: use_kind,index
  logical,          intent(in), optional :: singleprec
- integer :: j,i,imatch,istart,iend,ierr
+ integer :: j,imatch,istart,iend,ierr
+ real(kind=4), allocatable :: buf(:)
 
  ierr = 0
  ! use default real if it matches, unless kind is specified
@@ -1902,13 +1911,16 @@ subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
     if (ipass==1) then
        nums(imatch,ib) = nums(imatch,ib) + (iend - istart) + 1
     elseif (ipass==2) then
+       allocate(buf(len2))
        do j=istart,iend
           write(iunit,iostat=ierr) tag(my_tag(j))
-          write(iunit,iostat=ierr) (arr(j,i),i=1,len2)
+          buf(:) = arr(j,1:len2)
+          write(iunit,iostat=ierr) buf
        enddo
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
 
 end subroutine write_array_real4arr
 
@@ -1926,7 +1938,9 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
  integer,          intent(inout) :: nerr
  integer,          intent(in), optional :: use_kind,index
  logical,          intent(in), optional :: singleprec
- integer :: j,i,imatch,istart,iend,ierr
+ integer :: j,imatch,istart,iend,ierr
+ real(kind=8), allocatable :: buf(:)
+ real(kind=4), allocatable :: buf4(:)
  logical :: use_singleprec
 
  ierr = 0
@@ -1957,18 +1971,27 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
     if (ipass==1) then
        nums(imatch,ib) = nums(imatch,ib) + (iend - istart) + 1
     elseif (ipass==2) then
+       if (imatch==i_real4 .or. use_singleprec) then
+          allocate(buf4(len2))
+       else
+          allocate(buf(len2))
+       endif
        do j=istart,iend
           write(iunit,iostat=ierr) tag(my_tag(j))
           if (imatch==i_real4 .or. use_singleprec) then
              !print*, "done ", my_tag(j), " | ", tag(my_tag(j))
-             write(iunit,iostat=ierr) (real(arr(j,i),kind=4),i=1,len2)
+             buf4(:) = real(arr(j,1:len2),kind=4)
+             write(iunit,iostat=ierr) buf4
           else
-             write(iunit,iostat=ierr) (arr(j,i),i=1,len2)
+             buf(:) = arr(j,1:len2)
+             write(iunit,iostat=ierr) buf
           endif
        enddo
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
+ if (allocated(buf)) deallocate(buf)
+ if (allocated(buf4)) deallocate(buf4)
 
 end subroutine write_array_real8arr
 
