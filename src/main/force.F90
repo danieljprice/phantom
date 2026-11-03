@@ -56,6 +56,8 @@ module forces
  implicit none
 
  integer, parameter :: maxcellcache = 1000
+ !--long neighbour lists are done in blocks, so the neighbours' data stays in cache for all particles in the cell
+ integer, parameter :: nneighblock = 4096
  integer, parameter :: nforcecache = 5  ! position, 1/h and mass of the trial neighbours
 
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
@@ -2625,88 +2627,104 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  logical                         :: useresistiveheat
  logical                         :: ignoreself
 
- integer                         :: i,ip
+ integer                         :: i,ip,n1,n2
+ real                            :: fsum(maxfsum),vsigmax,tsmin
+ integer(kind=1)                 :: ibinneigh
 
  realviscosity    = (irealvisc > 0)
  useresistiveheat = (iresistive_heating > 0)
 
- over_parts: do ip = 1,cell%npcell
+ over_blocks: do n1 = 1,max(nneigh,1),nneighblock
+    n2 = min(n1+nneighblock-1,nneigh)
+    over_parts: do ip = 1,cell%npcell
 
-    if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
-       if (iamtypei == isink) then
-          iamsinki = .true.
+       if (maxphase==maxp) then
+          call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+          if (iamtypei == isink) then
+             iamsinki = .true.
+          else
+             iamsinki = .false.
+          endif
        else
+          iactivei = .true.
+          iamtypei = igas
+          iamdusti = .false.
+          iamgasi  = .true.
           iamsinki = .false.
        endif
-    else
-       iactivei = .true.
-       iamtypei = igas
-       iamdusti = .false.
-       iamgasi  = .true.
-       iamsinki = .false.
-    endif
 
-    if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles case where first particle in cell is inactive
-       cycle over_parts     ! also boundary particles are inactive
-    endif
-
-    if (use_apr) then
-       pmassi = aprmassoftype(iamtypei,cell%apr(ip))
-    elseif (iamtypei == isink .and. use_sinktree) then
-       pmassi = cell%xpartvec(imsinki,ip)
-    else
-       pmassi = massoftype(iamtypei)
-    endif
-
-    hi    = cell%xpartvec(ihi,ip)
-    hi1   = 1./hi
-
-    if (iamsinki) then
-       if (hi == 0.) hi1 = 0
-       gradhi = 0.
-       gradsofti = 0.
-    endif
-    !--sink indices are the same on every task (used to flag sink pairs in shortsinktree);
-    !  gas indices are only known on the owner (used to exclude self)
-    if (iamsinki) then
-       i = cell%arr_index(ip)
-    elseif (cell%owner /= id) then
-       i = 0
-    else
-       i = inodeparts(cell%arr_index(ip))
-    endif
-    if (.not.iamsinki) then
-       if (cell%xpartvec(igradhi1,ip) > 0.) then
-          gradhi = cell%xpartvec(igradhi1,ip)
-       else
-          call error('force','stored gradh is zero, resetting to 1')
-          gradhi = 1.
+       if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles case where first particle in cell is inactive
+          cycle over_parts     ! also boundary particles are inactive
        endif
-#ifdef GRAVITY
-       gradsofti = cell%xpartvec(igradhi2,ip)
-#endif
-    endif
 
-    hi21  = hi1*hi1
-    hi31  = hi1*hi21
-    hi41  = hi21*hi21
-    !
-    !--loop over current particle's neighbours (includes self)
-    !
-    ignoreself = (cell%owner == id)
-    call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,cell%apr(ip))
+       elseif (iamtypei == isink .and. use_sinktree) then
+          pmassi = cell%xpartvec(imsinki,ip)
+       else
+          pmassi = massoftype(iamtypei)
+       endif
+
+       hi    = cell%xpartvec(ihi,ip)
+       hi1   = 1./hi
+
+       if (iamsinki) then
+          if (hi == 0.) hi1 = 0
+          gradhi = 0.
+          gradsofti = 0.
+       endif
+       !--sink indices are the same on every task (used to flag sink pairs in shortsinktree);
+       !  gas indices are only known on the owner (used to exclude self)
+       if (iamsinki) then
+          i = cell%arr_index(ip)
+       elseif (cell%owner /= id) then
+          i = 0
+       else
+          i = inodeparts(cell%arr_index(ip))
+       endif
+       if (.not.iamsinki) then
+          if (cell%xpartvec(igradhi1,ip) > 0.) then
+             gradhi = cell%xpartvec(igradhi1,ip)
+          else
+             call error('force','stored gradh is zero, resetting to 1')
+             gradhi = 1.
+          endif
+#ifdef GRAVITY
+          gradsofti = cell%xpartvec(igradhi2,ip)
+#endif
+       endif
+
+       hi21  = hi1*hi1
+       hi31  = hi1*hi21
+       hi41  = hi21*hi21
+       !
+       !--loop over current particle's neighbours (includes self)
+       !
+       ignoreself = (cell%owner == id)
+       call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
                          beta, &
-                         pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
-                         .true.,realviscosity,useresistiveheat, &
+                         pmassi,listneigh(n1:n2),n2-n1+1,xyzcache,fsum,vsigmax, &
+                         (n1==1),realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
                          divcurlB,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,fxyz_drag,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
-                         cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
+                         cell%ndrag,cell%nstokes,cell%nsuper,tsmin,ibinnow_m1,ibin_wake,ibinneigh, &
                          ignoreself,rad,radprop,dens,metrics,apr_level,dt)
+       if (n1 == 1) then
+          cell%fsums(:,ip)   = fsum
+          cell%vsigmax(ip)   = vsigmax
+          cell%tsmin(ip)     = tsmin
+          cell%ibinneigh(ip) = ibinneigh
+       else
+          cell%fsums(:,ip)   = cell%fsums(:,ip) + fsum
+          cell%vsigmax(ip)   = max(cell%vsigmax(ip),vsigmax)
+          cell%tsmin(ip)     = min(cell%tsmin(ip),tsmin)
+          cell%ibinneigh(ip) = max(cell%ibinneigh(ip),ibinneigh)
+       endif
 
- enddo over_parts
+    enddo over_parts
+ enddo over_blocks
 
 end subroutine compute_cell
 

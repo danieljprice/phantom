@@ -369,6 +369,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  use evwrite,      only:write_evlog
  use mpiderivs,    only:print_cell_exchange_stats
  use mpikdtree,    only:print_let_stats
+ use densityforce, only:print_shared_cell_stats
  use part,         only:npart,nptmass,iphase,ibin,xyzh
  use io_summary,   only:summary_printout
  use timing,       only:reduce_timers,timers,itimer_lastdump,reset_timers,get_timings
@@ -387,6 +388,7 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  if (mpi .and. nprocs > 1) call print_task_table(iprint,taskvals)
  if (mpi) call print_cell_exchange_stats(iprint)
  if (mpi) call print_let_stats(iprint)
+ call print_shared_cell_stats(iprint)
  !--Write out summary to log file
  if (id==master) call summary_printout(iprint,nptmass)
 
