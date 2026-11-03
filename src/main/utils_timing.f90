@@ -88,10 +88,12 @@ module timing
                                 itimer_drift         = 45, &
                                 itimer_kickdrift     = 46, &
                                 itimer_HII           = 47, &
-                                itimer_ev            = 48, &
-                                itimer_io            = 49
+                                itimer_predict       = 48, &
+                                itimer_correct       = 49, &
+                                itimer_ev            = 50, &
+                                itimer_io            = 51
 
- integer, public, parameter :: ntimers = 49 ! should be equal to the largest itimer index
+ integer, public, parameter :: ntimers = 51 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
  !--running totals are summed in double precision; timers(:)%wall and %cpu hold
  !  copies in single precision, so a small increment is not lost in a large total
@@ -159,6 +161,8 @@ subroutine setup_timers
  call init_timer(itimer_drift       , 'drift',       itimer_substep  )
  call init_timer(itimer_kickdrift   , 'kickdrift',   itimer_substep  )
  call init_timer(itimer_HII         , 'HII_regions', itimer_step     )
+ call init_timer(itimer_predict     , 'predict',     itimer_step     )
+ call init_timer(itimer_correct     , 'correct',     itimer_step     )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 
