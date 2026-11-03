@@ -33,15 +33,6 @@ module kdtree
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
 
- ! the tree: this task's tree, followed with more than one MPI task by the global tree and
- ! the nodes imported from other tasks (the combined tree, built in mpikdtree)
- ! leaf_is_active is 0 for an internal node or empty cell, 1 for an active cell and -1 for
- ! an inactive cell; active_leaves lists the cells with leaf_is_active > 0, in order
- type(kdnode), allocatable, public :: node(:)
- integer,      allocatable, public :: leaf_is_active(:)
- integer,      allocatable, public :: active_leaves(:)
- integer, public :: nactive_leaves = 0
- integer(kind=8), public :: ncells
 !
 !--tree parameters
 !
@@ -380,8 +371,7 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells,list1,list2)
  integer,         intent(inout) :: leaf_is_active(:)
  integer(kind=8), intent(inout) :: ncells
  integer,         intent(inout), optional :: list1(:),list2(:)  ! node indices to renumber (0 kept)
- type(kdnode), allocatable :: newnode(:)
- integer,      allocatable :: order(:),newindex(:),newactive(:),newrange(:,:)
+ integer,      allocatable :: order(:),newindex(:)
  integer,      allocatable :: item(:),nitem(:),ioffset(:)
  logical,      allocatable :: is_subtree(:)
  integer :: istack(2*maxdepth+2),nstack,n,k,nnode,nold,nitems,nsmall
@@ -442,10 +432,35 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells,list1,list2)
  enddo
  !$omp end parallel do
 
+ ! move the nodes to their new places, with their links renumbered
+ call copy_renumbered_nodes(nold,nnode,order,newindex,node,leaf_is_active,inoderange)
+
+ if (present(list1)) list1 = newindex(max(list1,0))
+ if (present(list2)) list2 = newindex(max(list2,0))
+ ncells = nnode
+
+end subroutine renumber_depth_first
+
+!--------------------------------------------------------------------------------
+!+
+!  move the nodes to their new indices (order: old index of each new
+!  index; newindex: new index of each old index), renumbering the links
+!  between them, and clear the nodes left over at the end
+!+
+!--------------------------------------------------------------------------------
+subroutine copy_renumbered_nodes(nold,nnode,order,newindex,node,leaf_is_active,noderange)
+ integer,      intent(in)    :: nold,nnode
+ integer,      intent(in)    :: order(nnode),newindex(0:nold)
+ type(kdnode), intent(inout) :: node(nold)
+ integer,      intent(inout) :: leaf_is_active(nold),noderange(2,nold)
+ type(kdnode), allocatable :: newnode(:)
+ integer,      allocatable :: newactive(:),newrange(:,:)
+ integer :: k,n
+
  ! copy the nodes to their new places, with their links renumbered
  allocate(newnode(nnode),newactive(nnode),newrange(2,nnode))
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(nnode,order,node,newnode,newindex,newactive,leaf_is_active,newrange,inoderange) &
+ !$omp shared(nnode,order,node,newnode,newindex,newactive,leaf_is_active,newrange,noderange) &
  !$omp private(k,n)
  do k = 1,nnode
     n = order(k)
@@ -454,30 +469,26 @@ subroutine renumber_depth_first(node,leaf_is_active,ncells,list1,list2)
     newnode(k)%rightchild = newindex(max(node(n)%rightchild,0))
     newnode(k)%parent     = newindex(max(node(n)%parent,0))
     newactive(k)  = leaf_is_active(n)
-    newrange(:,k) = inoderange(:,n)
+    newrange(:,k) = noderange(:,n)
  enddo
  !$omp end parallel do
 
  ! copy the renumbered nodes back
  !$omp parallel do default(none) schedule(static) &
- !$omp shared(nold,nnode,node,newnode,leaf_is_active,newactive,inoderange,newrange) &
+ !$omp shared(nold,nnode,node,newnode,leaf_is_active,newactive,noderange,newrange) &
  !$omp private(k)
  do k = 1,nold
     if (k <= nnode) then
        node(k) = newnode(k)
        leaf_is_active(k) = newactive(k)
-       inoderange(:,k)   = newrange(:,k)
+       noderange(:,k)   = newrange(:,k)
     else
        leaf_is_active(k) = 0
     endif
  enddo
  !$omp end parallel do
 
- if (present(list1)) list1 = newindex(max(list1,0))
- if (present(list2)) list2 = newindex(max(list2,0))
- ncells = nnode
-
-end subroutine renumber_depth_first
+end subroutine copy_renumbered_nodes
 
 !--------------------------------------------------------------------------------
 !+

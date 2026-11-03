@@ -23,9 +23,8 @@ module mpikdtree
 !   omputils, part, sortutils, timing
 !
  use dim,          only:ncellsmax,gravity
- use dtypekdtree,  only:kdnode
- use kdtree,       only:node,leaf_is_active,active_leaves,nactive_leaves,ncells,&
-                        irootnode,maxdepth,tree_accuracy,maketree,get_sep,push_pair
+ use dtypekdtree,  only:kdnode,node,leaf_is_active,active_leaves,nactive_leaves,ncells
+ use kdtree,       only:irootnode,maxdepth,tree_accuracy,maketree,get_sep,push_pair
  implicit none
 
  integer, parameter :: maxsec_per_task    = 64    ! room for the top nodes, per task

@@ -81,6 +81,16 @@ module dtypekdtree
     integer                        :: nnodes
  end type ptmasstree
 
+ ! the tree: this task's tree, followed with more than one MPI task by the global tree and
+ ! the nodes imported from other tasks (the combined tree, built in mpikdtree)
+ ! leaf_is_active is 0 for an internal node or empty cell, 1 for an active cell and -1 for
+ ! an inactive cell; active_leaves lists the cells with leaf_is_active > 0, in order
+ type(kdnode), allocatable, public :: node(:)
+ integer,      allocatable, public :: leaf_is_active(:)
+ integer,      allocatable, public :: active_leaves(:)
+ integer, public :: nactive_leaves = 0
+ integer(kind=8), public :: ncells
+
  ! the MPI datatype for kdnode, once committed
  integer :: dtype_kdnode = 0
  logical :: have_dtype_kdnode = .false.

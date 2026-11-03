@@ -22,10 +22,9 @@ module neighkdtree
 !   kdtree, kernel, mpikdtree, part, sortutils, timing
 !
  use dim,          only:ncellsmax,gravity
- use dtypekdtree,  only:kdnode,lenfgrav
+ use dtypekdtree,  only:kdnode,lenfgrav,node,leaf_is_active,active_leaves,nactive_leaves,ncells
  use kdtree,       only:inoderange,inodeparts,irootnode,maxdepth,tree_accuracy,&
-                        ih1,im,node,leaf_is_active,active_leaves,nactive_leaves,ncells,&
-                        get_sep,push_pair
+                        ih1,im,get_sep,push_pair
  use mpikdtree,    only:nodeglobal,cellatid,ncomb,irootcomb,remote_leaf_owner,remote_local_index
  implicit none
 
