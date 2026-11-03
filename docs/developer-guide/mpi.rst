@@ -28,7 +28,7 @@ All of this, and everything else that spans tasks, is in src/main/mpi_kdtree.F90
 
 - ``maketreeglobal``: assigns owners, moves particles, builds the local tree and the top of the
   global tree
-- ``extend_local_tree(0)``: copies the nodes of each local tree near other tasks into the
+- ``extend_local_tree(0,nactive)``: copies the nodes of each local tree near other tasks into the
   global tree, and appends the global tree to the local tree (the *combined tree*), so that each
   local leaf's branch runs up to the global root
 - ``extend_local_tree(1)``: before force, imports the nodes of other tasks that the tree walks
@@ -62,6 +62,6 @@ The tests of the global and combined tree (kdtree), of the tree gravity (gravity
 derivatives (derivs) also check the MPI code when run on several tasks, e.g.::
 
    make phantomtest MPI=yes
-   mpirun -np 4 ./phantomtest kdtree
+   mpirun -np 4 ./bin/phantomtest kdtree
 
 Test with task counts that are not powers of two (e.g. 3) as well.

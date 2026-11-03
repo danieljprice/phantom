@@ -32,6 +32,9 @@ ifeq ($(USEMPI),yes)
     ifndef NMPI
         NMPI=4
     endif
+    ifndef NOMP
+        NOMP=1
+    endif
     ifndef QPE
         QPE=mpi
     endif

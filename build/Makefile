@@ -594,8 +594,8 @@ edit: checksetup
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_dens.F90 mpi_force.F90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
          ${DOMAIN} boundary.f90 boundary_dynamic.f90 \
-         mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 mpi_sections.F90 kdtree.F90 mpi_kdtree.F90 neigh_kdtree.F90 ptmass_tree.f90\
-         utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 cubicsolve.f90 \
+         utils_sort.f90 mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 mpi_sections.F90 kdtree.F90 mpi_kdtree.F90 \
+         neigh_kdtree.F90 ptmass_tree.f90 utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 cubicsolve.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 dynamic_dtmax.f90 \
          timestep.f90 ${SRCEOS} dust_formation.f90 \
@@ -606,7 +606,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.f90 io.F90 units.f90 mpi_d
          mcfost_utils.f90 radiation_utils.f90 options.f90 \
          checkconserved.f90 prompting.f90 dust.f90 \
          ${SRCRW_DUMPS} \
-         utils_sort.f90 sort_particles.f90
+         sort_particles.f90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 

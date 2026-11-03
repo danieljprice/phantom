@@ -67,6 +67,8 @@ module mpikdtree
  integer :: ncells_appended = 0                            ! where the global tree was appended
  integer, allocatable :: let_parent(:)                     ! global leaves given imported children
  integer :: nlet_parent = 0
+ integer, allocatable :: let_local(:)                      ! global leaves whose particles were imported
+ integer :: nlet_local = 0
  integer, allocatable :: let_base(:)                       ! position before the nodes from each task
 
  ! the selection of the nodes to send each task
@@ -209,6 +211,7 @@ subroutine deallocate_mpikdtree()
  if (allocated(own_roots))          deallocate(own_roots)
  if (allocated(own_gleaves))        deallocate(own_gleaves)
  if (allocated(let_parent))         deallocate(let_parent)
+ if (allocated(let_local))          deallocate(let_local)
  if (allocated(let_base))           deallocate(let_base)
  if (allocated(let_opened))         deallocate(let_opened)
  if (allocated(prof_set))           deallocate(prof_set)
@@ -216,6 +219,19 @@ subroutine deallocate_mpikdtree()
 !$omp parallel
  if (allocated(let_mark)) deallocate(let_mark)
 !$omp end parallel
+
+ ! no tree until the next build
+ ntop          = 0
+ nsec_top      = 0
+ nown_roots    = 0
+ nmirror       = 0
+ ncomb         = 0
+ ncomb_tree    = 0
+ nlet_parent   = 0
+ nlet_local    = 0
+ nown_gleaves  = 0
+ nprof_set     = 0
+ ninactive_set = 0
 
 end subroutine deallocate_mpikdtree
 
@@ -783,6 +799,7 @@ subroutine combine_trees()
  ncomb = int(ncells) + ng
  ncomb_tree = ncomb
  nlet_parent = 0
+ nlet_local  = 0
 
  ! no profiles received yet: every node may have active leaves below it
  profile_len(1:ng)   = -1
@@ -811,6 +828,13 @@ subroutine forget_let_nodes()
     remote_leaf_owner(n) = cellatid(g)
     leaf_is_active(n)    = min(cellatid(g),1)
  enddo
+
+ ! the global leaves whose particles were imported: leaves of their owners again
+ do k = 1,nlet_local
+    n = let_local(k)
+    remote_leaf_owner(n) = cellatid(n - int(ncells))
+ enddo
+ nlet_local = 0
 
  ! and drop the imported nodes
  nlet_parent = 0
@@ -1207,7 +1231,7 @@ subroutine unpack_leaf_particles(recvbuf,leafseg)
  real,    intent(in) :: recvbuf(:)
  integer, intent(in) :: leafseg(:,:)
  integer, allocatable :: newrange(:,:),leaf(:),ioff(:),ifirst(:)
- integer :: iproc,m,n,j,k,np,nrec,irecv,islot,nleaves
+ integer :: iproc,m,n,j,k,np,nrec,irecv,islot,islot0,nleaves
  logical :: use_gas
 
  use_gas = .not.(maxphase==maxp)  ! all particles are gas unless types are stored
@@ -1224,7 +1248,10 @@ subroutine unpack_leaf_particles(recvbuf,leafseg)
  n = sum(leafseg(2,:) - leafseg(1,:))/(2 + nrec) + 1
  allocate(leaf(n),ioff(n),ifirst(n))
  nleaves = 0
- islot = npart
+ ! the particles go after the particle arrays and after the local tree list (which
+ ! ends with this task's sinks in the tree)
+ islot0 = max(npart,inoderange(2,irootnode))
+ islot  = islot0
  do iproc = 0,nprocs-1
     irecv = leafseg(1,iproc+1)
     do while (irecv < leafseg(2,iproc+1))
@@ -1245,6 +1272,7 @@ subroutine unpack_leaf_particles(recvbuf,leafseg)
           ifirst(nleaves) = islot + 1
           inoderange(:,n) = [islot+1,islot+np]
           remote_leaf_owner(n) = 0
+          if (n <= ncomb_tree) call add_to_list(let_local,nlet_local,n)
           islot = islot + np
        endif
        irecv = irecv + 2 + np*nrec
@@ -1268,7 +1296,7 @@ subroutine unpack_leaf_particles(recvbuf,leafseg)
  !$omp end parallel do
 
  nimp_leaves_recv = nimp_leaves_recv + nleaves
- nimp_part_recv   = nimp_part_recv + (islot - npart)
+ nimp_part_recv   = nimp_part_recv + (islot - islot0)
 
 end subroutine unpack_leaf_particles
 

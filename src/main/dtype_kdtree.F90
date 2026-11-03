@@ -81,11 +81,9 @@ module dtypekdtree
     integer                        :: nnodes
  end type ptmasstree
 
-#ifdef MPI
  ! the MPI datatype for kdnode, once committed
  integer :: dtype_kdnode = 0
  logical :: have_dtype_kdnode = .false.
-#endif
 
 contains
 
@@ -190,7 +188,7 @@ subroutine get_mpitype_of_kdnode(dtype)
 
 #else
  integer, intent(out) :: dtype
- dtype = 0
+ dtype = merge(dtype_kdnode,0,have_dtype_kdnode)
 #endif
 end subroutine get_mpitype_of_kdnode
 

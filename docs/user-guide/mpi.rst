@@ -48,7 +48,10 @@ The number of openMP threads per task is set as usual, so the following runs 2 t
 ::
 
    export OMP_NUM_THREADS=4
-   mpiexec -np 2 ./phantom disc.in
+   mpiexec -np 2 --map-by slot:PE=4 --bind-to core ./phantom disc.in
+
+With openMPI the ``--map-by slot:PE=4`` gives each task four cores; otherwise each task is bound
+to a single core and its threads share it.
 
 How many tasks and threads?
 ---------------------------
