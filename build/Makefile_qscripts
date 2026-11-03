@@ -292,6 +292,19 @@ qscript:
            endif
         endif
     endif
+    #-- let MPI-IO write dumps with direct I/O on Lustre: Intel MPI, and Open MPI preferring
+    #   ROMIO (romio321 in 4.x, romio341 in 5.x) to OMPIO where it has both
+    ifeq ($(USEMPI),yes)
+        ifeq ($(QSHELL),tcsh)
+	   @echo 'setenv I_MPI_EXTRA_FILESYSTEM 1'
+	   @echo 'setenv OMPI_MCA_io_romio321_priority 100'
+	   @echo 'setenv OMPI_MCA_io_romio341_priority 100'
+        else
+	   @echo 'export I_MPI_EXTRA_FILESYSTEM=1'
+	   @echo 'export OMPI_MCA_io_romio321_priority=100'
+	   @echo 'export OMPI_MCA_io_romio341_priority=100'
+        endif
+    endif
 	@echo
     #-- add lines specific to particular machines
     ifeq ($(SYSTEM),msg)

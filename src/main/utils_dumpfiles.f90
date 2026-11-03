@@ -31,8 +31,36 @@ module dump_utils
  public :: write_block_header, write_array
  public :: read_block_header, read_array
  public :: read_global_block_header
+ public :: block_bytes,stage_begin,stage_end
  public :: print_arrays_in_file
  integer, parameter, public :: lentag = 16    ! tag length
+ !
+ ! How write_array and write_block_header write each record: irec_seq, a sequential
+ ! unformatted write (the usual); irec_staged (the parallel write of write_fulldump), the same
+ ! bytes, record markers and all, copied into a staging buffer that rec_sink (set by
+ ! stage_begin: an MPI-IO write at a byte offset; no MPI in this module) writes when it is
+ ! full, irec_pos being the record's byte in the file
+ !
+ integer, parameter, public :: irec_seq = 0, irec_staged = 1
+ integer,         public :: irec_mode = irec_seq
+ integer(kind=8), public :: irec_pos  = 1_8
+ integer,         public :: irec_err  = 0     ! the first error of an irec_staged write, if any
+ ! gfortran and ifort/ifx split a record longer than this into subrecords
+ integer(kind=8), parameter :: maxsubrec = 2147483639_8
+ ! The staging buffer starts on a 4 KiB boundary in memory, and its first write ends on a
+ ! 4 KiB boundary of the file, so every write but the first and the last is aligned in both
+ ! (what direct I/O needs; the MPI library writes unaligned pieces through the page cache)
+ abstract interface
+  subroutine rec_sink_t(off,b,ierr)
+   integer(kind=8), intent(in)  :: off                ! 0-based byte offset in the file
+   integer(kind=1), intent(in), contiguous :: b(:)
+   integer,         intent(out) :: ierr
+  end subroutine rec_sink_t
+ end interface
+ procedure(rec_sink_t), pointer :: rec_sink => null()
+ integer(kind=1), allocatable, target :: stage_mem(:)
+ integer(kind=1), pointer :: stage(:) => null()
+ integer(kind=8) :: stage_n = 0, stage_lim = 0, stage_off = 0
  integer, parameter, public :: lenid  = 100
  integer, parameter, public :: maxphead = 256
  !
@@ -137,6 +165,10 @@ module dump_utils
  interface reset_header
   module procedure reset_header_real
  end interface reset_header
+
+ interface put_rec
+  module procedure put_rec_c, put_rec_i1, put_rec_i4, put_rec_i8, put_rec_r4, put_rec_r8
+ end interface put_rec
 
  ! generic interface for writing arrays to file
  interface write_array
@@ -1635,15 +1667,15 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
     if (ipass==1) then
        nums(i_int1,ib) = nums(i_int1,ib) + 1
     elseif (ipass==2) then
-       write(iunit,iostat=ierr) tag(my_tag)
+       call put_rec(iunit,tag(my_tag),ierr)
        if (present(func)) then
           allocate(buf(len))
           do i=1,len
              buf(i) = func(iarr(i))
           enddo
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        else
-          write(iunit,iostat=ierr) iarr(1:len)
+          call put_rec(iunit,iarr(1:len),ierr)
        endif
     endif
  endif
@@ -1680,15 +1712,15 @@ subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
     if (ipass==1) then
        nums(i_int4,ib) = nums(i_int4,ib) + 1
     elseif (ipass==2) then
-       write(iunit,iostat=ierr) tag(my_tag)
+       call put_rec(iunit,tag(my_tag),ierr)
        if (present(func)) then
           allocate(buf(len))
           do i=1,len
              buf(i) = func(iarr(i))
           enddo
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        else
-          write(iunit,iostat=ierr) iarr(1:len)
+          call put_rec(iunit,iarr(1:len),ierr)
        endif
     endif
  endif
@@ -1725,15 +1757,15 @@ subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
     if (ipass==1) then
        nums(i_int8,ib) = nums(i_int8,ib) + 1
     elseif (ipass==2) then
-       write(iunit,iostat=ierr) tag(my_tag)
+       call put_rec(iunit,tag(my_tag),ierr)
        if (present(func)) then
           allocate(buf(len))
           do i=1,len
              buf(i) = func(iarr(i))
           enddo
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        else
-          write(iunit,iostat=ierr) iarr(1:len)
+          call put_rec(iunit,iarr(1:len),ierr)
        endif
     endif
  endif
@@ -1778,9 +1810,9 @@ subroutine write_array_int4arr(ib,iarr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
     elseif (ipass==2) then
        allocate(buf(len2))
        do j=istart,iend
-          write(iunit,iostat=ierr) tag(my_tag(j))
+          call put_rec(iunit,tag(my_tag(j)),ierr)
           buf(:) = iarr(j,1:len2)
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        enddo
     endif
  endif
@@ -1824,15 +1856,15 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
     if (ipass==1) then
        nums(imatch,ib) = nums(imatch,ib) + 1
     elseif (ipass==2) then
-       write(iunit,iostat=ierr) tag(my_tag)
+       call put_rec(iunit,tag(my_tag),ierr)
        if (present(func)) then
           allocate(buf(len))
           do i=1,len
              buf(i) = func(arr(i))
           enddo
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        else
-          write(iunit,iostat=ierr) arr(1:len)
+          call put_rec(iunit,arr(1:len),ierr)
        endif
     endif
  endif
@@ -1887,20 +1919,20 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,
     if (ipass==1) then
        nums(imatch,ib) = nums(imatch,ib) + 1
     elseif (ipass==2) then
-       write(iunit,iostat=ierr) tag(my_tag)
+       call put_rec(iunit,tag(my_tag),ierr)
        if (present(func)) then
           allocate(buf(len))
           do i=1,len
              buf(i) = func(arr(i))
           enddo
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        else
           if (imatch==i_real4 .or. use_singleprec) then
              allocate(buf4(len))
              buf4(:) = real(arr(1:len),kind=4)
-             write(iunit,iostat=ierr) buf4
+             call put_rec(iunit,buf4,ierr)
           else
-             write(iunit,iostat=ierr) arr(1:len)
+             call put_rec(iunit,arr(1:len),ierr)
           endif
        endif
     endif
@@ -1950,9 +1982,9 @@ subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
     elseif (ipass==2) then
        allocate(buf(len2))
        do j=istart,iend
-          write(iunit,iostat=ierr) tag(my_tag(j))
+          call put_rec(iunit,tag(my_tag(j)),ierr)
           buf(:) = arr(j,1:len2)
-          write(iunit,iostat=ierr) buf
+          call put_rec(iunit,buf,ierr)
        enddo
     endif
  endif
@@ -2014,14 +2046,14 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
           allocate(buf(len2))
        endif
        do j=istart,iend
-          write(iunit,iostat=ierr) tag(my_tag(j))
+          call put_rec(iunit,tag(my_tag(j)),ierr)
           if (imatch==i_real4 .or. use_singleprec) then
              !print*, "done ", my_tag(j), " | ", tag(my_tag(j))
              buf4(:) = real(arr(j,1:len2),kind=4)
-             write(iunit,iostat=ierr) buf4
+             call put_rec(iunit,buf4,ierr)
           else
              buf(:) = arr(j,1:len2)
-             write(iunit,iostat=ierr) buf
+             call put_rec(iunit,buf,ierr)
           endif
        enddo
     endif
@@ -2045,7 +2077,12 @@ subroutine write_block_header(nblocks,number,nums,iunit,ierr)
  integer :: iblock
 
  do iblock=1,nblocks
-    write(iunit,iostat=ierr) number(iblock), nums(1:ndatatypes,iblock)
+    if (irec_mode == irec_staged) then
+       call put_staged([transfer(number(iblock),0_1,storage_size(0_8)/8), &
+                              transfer(nums(1:ndatatypes,iblock),0_1,ndatatypes*storage_size(1)/8)],ierr)
+    else
+       write(iunit,iostat=ierr) number(iblock), nums(1:ndatatypes,iblock)
+    endif
  enddo
 
 end subroutine write_block_header
@@ -2780,5 +2817,260 @@ subroutine print_arrays_in_file(iunit,filename)
  close(iunit)
 
 end subroutine print_arrays_in_file
+
+!--------------------------------------------------------------------
+!+
+!  The bytes a task's blocks take in a full dump (write_block_header and
+!  write_array): narraylengths blocks of ilen values each, holding the
+!  number of arrays of each data type the first pass counted (nums), each
+!  array a tag record and a data record
+!+
+!--------------------------------------------------------------------
+integer(kind=8) function block_bytes(narraylengths,ilen,nums)
+ integer,         intent(in) :: narraylengths
+ integer(kind=8), intent(in) :: ilen(narraylengths)
+ integer,         intent(in) :: nums(ndatatypes,narraylengths)
+ integer(kind=8) :: tsize(ndatatypes)
+ integer :: ib,it
+
+ tsize(i_int)   = storage_size(1)/8
+ tsize(i_int1)  = 1
+ tsize(i_int2)  = 2
+ tsize(i_int4)  = 4
+ tsize(i_int8)  = 8
+ tsize(i_real)  = storage_size(1.)/8
+ tsize(i_real4) = 4
+ tsize(i_real8) = 8
+ block_bytes = narraylengths*(8 + ndatatypes*storage_size(1)/8 + 8)   ! block headers
+ do ib=1,narraylengths
+    do it=1,ndatatypes
+       block_bytes = block_bytes + nums(it,ib)*(lentag + 8 + rec_disk_bytes(ilen(ib)*tsize(it)))
+    enddo
+ enddo
+
+end function block_bytes
+
+! bytes a record of nbytes takes on disk, with its markers
+pure integer(kind=8) function rec_disk_bytes(nbytes)
+ integer(kind=8), intent(in) :: nbytes
+
+ rec_disk_bytes = nbytes + 8_8*max(1_8,(nbytes + maxsubrec - 1)/maxsubrec)
+
+end function rec_disk_bytes
+
+!--------------------------------------------------------------------
+!+
+!  One record of a dump, as irec_mode says: a sequential unformatted write,
+!  or (irec_staged) the same bytes into the staging buffer, with the 4-byte
+!  record markers of gfortran and ifort/ifx;
+!  a record longer than maxsubrec bytes is split into subrecords, the
+!  leading marker negative when more follow, the trailing one negative when
+!  one preceded
+!+
+!--------------------------------------------------------------------
+subroutine put_staged(b,ierr)
+ integer(kind=1), intent(in)  :: b(:)
+ integer,         intent(out) :: ierr
+ integer(kind=8) :: nbytes,done,c
+ integer(kind=4) :: mh,mt
+
+ nbytes = size(b,kind=8)
+ done = 0
+ do
+    c  = min(maxsubrec,nbytes - done)
+    mh = int(c,kind=4)
+    mt = mh
+    if (done + c < nbytes) mh = -mh
+    if (done > 0) mt = -mt
+    if (irec_err == 0) then   ! after a failure nothing more is written: the dump is written again
+       call stage_put(transfer(mh,0_1,4))
+       call stage_put(b(done+1:done+c))
+       call stage_put(transfer(mt,0_1,4))
+    endif
+    ierr = 0   ! a failure is kept in irec_err, and reported by write_fulldump
+    irec_pos = irec_pos + c + 8
+    done = done + c
+    if (done >= nbytes) exit
+ enddo
+
+end subroutine put_staged
+
+!--------------------------------------------------------------------
+!+
+!  The staging buffer of the MPI-IO write: stage_begin at byte pos (1-based)
+!  of the file, with sink the writer and capbytes (a multiple of 4 KiB) the
+!  buffer; stage_end writes what is left.  A failed write sets irec_err.
+!+
+!--------------------------------------------------------------------
+subroutine stage_begin(pos,capbytes,sink)
+ use, intrinsic :: iso_c_binding, only:c_loc,c_intptr_t
+ integer(kind=8), intent(in) :: pos,capbytes
+ procedure(rec_sink_t)       :: sink
+ integer(kind=c_intptr_t) :: addr
+ integer(kind=8) :: shift
+
+ allocate(stage_mem(capbytes + 4096))
+ addr  = transfer(c_loc(stage_mem(1)),0_c_intptr_t)
+ shift = modulo(-int(addr,kind=8),4096_8)
+ stage => stage_mem(shift+1:shift+capbytes)
+ stage_off = pos - 1_8
+ stage_n   = 0_8
+ stage_lim = capbytes - modulo(stage_off,4096_8)
+ rec_sink  => sink
+
+end subroutine stage_begin
+
+subroutine stage_end()
+
+ if (irec_err == 0) call stage_flush()
+ rec_sink => null()
+ stage    => null()
+ deallocate(stage_mem)
+
+end subroutine stage_end
+
+subroutine stage_flush()
+ integer :: ierr
+
+ if (stage_n > 0) then
+    call rec_sink(stage_off,stage(1:stage_n),ierr)
+    if (ierr /= 0 .and. irec_err == 0) irec_err = ierr
+ endif
+ stage_off = stage_off + stage_n
+ stage_n   = 0_8
+ stage_lim = size(stage,kind=8)
+
+end subroutine stage_flush
+
+subroutine stage_put(b)
+ integer(kind=1), intent(in) :: b(:)
+ integer(kind=8) :: n,done,c
+
+ n = size(b,kind=8)
+ done = 0
+ do while (done < n .and. irec_err == 0)
+    c = min(n - done,stage_lim - stage_n)
+    call copy_bytes(c,b(done+1:done+c),stage(stage_n+1:stage_n+c))
+    stage_n = stage_n + c
+    done    = done + c
+    if (stage_n == stage_lim) call stage_flush()
+ enddo
+
+end subroutine stage_put
+
+! explicit-shape arguments: a plain copy (an array assignment to a section of
+! the pointer stage would go through a temporary)
+subroutine copy_bytes(n,src,dst)
+ integer(kind=8), intent(in)  :: n
+ integer(kind=1), intent(in)  :: src(n)
+ integer(kind=1), intent(out) :: dst(n)
+
+ dst = src
+
+end subroutine copy_bytes
+
+! the bytes of an array, without a copy
+function as_bytes(p,nbytes) result(b)
+ use, intrinsic :: iso_c_binding, only:c_ptr,c_f_pointer
+ type(c_ptr),     intent(in) :: p
+ integer(kind=8), intent(in) :: nbytes
+ integer(kind=1), pointer :: b(:)
+
+ call c_f_pointer(p,b,[nbytes])
+
+end function as_bytes
+
+subroutine put_rec_c(iunit,x,ierr)
+ integer,          intent(in)  :: iunit
+ character(len=*), intent(in)  :: x
+ integer,          intent(out) :: ierr
+
+ if (irec_mode /= irec_staged) then
+    write(iunit,iostat=ierr) x
+ else
+    call put_staged(transfer(x,0_1,len(x)),ierr)
+ endif
+
+end subroutine put_rec_c
+
+subroutine put_rec_i1(iunit,x,ierr)
+ use, intrinsic :: iso_c_binding, only:c_loc
+ integer,      intent(in)  :: iunit
+ integer(kind=1), intent(in), target, contiguous :: x(:)
+ integer,      intent(out) :: ierr
+
+ if (irec_mode /= irec_staged) then
+    write(iunit,iostat=ierr) x
+ elseif (size(x) > 0) then
+    call put_staged(as_bytes(c_loc(x),size(x,kind=8)*storage_size(x)/8),ierr)
+ else
+    call put_staged([integer(kind=1) ::],ierr)
+ endif
+
+end subroutine put_rec_i1
+
+subroutine put_rec_i4(iunit,x,ierr)
+ use, intrinsic :: iso_c_binding, only:c_loc
+ integer,      intent(in)  :: iunit
+ integer(kind=4), intent(in), target, contiguous :: x(:)
+ integer,      intent(out) :: ierr
+
+ if (irec_mode /= irec_staged) then
+    write(iunit,iostat=ierr) x
+ elseif (size(x) > 0) then
+    call put_staged(as_bytes(c_loc(x),size(x,kind=8)*storage_size(x)/8),ierr)
+ else
+    call put_staged([integer(kind=1) ::],ierr)
+ endif
+
+end subroutine put_rec_i4
+
+subroutine put_rec_i8(iunit,x,ierr)
+ use, intrinsic :: iso_c_binding, only:c_loc
+ integer,      intent(in)  :: iunit
+ integer(kind=8), intent(in), target, contiguous :: x(:)
+ integer,      intent(out) :: ierr
+
+ if (irec_mode /= irec_staged) then
+    write(iunit,iostat=ierr) x
+ elseif (size(x) > 0) then
+    call put_staged(as_bytes(c_loc(x),size(x,kind=8)*storage_size(x)/8),ierr)
+ else
+    call put_staged([integer(kind=1) ::],ierr)
+ endif
+
+end subroutine put_rec_i8
+
+subroutine put_rec_r4(iunit,x,ierr)
+ use, intrinsic :: iso_c_binding, only:c_loc
+ integer,      intent(in)  :: iunit
+ real(kind=4)   , intent(in), target, contiguous :: x(:)
+ integer,      intent(out) :: ierr
+
+ if (irec_mode /= irec_staged) then
+    write(iunit,iostat=ierr) x
+ elseif (size(x) > 0) then
+    call put_staged(as_bytes(c_loc(x),size(x,kind=8)*storage_size(x)/8),ierr)
+ else
+    call put_staged([integer(kind=1) ::],ierr)
+ endif
+
+end subroutine put_rec_r4
+
+subroutine put_rec_r8(iunit,x,ierr)
+ use, intrinsic :: iso_c_binding, only:c_loc
+ integer,      intent(in)  :: iunit
+ real(kind=8)   , intent(in), target, contiguous :: x(:)
+ integer,      intent(out) :: ierr
+
+ if (irec_mode /= irec_staged) then
+    write(iunit,iostat=ierr) x
+ elseif (size(x) > 0) then
+    call put_staged(as_bytes(c_loc(x),size(x,kind=8)*storage_size(x)/8),ierr)
+ else
+    call put_staged([integer(kind=1) ::],ierr)
+ endif
+
+end subroutine put_rec_r8
 
 end module dump_utils
