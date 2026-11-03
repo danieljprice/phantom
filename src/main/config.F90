@@ -143,7 +143,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 28 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 31 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &

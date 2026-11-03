@@ -180,7 +180,11 @@ module forces
        idviz          = 31 + 5*(maxdustsmall-1), &
        idensgasi      = 32 + 5*(maxdustsmall-1), &
        icsi           = 33 + 5*(maxdustsmall-1), &
-       idradi         = 34 + 5*(maxdustsmall-1)
+       idradi         = 34 + 5*(maxdustsmall-1), &
+ !--pressure gradient for the radiative cooling approximation (icooling=9)
+       igradpxi       = 35 + 5*(maxdustsmall-1), &
+       igradpyi       = 36 + 5*(maxdustsmall-1), &
+       igradpzi       = 37 + 5*(maxdustsmall-1)
 
  private
 
@@ -950,7 +954,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rho,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,use_var_comp,icooling
- use eos_stamatellos, only:gradP_cool,getopac_opdep
+ use eos_stamatellos, only:getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:use_regnbody
@@ -1073,7 +1077,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: du_losi,du_losj,lorentzj,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),dvlos,u0max
  real    :: radPj,fgravxi,fgravyi,fgravzi
- real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
+ real    :: gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1239,10 +1243,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravyi = 0.
  fgravzi = 0.
  if (icooling == 9) then
-    if (ignoreself) gradP_cool(i) = 0.   ! only on the owner of particle i
-    gradpx = 0.
-    gradpy = 0.
-    gradpz = 0.
     gradP_cooli=0.
     gradP_coolj=0.
  endif
@@ -1772,9 +1772,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 
           if (icooling == 9) then
-             gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
-             gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
-             gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
+             fsum(igradpxi) = fsum(igradpxi) + runix*(gradP_cooli + gradP_coolj)
+             fsum(igradpyi) = fsum(igradpyi) + runiy*(gradP_cooli + gradP_coolj)
+             fsum(igradpzi) = fsum(igradpzi) + runiz*(gradP_cooli + gradP_coolj)
           endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
@@ -2110,8 +2110,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif is_sph_neighbour
 
  enddo loop_over_neighbours2
-
- if (icooling == 9 .and. ignoreself) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
 
 end subroutine compute_forces
 
@@ -2670,7 +2668,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
        gradsofti = 0.
     endif
     !--sink indices are the same on every task (used to flag sink pairs in shortsinktree);
-    !  gas indices are only known on the owner (used to exclude self and store gradP)
+    !  gas indices are only known on the owner (used to exclude self)
     if (iamsinki) then
        i = cell%arr_index(ip)
     elseif (cell%owner /= id) then
@@ -2765,7 +2763,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
- use eos_stamatellos,only:duSPH
+ use eos_stamatellos,only:duSPH,gradP_cool
  integer,         intent(in)    :: icall
  type(cellforce), intent(inout) :: cell
  real,            intent(inout) :: fxyzu(:,:)
@@ -2870,6 +2868,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
+    if (icooling == 9 .and. .not.iamsinki) gradP_cool(i) = sqrt(fsum(igradpxi)**2 + fsum(igradpyi)**2 + fsum(igradpzi)**2)
     if (ind_timesteps) ibin_neighi   = cell%ibinneigh(ip)
 
     dtc     = dtmax
