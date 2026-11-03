@@ -673,11 +673,10 @@ subroutine test_sinks_in_tree(ntests,npass)
  integer, parameter :: nhalo = 50
  real,    parameter :: rmax = 1., rhalo = 6., hsoft = 0.05
  real, allocatable  :: xyzs(:,:)
- integer :: nfailed(4),i,ns,merge_n,merge_ij(maxptmass),boundi,boundf
+ integer :: nfailed(5),i,ns,merge_n,merge_ij(maxptmass),boundi,boundf
  integer(kind=8) :: nstot
- real    :: psep,totmass,epoti,dtsinksink,fsum(3),tree_acc_prev,z,phi
+ real    :: psep,totmass,epoti,dtsinksink,fsum(3),tree_acc_prev,z,phi,r2,errmax
 
- if (maxptmass < 1000) return
  if (id==master) write(*,"(/,a)") '--> testing gravity in uniform sphere of gas and sinks (SinkInTree)'
  tree_acc_prev = tree_accuracy
  tree_accuracy = 0.5
@@ -723,11 +722,18 @@ subroutine test_sinks_in_tree(ntests,npass)
 
  ! half the mass in a uniform sphere of sinks on a lattice of a different spacing from
  ! the gas (so no sink sits on a gas particle), the same on every task
- allocate(xyzs(4,maxptmass))
+ allocate(xyzs(4,maxp))
  ns = 0
  nstot = 0
  psep  = 0.2
  call set_sphere('cubic',master,master,0.,rmax,psep,hfact,ns,xyzs,nstot)
+ if (ns > maxptmass) then
+    if (id==master) write(*,"(a)") ' skipped: not enough room for the sinks (MAXPTMASS)'
+    npartoftype(:) = 0
+    massoftype(:) = 0.
+    tree_accuracy = tree_acc_prev
+    return
+ endif
  nptmass = ns
  do i=1,nptmass
     xyzmh_ptmass(:,i)      = 0.
@@ -775,6 +781,16 @@ subroutine test_sinks_in_tree(ntests,npass)
  enddo
 
  call checkval(sqrt(dot_product(fsum,fsum)),0.,1.e-14,nfailed(1),'total force')
+
+ ! the halo particles are pulled towards the spheres, with radial acceleration -G M/r^2
+ errmax = 0.
+ do i=1,npart
+    r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+    if (r2 < 4.*rmax**2) cycle
+    errmax = max(errmax,abs(dot_product(fxyzu(1:3,i),xyzh(1:3,i))*sqrt(r2)/totmass + 1.))
+ enddo
+ errmax = reduceall_mpi('max',errmax)
+ call checkval(errmax,0.,5.e-2,nfailed(5),'halo acceleration')
  call checkval(epoti,-3./5.*totmass**2/rmax,5.e-2,nfailed(2),'potential=-3/5 GMM/R')
  call compute_energies(0.)
  call checkval(epot,epoti,1.e-12,nfailed(3),'epot in compute_energies')
