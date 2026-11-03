@@ -174,6 +174,18 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 
  endif masterthread
 
+ !
+ !--columns computed from other arrays: once here, not in every pass of the
+ !  block loops below (over ipass and the data types: 2*ndatatypes times)
+ !
+ if (gr) then
+    if (imetric==imet_et .or. imetric==imet_binarybh) call init_metric(npart,xyzh,metrics,metricderivs,time=t)
+ endif
+ if (ind_timesteps) then
+    allocate(temparr(npart))
+    temparr(1:npart) = dtmax/2.**ibin(1:npart)
+ endif
+
  call start_threadwrite(id,idump,dumpfile)
 
  nerr = 0
@@ -211,8 +223,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,nerr)
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,nerr)
           if (imetric==imet_et .or. imetric==imet_binarybh) then
-             ! Output metric if imetric=iet
-             call init_metric(npart,xyzh,metrics,metricderivs,time=t)
+             ! Output metric if imetric=iet (computed above, once)
              call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,nerr)
@@ -264,8 +275,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,poten,'poten',npart,k,ipass,idump,nums,nerr)
        endif
        if (ind_timesteps) then
-          if (.not.allocated(temparr)) allocate(temparr(npart))
-          temparr(1:npart) = dtmax/2.**ibin(1:npart)
           call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
