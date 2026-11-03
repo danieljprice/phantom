@@ -32,7 +32,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_gravity(ntests,npass,string)
- use dim, only:gravity
+ use dim, only:gravity,use_sinktree
  use testapr, only:setup_apr_region_for_test
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
@@ -69,6 +69,10 @@ subroutine test_gravity(ntests,npass,string)
     !--unit tests of treecode gravity by direct summation
     !
     if (testdirectsum .or. testall) call test_directsum(ntests,npass)
+    !
+    !--unit test of gravity with sink particles in the tree
+    !
+    if ((testdirectsum .or. testall) .and. use_sinktree) call test_sinks_in_tree(ntests,npass)
     !
     !--unit tests of FMM linear and angular momentum conservation
     !
@@ -631,6 +635,170 @@ subroutine test_directsum(ntests,npass)
  vxyzu = 0.
 
 end subroutine test_directsum
+
+!-----------------------------------------------------------------------
+!+
+!  Unit test of gravity with sink particles in the tree: a uniform
+!  sphere of gas and a uniform sphere of sinks of the same radius and
+!  mass, with a sparse halo of gas far outside. With several MPI tasks
+!  the leaves of the halo are of large reach, so other tasks import
+!  their particles, alongside the sinks in their trees. The forces on
+!  gas and sinks sum to zero, the potential energy is close to that of
+!  one uniform sphere, and a second force calculation on the same tree
+!  (importing the leaves again) gives the same forces
+!+
+!-----------------------------------------------------------------------
+subroutine test_sinks_in_tree(ntests,npass)
+ use io,             only:id,master,nprocs
+ use dim,            only:maxp,maxptmass,mpi,maxpsph
+ use part,           only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu,&
+                          poten,iphase,isetphase,maxphase,igas,nptmass,xyzmh_ptmass,&
+                          fxyz_ptmass,dsdt_ptmass,ibelong,fxyz_ptmass_tree,&
+                          ihsoft,epot_sinksink
+ use eos,            only:polyk,gamma
+ use options,        only:ieos,alpha,alphau,alphaB,tolh
+ use spherical,      only:set_sphere
+ use deriv,          only:get_derivs_global
+ use energies,       only:compute_energies,epot
+ use kdtree,         only:tree_accuracy
+ use testutils,      only:checkval,update_test_scores
+ use ptmass,         only:get_accel_sink_sink
+ use mpiutils,       only:reduceall_mpi
+ use setup_params,   only:npart_total
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nhalo = 24
+ real,    parameter :: rmax = 1., rhalo = 6., hsoft = 0.05
+ real, allocatable  :: xyzs(:,:),fgas(:,:),fsink(:,:)
+ integer :: nfailed(9),i,ns,merge_n,merge_ij(maxptmass),boundi,boundf
+ integer(kind=8) :: nstot
+ real    :: psep,totmass,epoti,dtsinksink,fsum(3),tree_acc_prev,z,phi
+
+ if (maxptmass < 1000) return
+ if (id==master) write(*,"(/,a)") '--> testing gravity in uniform sphere of gas and sinks (SinkInTree)'
+ tree_acc_prev = tree_accuracy
+ tree_accuracy = 0.5
+ hfact  = 1.2
+ gamma  = 5./3.
+ ieos   = 2
+ polyk  = 0.
+ alpha  = 0.
+ alphau = 0.
+ alphaB = 0.
+ tolh   = 1.e-5
+ totmass = 1.
+
+ ! half the mass in a uniform sphere of gas, set up on master
+ call init_part()
+ npart = 0
+ npart_total = 0
+ psep  = 0.18
+ if (id==master) call set_sphere('cubic',id,master,0.,rmax,psep,hfact,npart,xyzh,npart_total)
+ npartoftype(:) = 0
+ npartoftype(igas) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
+ massoftype(:) = 0.
+ massoftype(igas) = 0.5*totmass/npartoftype(igas)
+
+ ! and a sparse halo of gas particles of the same mass, evenly spread on a sphere far outside
+ if (id==master) then
+    do i=1,nhalo
+       z   = 1. - (2.*i - 1.)/nhalo
+       phi = 2.39996*i
+       xyzh(1:3,npart+i) = rhalo*[sqrt(1. - z*z)*cos(phi),sqrt(1. - z*z)*sin(phi),z]
+       xyzh(4,npart+i)   = 1.
+    enddo
+    npart = npart + nhalo
+ endif
+ npartoftype(igas) = int(reduceall_mpi('+',npart),kind=kind(npartoftype))
+ if (maxphase==maxp) then
+    do i=1,npart
+       iphase(i) = isetphase(igas,iactive=.true.)
+    enddo
+ endif
+ vxyzu = 0.
+ fxyzu = 0.
+
+ ! half the mass in a uniform sphere of sinks on a lattice of a different spacing from
+ ! the gas (so no sink sits on a gas particle), the same on every task
+ allocate(xyzs(4,maxptmass))
+ ns = 0
+ nstot = 0
+ psep  = 0.2
+ call set_sphere('cubic',master,master,0.,rmax,psep,hfact,ns,xyzs,nstot)
+ nptmass = ns
+ do i=1,nptmass
+    xyzmh_ptmass(:,i)      = 0.
+    xyzmh_ptmass(1:3,i)    = xyzs(1:3,i)
+    xyzmh_ptmass(4,i)      = 0.5*totmass/nptmass
+    xyzmh_ptmass(ihsoft,i) = hsoft
+ enddo
+
+ ! each task owns a share of the sinks
+ if (mpi) then
+    ibelong(maxpsph+1:maxp) = -1
+    boundi = maxpsph + (nptmass/nprocs)*id
+    boundf = maxpsph + (nptmass/nprocs)*(id+1)
+    if (id == nprocs-1) boundf = boundf + mod(nptmass,nprocs)
+    ibelong(boundi+1:boundf) = id
+ endif
+
+ ! gravity through the tree, plus the sink-sink terms
+ fxyz_ptmass_tree = 0.
+ call get_derivs_global()
+
+ ! the sink pairs flagged by the tree walk (shortsinktree) are computed directly,
+ ! with their potential in epot_sinksink as during a calculation
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
+ epoti = 0.
+ if (id == master) epoti = epot_sinksink
+ do i=1,npart
+    epoti = epoti + poten(i)
+ enddo
+ do i=1,nptmass
+    epoti = epoti + poten(maxpsph+i)
+ enddo
+ epoti = reduceall_mpi('+',epoti)
+ fxyz_ptmass(1:3,1:nptmass) = fxyz_ptmass(1:3,1:nptmass) + fxyz_ptmass_tree(1:3,1:nptmass)
+
+ ! the total force on gas and sinks
+ fsum = 0.
+ do i=1,npart
+    fsum = fsum + massoftype(igas)*fxyzu(1:3,i)
+ enddo
+ fsum = reduceall_mpi('+',fsum)
+ do i=1,nptmass
+    fsum = fsum + xyzmh_ptmass(4,i)*fxyz_ptmass(1:3,i)
+ enddo
+
+ call checkval(sqrt(dot_product(fsum,fsum)),0.,1.e-14,nfailed(1),'total force')
+ call checkval(epoti,-3./5.*totmass**2/rmax,5.e-2,nfailed(2),'potential=-3/5 GMM/R')
+ call compute_energies(0.)
+ call checkval(epot,epoti,1.e-12,nfailed(3),'epot in compute_energies')
+
+ ! a second force calculation on the same tree, as in the corrector step of the
+ ! integrator: the leaves are imported again, and the forces must not change
+ allocate(fgas(3,npart),fsink(3,nptmass))
+ fgas  = fxyzu(1:3,1:npart)
+ fsink = fxyz_ptmass_tree(1:3,1:nptmass)
+ fxyz_ptmass_tree = 0.
+ call get_derivs_global(icall=2)
+ call checkval(npart,fxyzu(1,1:npart),fgas(1,:),1.e-12,nfailed(4),'fgas(x) again')
+ call checkval(npart,fxyzu(2,1:npart),fgas(2,:),1.e-12,nfailed(5),'fgas(y) again')
+ call checkval(npart,fxyzu(3,1:npart),fgas(3,:),1.e-12,nfailed(6),'fgas(z) again')
+ call checkval(nptmass,fxyz_ptmass_tree(1,1:nptmass),fsink(1,:),1.e-12,nfailed(7),'fsink(x) again')
+ call checkval(nptmass,fxyz_ptmass_tree(2,1:nptmass),fsink(2,:),1.e-12,nfailed(8),'fsink(y) again')
+ call checkval(nptmass,fxyz_ptmass_tree(3,1:nptmass),fsink(3,:),1.e-12,nfailed(9),'fsink(z) again')
+ call update_test_scores(ntests,nfailed,npass)
+
+ ! clean up
+ nptmass = 0
+ npartoftype(:) = 0
+ massoftype(:) = 0.
+ tree_accuracy = tree_acc_prev
+ fxyzu = 0.
+ vxyzu = 0.
+
+end subroutine test_sinks_in_tree
 
 !-----------------------------------------------------------------------
 !+
