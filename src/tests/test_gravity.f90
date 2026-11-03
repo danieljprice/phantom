@@ -37,7 +37,7 @@ subroutine test_gravity(ntests,npass,string)
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  logical :: testdirectsum,test_mom,testtaylorseries,testall,test_plummer
- logical :: test_compare
+ logical :: test_compare,test_sinks
 
  testdirectsum    = .false.
  testtaylorseries = .false.
@@ -45,6 +45,7 @@ subroutine test_gravity(ntests,npass,string)
  testall          = .false.
  test_plummer     = .false.
  test_compare     = .false.
+ test_sinks       = .false.
  select case(string)
  case('taylorseries')
     testtaylorseries = .true.
@@ -56,6 +57,8 @@ subroutine test_gravity(ntests,npass,string)
     test_plummer = .true.
  case('selfgrav_comp')
     test_compare = .true.
+ case('sinktreegrav')
+    test_sinks = .true.
  case default
     testall = .true.
  end select
@@ -72,7 +75,7 @@ subroutine test_gravity(ntests,npass,string)
     !
     !--unit test of gravity with sink particles in the tree
     !
-    if ((testdirectsum .or. testall) .and. use_sinktree) call test_sinks_in_tree(ntests,npass)
+    if ((testdirectsum .or. testall .or. test_sinks) .and. use_sinktree) call test_sinks_in_tree(ntests,npass)
     !
     !--unit tests of FMM linear and angular momentum conservation
     !
@@ -645,7 +648,8 @@ end subroutine test_directsum
 !  their particles, alongside the sinks in their trees. The forces on
 !  gas and sinks sum to zero, the potential energy is close to that of
 !  one uniform sphere, and the forces still sum to zero in a second force
-!  calculation on the same tree after the halo has moved
+!  calculation on the same tree once the halo is moving, so that viscosity
+!  between halo particles depends on the copies of their velocities
 !+
 !-----------------------------------------------------------------------
 subroutine test_sinks_in_tree(ntests,npass)
@@ -681,7 +685,7 @@ subroutine test_sinks_in_tree(ntests,npass)
  gamma  = 5./3.
  ieos   = 2
  polyk  = 0.
- alpha  = 0.
+ alpha  = 1.   ! no viscous force while the particles are at rest
  alphau = 0.
  alphaB = 0.
  tolh   = 1.e-5
@@ -776,10 +780,10 @@ subroutine test_sinks_in_tree(ntests,npass)
  call checkval(epot,epoti,1.e-12,nfailed(3),'epot in compute_energies')
 
  ! a second force calculation on the same tree, as in the corrector step of the integrator,
- ! after moving the halo outwards a little: the leaves are imported again, and the copies
- ! of their particles must be the new ones, else the forces between tasks do not balance
+ ! once the halo is falling inwards: the leaves are imported again, and the copies of their
+ ! particles must have the new velocities, else the viscous forces between tasks do not balance
  do i=1,npart
-    if (dot_product(xyzh(1:3,i),xyzh(1:3,i)) > 4.*rmax**2) xyzh(1:3,i) = 1.001*xyzh(1:3,i)
+    if (dot_product(xyzh(1:3,i),xyzh(1:3,i)) > 4.*rmax**2) vxyzu(1:3,i) = -0.1*xyzh(1:3,i)
  enddo
  fxyz_ptmass_tree = 0.
  call get_derivs_global(icall=2)
