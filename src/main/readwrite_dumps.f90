@@ -28,6 +28,8 @@ module readwrite_dumps
  public :: unfill_header
 
  logical, public :: opened_full_dump
+ ! set when a parallel write of a full dump fails: the tasks then take turns, for the rest of the run
+ logical :: dump_parallel_failed = .false.
  logical, public :: dt_read_in
 
  integer, parameter :: maxphead = 256         ! max items in header
@@ -42,7 +44,7 @@ contains
 !  (this is everything needed to restart a run)
 !+
 !-------------------------------------------------------------------
-subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
+recursive subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                    track_lum,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
                    ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,use_apr,&
@@ -64,8 +66,11 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling,two_kernel
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
-                   free_header,write_header,write_array,write_block_header
- use mpiutils,   only:reduce_mpi,reduceall_mpi,start_threadwrite,end_threadwrite
+                   free_header,write_header,write_array,write_block_header,&
+                   block_bytes,irec_mode,irec_pos,irec_seq,irec_staged,irec_err,stage_begin,stage_end
+ use mpiutils,   only:reduce_mpi,reduceall_mpi,start_threadwrite,end_threadwrite,&
+                   barrier_mpi,exscan_mpi_int8,mpiio_open,mpiio_write_at,mpiio_close,&
+                   mpiio_error_string
  use timestep,      only:dtmax
  use dynamic_dtmax, only:idtmax_n,idtmax_frac
  use part,          only:ibin,krome_nmols,T_gas_cool
@@ -84,7 +89,8 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
  integer            :: ierr,nerr
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot
- logical            :: sphNGdump,write_itype,use_gas
+ logical            :: sphNGdump,write_itype,use_gas,parallel_write
+ integer(kind=8)    :: hdrbytes,blockbytes,blockend
  character(len=lenid)  :: fileid
  character(len=120)    :: blankarray
  type(dump_h)          :: hdr
@@ -174,7 +180,24 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
 
  endif masterthread
 
- call start_threadwrite(id,idump,dumpfile)
+ !
+ !--columns computed from other arrays: once here, not in every pass of the
+ !  block loops below (over ipass and the data types: 2*ndatatypes times)
+ !
+ if (gr) then
+    if (imetric==imet_et .or. imetric==imet_binarybh) call init_metric(npart,xyzh,metrics,metricderivs,time=t)
+ endif
+ if (ind_timesteps) then
+    allocate(temparr(npart))
+    temparr(1:npart) = dtmax/2.**ibin(1:npart)
+ endif
+
+ !
+ !--each task's blocks: all tasks at once (dump_parallel_ok), each at its own byte
+ !  offset, or one task after another, each appending to the file
+ !
+ parallel_write = dump_parallel_ok(dumpfile,hdrbytes)
+ if (.not.parallel_write) call start_threadwrite(id,idump,dumpfile)
 
  nerr = 0
  nums = 0
@@ -211,8 +234,7 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,nerr)
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,nerr)
           if (imetric==imet_et .or. imetric==imet_binarybh) then
-             ! Output metric if imetric=iet
-             call init_metric(npart,xyzh,metrics,metricderivs,time=t)
+             ! Output metric if imetric=iet (computed above, once)
              call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,nerr)
              call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,nerr)
@@ -264,8 +286,6 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,poten,'poten',npart,k,ipass,idump,nums,nerr)
        endif
        if (ind_timesteps) then
-          if (.not.allocated(temparr)) allocate(temparr(npart))
-          temparr(1:npart) = dtmax/2.**ibin(1:npart)
           call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
@@ -323,17 +343,115 @@ subroutine write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
           endif
        endif
     enddo
-    if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
+    if (ipass==1) then
+       if (parallel_write) then
+          ! this task's blocks follow the header and the blocks of the tasks below it
+          blockbytes = block_bytes(narraylengths,ilen,nums)
+          irec_pos   = hdrbytes + exscan_mpi_int8(blockbytes) + 1_8
+          blockend   = irec_pos + blockbytes
+          ! through MPI-IO (opened by dump_parallel_ok), 64 MiB at a time
+          irec_err   = 0
+          call stage_begin(irec_pos,64_8*1024_8*1024_8,mpiio_write_at)
+          irec_mode  = irec_staged
+       endif
+       call write_block_header(narraylengths,ilen,nums,idump,ierr)
+    endif
  enddo
  if (allocated(temparr)) deallocate(temparr)
  if (allocated(temparrdg)) deallocate(temparrdg)
 
  if (ierr /= 0) write(iprint,*) 'error whilst writing dumpfile '//trim(dumpfile)
 
- close(unit=idump)
- call end_threadwrite(id)
+ if (parallel_write) then
+    irec_mode = irec_seq
+    call stage_end()
+    call mpiio_close(ierr)
+    if (ierr /= 0 .and. irec_err == 0) irec_err = ierr
+    if (irec_pos /= blockend .and. irec_err == 0) irec_err = -1   ! not the bytes counted
+    !
+    !--if any task's write failed, write the dump again, the tasks taking turns (and so
+    !  for the rest of the run)
+    !
+    if (irec_err == -1) then
+       call warning('write_fulldump','blocks not written where counted',var='task',ival=id)
+    elseif (irec_err /= 0) then
+       call warning('write_fulldump','write failed: '//trim(mpiio_error_string(irec_err)),var='task',ival=id)
+    endif
+    if (reduceall_mpi('max',abs(irec_err)) > 0) then
+       if (id==master) call warning('write_fulldump','parallel write of '//trim(dumpfile)// &
+          ' failed: writing it again, and from now on, one task after another')
+       dump_parallel_failed = .true.
+       call write_fulldump(t,dumpfile,ntotal,iorder,sphNG)
+       return
+    endif
+    call barrier_mpi()   ! the dump is complete on return
+ else
+    close(unit=idump)
+    call end_threadwrite(id)
+ endif
 
 end subroutine write_fulldump
+
+!--------------------------------------------------------------------
+!+
+!  whether write_fulldump writes the tasks' blocks at the same time: with
+!  MPI and more than one task, unless PHANTOM_DUMP_PARALLEL=no or a parallel
+!  write has failed before, with gfortran or ifort/ifx (whose record markers
+!  put_rec writes), if the header just written has 4-byte record markers
+!  and its bytes in the order they are in memory (put_rec writes them as
+!  they are), and if MPI-IO does direct I/O on the file (mpiio_open): ordinary
+!  writes from several tasks into one file are no faster than the tasks
+!  taking turns.  The master task closes the header to check it and to get
+!  its size (hdrbytes); the file is then open through MPI-IO, or, if the
+!  tasks are to take turns, open again on the master to append.
+!+
+!--------------------------------------------------------------------
+logical function dump_parallel_ok(dumpfile,hdrbytes) result(ok)
+ use, intrinsic :: iso_fortran_env, only:compiler_version
+ use dim,      only:mpi
+ use io,       only:id,master,nprocs,idump,error
+ use mpiutils, only:bcast_mpi,reduceall_mpi,mpiio_open,mpiio_close
+ use dump_utils, only:int1
+ character(len=*), intent(in)  :: dumpfile
+ integer(kind=8),  intent(out) :: hdrbytes
+ character(len=3) :: val
+ integer(kind=1)  :: b(64)
+ integer(kind=4)  :: m
+ integer          :: iu,ierr,ierrmpi
+ logical          :: direct
+
+ hdrbytes = 0_8
+ ok = mpi .and. nprocs > 1 .and. &
+      (index(compiler_version(),'GCC') > 0 .or. index(compiler_version(),'Intel') > 0)
+ call get_environment_variable('PHANTOM_DUMP_PARALLEL',val)
+ if (scan(val(1:1),'nN0fF') > 0 .or. dump_parallel_failed) ok = .false.
+ if (.not.ok) return
+ if (id==master) then
+    close(unit=idump)
+    inquire(file=dumpfile,size=hdrbytes)
+    open(newunit=iu,file=dumpfile,status='old',form='unformatted',access='stream',action='read',iostat=ierr)
+    if (ierr == 0) then
+       read(iu,iostat=ierr) b
+       close(iu)
+    endif
+    ! the first record (int1,r1,int2,iversion,int1o): its markers, and int1
+    m  = transfer(b(1:4),m)
+    ok = (ierr == 0 .and. hdrbytes > 0 .and. m > 4 .and. m <= 56)
+    if (ok) ok = (transfer(b(5:8),m) == int1 .and. transfer(b(5+m:8+m),m) == m)
+ endif
+ call bcast_mpi(ok)
+ call bcast_mpi(hdrbytes)
+ if (ok) then
+    call mpiio_open(dumpfile,ierrmpi,direct)
+    ok = (reduceall_mpi('max',merge(1,0,ierrmpi /= 0 .or. .not.direct)) == 0)
+    if (.not.ok .and. ierrmpi == 0) call mpiio_close(ierr)
+ endif
+ if (.not.ok .and. id==master) then
+    open(unit=idump,file=dumpfile,status='old',form='unformatted',position='append',iostat=ierr)
+    if (ierr /= 0) call error('write_fulldump','can''t append to dumpfile '//trim(dumpfile))
+ endif
+
+end function dump_parallel_ok
 
 !--------------------------------------------------------------------
 !+
