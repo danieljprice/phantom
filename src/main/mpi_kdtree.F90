@@ -68,7 +68,7 @@ module mpikdtree
  integer :: nlet_parent = 0
  integer, allocatable :: let_local(:)                      ! global leaves whose particles were imported
  integer :: nlet_local = 0
- real    :: reach_ref = 0.                                 ! median reach of this task's active leaves
+ real    :: reach_ref = 0.                                 ! typical reach of the active leaves, all tasks
  integer, allocatable :: let_base(:)                       ! position before the nodes from each task
 
  ! the selection of the nodes to send each task
@@ -1059,14 +1059,16 @@ end subroutine let_exchange
 !  in its combined tree (the leaves in list and this task's leaves in the
 !  global tree) that the walks of iproc's active cells could pair with
 !  (marked by let_pair_step). Of these, those with a reach (size +
-!  radkern*hmax) more than reach_import_factor times the median reach of
-!  this task's active leaves are sent, largest first: large leaves in
-!  sparse regions, which many of iproc's cells meet. The reference is not
-!  the median of the candidates, since a distant receiver may meet only a
-!  few leaves, all of them large. Only leaves whose particles are all
-!  active are sent: the force calculation can wake inactive neighbours,
-!  which would then have to be returned. Each leaf is listed in implist with its locator on
-!  iproc: its position in list, or minus its index in the global tree
+!  radkern*hmax) more than reach_import_factor times the typical reach of
+!  the active leaves of all tasks (set_reach_ref) are sent, largest first:
+!  large leaves in sparse regions, which many of iproc's cells meet. The
+!  reference is neither the median of the candidates (a distant receiver
+!  may meet only a few leaves, all of them large) nor of this task's own
+!  leaves (a task in a sparse region may hold only large leaves). Only
+!  leaves whose particles are all active are sent: the force calculation
+!  can wake inactive neighbours, which would then have to be returned.
+!  Each leaf is listed in implist with its locator on iproc: its position
+!  in list, or minus its index in the global tree
 !+
 !-----------------------------------------------------------------------
 subroutine select_import_leaves(list,nlist,implist,nleaves)
@@ -1132,26 +1134,43 @@ end subroutine select_import_leaves
 
 !-----------------------------------------------------------------------
 !+
-!  the median reach (size + radkern*hmax) of this task's active leaves,
-!  the reference for the reach of the leaves it sends with their particles
+!  the typical reach (size + radkern*hmax) of the active leaves, the
+!  reference for the reach of the leaves sent with their particles: the
+!  median over the tasks of the median of each task's active leaves
 !+
 !-----------------------------------------------------------------------
 subroutine set_reach_ref()
  use dim,       only:reach_import_factor
+ use io,        only:id,nprocs
  use kernel,    only:radkern
+ use mpiutils,  only:reduceall_mpi
  use sortutils, only:indexx
  real,    allocatable :: reach(:)
  integer, allocatable :: indx(:)
- integer :: n
+ real    :: medtask(nprocs)
+ integer :: n,nt
 
+ ! the median reach of this task's active leaves
  n = nactive_leaves
+ medtask = 0.
+ if (n > 0) then
+    allocate(reach(n),indx(n))
+    reach = node(active_leaves(1:n))%size + radkern*node(active_leaves(1:n))%hmax
+    call indexx(n,reach,indx)
+    medtask(id+1) = reach(indx(n/2+1))
+    deallocate(reach,indx)
+ endif
+
+ ! the median over the tasks with active leaves, the same on every task
+ medtask = reduceall_mpi('+',medtask)
+ nt = count(medtask > 0.)
  ! no leaf is sent if there are no active leaves
  reach_ref = huge(reach_ref)/reach_import_factor
- if (n == 0) return
- allocate(reach(n),indx(n))
- reach = node(active_leaves(1:n))%size + radkern*node(active_leaves(1:n))%hmax
- call indexx(n,reach,indx)
- reach_ref = reach(indx(n/2+1))
+ if (nt == 0) return
+ allocate(reach(nt),indx(nt))
+ reach = pack(medtask,medtask > 0.)
+ call indexx(nt,reach,indx)
+ reach_ref = reach(indx(nt/2+1))
 
 end subroutine set_reach_ref
 

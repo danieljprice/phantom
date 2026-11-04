@@ -72,9 +72,10 @@ module dim
  integer, parameter :: maxmirror_total = 2**20
 
  ! for force, each MPI task sends another task the particles of its leaves whose reach is
- ! more than reach_import_factor times the median of its active leaves (large leaves in
- ! sparse regions), which the cells of many other tasks meet, so that those cells need not
- ! be sent: at most maximport_leaves leaves holding at most maximport_part particles
+ ! more than reach_import_factor times the typical reach of all tasks' active leaves
+ ! (large leaves in sparse regions), which the cells of many other tasks meet, so that those
+ ! cells need not be sent: at most maximport_leaves leaves holding at most maximport_part
+ ! particles
  real,    parameter :: reach_import_factor = 10.
  integer, parameter :: maximport_leaves = 256
  integer, parameter :: maximport_part   = 4096
