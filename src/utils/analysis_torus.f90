@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,10 +31,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunitone)
  use io,      only:fatal
  use physcon, only:pi
  use eos,     only:get_spsound
- character(len=*), intent(in) :: dumpfile
+ character(len=*), intent(in)    :: dumpfile
  real,             intent(inout) :: xyzh(:,:),vxyz(:,:)
  real,             intent(inout) :: pmass,time
- integer,          intent(in) :: npart,iunitone,numfile
+ integer,          intent(in)    :: npart,iunitone,numfile
  integer          :: ninbinangle(ntheta),ninbinr(nr)
  character(len=9) :: outputone,outputtwo
  integer :: i,iunittwo
@@ -44,10 +44,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunitone)
  integer, parameter :: iprec   = 24
 
  iunittwo = iunitone + 1
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  write(outputone,"(a4,i5.5)") 'angm',numfile
  write(*,'("Output file name is ",A)') outputone
@@ -113,13 +109,13 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
                      theta,rho_dev,ninbinangle,ninbinr,tvisc,sigma,h_smooth,alpha_ss,Limag,ecc)
  use physcon, only:pi
  use eos,     only:get_spsound
- use part,    only:alphaind,igas,rhoh
- real, intent(inout) :: xyzh(:,:)
- real, intent(inout) :: vxyz(:,:)
- real, intent(inout) :: pmass,time
- integer, intent(in) :: ntheta,nr,npart
- real, intent(in)    :: rmin,rmax
- real, intent(out)   :: theta(ntheta),rho_dev(ntheta)
+ use part,    only:rho,alphaind,igas
+ real,    intent(inout) :: xyzh(:,:)
+ real,    intent(inout) :: vxyz(:,:)
+ real,    intent(inout) :: pmass,time
+ integer, intent(in)    :: ntheta,nr,npart
+ real,    intent(in)    :: rmin,rmax
+ real,    intent(out)   :: theta(ntheta),rho_dev(ntheta)
  real                :: rho_ave,rad,dtheta,theta_i,dr,cs
  real                :: H(nr),z(npart,nr),meanz(nr),radius(nr),tvisc(nr),sigma(nr)
  real                :: alphaav,area,h_smooth(nr),alpha_ss(nr),Limag(nr),Li(3)
@@ -168,8 +164,8 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
           if (ii > ntheta) cycle
           if (ii < 1)  cycle
 
-          rho_dev(ii) = rho_dev(ii) + rhoh(xyzh(4,i),pmass)
-          rho_ave = rho_ave + rhoh(xyzh(4,i),pmass)
+          rho_dev(ii) = rho_dev(ii) + rho(i)
+          rho_ave = rho_ave + rho(i)
           ninbinangle(ii) = ninbinangle(ii) + 1
        endif
 
@@ -181,7 +177,7 @@ subroutine torus_analysis(xyzh,vxyz,npart,pmass,time,ntheta,nr,rmin,rmax,radius,
        area = (pi*((radius(jj)+dr/2.)**2-(radius(jj)- dr/2.)**2))
        h_smooth(jj) = h_smooth(jj) + xyzh(4,i)
        sigma(jj) = sigma(jj) + pmass/area
-       cs = get_spsound(2,xyzh(1:3,i),rhoh(xyzh(4,i),pmass),vxyz(:,i))
+       cs = get_spsound(2,xyzh(1:3,i),rho(i),vxyz(:,i))
        alphaav = alphaind(1,i)
        alpha_ss(jj) = alpha_ss(jj) + alphaav
        z(ninbinr(jj),jj) = xyzh(3,i)

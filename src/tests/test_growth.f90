@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,8 +16,7 @@ module testgrowth
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
 !   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
-!   step_lf_global, testdust, testutils, timestep, unifdis, units,
-!   viscosity
+!   step_lf_global, testdust, testutils, timestep, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -96,7 +95,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
-                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic, &
+                          ndustlarge,ndustsmall,deltav,this_is_a_test,periodic, &
                           npartoftypetot,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
@@ -104,15 +103,14 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs
+ use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size,alpha_dg,ivrelkin
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
- use physcon,        only:au,solarm,Ro,pi
- use viscosity,      only:shearparam
+ use physcon,        only:au,solarm,Ro,pi,fourpi
  use units,          only:set_units,udist,unit_density!,unit_velocity
  use mpidomain,      only:i_belong
  use checksetup,     only:check_setup
@@ -128,11 +126,9 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  integer, parameter :: ngrid = 20000
 
  logical :: do_output = .false.
- real    :: deltax,dz,hfact,totmass,rhozero
- real    :: Stcomp(ngrid),Stini(ngrid)
- real    :: cscomp(ngrid),tau(ngrid)
- real    :: s(ngrid),time,timelim(ngrid)
+ real    :: deltax,dz,hfact,totmass,rhozero,time
  real    :: sinit,dens,t,tmax,dt,dtext,dtnew,guillaume,dtgratio,rhog,rhod
+ real, allocatable :: Stcomp(:),Stini(:),cscomp(:),tau(:),s(:),timelim(:)
 
  real, parameter :: tolst = 5.e-4
  real, parameter :: tolcs = 5.e-4
@@ -145,13 +141,15 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  ! initialise particle arrays to zero
  call init_part()
 
+ allocate(Stcomp(ngrid),Stini(ngrid),cscomp(ngrid),tau(ngrid),s(ngrid),timelim(ngrid),stat=ierr)
+
  if (frag) then
     sinit       = 1./udist
     gsizemincgs = 1.e-3
     dtgratio    = 0.5
     stringfrag  = "fragmentation"
  else
-    sinit       = 1.e-2/udist
+    sinit       = 3.e-2/udist
     dtgratio    = 1.
     stringfrag  = "growth"
  endif
@@ -216,10 +214,10 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        dustfrac(:,i) = 0.
        deltav(:,:,i) = 0.
        dustgasprop(:,i) = 0.
-       VrelVf(i)        = 0.
+       VrelVf(:,i)      = 0.
        if (use_dustfrac) then
           dustfrac(1,i) = dtgratio
-          dustprop(1,i) = sinit
+          dustprop(1,i) = fourpi/3.*dens*sinit**3
           dustprop(2,i) = dens
        else
           dustprop(:,i) = 0.
@@ -245,10 +243,10 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        if (use_dust) then
           dustevol(:,i) = 0.
           dustfrac(:,i) = 0.
-          dustprop(1,i) = sinit
+          dustprop(1,i) = fourpi/3.*dens*sinit**3
           dustprop(2,i) = dens
           dustgasprop(:,i) = 0.
-          VrelVf(i)        = 0.
+          VrelVf(:,i)      = 0.
        endif
        call set_particle_type(i,itype)
     enddo
@@ -270,11 +268,12 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  idrag         = 1
  if (frag) then
     ifrag      = 1
-    shearparam = 2.5e-2
+    alpha_dg   = 2.5e-2
  else
     ifrag      = 0
-    shearparam = 1.e-2
+    alpha_dg   = 1.e-2
  endif
+ ivrelkin     = 1
  isnow        = 0
  vfrag        = 1.e-11
  gsizemincgs  = 1.e-2
@@ -313,7 +312,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        cscomp(j)        = get_spsound(ieos,xyzh(:,j),rhog,vxyzu(:,j))
        Stini(j)         = sqrt(pi*gamma/8)*dens*sinit/((rhog+rhod)*cscomp(j)) * Omega_k(j)
        Stcomp(j)        = Stini(j)
-       tau(j)           = 1/(sqrt(2**1.5*Ro*shearparam)*Omega_k(j))*(rhog+rhod)/rhod/sqrt(pi*gamma/8.)
+       tau(j)           = 1/(sqrt(2**1.5*Ro*alpha_dg)*Omega_k(j))*(rhog+rhod)/rhod/sqrt(pi*gamma/8.)
        s(j)             = sinit
        timelim(j)       = 2*sqrt(Stini(j))*(1.+Stini(j)/3.)*tau(j)
     endif
@@ -344,10 +343,10 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
           s(j)      = Stcomp(j)/(sqrt(pi*gamma/8)*dens/((rhog+rhod)*cscomp(j))*Omega_k(j))
           if (onefluid) then
              call checkvalbuf(dustgasprop(3,j)/Stcomp(j),1.,tolst,'St',nerr(1),ncheck(1),errmax(1))
-             call checkvalbuf(dustprop(1,j)/s(j),1.,tols,'size',nerr(2),ncheck(2),errmax(2))
+             call checkvalbuf(get_size(dustprop(1,j),dustprop(2,j))/s(j),1.,tols,'size',nerr(2),ncheck(2),errmax(2))
           else
              call checkvalbuf(dustgasprop(3,j)/Stcomp(j),1.,tolst,'St',nerr(1),ncheck(1),errmax(1))
-             call checkvalbuf(dustprop(1,j)/s(j),1.,tols,'size',nerr(2),ncheck(2),errmax(2))
+             call checkvalbuf(get_size(dustprop(1,j),dustprop(2,j))/s(j),1.,tols,'size',nerr(2),ncheck(2),errmax(2))
              call checkvalbuf(dustgasprop(1,j)/cscomp(j),1.,tolcs,'csound',nerr(3),ncheck(3),errmax(3))
              call checkvalbuf(dustgasprop(2,j)/rhozero,1.,tolrho,'rhogas',nerr(4),ncheck(4),errmax(4))
           endif
@@ -356,11 +355,11 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  enddo
  if (onefluid) then
     call checkvalbuf_end('Stokes number evaluation matches exact solution',ncheck(1),nerr(1),errmax(1),tolst)
-    call checkvalbuf_end('size evaluation matches exact solution',ncheck(2),nerr(2),errmax(2),tolcs)
+    call checkvalbuf_end('size evaluation matches exact solution',ncheck(2),nerr(2),errmax(2),tols)
  else
     call checkvalbuf_end('Stokes number interpolation matches exact solution',ncheck(1),nerr(1),errmax(1),tolst)
-    call checkvalbuf_end('size evaluation matches exact solution',ncheck(2),nerr(2),errmax(2),tolcs)
-    call checkvalbuf_end('sound speed interpolation matches exact number',ncheck(3),nerr(3),errmax(3),tols)
+    call checkvalbuf_end('size evaluation matches exact solution',ncheck(2),nerr(2),errmax(2),tols)
+    call checkvalbuf_end('sound speed interpolation matches exact number',ncheck(3),nerr(3),errmax(3),tolcs)
     call checkvalbuf_end('rhogas interpolation matches exact number',ncheck(4),nerr(4),errmax(4),tolrho)
  endif
 
@@ -370,12 +369,12 @@ end subroutine test_farmingbox
 
 subroutine write_file_err(step,t,xyzh,gsize,gsize_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
- real, intent(in)              :: t
- real, intent(in)              :: xyzh(:,:)
- real, intent(in)              :: St(:),St_exact(:)
- real(kind=8), intent(in)      :: gsize(:),gsize_exact(:)
- character(len=*), intent(in)  :: prefix
- integer, intent(in)           :: npart,step
+ real,             intent(in) :: t
+ real,             intent(in) :: xyzh(:,:)
+ real,             intent(in) :: St(:),St_exact(:)
+ real(kind=8),     intent(in) :: gsize(:),gsize_exact(:)
+ character(len=*), intent(in) :: prefix
+ integer,          intent(in) :: npart,step
  character(len=30)             :: filename,str
  integer                       :: i,lu
 

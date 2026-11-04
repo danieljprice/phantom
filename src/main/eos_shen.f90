@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -194,13 +194,15 @@ end subroutine write_binary_table
 !+
 !------------------------------------------------------------------------
 subroutine read_binary_table()
- integer :: i,j,k,m
+ use io, only:fatal
+ integer :: i,j,k,m,ierr
  character(len=120) :: filename
 
  ! find the table datafile
  filename = find_phantom_datafile('eos_binary_table.dat', 'eos/shen')
-! open the table datafile
- open(unit=1,file=trim(filename),status='old',form='unformatted')
+ ! open the table datafile
+ open(unit=1,file=trim(filename),status='old',form='unformatted',iostat=ierr)
+ if (ierr /= 0) call fatal('eos_shen','data file not found: '//trim(filename))
 
  if (.not.allocated(t1)) then
     allocate(t1(nr,nt,ny),y1(nr,nt,ny),d1(nr,nt,ny))
@@ -223,7 +225,7 @@ subroutine read_binary_table()
           if (i /= 1) t2(k,i,j) = log10(t1(k,i,j))
        enddo
     enddo
-    print*, i, t1(k-1,i,j-1)
+    !print*, i, t1(k-1,i,j-1)
  enddo
 
  close(1)
@@ -452,7 +454,7 @@ end subroutine ideal_eos
 !------------------------------------------------------------------------
 subroutine find_cv(rin,tin,yin,cv,ene)
  real, intent(in) :: tin,yin,rin
-!   real, intent(out)::cv
+!   real, intent(out) ::cv
  real :: fer,pre,ent,ene,cnu,cpu,ceu,cnv,anu,pnu,xnu,xpu,xau,xiu,emm
  real :: tin_t1,ent_t1,par_st
  integer :: cont

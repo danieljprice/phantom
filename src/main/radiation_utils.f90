@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -12,9 +12,19 @@ module radiation_utils
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - X                  : *hydrogen mass fraction for MESA opacity table*
+!   - Z                  : *metallicity for MESA opacity table*
+!   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
+!   - flux_limiter       : *limit radiation flux*
+!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
+!   - itsmax_rad         : *max number of iterations for radiation implicit solve*
+!   - kappa_cgs          : *constant opacity value in cm2/g*
+!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !
-! :Dependencies: dim, eos, io, mesa_microphysics, part, physcon, units
+! :Dependencies: dim, eos, infile_utils, io, mesa_microphysics, part,
+!   physcon, units
 !
  implicit none
  public :: update_radenergy!,set_radfluxesandregions
@@ -22,23 +32,114 @@ module radiation_utils
  public :: radiation_and_gas_temperature_equal
  public :: get_rad_R
  public :: radiation_equation_of_state
- public :: T_from_Etot
- public :: radE_from_Trad
- public :: Trad_from_radE
+ public :: radxi_from_Trad
+ public :: Trad_from_radxi
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
- public :: get_1overmu
  public :: get_kappa
- real, public :: kappa_cgs=0.3
+
+ ! options for the input file, with default values
+ real, public       :: tol_rad = 1.e-6
+ integer, public    :: itsmax_rad = 250
+ integer, public    :: cv_type = 0
+ real, public       :: kappa_cgs = 0.3
+
  ! following declared public to avoid compiler warnings
  public :: solve_internal_energy_implicit_substeps
  public :: solve_internal_energy_explicit
  public :: solve_internal_energy_explicit_substeps
 
+ ! radiation
+ logical, public :: exchange_radiation_energy,limit_radiation_flux,implicit_radiation
+ logical, public :: implicit_radiation_store_drad
+
+ public :: set_defaults_radiation
+ public :: write_options_radiation
+ public :: read_options_radiation
+
  private
 
 contains
+
+!---------------------------------------------------------
+!+
+!  set default values for radiation options
+!+
+!---------------------------------------------------------
+subroutine set_defaults_radiation()
+ use dim, only:do_radiation
+ use eos, only:iopacity_type
+
+ ! radiation
+ if (do_radiation) then
+    exchange_radiation_energy = .true.
+    limit_radiation_flux = .true.
+    iopacity_type = 1
+    implicit_radiation = .false.
+ else
+    exchange_radiation_energy = .false.
+    limit_radiation_flux = .false.
+    iopacity_type = 0
+    implicit_radiation = .false.
+ endif
+ implicit_radiation_store_drad = .false.
+
+end subroutine set_defaults_radiation
+
+!---------------------------------------------------------
+!+
+!  write options to input file
+!+
+!---------------------------------------------------------
+subroutine write_options_radiation(iunit)
+ use infile_utils, only:write_inopt
+ use eos,          only:X_in,Z_in,iopacity_type,ieos
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# options for radiation'
+ call write_inopt(implicit_radiation,'implicit_radiation','use implicit integration (Whitehouse, Bate & Monaghan 2005)',iunit)
+ call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iunit)
+ call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iunit)
+ call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iunit)
+ if ((iopacity_type == 1) .and. (ieos /= 20)) then  ! for ieos=20, X, Z are already under EoS options
+    call write_inopt(X_in,'X','hydrogen mass fraction for MESA opacity table',iunit)
+    call write_inopt(Z_in,'Z','metallicity for MESA opacity table',iunit)
+ elseif (iopacity_type == 2) then
+    call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iunit)
+ endif
+ if (implicit_radiation) then
+    call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iunit)
+    call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations for radiation implicit solve',iunit)
+    call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iunit)
+ endif
+
+end subroutine write_options_radiation
+
+!---------------------------------------------------------
+!+
+!  read options from input file
+!+
+!---------------------------------------------------------
+subroutine read_options_radiation(db,nerr)
+ use eos,          only:iopacity_type
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(implicit_radiation,'implicit_radiation',db,errcount=nerr)
+ call read_inopt(exchange_radiation_energy,'gas-rad_exchange',db,errcount=nerr,default=exchange_radiation_energy)
+ call read_inopt(limit_radiation_flux,'flux_limiter',db,errcount=nerr,default=limit_radiation_flux)
+ call read_inopt(iopacity_type,'iopacity_type',db,errcount=nerr,min=-1,max=2,default=iopacity_type)
+ if (iopacity_type == 2) call read_inopt(kappa_cgs,'kappa_cgs',db,errcount=nerr,min=0.)
+ if (implicit_radiation) then
+    call read_inopt(cv_type,'cv_type',db,errcount=nerr,min=0,max=20,default=cv_type)
+    call read_inopt(tol_rad,'tol_rad',db,errcount=nerr,min=epsilon(tol_rad),default=tol_rad)
+    call read_inopt(itsmax_rad,'itsmax_rad',db,errcount=nerr,min=1,default=itsmax_rad)
+ endif
+
+end subroutine read_options_radiation
+
 !-------------------------------------------------
 !+
 !  get R factor needed for flux limited diffusion
@@ -61,31 +162,29 @@ end function get_rad_R
 !  set equal gas and radiation temperatures for all particles
 !+
 !-------------------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
-            rad,mu_local,npin)
- use part,      only:rhoh,igas,iradxi
+subroutine set_radiation_and_gas_temperature_equal(npart,vxyzu,rho,rad,mu_local,npin)
+ use part,      only:iradxi
  use eos,       only:gmw,gamma
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(out)   :: rad(:,:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: vxyzu(:,:)
+ real,    intent(in)  :: rho(:)
+ real,    intent(out) :: rad(:,:)
  real,    intent(in), optional :: mu_local(:)
  integer, intent(in), optional :: npin
- real                :: rhoi,pmassi,mu
+ real                :: rhoi,mu
  integer             :: i,i1
 
  i1 = 0
  if (present(npin)) i1 = npin
 
- pmassi = massoftype(igas)
  mu = gmw
  do i=i1+1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
+    rhoi = rho(i)
     if (present(mu_local)) mu = mu_local(i)
     rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,mu)
  enddo
 
 end subroutine set_radiation_and_gas_temperature_equal
-
 
 !-------------------------------------------------
 !+
@@ -108,57 +207,29 @@ end function radiation_and_gas_temperature_equal
 
 !---------------------------------------------------------
 !+
-!  solve for the temperature for which Etot=Erad+ugas is
-!  satisfied assuming Tgas=Trad
+!  get specific radiation energy from radiation temperature
 !+
 !---------------------------------------------------------
-real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
- use physcon,   only:Rg
- use units,     only:unit_ergg,get_radconst_code
- real, intent(in)    :: rho,etot,gamma,gmw
- real                :: a,cv1
- real                :: numerator,denominator,correction
- real, parameter     :: tolerance = 1e-15
-
- a   = get_radconst_code()
- cv1 = (gamma-1.)*gmw/Rg*unit_ergg
-
- temp = etot*cv1  ! Take gas temperature as initial guess
-
- correction = huge(0.)
- do while (abs(correction) > tolerance*temp)
-    numerator   = etot*rho - rho*temp/cv1 - a*temp**4
-    denominator =  - rho/cv1 - 4.*a*temp**3
-    correction  = numerator/denominator
-    temp        = temp - correction
- enddo
-end function T_from_Etot
-
-!---------------------------------------------------------
-!+
-!  get the radiation energy from the radiation temperature
-!+
-!---------------------------------------------------------
-real function radE_from_Trad(Trad) result(radE)
+real function radxi_from_Trad(rho,Trad) result(radxi)
  use units, only:get_radconst_code
- real, intent(in) :: Trad
+ real, intent(in) :: rho,Trad
 
- radE = Trad**4*get_radconst_code()
+ radxi = Trad**4*get_radconst_code()/rho
 
-end function radE_from_Trad
+end function radxi_from_Trad
 
 !---------------------------------------------------------
 !+
-!  get the radiation temperature from the radiation energy per unit volume
+!  get radiation temperature from the specific radiation energy
 !+
 !---------------------------------------------------------
-real function Trad_from_radE(radE) result(Trad)
+real function Trad_from_radxi(rho,radxi) result(Trad)
  use units, only:get_radconst_code
- real, intent(in) :: radE
+ real, intent(in) :: rho,radxi
 
- Trad = (radE/get_radconst_code())**0.25
+ Trad = (rho*radxi/get_radconst_code())**0.25
 
-end function Trad_from_radE
+end function Trad_from_radxi
 
 !---------------------------------------------------------
 !+
@@ -168,7 +239,7 @@ end function Trad_from_radE
 real function ugas_from_Tgas(Tgas,gamma,gmw) result(ugas)
  use physcon,   only:Rg
  use units,     only:unit_ergg
- real, intent(in)  :: Tgas,gamma,gmw
+ real, intent(in) :: Tgas,gamma,gmw
  real              :: cv1
 
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
@@ -184,7 +255,7 @@ end function ugas_from_Tgas
 real function Tgas_from_ugas(ugas,gamma,gmw) result(Tgas)
  use physcon,   only:Rg
  use units,     only:unit_ergg
- real, intent(in)    :: ugas,gamma,gmw
+ real, intent(in) :: ugas,gamma,gmw
  real                :: cv1
 
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
@@ -197,22 +268,20 @@ end function Tgas_from_ugas
 !  integrate radiation energy exchange terms over a time interval dt
 !+
 !--------------------------------------------------------------------
-subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
- use part,         only:rhoh,igas,massoftype,ikappa,iradxi,iphase,iamtype,ithick
+subroutine update_radenergy(npart,fxyzu,vxyzu,rho,rad,radprop,dt,mu_local)
+ use part,         only:igas,ikappa,iradxi,iphase,iamtype,ithick
  use eos,          only:gmw,gamma
  use units,        only:get_radconst_code,get_c_code,unit_velocity
  use physcon,      only:Rg
  use io,           only:warning
  use dim,          only:maxphase,maxp
- real, intent(in)    :: dt,xyzh(:,:),fxyzu(:,:),radprop(:,:)
- real, intent(in), optional :: mu_local(:)
- real, intent(inout) :: vxyzu(:,:),rad(:,:)
- integer, intent(in) :: npart
- real :: ui,pmassi,rhoi,xii
+ real,    intent(in)    :: dt,fxyzu(:,:),radprop(:,:),rho(:)
+ real,    intent(inout) :: vxyzu(:,:),rad(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(in), optional :: mu_local(:)
+ real :: ui,rhoi,xii
  real :: ack,a,cv1,kappa,dudt,etot,unew
  integer :: i
-
- pmassi        = massoftype(igas)
 
  a   = get_radconst_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
@@ -221,8 +290,8 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
  !$omp private(kappa,ack,rhoi,ui)&
  !$omp private(dudt,xii,etot,unew)&
  !$omp firstprivate(cv1)&
- !$omp shared(rad,radprop,xyzh,vxyzu,mu_local,gamma)&
- !$omp shared(fxyzu,pmassi,maxphase,maxp)&
+ !$omp shared(rad,radprop,vxyzu,mu_local,gamma)&
+ !$omp shared(fxyzu,maxphase,maxp,rho)&
  !$omp shared(iphase,npart)&
  !$omp shared(dt,a,unit_velocity)
  do i = 1,npart
@@ -232,7 +301,7 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
     kappa = radprop(ikappa,i)
     ack = get_radconst_code()*get_c_code()*kappa
 
-    rhoi = rhoh(xyzh(4,i),pmassi)
+    rhoi = rho(i)
     ui   = vxyzu(4,i)
     dudt = fxyzu(4,i)
     xii  = rad(iradxi,i)
@@ -242,18 +311,11 @@ subroutine update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,dt,mu_local)
        call warning('radiation','radiation energy is negative before exchange', i)
     endif
     if (present(mu_local)) cv1 = (gamma-1.)*mu_local(i)/Rg*unit_velocity**2
-!     if (i==584) then
-!        print*, 'Before:  ', 'T_gas=',unew*cv1,'T_rad=',(rhoi*(etot-unew)/a)**(1./4.)
-!     endif
     call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,i)
     ! call solve_internal_energy_implicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
     ! call solve_internal_energy_explicit_substeps(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt,di)
     vxyzu(4,i) = unew
     rad(iradxi,i) = etot - unew
-!   if (i==584) then
-!      print*, 'After:   ', 'T_gas=',unew*cv1,'T_rad=',unew,etot,(rhoi*(etot-unew)/a)**(1./4.)
-!         read*
-!     endif
     if (rad(iradxi,i) < 0.) then
        call warning('radiation','radiation energy negative after exchange', i,var='xi',val=rad(iradxi,i))
        rad(iradxi,i) = 0.
@@ -309,9 +371,9 @@ end subroutine solve_internal_energy_implicit_substeps
 !+
 !--------------------------------------------------------------------
 subroutine solve_internal_energy_implicit(unew,u0,rho,etot,dudt,ack,a,cv1,dt,i)
- real, intent(out) :: unew
- real, intent(in)  :: u0, etot, dudt, dt, rho, ack, a, cv1
- integer, intent(in) :: i
+ real,    intent(out) :: unew
+ real,    intent(in)  :: u0, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in)  :: i
  real     :: fu,dfu,uold
  integer  :: iter
 
@@ -334,9 +396,9 @@ end subroutine solve_internal_energy_implicit
 !+
 !--------------------------------------------------------------------
 subroutine solve_internal_energy_explicit(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
- real, intent(out) :: unew
- real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
- integer, intent(in) :: di
+ real,    intent(out) :: unew
+ real,    intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in)  :: di
 
  unew = ui + dt*(dudt + ack*(rho*(etot-ui)/a - (ui*cv1)**4))
 
@@ -348,9 +410,9 @@ end subroutine solve_internal_energy_explicit
 !+
 !--------------------------------------------------------------------
 subroutine solve_internal_energy_explicit_substeps(unew,ui,rho,etot,dudt,ack,a,cv1,dt,di)
- real, intent(out) :: unew
- real, intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
- integer, intent(in) :: di
+ real,    intent(out) :: unew
+ real,    intent(in)  :: ui, etot, dudt, dt, rho, ack, a, cv1
+ integer, intent(in)  :: di
  real     :: du,eps,dts,unews,uis
  integer  :: i,level
 
@@ -383,12 +445,11 @@ end subroutine solve_internal_energy_explicit_substeps
 !--------------------------------------------------------------------
 subroutine radiation_equation_of_state(radPi, Xii, rhoi)
  real, intent(out) :: radPi
- real, intent(in) :: Xii, rhoi
+ real, intent(in)  :: Xii, rhoi
 
  radPi = 1. / 3. * Xii * rhoi
 
 end subroutine radiation_equation_of_state
-
 
 !--------------------------------------------------------------------
 !+
@@ -397,14 +458,13 @@ end subroutine radiation_equation_of_state
 !--------------------------------------------------------------------
 real function get_kappa(opacity_type,u,cv,rho) result(kappa)
  integer, intent(in) :: opacity_type
- real, intent(in)    :: u,cv,rho
+ real,    intent(in) :: u,cv,rho
  real                :: temp
 
  temp = u/cv
  call get_opacity(opacity_type,rho,temp,kappa)
 
 end function get_kappa
-
 
 !--------------------------------------------------------------------
 !+
@@ -414,9 +474,9 @@ end function get_kappa
 subroutine get_opacity(opacity_type,density,temperature,kappa)
  use mesa_microphysics, only:get_kappa_mesa
  use units,             only:unit_density,unit_opacity
- real, intent(in)  :: density, temperature
- real, intent(out) :: kappa
- integer, intent(in) :: opacity_type
+ real,    intent(in)  :: density, temperature
+ real,    intent(out) :: kappa
+ integer, intent(in)  :: opacity_type
  real :: kapt,kapr,rho_cgs
 
  select case(opacity_type)
@@ -444,35 +504,10 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
 
 end subroutine get_opacity
 
-
-!--------------------------------------------------------------------
-!+
-!  get 1/mu from rho, u
-!+
-!--------------------------------------------------------------------
-real function get_1overmu(rho,u,cv_type) result(rmu)
- use eos,               only:gmw
- use mesa_microphysics, only:get_1overmu_mesa
- use units,             only:unit_density,unit_ergg
- real, intent(in)    :: rho,u
- integer, intent(in) :: cv_type
- real                :: rho_cgs,u_cgs
-
- select case (cv_type)
- case(1) ! mu from MESA EoS tables
-    rho_cgs = rho*unit_density
-    u_cgs = u*unit_ergg
-    rmu = get_1overmu_mesa(rho_cgs,u_cgs)
- case default
-    rmu = 1./gmw
- end select
-
-end function get_1overmu
-
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
-!   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
+!   use part,    only: igas,massoftype,rho,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
 !   use part,    only: eos_vars,ics
-!   use options, only: ieos
+!   use options, only:ieos
 !   use physcon, only:c
 !   use units,   only:unit_velocity
 !
@@ -494,7 +529,7 @@ end function get_1overmu
 !   c_code = c/unit_velocity
 !
 !   do i = 1,npart
-!     rhoi = rhoh(xyzh(4,i),pmassi)
+!     rhoi = rho(i)
 !     ! if (rhoi < 2e-4) then
 !     !   if (xyzh(1,i) < 0.) then
 !     !     radiation(ifluxy:ifluxz,i) = 0.

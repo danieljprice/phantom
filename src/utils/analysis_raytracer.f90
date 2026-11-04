@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,18 +14,18 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dump_utils, dust_formation, getneighbours, linklist,
+! :Dependencies: dump_utils, dust_formation, getneighbours, neighkdtree,
 !   omp_lib, part, physcon, raytracer, raytracer_all
 !
- use raytracer_all,    only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
+ use raytracer_all,    only:get_all_tau_inwards,get_all_tau_outwards,get_all_tau_adaptive
  use raytracer,        only:get_all_tau
- use part,             only:rhoh,isdead_or_accreted,nsinkproperties,iReff
+ use part,             only:rho,isdead_or_accreted,nsinkproperties,iReff
  use dump_utils,       only:read_array_from_file
- use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                                  neighcount,neighb,neighmax
  use dust_formation,   only:calc_kappa_bowen
  use physcon,          only:kboltz,mass_proton_cgs,au,solarm
- use linklist,         only:set_linklist,allocate_linklist,deallocate_linklist
+ use neighkdtree,      only:build_tree,allocate_neigh,deallocate_neigh
  use part,             only:itauL_alloc
 
  implicit none
@@ -50,9 +50,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical :: existneigh
  character(100) :: neighbourfile
  character(100)   :: jstring, kstring
- real             :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), &
+ real             :: primsec(4,2), rhopart(npart), kappa(npart), temp(npart), u(npart), &
          xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
- real, dimension(:), allocatable :: tau
+ real, allocatable :: tau(:)
  integer :: i,j,k,ierr,iu1,iu2,iu3,iu4, npart2!,iu
  integer :: start, finish, method, analyses, minOrder, maxOrder, order, raypolation, refineScheme
  real :: totalTime, timeTau, Rstar, Rcomp, times(30)
@@ -96,11 +96,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        xyzh2(:,j) = xyzh(:,i)
        vxyzu2(:,j) = vxyzu(:,i)
        kappa(j) = kappa(i)
+       rhopart(j) = rho(i)
        j=j+1
     endif
  enddo
  npart2 = j-1
- call set_linklist(npart2,npart2,xyzh2,vxyzu)
+ call build_tree(npart2,npart2,xyzh2,vxyzu)
  print*,'npart = ',npart2
  allocate(tau(npart2))
 
@@ -114,7 +115,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  xyzmh_ptmass(1:4,1) = primsec(:,1)
  xyzmh_ptmass(1:4,2) = primsec(:,2)
-
 
  print *,'What do you want to do?'
  print *, '(1) Analysis'
@@ -229,10 +229,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (analyses == 2 .and. method==1) then ! get neighbours
     if (SPH) then
-       neighbourfile = 'neigh_'//TRIM(dumpfile)
+       neighbourfile = 'neigh_'//trim(dumpfile)
        inquire(file=neighbourfile,exist = existneigh)
        if (existneigh) then
-          print*, 'SPH neighbour file ', TRIM(neighbourfile), ' found'
+          print*, 'SPH neighbour file ', trim(neighbourfile), ' found'
           call read_neighbours(neighbourfile,npart2)
        else
           ! If there is no neighbour file, generate the list
@@ -243,7 +243,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           totalTime = (finish-start)/1000.
           print*,'Time = ',totalTime,' seconds.'
           call write_neighbours(neighbourfile, npart2)
-          print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+          print*, 'Neighbour finding complete for file ', trim(dumpfile)
        endif
     else
        allocate(neighb(npart2+2,100))
@@ -254,7 +254,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        else
           call execute_command_line('python3 getNeigh.py -f '//'points_'//dumpfile//'.txt')
        endif
-       open(newunit=iu4, file='neighbors_tess.txt', status='old', action='read')
+       open(newunit=iu4,file='neighbors_tess.txt',status='old',action='read')
        do i=1, npart2+2
           read(iu4,*) neighb(i,:)
        enddo
@@ -266,10 +266,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     ! INWARD INTEGRATION ANALYSIS
     if (method == 1) then
-       neighbourfile = 'neigh_'//TRIM(dumpfile)
+       neighbourfile = 'neigh_'//trim(dumpfile)
        inquire(file=neighbourfile,exist = existneigh)
        if (existneigh) then
-          print*, 'SPH neighbour file ', TRIM(neighbourfile), ' found'
+          print*, 'SPH neighbour file ', trim(neighbourfile), ' found'
           call read_neighbours(neighbourfile,npart2)
        else
           ! If there is no neighbour file, generate the list
@@ -280,7 +280,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           totalTime = (finish-start)/1000.
           print*,'Time = ',totalTime,' seconds.'
           call write_neighbours(neighbourfile, npart2)
-          print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+          print*, 'Neighbour finding complete for file ', trim(dumpfile)
        endif
        print*,''
        print*, 'Start calculating optical depth inward SPH'
@@ -295,11 +295,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
-       open(newunit=iu4, file='times_inwards_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu4,file='times_inwards_'//dumpfile//'.txt',status='replace',action='write')
        write(iu4, *) timeTau
        close(iu4)
        totalTime = timeTau
-       open(newunit=iu2, file='taus_inwards_SPH_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu2,file='taus_inwards_SPH_'//dumpfile//'.txt',status='replace',action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
@@ -313,7 +313,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        else
           call execute_command_line('python3 getNeigh.py -f '//'points_'//dumpfile//'.txt')
        endif
-       open(newunit=iu4, file='neighbors_tess.txt', status='old', action='read')
+       open(newunit=iu4,file='neighbors_tess.txt',status='old',action='read')
        do i=1, npart2+2
           read(iu4,*) neighb(i,:)
        enddo
@@ -331,18 +331,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
-       open(newunit=iu4, file='times_inwards_'//dumpfile//'.txt',position='append', status='old', action='write')
+       open(newunit=iu4,file='times_inwards_'//dumpfile//'.txt',position='append',status='old',action='write')
        write(iu4, *) timeTau
        close(iu4)
        totalTime = timeTau
-       open(newunit=iu2, file='taus_inwards_Del_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu2,file='taus_inwards_Del_'//dumpfile//'.txt',status='replace',action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
 
        ! OUTWARD INTEGRATION realTIME ANALYSIS
     elseif (method == 2) then
-       open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu4,file='times_'//dumpfile//'.txt',status='replace',action='write')
        close(iu4)
        totalTime=0
 
@@ -352,20 +352,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*, 'Start calculating optical depth outward: ', trim(jstring)
           if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
              call system_clock(start)
-             call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, kappa, j, tau)
+             call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, rhopart, kappa, j, .true., tau)
              call system_clock(finish)
           else
              call system_clock(start)
-             call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, kappa, j, tau)
+             call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, rhopart, kappa, j, .true., tau)
              call system_clock(finish)
           endif
           timeTau = (finish-start)/1000.
           print*,'Time = ',timeTau,' seconds.'
-          open(newunit=iu4, file='times_'//dumpfile//'.txt',position='append', status='old', action='write')
+          open(newunit=iu4,file='times_'//dumpfile//'.txt',position='append',status='old',action='write')
           write(iu4, *) timeTau
           close(iu4)
           totalTime = totalTime + timeTau
-          open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
+          open(newunit=iu2,file='taus_'//dumpfile//'_'//trim(jstring)//'.txt',status='replace',action='write')
           do i=1, size(tau)
              write(iu2, *) tau(i)
           enddo
@@ -376,7 +376,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
        ! OUTWARD INTEGRATION INTERPOLATION ANALYSIS
     elseif (method == 3) then
-       open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu4,file='times_interpolation_'//dumpfile//'.txt',status='replace',action='write')
        close(iu4)
        totalTime=0
 
@@ -395,12 +395,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           endif
           timeTau = (finish-start)/1000.
           print*,'Time = ',timeTau,' seconds.'
-          open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt',position='append', status='old', action='write')
+          open(newunit=iu4,file='times_interpolation_'//dumpfile//'.txt',position='append',status='old',action='write')
           write(iu4, *) timeTau
           close(iu4)
           totalTime = totalTime + timeTau
-          open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
-                     status='replace', action='write')
+          open(newunit=iu2,file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
+                     status='replace',action='write')
           do i=1, size(tau)
              write(iu2, *) tau(i)
           enddo
@@ -411,7 +411,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
        ! OUTWARD INTEGRATION INTERPOLATION ANALYSIS
     elseif (method == 4) then
-       open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu4,file='times_interpolation_'//dumpfile//'.txt',status='replace',action='write')
        close(iu4)
        totalTime=0
 
@@ -434,14 +434,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              print*,'Time = ',timeTau,' seconds.'
              times(k+1) = timeTau
              totalTime = totalTime + timeTau
-             open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
-                        status='replace', action='write')
+             open(newunit=iu2,file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
+                        status='replace',action='write')
              do i=1, size(tau)
                 write(iu2, *) tau(i)
              enddo
              close(iu2)
           enddo
-          open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt',position='append', status='old', action='write')
+          open(newunit=iu4,file='times_interpolation_'//dumpfile//'.txt',position='append',status='old',action='write')
           write(iu4, *) times(1:7)
           close(iu4)
        enddo
@@ -450,7 +450,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
        !ADAPTIVE (OUTWARD) INTEGRATION ANALYSIS
     elseif (method == 5) then
-       open(newunit=iu4, file='times_adapt_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu4,file='times_adapt_'//dumpfile//'.txt',status='replace',action='write')
        close(iu4)
        totalTime=0
 
@@ -475,14 +475,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              print*,'Time = ',timeTau,' seconds.'
              times(k-minOrder+1) = timeTau
              totalTime = totalTime + timeTau
-             open(newunit=iu2, file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
-                        '_'//trim(kstring)//'.txt', status='replace', action='write')
+             open(newunit=iu2,file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
+                        '_'//trim(kstring)//'.txt',status='replace',action='write')
              do i=1, size(tau)
                 write(iu2, *) tau(i)
              enddo
              close(iu2)
           enddo
-          open(newunit=iu4, file='times_adapt_'//dumpfile//'.txt',position='append', status='old', action='write')
+          open(newunit=iu4,file='times_adapt_'//dumpfile//'.txt',position='append',status='old',action='write')
           write(iu4, *) times(1:maxOrder-minOrder+1)
           close(iu4)
        enddo
@@ -493,25 +493,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     elseif (method == 6) then
        order = 5
        print*,'Start doing scaling analysis with order =',order
-       open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
+       open(newunit=iu4,file='times_'//dumpfile//'_scaling.txt',status='replace',action='write')
        close(iu4)
        do i=1, omp_get_max_threads()
           call omp_set_num_threads(i)
-          call deallocate_linklist
-          call allocate_linklist
-          call set_linklist(npart2,npart2,xyzh2,vxyzu)
+          call deallocate_neigh
+          call allocate_neigh
+          call build_tree(npart2,npart2,xyzh2,vxyzu)
           if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
              call system_clock(start)
-             call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, kappa, order, tau)
+             call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
              call system_clock(finish)
           else
              call system_clock(start)
-             call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
+             call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
              call system_clock(finish)
           endif
           timeTau = (finish-start)/1000.
           print*,'nthread = ',omp_get_max_threads(),': Time = ',timeTau,' seconds.'
-          open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt',position='append', status='old', action='write')
+          open(newunit=iu4,file='times_'//dumpfile//'_scaling.txt',position='append',status='old',action='write')
           write(iu4, *) omp_get_max_threads(), timeTau
           close(iu4)
        enddo
@@ -522,23 +522,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        print*,'Start doing scaling analysis with order =',order
        if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
           call system_clock(start)
-          call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, kappa, order, tau)
+          call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
           call system_clock(finish)
        else
           call system_clock(start)
-          call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
+          call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
           call system_clock(finish)
        endif
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
-       open(newunit=iu1, file='npart_wind.txt',position='append', action='write')
+       open(newunit=iu1,file='npart_wind.txt',position='append',action='write')
        write(iu1, *) npart2
        close(iu1)
-       open(newunit=iu4, file='times_wind.txt',position='append', action='write')
+       open(newunit=iu4,file='times_wind.txt',position='append',action='write')
        write(iu4, *) timeTau
        close(iu4)
        totalTime = totalTime + timeTau
-       open(newunit=iu2, file='taus_'//dumpfile//'.txt', status='replace', action='write')
+       open(newunit=iu2,file='taus_'//dumpfile//'.txt',status='replace',action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
@@ -562,9 +562,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
        if (SPH) then
-          open(newunit=iu2, file='taus_'//dumpfile//'_inwards.txt', status='replace', action='write')
+          open(newunit=iu2,file='taus_'//dumpfile//'_inwards.txt',status='replace',action='write')
        else
-          open(newunit=iu2, file='taus_'//dumpfile//'_tess_inwards.txt', status='replace', action='write')
+          open(newunit=iu2,file='taus_'//dumpfile//'_tess_inwards.txt',status='replace',action='write')
        endif
        do i=1, size(tau)
           write(iu2, *) tau(i)
@@ -575,16 +575,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        print*, 'Start calculating optical depth outward: ', trim(jstring)
        if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
           call system_clock(start)
-          call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, kappa, j, tau)
+          call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, rhopart, kappa, j, .true., tau)
           call system_clock(finish)
        else
           call system_clock(start)
-          call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, kappa, j, tau)
+          call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, rhopart, kappa, j, .true., tau)
           call system_clock(finish)
        endif
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
-       open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
+       open(newunit=iu2,file='taus_'//dumpfile//'_'//trim(jstring)//'.txt',status='replace',action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
@@ -603,7 +603,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        endif
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
-       open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'.txt', status='replace', action='write')
+       open(newunit=iu2,file='taus_'//dumpfile//'_'//trim(jstring)//'.txt',status='replace',action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
@@ -623,8 +623,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        timeTau = (finish-start)/1000.
        print*,'Time = ',timeTau,' seconds.'
        totalTime = totalTime + timeTau
-       open(newunit=iu2, file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
-                  '_'//trim(kstring)//'.txt', status='replace', action='write')
+       open(newunit=iu2,file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
+                  '_'//trim(kstring)//'.txt',status='replace',action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
@@ -637,16 +637,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*,'Start calculating optical depth'
     if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
        call system_clock(start)
-       call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, kappa, order, tau)
+       call get_all_tau(npart2, 1, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
        call system_clock(finish)
     else
        call system_clock(start)
-       call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
+       call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
        call system_clock(finish)
     endif
     timeTau = (finish-start)/1000.
     print*,'Time = ',timeTau,' seconds.'
-    open(newunit=iu4, file='taus_'//dumpfile//'.txt', status='replace', action='write')
+    open(newunit=iu4,file='taus_'//dumpfile//'.txt',status='replace',action='write')
     do i=1, size(tau)
        write(iu4, *) tau(i)
     enddo
@@ -660,7 +660,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
     ! allocate(neighb(npart2+2,100))
     ! neighb = 0
-    ! open(newunit=iu4, file='neighbors_tess.txt', status='old', action='read')
+    ! open(newunit=iu4,file='neighbors_tess.txt',status='old',action='read')
     ! do i=1, npart2+2
     !       read(iu4,*) neighb(i,:)
     ! enddo
@@ -669,28 +669,27 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     order = 7
     print*, 'Start calculating optical depth outward, order=',order
     call system_clock(start)
-    call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, kappa, order, tau)
+    call get_all_tau(npart2, 2, xyzmh_ptmass, xyzh2, rhopart, kappa, order, .true., tau)
     call system_clock(finish)
     timeTau = (finish-start)/1000.
     print*,'Time = ',timeTau,' seconds.'
     totalTime = totalTime + timeTau
-    open(newunit=iu2, file='taus_'//dumpfile//'_raypolation_7.txt', status='replace', action='write')
+    open(newunit=iu2,file='taus_'//dumpfile//'_raypolation_7.txt',status='replace',action='write')
     do i=1, size(tau)
        write(iu2, *) tau(i)
     enddo
     close(iu2)
 
  elseif (analyses == 5) then
-    open(newunit=iu1, file='points_'//dumpfile//'.txt', status='replace', action='write')
+    open(newunit=iu1,file='points_'//dumpfile//'.txt',status='replace',action='write')
     do i=1, npart2+2
        write(iu1, *) xyzh2(1:3,i)
     enddo
     close(iu1)
 
-    open(newunit=iu3, file='rho_'//dumpfile//'.txt', status='replace', action='write')
+    open(newunit=iu3,file='rho_'//dumpfile//'.txt',status='replace',action='write')
     do i=1,npart2
-       rho(i) = rhoh(xyzh2(4,i), particlemass)
-       write(iu3, *) rho(i)
+       write(iu3, *) rhopart(i)
     enddo
     close(iu3)
  endif

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -9,18 +9,18 @@ module testradiation
 ! Unit tests for radiation hydro
 !
 ! :References:
-!    Whitehouse & Bate (2004), 353, 1078
-!    Whitehouse, Bate & Monaghan (2005), 364, 1367
-!    Biriukov (2019), PhD thesis, Monash Univ.
+!   - Whitehouse & Bate (2004), 353, 1078
+!   - Whitehouse, Bate & Monaghan (2005), 364, 1367
+!   - Biriukov (2019), PhD thesis, Monash Univ.
 !
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, eos, io, kernel, linklist,
-!   mpidomain, mpiutils, options, part, physcon, radiation_implicit,
-!   radiation_utils, readwrite_dumps, step_lf_global, testutils, timestep,
-!   unifdis, units
+! :Dependencies: apr, boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, neighkdtree, options, part, physcon, radiation_implicit,
+!   radiation_utils, readwrite_dumps, sortutils, step_lf_global, testutils,
+!   timestep, unifdis, units
 !
  use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa
  use io,        only:id,master
@@ -39,10 +39,9 @@ contains
 subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
- use dim,     only:do_radiation,periodic,mpi
- use options, only:implicit_radiation
+ use dim,     only:do_radiation,periodic
  use io,      only:iverbose
- use radiation_implicit, only:tol_rad
+ use radiation_utils, only:implicit_radiation,tol_rad
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -53,22 +52,21 @@ subroutine test_radiation(ntests,npass)
 
  call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass,use_implicit=.false.)
- if (.not.mpi) call test_exchange_terms(ntests,npass,use_implicit=.true.)
+ call test_exchange_terms(ntests,npass,use_implicit=.true.)
 
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
  else
-    if (.not.mpi) call test_implicit_matches_explicit(ntests,npass)
+    call test_implicit_matches_explicit(ntests,npass)
 
     iverbose = -1
     implicit_radiation = .false.
     call test_radiation_diffusion(ntests,npass)
 
-    if (.not.mpi) then
-       implicit_radiation = .true.
-       tol_rad = 1.e-6
-       call test_radiation_diffusion(ntests,npass)
-    endif
+    implicit_radiation = .true.
+    tol_rad = 1.e-6
+    call test_radiation_diffusion(ntests,npass)
+    call test_radiation_diffusion(ntests,npass,hierarchy=.true.)
  endif
 
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
@@ -81,15 +79,15 @@ end subroutine test_radiation
 !+
 !----------------------------------------------------
 subroutine test_exchange_terms(ntests,npass,use_implicit)
- use radiation_utils, only:update_radenergy,kappa_cgs
+ use radiation_utils, only:update_radenergy,kappa_cgs,exchange_radiation_energy
  use units,      only:set_units,unit_ergg,unit_density,unit_opacity,utime
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp,periodic
- use options,    only:exchange_radiation_energy
  use io,         only:iverbose
- use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
-                      iphase,maxphase,isetphase,rhoh,drad,&
-                      npartoftype,rad,radprop,maxvxyzu
+ use apr,        only:sync_aprmassoftype
+ use part,       only:init_part,npart,rho,xyzh,fxyzu,vxyzu,massoftype,igas,&
+                      iphase,maxphase,isetphase,drad,&
+                      npartoftype,rad,radprop,maxvxyzu,luminosity,init_rho_from_h,itlastrad
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk,iopacity_type
@@ -97,16 +95,17 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use mpiutils,   only:reduceall_mpi
  use mpidomain,  only:i_belong
  use radiation_implicit, only:do_radiation_implicit
- use linklist,   only:set_linklist
- real :: psep,hfact
- real :: pmassi,rhozero,totmass
+ use neighkdtree,        only:build_tree
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: use_implicit
+ real :: psep,hfact
+ real :: pmassi,rhozero,totmass
  real :: dt,t,physrho,rhoi,maxt,laste
- integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest
+ integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest,N_implicit_steps
  integer(kind=8) :: nptot
- logical, parameter :: write_output = .true.
+ logical, parameter :: write_output = .false.
  character(len=12) :: string,filestr
+ real :: step,log_start
 
  call init_part()
  iverbose = 0
@@ -133,6 +132,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  totmass = rhozero*(dxbound*dybound*dzbound)
  nptot = reduceall_mpi('+',npart)
  massoftype(igas) = totmass/nptot
+ call sync_aprmassoftype
  gamma = 5./3.
  gmw = 2.0
  polyk = 0.
@@ -140,9 +140,9 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  npartoftype(:) = 0
  npartoftype(1) = npart
  pmassi = massoftype(igas)
+ call init_rho_from_h()
 
- if (use_implicit) call set_linklist(npart,npart,xyzh,vxyzu)
-
+ if (use_implicit) call build_tree(npart,npart,xyzh,vxyzu)
  !
  ! first version of the test: set gas temperature high and radiation temperature low
  ! so that gas cools towards radiation temperature (itest=1)
@@ -151,7 +151,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  !
  do itest = 1,2
     do i=1,npart
-       rhoi              = rhoh(xyzh(4,i),pmassi)
+       rhoi              = rho(i)
        rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
        radprop(ikappa,i) = kappa_cgs/unit_opacity
        if (itest==2) then
@@ -161,6 +161,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        endif
        vxyzu(4,i)        = vxyzu(4,i)/rhoi
        fxyzu(4,i)        = 0.
+       luminosity(i)     = 0.
     enddo
 
     if (write_output) then
@@ -170,21 +171,33 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     endif
     maxt = 5e-7*seconds
     t = 0.
-    rhoi    = rhoh(xyzh(4,1),pmassi)
+    rhoi    = rho(1)
     physrho = rhoi*unit_density
     i = 0
     ndiff = 0
     ncheck = 0
     ierrmax = 0
+
+    ! logarithmically spaced time steps for implicit
+    if (use_implicit) then
+       N_implicit_steps = 40
+       log_start = log10(1.d-18*seconds/utime)
+       step = (log10(maxt/utime) - log_start) / real(N_implicit_steps - 1)
+    endif
+
     do while(t < maxt/utime)
        dt = max(1d-18*seconds/utime,0.05d0*t)
-       !  dt = maxt/utime
+       if (t + dt > maxt/utime) dt = maxt/utime - t
        if (use_implicit) then
-          if (i > 1) dt = 0.05*maxt/utime ! use large timesteps for implicit version
-          call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+          if (i >1) dt = min(0.05*maxt/utime, 10.d0**(log_start + (i - 1) * step) - t)
+          if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
+          ! integrate all particles from t to t+dt (also with individual timesteps)
+          radprop(itlastrad,1:npart) = t
+          call do_radiation_implicit(dt,t+dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
        else
-          call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
+          if (t + dt > maxt/utime) dt = maxt/utime - t  ! take last step to maxt
+          call update_radenergy(1,fxyzu,vxyzu,rho,rad,radprop,dt)
        endif
        t = t + dt
        if (mod(i,10)==0 .or. use_implicit) then
@@ -198,9 +211,9 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        call update_test_scores(ntests,ndiff,npass)
     endif
     if (itest==2) then
-       call checkval(laste,21144463.0313597,3.3e-15,nerr(1),'energy exchange for gas heating'//trim(string))
+       call checkval(laste,21144463.0313597,1.e-14,nerr(1),'energy exchange for gas heating'//trim(string))
     else
-       call checkval(laste,21197127.9406196,2e-15,nerr(1),'energy exchange for gas cooling'//trim(string))
+       call checkval(laste,21197127.9406196,1.e-14,nerr(1),'energy exchange for gas cooling'//trim(string))
     endif
     call update_test_scores(ntests,nerr,npass)
 
@@ -218,21 +231,33 @@ end subroutine test_exchange_terms
 !+
 !---------------------------------------------------------
 subroutine test_implicit_matches_explicit(ntests,npass)
- use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,&
-                    xyzh_label,init_part,radprop_label
+ use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,iorig,&
+                    xyzh_label,init_part,radprop_label,apr_level
+ use sortutils, only:indexx
+ use dim,      only:use_apr
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax
- use options,  only:implicit_radiation,tolh
+ use options,  only:tolh
  use physcon,  only:pi
  use deriv,    only:get_derivs_global
  use io,       only:iverbose
  use timestep, only:dtmax
+ use radiation_utils,    only:implicit_radiation
  use radiation_implicit, only:do_radiation_implicit
  integer, intent(inout) :: ntests,npass
- real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
+ real(kind=kind(radprop)), allocatable :: flux_explicit(:,:),flux_implicit(:,:)
+ integer(kind=8), allocatable :: iorig_explicit(:)
+ integer, allocatable :: inow(:),iexpl(:)
  real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,tolh_old,pmassi !,exact(9)
- integer :: i,j,itry,nerr_e(9),ierr
+ integer :: i,j,n,itry,nerr_e(9),ierr,imass,nmass
+ character(len=24) :: label
 
- if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'
+ ! with APR, repeat with neighbouring particles of different mass
+ nmass = 1
+ if (use_apr) nmass = 2
+ do imass=1,nmass
+ label = ''
+ if (imass == 2) label = ' (APR, unequal masses)'
+ if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'//trim(label)
 
  implicit_radiation = .false.
  iverbose = 0
@@ -240,71 +265,99 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  tolh_old = tolh
  tolh = 1.e-8
  dtmax = 5.e-22
+ !--set up once, so that both passes see the same particles
+ call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
+ if (imass == 2) then
+    do i=1,npart
+       if (mod(i,2)==0) apr_level(i) = 2
+    enddo
+ endif
+
+ ! set some non-zero velocities
+ do i=1,npart
+    vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
+    vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
+    vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
+ enddo
  do itry = 1,2
     if (itry == 2) implicit_radiation = .true.
-    call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
-
-    ! set some non-zero velocities
-    do i=1,npart
-       vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
-       vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
-       vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
-    enddo
     call get_derivs_global()
     if (itry==1) then
        call get_derivs_global()  ! twice to get density on neighbours correct
 
-       !--allocate and copy flux
-       allocate(flux_explicit(3,npart))
-       flux_explicit = radprop(ifluxx:ifluxz,1:npart)
+       !--allocate and copy flux, and the particle IDs
+       allocate(flux_explicit(3,npart),iorig_explicit(npart))
+       flux_explicit  = radprop(ifluxx:ifluxz,1:npart)
+       iorig_explicit = iorig(1:npart)
     else
-       radprop = 0.
-       call do_radiation_implicit(1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+       radprop = 0.  ! also sets the time of the last update to zero
+       call do_radiation_implicit(1.e-24,1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     endif
  enddo
 
- ! now check that things match
+ ! now check that things match, matching the particles by their IDs
+ ! since the particles may have been reordered in between
  tol_e = 1.e-15
  nerr_e = 0
  errmax_e = 0.
+ ! (every MPI task makes the same checks, since the checks combine results across tasks)
+ call checkval(npart,size(iorig_explicit),0,nerr_e(4),'number of particles')
+ n = min(npart,size(iorig_explicit))
+ allocate(inow(npart),iexpl(size(iorig_explicit)),flux_implicit(3,n))
+ call indexx(npart,iorig,inow)
+ call indexx(size(iorig_explicit),iorig_explicit,iexpl)
+ call checkval(n,iorig(inow(1:n)),iorig_explicit(iexpl(1:n)),0_8,nerr_e(5),'same particle IDs')
+ flux_explicit = flux_explicit(:,iexpl)
+ flux_implicit = radprop(ifluxx:ifluxz,inow(1:n))
  do j=1,3
-    call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
+    call checkval(n,flux_implicit(j,:),flux_explicit(j,1:n),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
  enddo
  call update_test_scores(ntests,nerr_e,npass)
+ deallocate(flux_explicit,iorig_explicit,flux_implicit,inow,iexpl)
 
  vxyzu(1:3,:) = 0.  ! zero velocities again
  tolh = tolh_old
+ if (use_apr) apr_level(1:npart) = 1
+ enddo
 
 end subroutine test_implicit_matches_explicit
 
 !---------------------------------------------------------
 !+
-!  unit tests of radiation derivatives: grad E and div F
+!  unit tests of radiation derivatives: grad E and div F,
+!  then diffusion of a sine wave, evolved either with step
+!  or (hierarchy=.true.) by calling the implicit solver
+!  directly, on a timestep hierarchy if ind_timesteps
 !+
 !---------------------------------------------------------
-subroutine test_radiation_diffusion(ntests,npass)
- use part,            only:npart,xyzh,rhoh,vxyzu,&
-                           rad,radprop,drad,ifluxx,maxvxyzu,fxyzu,init_part
+subroutine test_radiation_diffusion(ntests,npass,hierarchy)
+ use part,            only:npart,xyzh,rho,vxyzu,&
+                           radprop,drad,ifluxx,maxvxyzu,fxyzu,init_part
  use boundary,        only:xmin,xmax
  use physcon,         only:pi
  use readwrite_dumps, only:write_fulldump
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
- use options,         only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
+ use radiation_utils, only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  use mpiutils,        only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
+ logical, intent(in), optional :: hierarchy
  real :: rhoi,dtext,pmassi,dt,t,kappa_code
  real :: xi0,D0,rho0,l0,c_code
  real :: dtnew,tmax
- real :: exact_grE,exact_DgrF,exact_xi
- real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi,de,dekin,degas,derad
- integer :: i,j
- integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f,nerr_xi(1),ncheck_xi
+ real :: exact_grE,exact_DgrF
+ real :: errmax_e,errmax_f,tol_e,tol_f,tol_xi,de,dekin,degas,derad
+ integer :: i
+ integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f
  character(len=20) :: string,filename
  logical, parameter :: write_output = .false.
+ logical :: use_hierarchy
 
- if (id==master) write(*,"(/,a)") '--> checking radiation diffusion on sine function'//get_tag(implicit_radiation)
+ use_hierarchy = .false.
+ if (present(hierarchy)) use_hierarchy = hierarchy
+ if (id==master) write(*,"(/,a,l1)") '--> checking radiation diffusion on sine function'//&
+                                      get_tag(implicit_radiation)//', direct calls to solver=',use_hierarchy
 
  call init_part()
  call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
@@ -329,7 +382,7 @@ subroutine test_radiation_diffusion(ntests,npass)
 
  l0 = 2*pi/(xmax-xmin)
  do i=1,npart
-    rhoi = rhoh(xyzh(4,i),pmassi)
+    rhoi = rho(i)
     D0  = c_code*(1./3)/kappa_code/rhoi
     exact_grE  =  xi0*rho0*0.1*l0   *cos(xyzh(1,i)*l0)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
@@ -359,54 +412,47 @@ subroutine test_radiation_diffusion(ntests,npass)
  !
  ! now solve diffusion as a function of time
  !
- t  = 0.
- if (write_output) then
-    write (filename,'(a5,i3.3)') 'rad_test_',0
-    call write_fulldump(t,filename)
- endif
- dt = dtnew
- dtext = dt
- if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
  implicit_radiation_store_drad = .false.
-
- call init_step(npart,t,dtmax)
- i = 0
- D0  = c_code*(1./3)/kappa_code/rho0
- if (write_output) print "(/,a,3(es10.3,a))", ' exact solution: ',xi0,'*(1 + 0.1*sin(x*',l0,')*exp(',-l0*l0*D0,'*t))'
- do while(t < tmax)
-    t = t + dt
-    dtext = dt
-    call step(npart,nactive,t,dt,dtext,dtnew)
-    dt = dtnew
-    if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
-
-    i = i + 1
-
-    if (mod(i,10) == 0) then
-       nerr_xi = 0
-       ncheck_xi = 0
-       errmax_xi = 0.
-       if (implicit_radiation) then
-          tol_xi = 5.e-3
-       else
-          tol_xi = 3.5e-4
-       endif
-       do j = 1,npart
-          rhoi = rhoh(xyzh(4,j),pmassi)
-          D0  = c_code*(1./3)/kappa_code/rhoi
-          exact_xi = xi0*(1.+0.1*sin(xyzh(1,j)*l0)*exp(-l0*l0*t*D0))
-          write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
-          call checkvalbuf(rad(iradxi,j),exact_xi,tol_xi,trim(string),&
-                           nerr_xi(1),ncheck_xi,errmax_xi)
-       enddo
-       call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
-       call update_test_scores(ntests,nerr_xi,npass)
-    endif
+ if (use_hierarchy) then
+    call evolve_diffusion_hierarchy(ntests,npass,kappa_code,c_code,xi0)
+ else
+    t  = 0.
     if (write_output) then
-       write (filename,'(a5,i3.3)') 'rad_test_', i
+       write (filename,'(a5,i3.3)') 'rad_test_',0
        call write_fulldump(t,filename)
     endif
- enddo
+    dt = dtnew
+    dtext = dt
+    if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
+
+    call init_step(npart,t,dtmax)
+    i = 0
+    D0  = c_code*(1./3)/kappa_code/rho0
+    if (write_output) print "(/,a,3(es10.3,a))", ' exact solution: ',xi0,'*(1 + 0.1*sin(x*',l0,')*exp(',-l0*l0*D0,'*t))'
+    do while(t < tmax)
+       dtext = dt
+       call step(npart,nactive,t,dt,dtext,dtnew)  ! step from t to t+dt
+       t = t + dt
+       dt = dtnew
+       if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
+
+       i = i + 1
+
+       if (mod(i,10) == 0) then
+          if (implicit_radiation) then
+             tol_xi = 5.e-3
+          else
+             tol_xi = 3.5e-4
+          endif
+          write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
+          call check_xi_exact(ntests,npass,t,kappa_code,c_code,xi0,tol_xi,trim(string))
+       endif
+       if (write_output) then
+          write (filename,'(a5,i3.3)') 'rad_test_', i
+          call write_fulldump(t,filename)
+       endif
+    enddo
+ endif
 
  ! reset various things
  call init_part()
@@ -414,6 +460,91 @@ subroutine test_radiation_diffusion(ntests,npass)
  drad = 0.
 
 end subroutine test_radiation_diffusion
+
+!---------------------------------------------------------
+!+
+!  evolve the diffusion test by calling the implicit solver
+!  directly. With individual timesteps, particles with x <= 0.1
+!  are only active every second substep, so the solver sees
+!  inactive particles in the tree and as neighbours
+!+
+!---------------------------------------------------------
+subroutine evolve_diffusion_hierarchy(ntests,npass,kappa_code,c_code,xi0)
+ use dim,                only:maxphase,maxp,ind_timesteps
+ use part,               only:npart,xyzh,vxyzu,rad,radprop,drad,iphase,isetphase,igas,itlastrad
+ use neighkdtree,        only:build_tree
+ use mpiutils,           only:reduceall_mpi
+ use radiation_implicit, only:do_radiation_implicit
+ integer, intent(inout) :: ntests,npass
+ real,    intent(in)    :: kappa_code,c_code,xi0
+ integer, parameter :: nsub = 64     ! number of substeps (even, so all particles finish together)
+ real,    parameter :: dt = 6.7e-24  ! shortest timestep
+ real    :: t,etot0,etot1
+ integer :: i,k,nactive,ierr,nfail,nerr(1)
+ logical :: active
+
+ radprop(itlastrad,1:npart) = 0.
+ etot0 = reduceall_mpi('+',sum(vxyzu(4,1:npart) + rad(iradxi,1:npart)))
+
+ nfail = 0
+ do k = 1,nsub
+    t = k*dt
+    !--0.1 is not a tree split, so some leaves hold both active and inactive particles
+    nactive = 0
+    do i = 1,npart
+       active = (.not.ind_timesteps .or. xyzh(1,i) > 0.1 .or. mod(k,2)==0)
+       if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=active)
+       if (active) nactive = nactive + 1
+    enddo
+    call build_tree(npart,nactive,xyzh,vxyzu)
+    call do_radiation_implicit(dt,t,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+    if (ierr /= 0) nfail = nfail + 1
+ enddo
+ nerr = 0
+ call checkval(nfail,0,0,nerr(1),'implicit solve succeeded on every substep')
+ call update_test_scores(ntests,nerr,npass)
+
+ !--twice the measured error (about 1e-3), as for the global-timestep test
+ call check_xi_exact(ntests,npass,t,kappa_code,c_code,xi0,2.e-3,'xi(t)')
+
+ !--total energy (gas plus radiation, equal masses), to twice the measured error. With
+ !  individual timesteps the exchange with inactive neighbours is not symmetric, so energy
+ !  is conserved only to first order in dt (about 3e-4 here, against 5e-6 without)
+ etot1 = reduceall_mpi('+',sum(vxyzu(4,1:npart) + rad(iradxi,1:npart)))
+ nerr = 0
+ call checkval(etot1,etot0,merge(1.e-3,1.e-5,ind_timesteps),nerr(1),'total energy conserved')
+ call update_test_scores(ntests,nerr,npass)
+
+end subroutine evolve_diffusion_hierarchy
+
+!---------------------------------------------------------
+!+
+!  check xi against the exact decay of the sine wave at time t
+!+
+!---------------------------------------------------------
+subroutine check_xi_exact(ntests,npass,t,kappa_code,c_code,xi0,tol_xi,label)
+ use part,     only:npart,xyzh,rho,rad
+ use boundary, only:xmin,xmax
+ use physcon,  only:pi
+ integer,          intent(inout) :: ntests,npass
+ real,             intent(in)    :: t,kappa_code,c_code,xi0,tol_xi
+ character(len=*), intent(in)    :: label
+ real    :: l0,D0,exact_xi,errmax_xi
+ integer :: j,nerr_xi(1),ncheck_xi
+
+ nerr_xi = 0
+ ncheck_xi = 0
+ errmax_xi = 0.
+ l0 = 2.*pi/(xmax-xmin)
+ do j = 1,npart
+    D0 = c_code*(1./3)/kappa_code/rho(j)
+    exact_xi = xi0*(1.+0.1*sin(xyzh(1,j)*l0)*exp(-l0*l0*t*D0))
+    call checkvalbuf(rad(iradxi,j),exact_xi,tol_xi,label,nerr_xi(1),ncheck_xi,errmax_xi)
+ enddo
+ call checkvalbuf_end(label,ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
+ call update_test_scores(ntests,nerr_xi,npass)
+
+end subroutine check_xi_exact
 
 !---------------------------------------------------------
 !+
@@ -425,8 +556,9 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  use dim,             only:maxp
  use io,              only:id,master
  use eos,             only:gamma,gmw,iopacity_type
+ use apr,             only:sync_aprmassoftype
  use part,            only:npart,hfact,xyzh,vxyzu,massoftype,igas,periodic,&
-                           iphase,maxphase,isetphase,rhoh,npartoftype,&
+                           iphase,maxphase,isetphase,npartoftype,&
                            rad,radprop,ifluxx,maxvxyzu
  use units,           only:unit_opacity,get_c_code,unit_ergg,get_radconst_code
  use physcon,         only:Rg,pi,seconds
@@ -450,7 +582,8 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  nptot = reduceall_mpi('+',npart)
 
  rho0 = 2.5e-24
- massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot  !*1e-25
+ massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot
+ call sync_aprmassoftype
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0

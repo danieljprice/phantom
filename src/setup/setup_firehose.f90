@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, physcon, units
+! :Dependencies: kernel, part, physcon, units
 !
  implicit none
  public :: setpart
@@ -32,25 +32,28 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use units,   only:set_units,umass
  use physcon, only:au,solarm
  use part,    only:igas,xyzmh_ptmass,nptmass,vxyz_ptmass
- integer,           intent(in)    :: id
- integer,           intent(inout) :: npart
- integer,           intent(out)   :: npartoftype(:)
- real,              intent(out)   :: xyzh(:,:)
- real,              intent(out)   :: massoftype(:)
- real,              intent(out)   :: polyk,gamma,hfact
- real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
- real,              intent(out)   :: vxyzu(:,:)
+ use kernel,  only:hfact_default
+ integer,          intent(in)    :: id
+ integer,          intent(inout) :: npart
+ integer,          intent(out)   :: npartoftype(:)
+ real,             intent(out)   :: xyzh(:,:)
+ real,             intent(out)   :: massoftype(:)
+ real,             intent(out)   :: polyk,gamma,hfact
+ real,             intent(inout) :: time
+ character(len=*), intent(in)    :: fileprefix
+ real,             intent(out)   :: vxyzu(:,:)
 
  call set_units(mass=1e6*solarm,G=1.d0,c=1.d0)
  time = 0.
  polyk = 0.
  gamma = 5./3.
-
+ hfact = hfact_default
  npart = 0
  npartoftype(:) = 0
  massoftype = 0.
  massoftype(igas) = 1.e-12*solarm/umass
+ xyzh = 0.
+ vxyzu = 0.
 
  nptmass = 1
  if (nptmass > 0) then

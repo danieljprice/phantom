@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,15 +31,15 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use part,  only: nptmass,xyzmh_ptmass,vxyz_ptmass,iLum,iTeff,iReff
- use part,  only: dust_temp,isdead_or_accreted,nucleation
- use dust_formation, only: set_abundances
+ use part,  only:xyzmh_ptmass,iLum,iTeff,iReff
+ use part,  only:dust_temp,isdead_or_accreted
+ use dust_formation, only:set_abundances
 
  !general variables
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,npart,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,             intent(in) :: particlemass,time
+ real,             intent(in)    :: particlemass,time
 
  real    :: L_star,T_star,R_star,xa,ya,za
  integer :: j
@@ -53,8 +53,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  xa = xyzmh_ptmass(1,j)
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
- call get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
-
+ call get_Teq_from_Lucy(npart,xyzh,particlemass,xa,ya,za,R_star,T_star,dust_temp)
 
 end subroutine do_analysis
 
@@ -64,12 +63,12 @@ end subroutine do_analysis
 !  Performs ray-tracing along 1 direction (could be generalized to include other directions)
 !+
 !-------------------------------------------------------------------------------
-subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
+subroutine get_Teq_from_Lucy(npart,xyzh,particlemass,xa,ya,za,R_star,T_star,dust_temp)
  use part,  only:isdead_or_accreted,nucleation,idK3
  use dim,   only:do_nucleation
- integer,  intent(in)    :: npart
- real,     intent(in)    :: xyzh(:,:),xa,ya,za,R_star,T_star
- real,     intent(out)   :: dust_temp(:)
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),particlemass,xa,ya,za,R_star,T_star
+ real,    intent(out) :: dust_temp(:)
  real     :: r(3),r0(3),d,dmin,dmax,d2_axis,OR(N),Teq(N),K3(N),rho_over_r2(2*N+1),rho(N)
  integer  :: i,idx_axis(npart),naxis
 
@@ -105,13 +104,12 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
  dmin = sqrt(dmin)
  dmax = sqrt(dmax)
 
-
  if (do_nucleation) then
-    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, particlemass, rho, &
          rho_over_r2, dust_temp, Teq, nucleation(idK3,:), K3)
     call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
  else
-    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, rho, &
+    call density_along_line(npart, xyzh, r0, naxis, idx_axis, -dmax, dmax, R_star, N, particlemass, rho, &
          rho_over_r2, dust_temp, Teq)
     call calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq)
  endif
@@ -125,17 +123,16 @@ end subroutine get_Teq_from_Lucy
 !+
 !--------------------------------------------------------------------------
 subroutine calculate_Teq(N, dmax, R_star, T_star, rho, rho_over_r2, OR, Teq, K3)
- use dust_formation, only : calc_kappa_dust,calc_kappa_bowen,idust_opacity
+ use dust_formation, only:calc_kappa_dust,calc_kappa_bowen,idust_opacity
  integer, intent(in)  :: N
  real,    intent(in)  :: dmax, R_star, T_star, rho(N), rho_over_r2(2*N+1)
- real,    optional, intent(in) :: K3(N)
  real,    intent(out) :: Teq(N)
+ real,    intent(in), optional :: K3(N)
 
  real :: OR(N),tau_prime(N),vTeq(N),kappa(N),dTeq,pTeq(N)
  real :: dr, fact, rho_on_r2(N)
  real, parameter :: tol = 1.d-2, kap_gas = 2.d-4
  integer :: i,istart,iter
-
 
  tau_prime = 0.
  iter = 0
@@ -194,18 +191,18 @@ end subroutine calculate_Teq
 !  compute the mean properties along the ray
 !+
 !-----------------------------------------------------------------------
-subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax, r_star, N, &
+subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax, r_star, N, particlemass, &
      rho_cgs, rho_over_r2, T, Teq, K3, K3i)
  use kernel, only:cnormk,wkern
- use part,   only:massoftype,igas,rhoh
+ use part,   only:rho
  use units,  only:unit_density
  integer, intent(in)  :: npart,N
- real,    intent(in)  :: xyzh(:,:), T(:), r0(3)
- real, optional, intent(in)  :: K3(:)
- integer, intent(in)  ::  npart_axis, idx_axis(npart)
+ real,    intent(in)  :: xyzh(:,:), T(:), r0(3), particlemass
+ integer, intent(in)  :: npart_axis, idx_axis(npart)
  real,    intent(in)  :: rmin, rmax, R_star
  real,    intent(out) :: rho_over_r2(2*N+1), Teq(N), rho_cgs(N)
- real, optional, intent(out) :: K3i(N)
+ real,    intent(in),  optional :: K3(:)
+ real,    intent(out), optional :: K3i(N)
  real :: rhoi(2*N+1), OR(2*N+1), Ti(2*N+1), Ki(2*N+1), xnorm(2*N+1)
  real :: OH, d2_axis, HR, q2, q, fact0, fact, h, h2, part_mass
  real :: delta_r, rmin_o, rmin_p, rmax_p, dr, r(3), xfact, rhoinv
@@ -224,7 +221,7 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
  open(unit=220,file='allpart.dat')
  write(220,*) '# ng x y z rho T K'
  do i = 1, npart
-    write (220,*) np,xyzh(1:3,i)-r0(3),rhoh(xyzh(4,i),part_mass),T(i),K3(i)
+    write (220,*) np,xyzh(1:3,i)-r0(3),rho(i),T(i),K3(i)
  enddo
  close(220)
  rhoi(:) = 0.
@@ -233,7 +230,7 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
  Ki(:) = 0.
  Ti(:)  = 0.
  xnorm(:) = 0.
- part_mass = massoftype(igas)
+ part_mass = particlemass
  fact0 =  part_mass*cnormk
  open(unit=221,file='part_axis.dat')
  write(221,*) '# ng x y z rho T K'
@@ -257,8 +254,8 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
     j_max = min(Nr, j_max)
     ! Adds the contribution of particle np to density at all the discretized locations in the interaction sphere
     fact = fact0/h**3
-    rhoinv = 1./rhoh(h,part_mass)
-    write (221,*) np,r,rhoh(h,part_mass),T(np),K3(np)
+    rhoinv = 1./rho(i)
+    write (221,*) np,r,rho(i),T(np),K3(np)
     do j=j_min, j_max
        HR = OR(j) - OH
        q2 = (d2_axis+HR**2)/h2
@@ -268,7 +265,7 @@ subroutine density_along_line(npart, xyzh, r0, npart_axis, idx_axis, rmin, rmax,
        xnorm(j) = xnorm(j)+xfact*rhoinv
        Ti(j)    = Ti(j)  + xfact*rhoinv*T(np)
        if (present(K3)) Ki(j) = Ki(j) + xfact*rhoinv*K3(np)
-       !print *,j,Ti(j),T(np),part_mass/(rhoh(h,part_mass)*h**3)!rhoh(h,part_mass),part_mass,q,fact,wkern(q2,q)
+       !print *,j,Ti(j),T(np),part_mass/(rho(i)*h**3)!rho(i),part_mass,q,fact,wkern(q2,q)
     enddo
  enddo
  close (221)

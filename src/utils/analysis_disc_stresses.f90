@@ -1,40 +1,46 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Analysis routine for discs by DF, adapted from a routine by CJN
+! Analysis routine for discs by DF, adapted from a routine by CJN.
+! Edited for use with variable gammai and mui and more accurate alpha_ss calc by AKY
 !
 ! :References: None
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - hlim  : *Scale height limit for tcool averages*
+!   - ieos  : *ieos for analysis*
+!   - nbins : *Number of radial bins*
+!   - rin   : *Inner Disc Radius*
+!   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, io, kernel, part, physcon,
-!   prompting, units
+! :Dependencies: dim, eos, eos_stamatellos, getneighbours, infile_utils,
+!   io, kernel, part, physcon, prompting, units
 !
- use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                            neighcount,neighb,neighmax
+ use eos_stamatellos,  only:du_store,tau_store
  implicit none
  character(len=20), parameter, public :: analysistype = 'disc_stresses'
  public :: do_analysis, radial_binning, calc_gravitational_forces
 
  ! Variables for radial binning
  integer :: nbins
- real    :: rin, rout,dr
- integer, allocatable,dimension(:)   :: ipartbin
- real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
- real,    allocatable,dimension(:)   :: H, toomre_q,epicyc
- real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
- real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
- real,    allocatable,dimension(:,:) :: gravxyz
+ real    :: rin,rout,dr,hlim
+ integer, allocatable :: ipartbin(:)
+ real, allocatable :: rad(:),ninbin(:),sigma(:),csbin(:),vrbin(:),vphibin(:),omega(:)
+ real, allocatable :: H(:),toomre_q(:),epicyc(:),part_scaleheight(:),tcool(:),h_smooth(:)
+ real, allocatable :: alpha_reyn(:),alpha_grav(:),alpha_mag(:),alpha_art(:),tau_midplane(:)
+ real, allocatable :: rpart(:),phipart(:),vrpart(:),vphipart(:), gr(:),gphi(:),Br(:),Bphi(:)
+ real, allocatable :: gravxyz(:,:),zsetgas(:,:)
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
-
 
  private
 
@@ -42,7 +48,9 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
- use part,    only:gravity,mhd
+ use part,    only:gravity,mhd,eos_vars
+ use eos,     only:ieos
+ use eos_stamatellos, only:eos_file,read_optab,optable
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -50,23 +58,24 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer,          intent(in) :: npart,iunit,numfile
 
  character(len=9) :: output
-
+ integer          :: ierr
 
  ! Code calculates the following alphas:
  ! Reynolds stress: 2*dvr*dvphi/3*cs^2
  ! Gravitational stress: gr*gphi/(4*pi*cs^2*Grho)
  ! Maxwell stress: 2*-Br*Bphi/3(4*pi*rho*cs^2)
- ! Numerical stress: 0.01*h/H
+ ! Numerical stress:
 
 ! Print the analysis being done
  write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
-
  write(output,"(a4,i5.5)") 'stresses_',numfile
  write(*,'("Output file name is ",A)') output
 
 ! Read analysis options
  call read_analysis_options
+ print *, "ieos=", ieos
+ if (ieos==24 .and. .not. allocated(optable)) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -82,7 +91,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call transform_to_cylindrical(npart,xyzh,vxyzu)
 
 ! Bin particles by radius
- call radial_binning(npart,xyzh,vxyzu,pmass)
+ call radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
 ! Calculate stresses
  call calc_stresses(npart,xyzh,vxyzu,pmass)
@@ -103,52 +112,67 @@ end subroutine do_analysis
 !+
 !-------------------------------------------
 subroutine read_analysis_options
-
- use prompting, only:prompt
-
- implicit none
-
+ use prompting,    only:prompt
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,write_inopt,close_db
+ use io,           only:fatal
+ use eos,          only:ieos
+ type(inopts), allocatable :: db(:)
+ integer :: ierr,nerr,ieos_analysis
  logical :: inputexist
  character(len=21) :: inputfile
+ integer, parameter :: iunit = 10
 
 ! Check for existence of input file
- inputfile = 'disc_stresses.options'
+ inputfile = trim(analysistype)//'.options'
  inquire(file=inputfile, exist=inputexist)
 
  if (inputexist) then
-
+    nerr = 0
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
-
-    open(10,file=inputfile, form='formatted')
-    read(10,*) nbins
-    read(10,*) rin
-    read(10,*) rout
-    close(10)
+    call open_db_from_file(db,inputfile,iunit,ierr)
+    call read_inopt(ieos_analysis,'ieos',db,errcount=nerr)
+    call read_inopt(nbins,'nbins',db,errcount=nerr)
+    call read_inopt(rin,'rin',db,errcount=nerr)
+    call read_inopt(rout,'rout',db,errcount=nerr)
+    call read_inopt(hlim,'hlim',db,errcount=nerr)
+    call close_db(db)
+    if (nerr > 0) then
+       call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
+    endif
 
  else
 
     print '(a,a,a)', "Parameter file ",inputfile, " NOT found"
-
+    nbins = 128; rin = 1.; rout = 100.
+    call prompt('Enter ieos to use for analysis (e.g. 24): ', ieos_analysis)
     call prompt('Enter the number of radial bins: ', nbins)
     call prompt('Enter the disc inner radius: ', rin)
     call prompt('Enter the disc outer radius: ', rout)
+    call prompt('Enter scale height limit for tcool averages: ', hlim) !from midplane
 
 ! Write choices to new inputfile
 
-    open(10,file=inputfile, status='new', form='formatted')
-    write(10,*) nbins, "      Number of radial bins"
-    write(10,*) rin,  "      Inner Disc Radius"
-    write(10,*) rout, "      Outer Disc Radius"
-    close(10)
+    open(unit=iunit,file=inputfile,status='new',form='formatted')
+    write(iunit,"(a)") '# parameter options for analysis of '//trim(analysistype)
+    call write_inopt(ieos_analysis,'ieos','ieos for analysis',iunit)
+    call write_inopt(nbins,'nbins','Number of radial bins',iunit)
+    call write_inopt(rin,'rin','Inner Disc Radius',iunit)
+    call write_inopt(rout,'rout','Outer Disc Radius',iunit)
+    call write_inopt(hlim,'hlim','Scale height limit for tcool averages',iunit)
+    close(iunit)
  endif
 
-
+ if (ieos /= ieos_analysis) then
+    print *, "Changing ieos from", ieos, "to", ieos_analysis
+    ieos = ieos_analysis
+ endif
  print*, 'Inner Disc Radius (code units): ', rin
  print*, 'Outer Disc Radius (code units): ', rout
  print*, 'Number of bins: ', nbins
+ print*, 'Using particles of h <', hlim
+ print*, 'Using ieos=',ieos
 
 end subroutine read_analysis_options
-
 
 !---------------------------------------------------
 !+
@@ -159,18 +183,15 @@ end subroutine read_analysis_options
 subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
  use dim, only:gravity,maxp
- use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
- use kernel, only: get_kernel,get_kernel_grav1,cnormk
+ use part, only:rho,poten,igas,iphase,maxphase,massoftype,iamgas
+ use kernel, only:get_kernel,get_kernel_grav1,cnormk
 
- implicit none
-
- character(len=*),intent(in) :: dumpfile
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
- integer,intent(in) :: npart
-
+ character(len=*), intent(in) :: dumpfile
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: npart
 
  integer :: j,k,igrav,ipart
- real,dimension(3) :: dr
+ real :: dr(3)
  real :: rij,rij2, hj1,hj21,hj41,q2i,qi
  real :: rhoi, rhoj, wabi, grkerni, dphidhi, grpmrho1
 
@@ -184,11 +205,11 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
 ! Construct neighbour lists for derivative calculations
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh.eqv..true.) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
  else
@@ -205,7 +226,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
  do ipart=1,npart
 
-    rhoi = rhoh(xyzh(4,ipart),massoftype(igas))
+    rhoi = rho(ipart)
 
     ! Smoothing lengths
     hj1 = 1.0/xyzh(4,ipart)
@@ -238,8 +259,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
        rij = sqrt(rij2)
        dr(:) = dr(:)/rij
 
-
-
        ! r/h
        q2i = rij2*hj21
        qi = rij*hj1
@@ -252,7 +271,7 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
        endif
 
        ! Prefactor to SPH sum = grad*mass/rho
-       rhoj = rhoh(xyzh(4,j),massoftype(igas))
+       rhoj = rho(j)
 
        grpmrho1 = grkerni*massoftype(igas)/rhoi
 
@@ -275,7 +294,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
 end subroutine calc_gravitational_forces
 
-
 !---------------------------------------------------
 !+
 ! Calculates cylindrical transformation for positions, forces and fields
@@ -283,11 +301,11 @@ end subroutine calc_gravitational_forces
 !---------------------------------------------------
 subroutine transform_to_cylindrical(npart,xyzh,vxyzu)
 
- use part, only: mhd,gravity,Bxyz
+ use part, only:mhd,gravity,Bxyz
  implicit none
 
  integer, intent(in) :: npart
- real,intent(in) ::xyzh(:,:),vxyzu(:,:)
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:)
  integer :: ipart
 
  allocate(rpart(npart))
@@ -350,21 +368,27 @@ end subroutine transform_to_cylindrical
 !+
 !---------------------------------------------------------------
 
-subroutine radial_binning(npart,xyzh,vxyzu,pmass)
+subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use physcon, only:pi
- use eos, only: gamma
+ use eos,     only:get_spsound,ieos
+ use part,    only:rho,isdead_or_accreted
+ use units,   only:utime
 
- implicit none
+ integer, intent(in) :: npart
+ real,    intent(in) :: pmass
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer,intent(in) :: npart
- real,intent(in) :: pmass
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
-
- integer :: ibin,ipart,nbinned
- real :: area
+ integer :: ibin,ipart,nbinned,iallocerr
+ real :: area,csi
+ logical :: do_tcool
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
-
+ do_tcool = .false.
+ if (allocated(du_store)) then
+    do_tcool = .true.
+    print *, "Calculating t_cool"
+ endif
+ if (do_tcool) print *, "size=", size(du_store)
  allocate(ipartbin(npart))
  allocate(rad(nbins))
  allocate(ninbin(nbins))
@@ -373,6 +397,10 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  allocate(omega(nbins))
  allocate(vrbin(nbins))
  allocate(vphibin(nbins))
+ allocate(part_scaleheight(nbins))
+ allocate(tcool(nbins))
+ allocate(h_smooth(nbins))
+ allocate(tau_midplane(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -381,6 +409,18 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  omega(:) = 0.0
  vrbin(:) = 0.0
  vphibin(:) = 0.0
+ part_scaleheight(:) = 0.0
+ tcool(:) = 0.0
+ h_smooth(:) = 0.
+ tau_midplane(nbins) = 0.
+
+ allocate(zsetgas(npart,nbins),stat=iallocerr)
+ ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
+ if (iallocerr/=0) then
+    write(*,'(/,a)') ' WARNING: Could not allocate memory for array zsetgas!'
+    write(*,'(a)')   '          (It possibly requires too much memory)'
+    write(*,'(a,/)') '          Try calculate scaleheight the slow way.'
+ endif
 
 ! Set up radial bins
 
@@ -395,7 +435,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
 
     ! i refers to particle, ii refers to bin
-    if (xyzh(4,ipart)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (.not.isdead_or_accreted(xyzh(4,ipart))) then ! IF ACTIVE
 
        ibin = int((rpart(ipart)-rad(1))/dr + 1)
 
@@ -404,25 +444,35 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
        if (ibin < 1)  ibin=0
 
        if (ibin<=0) cycle
-
+       if (vxyzu(4,ipart) == 0.) cycle
        nbinned = nbinned +1
 
        ninbin(ibin) = ninbin(ibin) +1
        ipartbin(ipart) = ibin
 
-       csbin(ibin) = csbin(ibin) + sqrt(gamma*(gamma-1)*vxyzu(4,ipart))
-
+       csi = get_spsound(ieos,xyzh(1:3,ipart),rho(ipart),vxyzu(:,ipart))
+       csbin(ibin) = csbin(ibin) + csi
+       h_smooth(ibin) = h_smooth(ibin) + xyzh(4,ipart)
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
        sigma(ibin) = sigma(ibin) + pmass/area
 
        vrbin(ibin) = vrbin(ibin) + vrpart(ipart)
        vphibin(ibin) = vphibin(ibin) + vphipart(ipart)
        omega(ibin) = omega(ibin) + vphipart(ipart)/rad(ibin)
-
+       zsetgas(int(ninbin(ibin)),ibin) = xyzh(3,ipart)
+       if (do_tcool) then
+          if (abs(xyzh(3,ipart)) < hlim*csi/(vphipart(ipart)/rad(ibin)) .and. abs(du_store(ipart)) > 0.) then
+             ! include only particles < hlim
+             tcool(ibin) = tcool(ibin) + vxyzu(4,ipart)/du_store(ipart)
+             tau_midplane(ibin) = tau_midplane(ibin) + tau_store(ipart)
+          endif
+       endif
     endif
 
  enddo
 
+ call calculate_H(nbins,part_scaleheight,zsetgas,int(ninbin))
+ part_scaleheight(:) = part_scaleheight(:)
  print*, nbinned, ' particles have been binned'
 
  where(ninbin(:)/=0)
@@ -430,12 +480,19 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
     vrbin(:) = vrbin(:)/ninbin(:)
     vphibin(:) = vphibin(:)/ninbin(:)
     omega(:) = omega(:)/ninbin(:)
+    h_smooth(:) = h_smooth(:)/ninbin(:)
  end where
+ if (do_tcool) then
+    where(ninbin(:)/=0)
+       tcool(:) = tcool(:)/ninbin(:)
+       tcool(:) = -tcool(:)*utime ! +ve tcool== cooling, -ve tcool==heating
+       tau_midplane(:) = tau_midplane(:)/ninbin(:)
+    end where
+ endif
 
  print*, 'Binning Complete'
 
 end subroutine radial_binning
-
 
 !--------------------------------------------------------------
 !+
@@ -443,21 +500,21 @@ end subroutine radial_binning
 !+
 !--------------------------------------------------------------
 subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
- use physcon, only: pi,gg
- use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
- use dim,     only: gravity
- use part,    only: mhd,rhoh,alphaind
- use eos,     only: gamma
+ use physcon, only:pi,gg,kb_on_mh
+ use units,   only:print_units,umass,udist,utime,unit_velocity,unit_density,unit_Bfield
+ use dim,     only:gravity
+ use part,    only:rho,mhd,alphaind,imu,itemp
+! use eos,     only:ieos
 
  implicit none
 
  integer, intent(in) :: npart
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,intent(in) :: pmass
+ real,    intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(in) :: pmass
 
  integer :: ibin,ipart
- real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force
-
+ real :: cs2, dvr,dvphi,Keplog,rhopart,unit_force,beta_sph,Hbin
+ beta_sph = 2.
  print*, 'Calculating Disc Stresses'
 
  allocate(alpha_reyn(nbins))
@@ -481,7 +538,10 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
+ !if (ieos /= 24) then
  csbin(:) = csbin(:)*unit_velocity
+ !endif
+
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -502,18 +562,18 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
     if (ibin<=0) cycle
 
-    cs2 = gamma*(gamma-1)*vxyzu(4,ipart)*unit_velocity*unit_velocity
-
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
-    rhopart = rhoh(xyzh(4,ipart),pmass)*unit_density
+    rhopart = rho(ipart)*unit_density
 
     alpha_reyn(ibin) = alpha_reyn(ibin) + dvr*dvphi
 
-    alpha_art(ibin) = alpha_art(ibin) + alphaind(1,ipart)*xyzh(4,ipart)*udist
+!  To do: Handle constant alpha_sph
+    Hbin = part_scaleheight(ibin)*udist
+    alpha_art(ibin) = alpha_art(ibin) + 0.06*alphaind(1,ipart)*h_smooth(ibin)*udist/Hbin &
+         + (beta_sph*0.04*h_smooth(ibin)*h_smooth(ibin)*udist*udist/Hbin/Hbin)
 
     if (gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
-
     if (mhd) alpha_mag(ibin) = alpha_mag(ibin) + Br(ipart)*Bphi(ipart)/rhopart
 
  enddo
@@ -539,7 +599,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     endif
 
     if (sigma(ibin)>0.0) then
-       toomre_q(ibin) = csbin(ibin)*omega(ibin)/(pi*gg*sigma(ibin))
+       toomre_q(ibin) = csbin(ibin)*epicyc(ibin)/(pi*gg*sigma(ibin))
     else
        toomre_q(ibin) = 1.0e30
     endif
@@ -551,12 +611,11 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
     endif
 
     if (ninbin(ibin) >0) then
-       alpha_reyn(ibin) =alpha_reyn(ibin)/(Keplog*cs2*ninbin(ibin))
-       alpha_art(ibin) = 0.1*alpha_art(ibin)/(ninbin(ibin)*H(ibin))
+       alpha_reyn(ibin) = alpha_reyn(ibin)/(Keplog*cs2*ninbin(ibin))
+       alpha_art(ibin) = alpha_art(ibin)/ninbin(ibin)
 
        if (gravity) alpha_grav(ibin) = alpha_grav(ibin)/(Keplog*4.0*pi*gg*ninbin(ibin)*cs2)
        if (mhd) alpha_mag(ibin) = alpha_mag(ibin)/(Keplog*cs2*ninbin(ibin))
-
     else
        alpha_reyn(ibin) = 0.0
        alpha_art(ibin) = 0.0
@@ -580,14 +639,14 @@ end subroutine calc_stresses
 subroutine write_radial_data(iunit,output,time)
  implicit none
  integer, intent(in) :: iunit
- real, intent(in) :: time
+ real,    intent(in) :: time
  character(len=*) :: output
  integer :: ibin
 
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',15(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -598,12 +657,17 @@ subroutine write_radial_data(iunit,output,time)
        8,'alpha_reyn',&
        9,'alpha_grav',&
        10,'alpha_mag',&
-       11,'alpha_art'
+       11,'alpha_art',&
+       12,'particle H (au)',&
+       13,'t_cool',&
+       14,'<h>', &
+       15,'tau'
 
  do ibin=1,nbins
-    write(iunit,'(11(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(15(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
-            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin)
+            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin),&
+            tcool(ibin),h_smooth(ibin),tau_midplane(ibin)
  enddo
 
  close(iunit)
@@ -612,13 +676,32 @@ subroutine write_radial_data(iunit,output,time)
 
 end subroutine write_radial_data
 
+subroutine calculate_H(nbin,H,zsetgas,ninbin)
+! copied from utils disc
+ integer, intent(in)  :: nbin
+ real,    intent(out) :: H(:)
+ real,    intent(in)  :: zsetgas(:,:)
+ integer, intent(in)  :: ninbin(:)
+ integer :: ii
+ real    :: meanzii
+
+ do ii = 1,nbin
+    if (ninbin(ii)==0) then
+       meanzii = 0.
+    else
+       meanzii = sum(zsetgas(1:ninbin(ii),ii))/real(ninbin(ii))
+    endif
+    H(ii) = sqrt(sum(((zsetgas(1:ninbin(ii),ii)-meanzii)**2)/(real(ninbin(ii)-1))))
+ enddo
+
+end subroutine calculate_H
+
 !--------------------------------------------------------
 !+
 ! Deallocate arrays
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
-
  implicit none
 
  deallocate(gravxyz)
@@ -628,6 +711,9 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
+ deallocate(part_scaleheight,h_smooth)
+ if (allocated(tcool)) deallocate(tcool)
+ if (allocated(tau_midplane)) deallocate(tau_midplane)
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,7 @@ module extern_corotate
 !   - primarycore_mass  : *mass of primary*
 !   - primarycore_xpos  : *x-position of primary*
 !
-! :Dependencies: infile_utils, io, kernel, physcon, vectorutils
+! :Dependencies: infile_utils, io, kernel, vectorutils
 !
  implicit none
  !
@@ -39,7 +39,7 @@ module extern_corotate
  real, public    :: primarycore_xpos = 1., primarycore_mass = 1.
  integer, public :: icompanion_grav = 0
 
- public          :: update_coriolis_leapfrog
+ public          :: update_coriolis
  public          :: get_coriolis_force,get_centrifugal_force,get_companion_force
  public          :: write_options_corotate, read_options_corotate
  private
@@ -102,8 +102,8 @@ end subroutine get_omega
 !---------------------------------------------------------------
 subroutine get_coriolis_force(r,vel,f_cor,poti)
  use vectorutils, only:cross_product3D
- real, intent(in)  :: r(3),vel(3)
- real, intent(out) :: f_cor(3)
+ real, intent(in)    :: r(3),vel(3)
+ real, intent(out)   :: f_cor(3)
  real, intent(inout) :: poti
  real :: Omegavec(3) !,Omega_cross_r(3)
 
@@ -132,17 +132,16 @@ end subroutine get_coriolis_force
 ! returning the forces plus the Coriolis force.
 !+
 !---------------------------------------------------------------
-subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
-                                    vcrossomega,dt)
+subroutine update_coriolis(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
+                                    vcrossomega,dkdt)
  use vectorutils, only:cross_product3D,matrixinvert3D
  use io,          only:fatal
- real, intent(in)    :: dt
+ real, intent(in)    :: dkdt
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(out)   :: vcrossomega(3)
 
  integer :: ierr
- real :: dton2
  real :: A(3),v1(3),Omegap(3)
  real :: Rmat(3,3),Rinv(3,3)
 
@@ -161,15 +160,14 @@ subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
 !
 ! and fxi,fyi,fzi are the components of f1_sph
 !--------------------------------------------------
- dton2   = 0.5*dt
- A(1)    = vhalfx + dton2*fxi
- A(2)    = vhalfy + dton2*fyi
- A(3)    = vhalfz + dton2*fzi
+ A(1)    = vhalfx + dkdt*fxi
+ A(2)    = vhalfy + dkdt*fyi
+ A(3)    = vhalfz + dkdt*fzi
 
 ! This is the matrix from the equation for v1: [Rmat][v1] = [A]
- Rmat = reshape((/1.,             -dton2*Omegap(3),  dton2*Omegap(2), &
-                  dton2*Omegap(3), 1.,              -dton2*Omegap(1), &
-                 -dton2*Omegap(2), dton2*Omegap(1), 1.              /),(/3,3/))
+ Rmat = reshape((/1.,             -dkdt*Omegap(3),  dkdt*Omegap(2), &
+                  dkdt*Omegap(3), 1.,              -dkdt*Omegap(1), &
+                 -dkdt*Omegap(2), dkdt*Omegap(1), 1.              /),(/3,3/))
 
 ! Get the inverse matrix
  call matrixinvert3D(Rmat,Rinv,ierr)
@@ -188,7 +186,7 @@ subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
  fyi = fyi + vcrossomega(2)
  fzi = fzi + vcrossomega(3)
 
-end subroutine update_coriolis_leapfrog
+end subroutine update_coriolis
 
 !-----------------------------------------------------------------------
 !+
@@ -262,47 +260,23 @@ end subroutine write_options_corotate
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_corotate(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use physcon, only:pi
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_corotate'
+subroutine read_options_corotate(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- igotall = .false.
- imatch = .true.
- select case(trim(name))
- case('omega_corotate')
-    read(valstring,*,iostat=ierr) omega_corotate
-    ngot = ngot + 1
- case('companion_mass')
-    read(valstring,*,iostat=ierr) companion_mass
-    ngot = ngot + 1
- case('companion_xpos')
-    read(valstring,*,iostat=ierr) companion_xpos
-    ngot = ngot + 1
- case('primarycore_mass')
-    read(valstring,*,iostat=ierr) primarycore_mass
-    ngot = ngot + 1
- case('primarycore_xpos')
-    read(valstring,*,iostat=ierr) primarycore_xpos
-    ngot = ngot + 1
- case('icompanion_grav')
-    read(valstring,*,iostat=ierr) icompanion_grav
-    ngot = ngot + 1
- case('hsoft')
-    read(valstring,*,iostat=ierr) hsoft
-    ngot = ngot + 1
- case('primarycore_hsoft')
-    read(valstring,*,iostat=ierr) primarycore_hsoft
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 2)
+ call read_inopt(omega_corotate,'omega_corotate',db,errcount=nerr)
+ call read_inopt(icompanion_grav,'icompanion_grav',db,errcount=nerr)
+ if ( (icompanion_grav == 1) .or. (icompanion_grav == 2) ) then
+    call read_inopt(companion_mass,'companion_mass',db,errcount=nerr)
+    call read_inopt(companion_xpos,'companion_xpos',db,errcount=nerr)
+    call read_inopt(hsoft,'hsoft',db,errcount=nerr)
+    if (icompanion_grav == 2) then
+       call read_inopt(primarycore_mass,'primarycore_mass',db,errcount=nerr)
+       call read_inopt(primarycore_xpos,'primarycore_xpos',db,errcount=nerr)
+       call read_inopt(primarycore_hsoft,'primarycore_hsoft',db,errcount=nerr)
+    endif
+ endif
 
 end subroutine read_options_corotate
 

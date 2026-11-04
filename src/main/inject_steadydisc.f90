@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,7 +26,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'steadydisc'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  real, private :: R_ref,sig_ref
  real, private :: p_index,q_index,HoverR,M_star
@@ -69,13 +69,15 @@ end subroutine init_inject
 !  Main routine handling particle (re-)injection
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npart_old,npartoftype,dtinject)
  use io,      only:id,master,fatal
  use damping, only:r1in,r2in,r1out,r2out
  real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: ninner,nouter,injected
@@ -118,8 +120,8 @@ end subroutine inject_particles
 !+
 !-----------------------------------------------------------------------
 subroutine count_particles_outside_bounds(npart,xyzh,R_in,R_out,ninner,nouter,listinner,listouter)
- integer, intent(in) :: npart
- real, intent(in) :: xyzh(:,:),R_in,R_out
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),R_in,R_out
  integer, intent(out) :: ninner,nouter,listinner(:),listouter(:)
  integer :: i
  real :: r2
@@ -160,7 +162,7 @@ subroutine inject_particles_in_annulus(r1,r2,ninject,injected,list)
 
  real,    intent(in)    :: r1,r2
  integer, intent(inout) :: ninject,injected
- integer, intent(in) :: list(ninject)
+ integer, intent(in)    :: list(ninject)
  integer :: i,j
 
  real :: xyzh_inject(4,ninject)
@@ -205,6 +207,16 @@ end subroutine inject_particles_in_annulus
 
 !-----------------------------------------------------------------------
 !+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
+
+!-----------------------------------------------------------------------
+!+
 !  Writes input options to the input file
 !+
 !-----------------------------------------------------------------------
@@ -221,28 +233,17 @@ end subroutine write_options_inject
 !  Reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
+subroutine read_options_inject(db_in,nerr_in)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal,iunit=>imflow,lenprefix,fileprefix
  use damping,      only:r1in,r2out,r2in,r1out
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- type(inopts), allocatable     :: db(:)
- character(len=lenprefix+11)   :: filename
- integer, save :: ngot
- integer :: nerr
+ type(inopts), intent(inout) :: db_in(:)
+ integer,      intent(inout) :: nerr_in
+ type(inopts), allocatable   :: db(:)
+ character(len=lenprefix+11) :: filename
+ integer :: nerr,ierr
 
- imatch  = .false.
- igotall = .true.
-
- select case(trim(name))
- case('refill_boundaries')
-    read(valstring,*,iostat=ierr) refill_boundaries
-    ngot = ngot + 1
-    imatch = .true.
- end select
- igotall = (ngot >= 1)
+ call read_inopt(refill_boundaries,'refill_boundaries',db_in,errcount=nerr_in)
 
  ! read some additional options from the .discparams file
  nerr = 0
@@ -270,9 +271,14 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
+ integer, intent(in), optional :: flag
 
- integer, optional, intent(in) :: flag
 end subroutine set_default_options_inject
 
 end module inject

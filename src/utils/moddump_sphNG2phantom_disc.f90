@@ -1,50 +1,62 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
-! default moddump routine: ports an sphNG dump with sinks to Phantom
+! ports an sphNG dump with sinks to Phantom
 !
 ! :References: None
 !
 ! :Owner: Alison Young
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - addsink : *add a sink from sink_properties.dat (in original cluster units)*
+!   - do_trim : *trim off stray particles outside a radius*
+!   - rmax    : *outer radius to trim to [au] (used if do_trim=T)*
 !
-! :Dependencies: boundary, centreofmass, dim, eos, part, physcon,
-!   prompting, readwrite_dumps_fortran, timestep, units
+! :Dependencies: centreofmass, dim, dynamic_dtmax, eos, moddump_utils,
+!   part, physcon, prompting, readwrite_dumps, timestep, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
+
+ logical :: addsink = .false.   ! add a sink from sink_properties.dat
+ logical :: do_trim  = .false.  ! trim off stray particles
+ real    :: rmax     = 0.       ! outer radius to trim to in au
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use boundary, only:set_boundary
- use eos,      only:gamma
- use dim,      only:maxtypes
- use units,    only:udist,unit_velocity,print_units,set_units,utime,umass,&
-      unit_energ,set_units_extra,unit_ergg
- use part,     only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase,&
-      igas,istar,iamtype,delete_particles_outside_sphere
- use prompting, only:prompt
- use physcon,  only:au,gg
- use readwrite_dumps_fortran, only:dt_read_in_fortran
- use timestep, only:time,dt,dtmax_max,dtmax_min,dtmax0
- use centreofmass, only: reset_centreofmass
+
+ use eos,       only:gamma
+ use dim,       only:maxtypes
+ use units,     only:udist,unit_velocity,print_units,set_units,utime,umass, &
+                     unit_energ,set_units_extra,unit_ergg
+ use part,      only:ihsoft,ihacc,nptmass,xyzmh_ptmass,vxyz_ptmass,iphase, &
+                     igas,istar,iamtype,delete_particles_outside_sphere
+
+ use physcon,         only:au,gg
+ use readwrite_dumps, only:dt_read_in
+ use timestep,        only:time,dt
+ use dynamic_dtmax,   only:dtmax_max,dtmax_min
+ use centreofmass,    only:reset_centreofmass
+ use moddump_utils,   only:get_moddump_options
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
- real :: massoftype(:),rmax
+ real :: massoftype(:)
  real :: xyzh(:,:), vxyzu(:,:)
  integer :: iunit=26,j,npt
  integer :: i,gascount=0,sinkcount=0,othercount=0
  real    :: newutime,newuvel,temperature1,temperature2
- character(len=1) :: trim,addsink
- character(len=25) :: junk
 
  print*,' *** Importing sphNG dump file ***'
+ !
+ ! read parameters from the .moddump file, prompting if it does not exist
+ !
+ call get_moddump_options(read_options_moddump,write_options_moddump,moddump_interactive)
 
  call print_units
  print *, 'setting gamma=5/3...'
@@ -63,28 +75,27 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 ! write sink particle info to file
  if (nptmass > 0) then
     open(unit=iunit,file='sink_properties.dat',status='replace')
-    write (iunit,'(I2)') nptmass
+    write (iunit,'(i2)') nptmass
     do i=1,nptmass
-       write (iunit,'(A)') 'xyzmh_ptmass(1:10,i)'
-       write (iunit,'(10E15.6)') (xyzmh_ptmass(j,i),j=1,10)
-       write (iunit,'(A)') 'vxyz_ptmass'
-       write (iunit,'(3E15.6)') (vxyz_ptmass(j,i),j=1,3)
+       write (iunit,'(a)') 'xyzmh_ptmass(1:10,i)'
+       write (iunit,'(10e15.6)') (xyzmh_ptmass(j,i),j=1,10)
+       write (iunit,'(a)') 'vxyz_ptmass'
+       write (iunit,'(3e15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
  endif
 
 ! read sink particle from file
- call prompt('Do you want to add a sink - in original cluster units? (y/n)',addsink)
- if (index(addsink,"y") > 0) then
+ if (addsink) then
     print *, 'reading sink_properties.dat'
     open(unit=iunit,file='sink_properties.dat',status='old')
     read (iunit,*) npt
     nptmass = nptmass + npt
     do i=1,npt
-       read (iunit,*) junk
-       read (iunit,'(10E15.6)') (xyzmh_ptmass(j,nptmass),j=1,10)
-       read (iunit,*) junk
-       read (iunit,'(3E15.6)') (vxyz_ptmass(j,nptmass),j=1,3)
+       read (iunit,*) ! skip line
+       read (iunit,'(10e15.6)') (xyzmh_ptmass(j,i),j=1,10)
+       read (iunit,*) ! skip line
+       read (iunit,'(3e15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
  endif
@@ -97,7 +108,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
  close(iunit)
 
- print *, 'dtmax0, dtmax_max,dtmax_min',dtmax0,dtmax_max,dtmax_min
+ print *, 'dtmax_max,dtmax_min',dtmax_max,dtmax_min
  newutime = sqrt(au**3/(gg*umass))
  print *, "newutime/old", newutime/utime
  time = time * utime / newutime
@@ -140,9 +151,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  ! Trim off stray particles
- call prompt('Do you want to trim? (y/n)',trim)
- if (index(trim,"y") > 0) then
-    call prompt('Enter outer radius in au',rmax)
+ if (do_trim) then
     call delete_particles_outside_sphere((/ 0d0,0d0,0d0/),rmax,npart)
     print *, 'Particles r> ',rmax,' deleted'
  endif
@@ -154,7 +163,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print *, "sink no.", i, "new hacc=", xyzmh_ptmass(ihacc,i)
  enddo
 
- if (dt_read_in_fortran) then
+ if (dt_read_in) then
     print *, "****dt read in: deal with it!****"
     return
  endif
@@ -177,20 +186,62 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
       'nptmass:', nptmass
  print *, 'gamma=', gamma
  print *, 'Timestep info:'
- print *, 'dtmax0, dtmax_max,dtmax_min', dtmax0,dtmax_max,dtmax_min
+ print *, 'dtmax_max,dtmax_min', dtmax_max,dtmax_min
  print *, 'utime=', utime
 
- return
 end subroutine modify_dump
 
+!
+!---Interactively set the moddump parameters--------------------------------
+!
+subroutine moddump_interactive()
+ use prompting, only:prompt
+
+ call prompt('Do you want to add a sink - in original cluster units? (y/n)',addsink)
+ call prompt('Do you want to trim? (y/n)',do_trim)
+ if (do_trim) call prompt('Enter outer radius in au',rmax)
+
+end subroutine moddump_interactive
+
+!----------------------------------------------------------------
+!+
+!  write moddump options to the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine write_options_moddump(iunit)
+ use moddump_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ call write_inopt(addsink,'addsink','add a sink from sink_properties.dat (in original cluster units)',iunit)
+ call write_inopt(do_trim,'do_trim','trim off stray particles outside a radius',iunit)
+ call write_inopt(rmax,'rmax','outer radius to trim to [au] (used if do_trim=T)',iunit)
+
+end subroutine write_options_moddump
+
+!----------------------------------------------------------------
+!+
+!  read moddump options from the .moddump file
+!+
+!----------------------------------------------------------------
+subroutine read_options_moddump(db,nerr)
+ use moddump_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+
+ call read_inopt(addsink,'addsink',db,errcount=nerr)
+ call read_inopt(do_trim,'do_trim',db,errcount=nerr)
+ call read_inopt(rmax,'rmax',db,min=0.,errcount=nerr)
+
+end subroutine read_options_moddump
+
 real function calc_temp(u)
- use eos, only: gmw,gamma
- use physcon, only: atomic_mass_unit,kboltz
- use units, only: unit_ergg
+ use eos, only:gmw,gamma
+ use physcon, only:atomic_mass_unit,kboltz
+ use units, only:unit_ergg
  real, intent(in) :: u
  ! (gmw = mean molecular weight)
  calc_temp = atomic_mass_unit * gmw * u * unit_ergg / ( kboltz * gamma )
- return
+
 end function calc_temp
 
 end module moddump

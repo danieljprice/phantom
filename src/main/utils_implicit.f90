@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module implicit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, physcon
+! :Dependencies: io, neighcompact
 !
  implicit none
  integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average
@@ -31,27 +31,48 @@ contains
 !+
 !---------------------------------------------------------
 subroutine allocate_memory_implicit(npart,radkern,hfact,ierr)
- use io,      only:fatal
- use physcon, only:pi
+ use io,           only:fatal
+ use neighcompact, only:compact_neigh_counts
  integer, intent(in)  :: npart
  real,    intent(in)  :: radkern,hfact
  integer, intent(out) :: ierr
 
+ ierr = 0
+ !--reallocate if the number of particles has grown (e.g. after MPI load balancing)
  if (done_allocation) then
-    return
- else
-    nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
-    icompactmax = int(1.2*10.*nneigh_average*npart)
-    allocate(ivar(3,npart),stat=ierr)
-    if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
-    allocate(ijvar(icompactmax),stat=ierr)
-    if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar')
-    allocate(vari(2,npart),varij(2,icompactmax),varij2(4,icompactmax),varinew(3,npart),mask(npart),stat=ierr)
-    if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew, mask')
-    done_allocation = .true.
+    if (size(ivar,2) >= npart) return
+    deallocate(ivar,ijvar,vari,varij,varij2,varinew,mask)
+    done_allocation = .false.
  endif
+ call compact_neigh_counts(npart,radkern,hfact,nneigh_average,icompactmax)
+ allocate(ivar(3,npart),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
+ allocate(ijvar(icompactmax),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar')
+ allocate(vari(2,npart),varij(2,icompactmax),varij2(4,icompactmax),varinew(3,npart),mask(npart),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew, mask')
+ done_allocation = .true.
 
 end subroutine allocate_memory_implicit
 
+!---------------------------------------------------------
+!+
+!  enlarge the neighbour storage to hold nedges entries,
+!  with some room to spare for later calls
+!+
+!---------------------------------------------------------
+subroutine grow_neighbour_storage_implicit(nedges,ierr)
+ use io, only:fatal
+ integer, intent(in)  :: nedges
+ integer, intent(out) :: ierr
+
+ ierr = 0
+ if (nedges <= icompactmax) return
+ icompactmax = int(min(int(nedges,kind=8) + nedges/5,int(huge(icompactmax),kind=8)))
+ deallocate(ijvar,varij,varij2)
+ allocate(ijvar(icompactmax),varij(2,icompactmax),varij2(4,icompactmax),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar, varij, varij2')
+
+end subroutine grow_neighbour_storage_implicit
 
 end module implicit

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -25,24 +25,20 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
- character(len=*),   intent(in) :: dumpfile
- integer,            intent(in) :: numfile,npart,iunit
- real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
- real,               intent(in) :: pmass,time
+ character(len=*), intent(in) :: dumpfile
+ integer,          intent(in) :: numfile,npart,iunit
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,             intent(in) :: pmass,time
  integer, parameter :: iu = 1993
  logical, save      :: first = .true.
  real    :: Lhat(3),inc,rot
-
-! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
 
  call get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
 
  ! Write angular momentum vector information
  if (first) then
     first = .false.
-    open(unit=iu, file='angmomvec.ev',status='replace')
+    open(unit=iu,file='angmomvec.ev',status='replace')
     write(iu,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',&
           2,'Lx',  &
@@ -51,7 +47,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           5,'inc', &
           6,'rot'
  else
-    open(unit=iu, file='angmomvec.ev',position='append')
+    open(unit=iu,file='angmomvec.ev',position='append')
  endif
  write(iu,'(6(es18.10,1X))') time,Lhat,inc,rot
  close(iu)
@@ -67,9 +63,9 @@ subroutine get_angmomvec(npart,xyzh,vxyzu,Lhat,inc,rot)
  use physcon,     only:pi
  use vectorutils, only:cross_product3D
  use part,        only:isdead_or_accreted
- integer, intent(in) :: npart
- real, intent(in)    :: xyzh(:,:),vxyzu(:,:)
- real, intent(out)   :: Lhat(3),inc,rot
+ integer, intent(in)  :: npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(out) :: Lhat(3),inc,rot
  integer :: i
  real    :: Li(3),Ltot(3)
 

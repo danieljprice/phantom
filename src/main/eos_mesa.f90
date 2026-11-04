@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,15 +14,26 @@ module eos_mesa
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mesa_microphysics, physcon
+! :Dependencies: dim, mesa_microphysics, physcon
 !
 
  use mesa_microphysics
-
+ use dim,           only:gr
  implicit none
- logical,private :: mesa_initialised = .false.
+ logical, private :: mesa_initialised = .false.
 
 contains
+
+!----------------------------------------------------------------
+!+
+!  query function for whether the mesa eos tables have been read
+!+
+!----------------------------------------------------------------
+logical function mesa_tables_initialised()
+
+ mesa_tables_initialised = mesa_initialised
+
+end function mesa_tables_initialised
 
 !----------------------------------------------------------------
 !+
@@ -30,7 +41,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_eos_mesa(x,z,ierr)
- real, intent(in) :: x,z
+ real,    intent(in)  :: x,z
  integer, intent(out) :: ierr
 
  ierr=0
@@ -56,9 +67,20 @@ subroutine init_eos_mesa(x,z,ierr)
  mesa_eos_dh=0.2d0  ! delta H in EOS tables
 
  call get_eos_constants_mesa(ierr)
- if (ierr /= 0) return
 
- call read_eos_mesa(x,z,ierr)
+ !!! only read GR tables if it is a GR run
+ mesa_eos_gr_prefix="output_rhos_"
+ if (gr .and. ierr == 0) then
+    call get_eos_constants_mesa_gr(ierr)
+    if (ierr == 0) call read_eos_mesa_gr(x,z,ierr)
+ endif
+
+ if (ierr == 0) call read_eos_mesa(x,z,ierr)
+ if (ierr /= 0) then
+    ! tables not found: free memory so that a later call retries and reports the error
+    call finish_eos_mesa
+    return
+ endif
  call get_opacity_constants_mesa
  call read_opacity_mesa(x,z)
 
@@ -72,6 +94,7 @@ end subroutine init_eos_mesa
 subroutine finish_eos_mesa
 
  call deallocate_arrays_mesa
+ mesa_initialised = .false.
 
 end subroutine finish_eos_mesa
 
@@ -82,8 +105,8 @@ end subroutine finish_eos_mesa
 !+
 !----------------------------------------------------------------
 subroutine get_eos_pressure_temp_gamma1_mesa(den,eint,pres,temp,gam1,ierr)
- real, intent(in) :: den,eint
- real, intent(out) :: pres,temp,gam1
+ real,    intent(in)  :: den,eint
+ real,    intent(out) :: pres,temp,gam1
  integer, intent(out) :: ierr
 
  call getvalue_mesa(den,eint,2,pres,ierr)
@@ -126,7 +149,7 @@ end function get_eos_1overmu_mesa
 !+
 !----------------------------------------------------------------
 subroutine get_eos_pressure_temp_mesa(den,eint,pres,temp)
- real, intent(in) :: den, eint
+ real, intent(in)  :: den, eint
  real, intent(out) :: pres, temp
 
  call getvalue_mesa(den,eint,2,pres)
@@ -136,13 +159,42 @@ end subroutine get_eos_pressure_temp_mesa
 
 !----------------------------------------------------------------
 !+
+!  subroutine returns pressure and temperature as
+!  a function of density/entropy for GR tables
+!+
+!----------------------------------------------------------------
+subroutine get_eos_ptemp_from_rhos_mesa_gr(den,s,pres,temp)
+ real, intent(in)  :: den, s
+ real, intent(out) :: pres, temp
+
+ call getvalue_mesa_gr(den,s,1,pres)
+ call getvalue_mesa_gr(den,s,3,temp)
+
+end subroutine get_eos_ptemp_from_rhos_mesa_gr
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns internal energy as
+!  a function of density/entropy for GR tables
+!+
+!----------------------------------------------------------------
+subroutine get_eos_u_from_rhos_mesa_gr(den,s,u)
+ real, intent(in)  :: den, s
+ real, intent(out) :: u
+
+ call getvalue_mesa_gr(den,s,2,u)
+
+end subroutine get_eos_u_from_rhos_mesa_gr
+
+!----------------------------------------------------------------
+!+
 !  subroutine returns internal energy and temperature from
 !  density and internal energy using bisection method
 !+
 !----------------------------------------------------------------
 pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
- real, intent(in)           :: rho,pres
- real, intent(out)          :: eint,temp
+ real, intent(in)  :: rho,pres
+ real, intent(out) :: eint,temp
  real, intent(in), optional :: guesseint
  real                       :: err,eintguess,eint1,eint2,&
                                eint3,pres1,pres2,pres3,left,right,mid
@@ -202,7 +254,6 @@ pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
 
 end subroutine get_eos_eT_from_rhop_mesa
 
-
 !----------------------------------------------------------------
 !+
 !  subroutine returns internal energy from density and internal
@@ -213,8 +264,8 @@ end subroutine get_eos_eT_from_rhop_mesa
 !----------------------------------------------------------------
 pure subroutine get_eos_u_from_rhoT_mesa(rho,temp,eint,guesseint)
  use physcon, only:kb_on_mh
- real, intent(in)           :: rho,temp
- real, intent(out)          :: eint
+ real, intent(in)  :: rho,temp
+ real, intent(out) :: eint
  real, intent(in), optional :: guesseint
  real                       :: err,eintguess,eint1,eint2,&
                                eint3,temp1,temp2,temp3,left,right,mid
@@ -279,7 +330,7 @@ end subroutine get_eos_u_from_rhoT_mesa
 !+
 !----------------------------------------------------------------
 subroutine get_eos_various_mesa(den,eint,pres,proint,peint,temp,troint,teint,entrop,abad,gamma1,gam)
- real, intent(in) :: den, eint
+ real, intent(in)  :: den, eint
  real, intent(out) :: pres, temp, proint, peint, troint, teint, entrop, abad, gamma1, gam
 
  call getvalue_mesa(den,eint,2,pres)

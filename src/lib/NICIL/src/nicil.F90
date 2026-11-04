@@ -727,7 +727,7 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  rhog_sum     = 0.0
  do j = 1,na
     ! grain radii
-    dloga = (log10(ax_grain) - log10(an_grain))/float(na)
+    dloga = (log10(ax_grain) - log10(an_grain))/real(na)
     if (present(a_grain_cgs_in)) then
        a_grain_cgs(j) = a_grain_cgs_in(j)                         ! user's input grain sizes
     else

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -16,7 +16,7 @@ module cooling_koyamainutsuka
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, physcon, units
+! :Dependencies: eos, infile_utils, io, physcon, units
 !
  implicit none
  public :: init_cooling_KI02, write_options_cooling_KI02, read_options_cooling_KI02
@@ -45,6 +45,7 @@ subroutine init_cooling_KI02(ierr)
  use units,   only:utime,umass,udist
  integer, intent(out) :: ierr
 
+ ierr = 0
  LambdaKI_coef = GammaKI_cgs*umass*utime**3/(mass_proton_cgs**2 * udist**5)
  GammaKI       = GammaKI_cgs*utime**3/(mass_proton_cgs*udist**2)
  call init_hv4table(ierr)
@@ -159,8 +160,8 @@ subroutine cooling_KoyamaInutsuka_implicit(eni,rhoi,dt,dudti)
  use io,  only:fatal
  use eos, only:gamma,temperature_coef,gmw
 
- real, intent(in)    :: rhoi,eni,dt
- real, intent(out)   :: dudti
+ real, intent(in)  :: rhoi,eni,dt
+ real, intent(out) :: dudti
 
  integer             :: i,j,jm1
  real                :: ponrhoi,tempi,eni_equil,eni_final,deni,tau1,LambdaKI
@@ -222,13 +223,10 @@ end subroutine write_options_cooling_KI02
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_cooling_KI02(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
-
- imatch  = .true.
- igotall = .true. ! nothing to read
+subroutine read_options_cooling_KI02(db,nerr)
+ use infile_utils, only:inopts
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
 end subroutine read_options_cooling_KI02
 

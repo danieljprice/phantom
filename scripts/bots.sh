@@ -7,7 +7,9 @@
 # Current bots implemented are:
 #
 # [tab-bot]: automatically removes tabs from source files
+# [whitespace-bot]: removes whitespace, ensures blank lines before end statements, collapses multiple blank lines
 # [format-bot]: replaces F77-style .gt.,.ge. etc. with >, >=
+# [return-bot]: removes redundant return statements before end subroutine
 # [header-bot]: updates the module headers in source files
 #               (relies on external perl script)
 # [author-bot]: updates AUTHORS file
@@ -126,7 +128,7 @@ get_only_files_in_git()
    fi
 }
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif';
+bots_to_run='tabs gt shout header whitespace authors endif return';
 if [[ $doindent == 1 ]]; then
    bots_to_run="${bots_to_run} indent";
 fi
@@ -181,16 +183,14 @@ for edittype in $bots_to_run; do
                if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* && "$edittype" != "authors" ]]; then
                  continue
                fi
-               if [[ "$file" == "libphantom-evolve.F90" ]]; then # skip as causes indent-bot trouble
-                  continue
-               fi
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
                case $edittype in
                'tabs' )
                  sed 's/	/        /g' $file > $out;;
                'whitespace' )
-                 sed 's/ *$//' $file > $out;;
+                 # Remove trailing whitespace, and collapse multiple blank lines
+                 sed -e 's/ *$//' $file | cat -s > $out;;
                'gt' )
                  sed -e 's/\.gt\./ \> /g' \
                      -e 's/\.GT\./ \> /g' \
@@ -207,15 +207,30 @@ for edittype in $bots_to_run; do
                'shout' )
                  sed -e 's/SQRT(/sqrt(/g' \
                      -e 's/NINT(/nint(/g' \
+                     -e 's/REAL(/real(/g' \
+                     -e 's/float(/real(/g' \
+                     -e 's/DBLE(/dble(/g' \
                      -e 's/ STOP/ stop/g' \
                      -e 's/ATAN/atan/g' \
                      -e 's/ACOS(/acos(/g' \
                      -e 's/ASIN(/asin(/g' \
                      -e 's/COS(/cos(/g' \
                      -e 's/SIN(/sin(/g' \
+                     -e 's/TAN(/tan(/g' \
                      -e 's/EXP(/exp(/g' \
                      -e 's/LOG(/log(/g' \
                      -e 's/READ(/read(/g' \
+                     -e 's/OPEN(/open(/g' \
+                     -e 's/OPEN (/open(/g' \
+                     -e 's/CLOSE(/close(/g' \
+                     -e 's/CLOSE (/close(/g' \
+                     -e 's/INDEX(/index(/g' \
+                     -e 's/ANY(/any(/g' \
+                     -e 's/, STATUS=/,status=/g' \
+                     -e 's/,STATUS=/,status=/g' \
+                     -e 's/, FORM=/,form=/g' \
+                     -e 's/,FORM=/,form=/g' \
+                     -e 's/TRIM(/trim(/g' \
                      -e 's/IF (/if (/g' \
                      -e 's/) THEN/) then/g' \
                      -e 's/ENDDO/enddo/g' \
@@ -267,6 +282,48 @@ for edittype in $bots_to_run; do
                  sed -e 's/end if/endif/g' \
                      -e 's/end do/enddo/g' \
                      -e 's/else if/elseif/g' \
+                     -e 's/open (/open(/g' \
+                     -e 's/, file = /,file=/g' \
+                     -e 's/, file=/,file=/g' \
+                     -e 's/, status = /,status=/g' \
+                     -e 's/, status=/,status=/g' \
+                     -e 's/, iostat = /,iostat=/g' \
+                     -e 's/, iostat=/,iostat=/g' \
+                     -e 's/, access = /,access=/g' \
+                     -e 's/, access=/,access=/g' \
+                     -e 's/, form = /,form=/g' \
+                     -e 's/, form=/,form=/g' \
+                     -e 's/, action = /,action=/g' \
+                     -e 's/, action=/,action=/g' \
+                     -e 's/, iomsg = /,iomsg=/g' \
+                     -e 's/, iomsg=/,iomsg=/g' \
+                     -e 's/ , only : /, only:/g' \
+                     -e 's/ , only:/, only:/g' \
+                     -e 's/, only: /, only:/g' \
+                     -e 's/, only : /, only:/g' \
+                     -e 's/character(len = /character(len=/g' \
+                     -e 's/character (len=/character(len=/g' \
+                     -e 's/integer (kind/integer(kind/g' \
+                     -e 's/real (kind/real(kind/g' \
+                     -e 's/integer(kind = /integer(kind=/g' \
+                     -e 's/real(kind = /real(kind=/g' \
+                     -e 's/integer(kind =/integer(kind=/g' \
+                     -e 's/real(kind =/real(kind=/g' \
+                     -e 's/integer::/integer ::/g' \
+                     -e 's/real::/real ::/g' \
+                     -e 's/logical::/logical ::/g' \
+                     -e 's/real,intent/real, intent/g' \
+                     -e 's/integer,intent/integer, intent/g' \
+                     -e 's/logical,intent/logical, intent/g' \
+                     -e 's/,allocatable/, allocatable/g' \
+                     -e 's/allocatable::/allocatable ::/g' \
+                     -e 's/optional::/optional ::/g' \
+                     -e 's/,optional/, optional/g' \
+                     -e 's/,public/, public/g' \
+                     -e 's/,private/, private/g' \
+                     -e 's/,intent/, intent/g' \
+                     -e 's/)::/) ::/g' \
+                     -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
                      -e 's/)then/) then/g' $file > $out;;
                'header' )
@@ -288,6 +345,11 @@ for edittype in $bots_to_run; do
                   if command -v findent > /dev/null; then
                      findent -r1 -m1 -c3 -Rr -C- -k- -j1 < $file > $out;
                   fi;;
+               'return' )
+                 # Remove return statements that immediately precede end subroutine
+                 sed -e '/^ *return *$/N;s/^ *return *\n\( *end subroutine\)/\1/' $file > $out;;
+               'align' )
+                 $scriptdir/no-dims.pl < $file > $out;;
                esac
                if [ -s $out ]; then
                   if [[ `diff -q $out $file` ]]; then
@@ -311,19 +373,23 @@ for edittype in $bots_to_run; do
     'tabs' )
       msg='[tab-bot] tabs removed';;
     'whitespace' )
-      msg='[space-bot] whitespace at end of lines removed';;
+      msg='[space-bot] useless whitespace removed';;
     'gt' )
       msg='[format-bot] obsolete .gt. .lt. .ge. .le. .eq. .ne. replaced';;
     'shout' )
-      msg='[format-bot] F77-style SHOUTING removed';;
+      msg='[format-bot] F77-style SHOUTING and obsolete function names removed';;
     'endif' )
-      msg='[format-bot] end if -> endif; end do -> enddo; if( -> if (';;
+      msg='[format-bot] end if -> endif; end do -> enddo; fix white space in declarations';;
+    'return' )
+      msg='[format-bot] redundant return before end subroutine removed';;
     'header' )
       msg='[header-bot] updated file headers';;
     'authors' )
       msg='[author-bot] updated AUTHORS file';;
     'indent' )
       msg='[indent-bot] standardised indentation';;
+    'align' )
+      msg='[format-bot] align variable declarations; convert dimension->a(:,:)';;
     esac
     if [[ "X$filelist" != "X" ]]; then
        if [[ $docommit == 0 ]]; then

@@ -1,18 +1,11 @@
 name: test
 
 on:
-  push:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+  workflow_call:
 
 env:
+  PHANTOM_DIR: ${{ github.workspace }}
+  PHANTOM_DATA_SOURCE: github  # download data files from the GitHub mirror before Zenodo
   OMP_STACKSIZE: 512M
   OMP_NUM_THREADS: 4
 
@@ -24,19 +17,22 @@ jobs:
         system:
           - gfortran
           - ifort
+          - ifx
+          - nvfortran
         debug:
           - no
           - yes
-        input: # [SETUP, phantom_tests]
-          - ['test', '']
-          - ['testkd', '']
-          - ['testdust', 'dust']
-          - ['testgr', 'gr']
-          - ['testgrav', 'gravity ptmass']
-          - ['testgrowth', 'dustgrowth']
-          - ['testnimhd', 'nimhd']
-          - ['test2', '']
-          - ['testcyl', '']
+        input: # [SETUP, phantom_tests, 'nodata' to unset PHANTOM_DIR so tests needing data files are skipped]
+          - ['test', '', '']
+          - ['testkd', '', '']
+          - ['testdust', 'dust', '']
+          - ['testgr', 'gr ptmass eos', '']
+          - ['testgrav', 'gravity ptmass setstar sinktree', '']
+          - ['testgrowth', 'dustgrowth', '']
+          - ['testnimhd', 'nimhd', '']
+          - ['test2', '', 'nodata']
+          - ['testcyl', '', '']
+          - ['testapr', '', '']
 
     name: |
       test (SYSTEM=${{ matrix.system }},
@@ -51,69 +47,32 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
-    - name: Setup Intel repo
-      if: matrix.system == 'ifort'
-      id: intel-repo
-      run: |
-        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
-        INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
-        echo "::set-output name=intelversion::$INTELVERSION"
-
-    - name: Cache intel installation
-      if: matrix.system == 'ifort'
-      id: cache-intel
-      uses: actions/cache@v3
+    - name: Setup Fortran compiler
+      if: matrix.system == 'ifort' || matrix.system == 'ifx' || matrix.system == 'nvfortran'
+      uses: fortran-lang/setup-fortran@v1
       with:
-        path: |
-          /opt/intel
-        key: ${{ steps.intel-repo.outputs.intelversion }}
-
-    - name: Install Intel compilers
-      if: ${{ steps.cache-intel.outputs.cache-hit != 'true' && matrix.system == 'ifort' }}
-      run: |
-        sudo apt-get install -y intel-oneapi-common-vars
-        sudo apt-get install -y intel-oneapi-compiler-fortran
-        sudo apt-get install -y intel-oneapi-mpi
-        sudo apt-get install -y intel-oneapi-mpi-devel
-
-    - name: Setup Intel oneAPI environment
-      if: matrix.system == 'ifort'
-      run: |
-        source /opt/intel/oneapi/setvars.sh
-        printenv >> $GITHUB_ENV
+          compiler: ${{ matrix.system == 'ifort' && 'intel-classic' || matrix.system == 'ifx' && 'intel' || 'nvidia-hpc' }}
 
     - name: "Clone phantom"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: "Compile phantom"
       run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} phantomtest
       env:
         SYSTEM: ${{ matrix.system }}
 
+    - name: "Cache downloaded data files"
+      if: matrix.input[2] != 'nodata'
+      uses: actions/cache@v4
+      with:
+        # exact key only: a stale table must never be restored when the data source changes
+        key: eos-datafiles-${{ hashFiles('src/main/datafiles.f90') }}
+        path: |
+          data/eos/*/*
+          !data/eos/*/README
+          data/star_data_files/pourmandwd.data*
+
     - name: "Run phantom tests"
       run: ./bin/phantomtest ${{ matrix.input[1] }}
-
-  # Gather results into a dummy job that will fail if the previous job fails
-  gather_results:
-    if: always()
-    needs:
-    - test
-
-    # This name matches the branch protection requirement
-    name: test
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check all tests
-      run: |
-        if [[ "${{ needs.test.result }}" == "success" ]]; then
-          echo "All tests succeeded"
-        else
-          echo "At least one test failed"
-          exit 1
-        fi
+      env:
+        PHANTOM_DIR: ${{ matrix.input[2] != 'nodata' && github.workspace || '' }}

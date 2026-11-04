@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,7 +34,7 @@ module analysis
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, part, physcon,
 !   prompting, sortutils, timing, units
 !
- use dim,        only:maxptmass,maxvxyzu,mhd,maxp_hard
+ use dim,        only:maxptmass,maxvxyzu,mhd
  use part,       only:Bxyz,xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,periodic,iorig
  use kernel,     only:radkern,kernel_softening
  use sortutils,  only:indexx
@@ -44,29 +44,28 @@ module analysis
 
  ! The following parameter/variables need to be set to the specific project
  integer, parameter :: ngrid          =    1000  ! the number of grid points (in one direction) when fitting ellipses to the clumps
+ real, parameter    :: racc_fac       = 4.0      ! Sinks of distance racc_fac*racc will be checked for boundness during the merger process
+ logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
  integer            :: nclumpmax      =   10000  ! the maximum number of unique clumps (recommend 100000 is using a computer cluster)
  integer            :: npartmax       =   50000  ! the maximum number of particles per clump clumps (recommend 100000 is using a computer cluster)
  real               :: rhominpeak_cgs = 1.2d-22  ! particles with rho < rhominpeak will not be considered for the lead particle in a clumps (default for WB23)
  real               :: rhominbkg_cgs  = 1.0d-23  ! particles with rho < rhominbkg  will not be considered for membership in a clumps (default for WB23)
  real               :: dxgrid0_pc     = 0.1      ! The default grid spacing (pc) when fitting ellipses to the clumps (default for WB23)
  real               :: ekin_coef      = 1.       ! Will be a clump if ekin_coef*ekin + epot < 0; ekin_coef can be read in (default for WB23)
- real, parameter    :: racc_fac       = 4.0      ! Sinks of distance racc_fac*racc will be checked for boundness during the merger process
  logical            :: debug          = .false.  ! will print useful statements to the log file
  logical            :: print_part     = .true.   ! will create a file for each clump containing all the particle positions
- logical, parameter :: soft_potential = .true.   ! use the kernel softened gravitational potential
 
  ! The following are common variable not to be modified
- !integer(kind=8)   :: iorigold(maxp_hard) ! will be required when updated to permit tracking across dumps
- integer            :: idclumpold(maxp_hard),idclump(maxp_hard)
- integer, allocatable, dimension(:,:) :: idlistpart(:,:),idlistsink(:,:)
+ integer, allocatable :: idclumpold(:),idclump(:)
+ integer, allocatable :: idlistpart(:,:),idlistsink(:,:)
  integer            :: idlistsinkold(maxptmass)
  real               :: dxgrid0
  logical            :: firstcall = .true.   ! required logical; do not change
 
  type sphclump
     integer           :: nmember,nmemberpv,nptmass,nptmasspv,ID
-    real,dimension(3) :: r,v
-    real,dimension(6) :: ellipse
+    real :: r(3),v(3)
+    real :: ellipse(6)
     real              :: mass,size
     real              :: kinetic,potential,thermal,magnetic,rhomax,rhoaveln,rhoavelg
  end type sphclump
@@ -77,7 +76,7 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,       only:rhoh,massoftype,igas
+ use part,       only:rho
  use physcon,    only:pc
  use units,      only:udist,umass
  use prompting,  only:prompt
@@ -95,11 +94,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real                         :: xi,yi,zi,hi,hmax,hmax1,twoh,vxi,vyi,vzi,rhoi,pmassi
  real                         :: dx,dy,dz,dxc,dyc,dzc,dr,dv2,x1,x2,dx0,xc,yc
  real                         :: rad2,size2,sep,ekin,epot,etot,dr_ave,stddev,qp,psoft,fsoft,walltime
- real                         :: rho(npart),rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
+ real                         :: rho_dense(npart),rad_pos(npart),rtmp(3),vtmp(3),rold(3)
  real                         :: ella(3),ellb(3),ellp(3),phi(3)
  real                         :: x1grid(ngrid),x2grid(ngrid)
- real, allocatable, dimension(:,:) :: xyz(:,:),eclumpcandidate(:,:)
- real, allocatable, dimension(:)   :: hsmooth(:)
+ real, allocatable :: xyz(:,:),eclumpcandidate(:,:)
+ real, allocatable :: hsmooth(:)
  logical                      :: iexist,connected,connected_global,use_npart,new_config,force_merge,has_changed
  character(len=128)           :: filename,prefix
 
@@ -122,6 +121,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Allocate arrays
  allocate(clump(nclumpmax))
+ allocate(idclumpold(npartmax))
+ allocate(idclump(npartmax))
  allocate(idlistpart(nclumpmax,npartmax))
  allocate(idlistsink(nclumpmax,maxptmass))
  allocate(eclumpcandidate(3,nclumpmax))
@@ -136,7 +137,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  idclump     = 0
  idlistsink  = 0
  idlistpart  = 0
- pmassi      = massoftype(igas)
+ pmassi      = particlemass
  idx         = index(dumpfile,'_')
  prefix      = dumpfile(1:idx-1)
  walltime    = 0.
@@ -167,14 +168,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(*,'(a)')             '==============================================================='
  write(*,'(a)')             ' '
 
- !--calculate all densities
- rho    = 0.0
+ !--identify dense particles using kernel-summed density from the dump
  idense = 0
  ndense = 0
  do i = 1,npart
     hi = xyzh(4,i)
     if (hi > 0.0) then
-       rho(i) = rhoh(hi,particlemass)
        if (rho(i) > rhomin_bkg) then
           ndense            = ndense + 1
           idense(ndense)    = i
@@ -404,7 +403,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo  ! end of k-loop
     print*, 'Loop ',ictr, ': done adding particles to existing clumps. nclump = ',nclump
     call update_time(walltime)
-
 
     !--Merge clumps
     !  the order we do this should be irrelevant since if multiple cores are bound, then they should all merge, independent of order
@@ -646,7 +644,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           phi = phi + ellp
        enddo
 
-
        clump(j)%ellipse(4:6) = phi
 
        ! Although the ellipse are rotated to be on the Cartesian axes before the final ellipse fit, the gridding means
@@ -687,7 +684,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Write results to file (both all the clumps at the current time, and to the file for each clump)
  write(filename,'(2a)') trim(dumpfile),'clumps'
- open (unit=iunit,file=trim(filename))
+ open(unit=iunit,file=trim(filename))
  write(iunit,'(a,I6,a,Es18.6)') '#Nclumps = ',nclump,'; Time = ',time
  write(iunit,"('#',24(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'clump ID',    &
@@ -839,10 +836,10 @@ end subroutine reset_clump
 !--------------------------------------------------------------------------
 ! This will determine if two clumps should be merged, either due to themselves or a joining particle
 subroutine are_clumps_joined(j1,j2,npart,xyzh,vxyzu,rtmp,vtmp,sep,pmassi,ekin,epot,i,xi,yi,zi,hi,vxi,vyi,vzi)
- integer, intent(in)           :: j1,j2,npart
+ integer, intent(in)  :: j1,j2,npart
+ real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),pmassi
+ real,    intent(out) :: ekin,epot,sep,rtmp(:),vtmp(:)
  integer, intent(in), optional :: i
- real,    intent(in)           :: xyzh(:,:),vxyzu(:,:),pmassi
- real,    intent(out)          :: ekin,epot,sep,rtmp(:),vtmp(:)
  real,    intent(in), optional :: xi,yi,zi,hi,vxi,vyi,vzi
  integer                       :: ii,j,q,p1,p2,zero_one,n1,n2
  real                          :: pmassii,dx,dy,dz,dr,dvx,dvy,dvz,xii,yii,zii,hii,vxii,vyii,vzii,ekini,epoti,sepi
@@ -1172,10 +1169,10 @@ end subroutine are_clumps_joined
 !--------------------------------------------------------------------------
 ! merge two clumps, and possibly the joining particle
 subroutine merge_clumps(j1,j2,npart,nclump,vxyzu,Bxyz,rho,rtmp,vtmp,sep,pmassi,ekin,epot,i)
- integer, intent(in)           :: j1,j2,npart
- integer, intent(inout)        :: nclump
+ integer, intent(in)    :: j1,j2,npart
+ integer, intent(inout) :: nclump
+ real,    intent(in)    :: vxyzu(:,:),Bxyz(:,:),rho(:),rtmp(:),vtmp(:),pmassi,sep,ekin,epot
  integer, intent(in), optional :: i
- real,    intent(in)           :: vxyzu(:,:),Bxyz(:,:),rho(:),rtmp(:),vtmp(:),pmassi,sep,ekin,epot
  integer                       :: p,q,ii,zero_one,npartnew
  real                          :: pmassii,rhoii
 
@@ -1438,8 +1435,8 @@ end subroutine update_time
 ! Write information to params file
 subroutine write_clumpparams(filename)
  use infile_utils, only:write_inopt
- character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
+ character(len=*), intent(in) :: filename
 
  print "(a)",' writing analysis options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
@@ -1459,9 +1456,9 @@ end subroutine write_clumpparams
 subroutine read_clumpparams(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
+ integer,          parameter   :: iunit = 21
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
- integer,          parameter   :: iunit = 21
  integer                       :: nerr
  type(inopts),     allocatable :: db(:)
 

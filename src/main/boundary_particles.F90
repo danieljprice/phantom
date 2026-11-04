@@ -33,13 +33,13 @@ contains
 !---------------------------------------------------------------
 subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddustprop,ddustevol)
  use part,   only:iamboundary,iamtype,iradxi
- use dim,    only:mhd,do_radiation,use_dust,use_dustgrowth,maxvxyzu
+ use dim,    only:mhd,do_radiation,use_dust,use_dustgrowth
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  integer(kind=1), intent(in) :: iphase(:)
  real, intent(in)    :: xyz(:,:)
  real, intent(inout) :: fxyzu(:,:)
- real, intent(out), optional :: dBevol(:,:),drad(:,:),ddustevol(:,:),ddustprop(:,:)
+ real, intent(inout), optional :: dBevol(:,:),drad(:,:),ddustevol(:,:),ddustprop(:,:)
  integer             :: nboundary,i
  real, dimension(3)  :: avg_lin_accel,rot_accel_i,avg_torque,xyz_core_CM,torquei
 
@@ -86,11 +86,11 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
        if (iamboundary(iamtype(iphase(i)))) then
           call cross_product3D(avg_torque, xyz(1:3,i)-xyz_core_CM, rot_accel_i)
           fxyzu(1:3,i) = avg_lin_accel !+ rot_accel_i
-          if (maxvxyzu==4) fxyzu(4,i) = 0.
-          if (mhd) dBevol(:,i) = 0.
-          if (do_radiation) drad(iradxi,i) = 0.
-          if (use_dust) ddustevol(:,i) = 0.
-          if (use_dustgrowth) ddustprop(1,i) = 0.
+          if (size(fxyzu,1) >= 4) fxyzu(4,i) = 0.
+          if (mhd .and. present(dBevol))               dBevol(:,i) = 0.
+          if (do_radiation .and. present(drad))        drad(iradxi,i) = 0.
+          if (use_dust .and. present(ddustevol))       ddustevol(:,i) = 0.
+          if (use_dustgrowth .and. present(ddustprop)) ddustprop(1,i) = 0.
        endif
     enddo
     !!$omp end parallel do
@@ -110,15 +110,18 @@ subroutine set_boundary_particle_velocity(npart,iphase,xyz,vxyz,xyz_CM,vxyz_CM)
  integer, intent(in) :: npart
  integer(kind=1), intent(in)   :: iphase(:)
  real, intent(in)              :: xyz(:,:)
- real, intent(inout), optional :: vxyz(:,:)
+ real, intent(inout)           :: vxyz(:,:)
  real, intent(out), optional   :: xyz_CM(3),vxyz_CM(3)
  integer                       :: i
+ real                          :: xcm(3),vcm(3)
 
- call calculate_boundary_core_CM(npart,iphase,xyz,vxyz,xyz_CM,vxyz_CM)
+ call calculate_boundary_core_CM(npart,iphase,xyz,vxyz,xcm,vcm)
 
  do i=1,npart
-    if (iamboundary(iamtype(iphase(i)))) vxyz(1:3,i) = vxyz_CM
+    if (iamboundary(iamtype(iphase(i)))) vxyz(1:3,i) = vcm
  enddo
+ if (present(xyz_CM))  xyz_CM  = xcm
+ if (present(vxyz_CM)) vxyz_CM = vcm
 
 end subroutine set_boundary_particle_velocity
 
@@ -147,8 +150,10 @@ subroutine calculate_boundary_core_CM(npart,iphase,xyz,vxyz,xyz_CM,vxyz_CM)
        vxyz_CM = vxyz_CM + vxyz(1:3,i)
     endif
  enddo
- xyz_CM = xyz_CM / real(nboundary)
- vxyz_CM = vxyz_CM / real(nboundary)
+ if (nboundary > 0) then
+    xyz_CM = xyz_CM / real(nboundary)
+    vxyz_CM = vxyz_CM / real(nboundary)
+ endif
 
 end subroutine calculate_boundary_core_CM
 

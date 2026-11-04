@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,13 +14,13 @@ module inject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, part, partinject, physcon
+! :Dependencies: eos, infile_utils, io, part, partinject
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'supernovae'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  integer, parameter :: maxsn = 30
  real, parameter :: xyz_sn(3,maxsn) = &
@@ -78,15 +78,17 @@ end subroutine init_inject
 !  Note that we actually only inject thermal energy, not kinetic energy
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npart_old,npartoftype,dtinject)
  use io,      only:id,master
  use eos,     only:gamma
- use part,    only:rhoh,massoftype,iphase,igas,iunknown
- use partinject, only: updated_particle
+ use part,    only:iphase,iunknown
+ use partinject, only:updated_particle
  real,    intent(in)    :: time, dtlast_u
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: i,i_sn,ipart
@@ -119,7 +121,7 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        dx = xyzh(1:3,i) - xyz_sn(1:3,i_sn)
        r2 = dot_product(dx,dx)
        if (r2 < r_sn**2) then
-          rhoi = rhoh(xyzh(4,i),massoftype(igas))
+          rhoi = rho(i)
           uval = pr_sn / ((gamma - 1.)*rhoi)
           print*,'New & Old thermal energy: ',uval,vxyzu(4,i)
           vxyzu(4,i) = uval
@@ -137,12 +139,21 @@ end subroutine inject_particles
 
 !-----------------------------------------------------------------------
 !+
+!  Updates the injected particles
+!+
+!-----------------------------------------------------------------------
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
+
+!-----------------------------------------------------------------------
+!+
 !  Writes input options to the input file
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
- use physcon,      only: au, solarm, years
- use infile_utils, only: write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  !call write_inopt(dt_sn,'dt_sn','time between supernovae injections',iunit)
@@ -154,30 +165,23 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
+subroutine read_options_inject(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
-    !case('dt_sn')
-    !   read(valstring,*,iostat=ierr) dt_sn
-    !   ngot = ngot + 1
-    !   if (dt_sn < 0.)    call fatal(label,'invalid setting for time between supernovae (<0)')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 0)
+ !call read_inopt(dt_sn,'dt_sn',db,errcount=nerr,min=0.)
 
 end subroutine read_options_inject
 
+!-----------------------------------------------------------------------
+!+
+!  Sets default options for the injection module
+!+
+!-----------------------------------------------------------------------
 subroutine set_default_options_inject(flag)
+ integer, intent(in), optional :: flag
 
- integer, optional, intent(in) :: flag
 end subroutine set_default_options_inject
 
 end module inject

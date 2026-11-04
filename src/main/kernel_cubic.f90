@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,6 +24,8 @@ module kernel
  real, parameter, public  :: radkern2 = 4.
  real, parameter, public  :: cnormk = 1./pi
  real, parameter, public  :: wab0 = 1., gradh0 = -3.*wab0
+ real, parameter, public  :: cnormk_tilde = cnormk
+ real, parameter, public  :: wab0_tilde = wab0, gradh0_tilde = gradh0
  real, parameter, public  :: dphidh0 = 1.4
  real, parameter, public  :: cnormk_drag = 10./(9.*pi)
  real, parameter, public  :: hfact_default = 1.2
@@ -48,6 +50,14 @@ pure subroutine get_kernel(q2,q,wkern,grkern)
  endif
 
 end subroutine get_kernel
+
+pure subroutine get_kernel_tilde(q2,q,wkern,grkern)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: wkern,grkern
+
+ call get_kernel(q2,q,wkern,grkern)
+
+end subroutine get_kernel_tilde
 
 pure elemental real function wkern(q2,q)
  real, intent(in) :: q2,q
@@ -118,6 +128,26 @@ pure subroutine kernel_softening(q2,q,potensoft,fsoft)
  endif
 
 end subroutine kernel_softening
+
+!------------------------------------------
+! gradient acceleration kernel needed for
+! use in Forward symplectic integrator
+!------------------------------------------
+pure subroutine kernel_grad_soft(q2,q,gsoft)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: gsoft
+ real :: q4
+
+ if (q < 1.) then
+    gsoft = q2*q*(1.5*q - 2.4)
+ elseif (q < 2.) then
+    q4 = q2*q2
+    gsoft = (q4*(-0.5*q2 + 2.4*q - 3.) + 0.2)/q2
+ else
+    gsoft = -3./q2
+ endif
+
+end subroutine kernel_grad_soft
 
 !------------------------------------------
 ! double-humped version of the kernel for

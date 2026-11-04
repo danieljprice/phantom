@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -28,12 +28,12 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use centreofmass, only: reset_centreofmass
- use physcon,      only: pi,gg,years
- use part,         only: rhoh,Bxyz
- use units,        only: unit_density,unit_Bfield,unit_velocity
- use kernel,       only: grkern,cnormk
- use sortutils,    only: indexx
+ use centreofmass, only:reset_centreofmass
+ use physcon,      only:pi,gg,years
+ use part,         only:rho,Bxyz
+ use units,        only:unit_density,unit_Bfield,unit_velocity
+ use kernel,       only:grkern,cnormk
+ use sortutils,    only:indexx
 #ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound
 #endif
@@ -100,11 +100,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  cost      = 0.
 
  !--Set bin ranges, log for B/rho and linear for costheta
- drho  = (log10(rhomax) - log10(rhomin))/float(nbins)
- dB    = (log10(Bmax)   - log10(Bmin))/float(nbins)
- dv    = (log10(vmax)   - log10(vmin))/float(nbins)
- dcost = (costmax - costmin)/float(nbins)
- dvt   = (vtmax   - vtmin  )/float(nbins)
+ drho  = (log10(rhomax) - log10(rhomin))/real(nbins)
+ dB    = (log10(Bmax)   - log10(Bmin))/real(nbins)
+ dv    = (log10(vmax)   - log10(vmin))/real(nbins)
+ dcost = (costmax - costmin)/real(nbins)
+ dvt   = (vtmax   - vtmin  )/real(nbins)
 
  do i = 1,nbins
     rhobins(i)  = 10**(log10(rhomin) + (i-1)*drho)
@@ -127,7 +127,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call indexx(ikount,dpos,lst)
 
  !$omp parallel default(none) &
- !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu) &
+ !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu,rho) &
  !$omp shared(ipos,lst,vbins,vtbins) &
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
@@ -147,7 +147,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     hi = xyzh(4,i)
     if (hi < tiny (hi)) cycle aparts      ! skip dead particles
     twohi = 2.0*hi
-    rhoi  = rhoh(hi, particlemass)
+    rhoi  = rho(i)
     rhoi1 = 1.0/rhoi
     Bxi   = Bxyz(1,i)
     Byi   = Bxyz(2,i)
@@ -194,7 +194,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              if (twohi > dri) then
                 hj   = xyzh(4,j)
                 q    = hi/dri
-                rhoj = rhoh(hj, particlemass)
+                rhoj = rho(j)
 
                 !Grad of the kernel
                 grki  = cnormk * grkern(q*q,q) / (dri*hi**4)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -135,10 +135,9 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  use units,          only:utime,unit_density
  use eos,            only:ieos,get_temperature
 
- real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
- real,    intent(inout) :: JKmuS(:)
+ real, intent(in)    :: dtsph,Tdust,rho,u,xyzh(4)
+ real, intent(inout) :: JKmuS(:)
 
- integer, parameter :: wind_emitting_sink = 1
  real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
  dt_cgs    = dtsph* utime
@@ -212,7 +211,7 @@ end subroutine evolve_chem
 !------------------------------------
 pure elemental real function calc_kappa_bowen(Teq)
 !all quantities in cgs
- real,    intent(in)  :: Teq
+ real, intent(in) :: Teq
  real :: dlnT
 
  dlnT = (Teq-bowen_Tcond)/bowen_delta
@@ -244,7 +243,7 @@ pure real function calc_kappa_dust(K3, Tdust, rho_cgs)
 
  ! Gail & Sedlmayr, 1985, A&A, 148, 183, eqs 23,24
  !kappa_cgs = 6.7d0 * fac * Tdust  ! planck
- kappa_cgs = 5.9d0 * fac * Tdust  ! Rosseland
+ kappa_cgs = 5.9 * fac * Tdust  ! Rosseland
 
  calc_kappa_dust = kappa_cgs + kappa_gas
 end function calc_kappa_dust
@@ -310,10 +309,10 @@ subroutine calc_nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, tau
     endif
     JstarS  = beta * A_Nstar * Z * c_star
     taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
-    ! if (isnan(JstarS)) then
+    ! if (ieee_is_nan(JstarS)) then
     !   print*,i,'(N-1)^1/3=',Nstar_m1_13,'exp=',expon,'T=',T,'theta_N=',theta_Nstar,'d2lnc/dN2=',d2lnc_dN2star,ddd,&
     !        'beta=',beta,'Z=',Z,'c_star=',c_star,'JstarS=',JstarS,'tau*=',taustar
-    !   if (isnan(JstarS)) stop
+    !   if (ieee_is_nan(JstarS)) stop
     ! endif
  else
     JstarS  = 0.d0
@@ -329,7 +328,7 @@ end subroutine calc_nucleation
 !------------------------------------
 subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
 ! all quantities are in cgs, K and K_new are the *normalized* moments (K/n<H>)
- real, intent(in) :: Jstar, K(0:3), JstarS, taustar, taugr, dt
+ real, intent(in)  :: Jstar, K(0:3), JstarS, taustar, taugr, dt
  real, intent(out) :: Jstar_new, K_new(0:3)
 
  real, parameter :: Nl_13 = 10. !(lower grain size limit)**1/3
@@ -356,7 +355,7 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
- !if (any(isnan(K_new))) then
+ !if (any(ieee_is_nan(K_new))) then
  !  print*,'NaNs in K_new for particle #',i
  !  print *,'dt=',dt,'tau*=',taustar,'taug=',taugr,'d=',d,'i0=',i0,'i1=',i1,'Jstar=',Jstar,'JstarS=',JstarS,&
  !      'k1=',k(1),'dk1=',dk1,'Kn1=',k_new(1),'k2=',k(2),'dk2=',dk2,'Kn2=',k_new(2),'k3=',k(3),'dk3=',dk3,'Kn3=',k_new(3)
@@ -372,24 +371,27 @@ end subroutine evol_K
 !----------------------------------------
 subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! all quantities are in cgs
- use io, only:fatal
+ use io,  only:fatal
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
  real, intent(out)   :: pH, pH_tot
- real :: KH2, pH2, x
+ real :: KH2, pH2, x, T_ionisation_He
  real :: T_old, mu_old, gamma_old, tol
  logical :: converged
  integer :: i,isolve
  integer, parameter :: itermax = 100
+ real, parameter    :: a1 = 4.4314613664, b1 = 7.46314789e-02, c1 = 1.5361475e-03
  character(len=30), parameter :: label = 'calc_muGamma'
 
  pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
- T_old = T
- if (T > 1.d4) then
-    mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    gamma  = 5./3.
-    pH     = pH_tot
+ T_old  = T
+ ! temperature above which helium starts being ionized (fit to Saha equation)
+ T_ionisation_He = 10.**(a1 + log(rho_cgs)/log(10.) * b1 + (log(rho_cgs)/log(10.))**2 * c1)
+ if (T > T_ionisation_He) then
+    pH = pH_tot
+    mu = 0.62
+    !  mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
     tol       = 1.d-3
@@ -405,13 +407,13 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        pH2       = KH2*pH**2
        mu        = (1.+4.*eps(iHe))/(.5+eps(iHe)+0.5*pH/pH_tot)
        x         = 2.*(1.+4.*eps(iHe))/mu
-       gamma     = (3.*x+4.-3.*eps(iHe))/(x+4.+eps(iHe))
+       gamma     = (3.*x+4.+4.*eps(iHe))/(x+4.+4.*eps(iHe))
        converged = (abs(T-T_old)/T_old) < tol
        if (i == 1) then
           mu_old = mu
           gamma_old = gamma
        else
-          T = 2.*T_old*mu/mu_old/(gamma_old-1.)*(x-eps(iHe))/(x+4.-eps(iHe))
+          T = T_old*mu/mu_old/(gamma_old-1.)*2.*x/(x+4.+4.*eps(iHe))
           if (i>=itermax .and. .not.converged) then
              if (isolve==0) then
                 isolve = isolve+1
@@ -443,10 +445,10 @@ end subroutine calc_muGamma
 !--------------------------------------------
 subroutine init_muGamma(rho_cgs, T, mu, gamma, ppH, ppH2)
 ! all quantities are in cgs
- real, intent(in)              :: rho_cgs
- real, intent(inout)           :: T
- real, intent(out)             :: mu, gamma
- real, intent(out), optional   :: ppH, ppH2
+ real, intent(in)    :: rho_cgs
+ real, intent(inout) :: T
+ real, intent(out)   :: mu, gamma
+ real, intent(out), optional :: ppH, ppH2
  real :: KH2, pH_tot, pH, pH2
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)
@@ -688,7 +690,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
  integer,      intent(out) :: ierr
  real :: dum(nElements)
 
-
  ierr = 0
  call extract('mass_per_H',mass_per_H,hdr,ierr) ! real
  ! it is likely that your dump was generated with an old version of phantom
@@ -702,7 +703,6 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
     call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
     call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
  endif
-
 
 end subroutine read_headeropts_dust_formation
 
@@ -740,54 +740,31 @@ end subroutine write_options_dust_formation
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal
- use dim,     only:do_nucleation,inucleation,store_dust_temperature
- character(len=*), intent(in)  :: name,valstring
- logical, intent(out) :: imatch,igotall
- integer,intent(out) :: ierr
+subroutine read_options_dust_formation(db,nerr)
+ use io,           only:error
+ use dim,          only:nucleation,do_nucleation,inucleation,store_dust_temperature
+ use eos,          only:ieos
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_nucleation'
-
- imatch  = .true.
- igotall = .false.
- select case(trim(name))
- case('idust_opacity')
-    read(valstring,*,iostat=ierr) idust_opacity
-    ngot = ngot + 1
-    if (idust_opacity == 2) then
-       do_nucleation = .true.
-       inucleation = 1
-    endif
- case('wind_CO_ratio')
-    read(valstring,*,iostat=ierr) wind_CO_ratio
-    ngot = ngot + 1
-    if (wind_CO_ratio < 0.) call fatal(label,'invalid setting for wind_CO_ratio (must be > 0)')
- case('kappa_gas')
-    read(valstring,*,iostat=ierr) kappa_gas
-    ngot = ngot + 1
-    if (kappa_gas < 0.)    call fatal(label,'invalid setting for kappa_gas (<0)')
-    !kgas = kappa_gas / (udist**2/umass)
- case('bowen_kmax')
-    read(valstring,*,iostat=ierr) bowen_kmax
-    ngot = ngot + 1
-    if (bowen_kmax < 0.)    call fatal(label,'invalid setting for bowen_kmax (<0)')
- case('bowen_Tcond')
-    read(valstring,*,iostat=ierr) bowen_Tcond
-    ngot = ngot + 1
-    if (bowen_Tcond < 0.) call fatal(label,'invalid setting for bowen_Tcond (<0)')
- case('bowen_delta')
-    read(valstring,*,iostat=ierr) bowen_delta
-    ngot = ngot + 1
-    if (bowen_delta < 0.) call fatal(label,'invalid setting for bowen_delta (<0)')
- case default
-    imatch = .false.
- end select
- igotall = (ngot >= 1)
- if (idust_opacity == 1) igotall = (ngot >= 5)
- if (idust_opacity == 2) igotall = (ngot >= 3)
+ call read_inopt(idust_opacity,'idust_opacity',db,errcount=nerr,min=0,max=2)
+ if (idust_opacity == 2) then
+    do_nucleation = .true.
+    inucleation = 1
+ endif
+ if (idust_opacity == 1) then
+    call read_inopt(kappa_gas,'kappa_gas',db,errcount=nerr,min=0.)
+    call read_inopt(bowen_kmax,'bowen_kmax',db,errcount=nerr,min=0.)
+    call read_inopt(bowen_Tcond,'bowen_Tcond',db,errcount=nerr,min=0.)
+    call read_inopt(bowen_delta,'bowen_delta',db,errcount=nerr,min=0.)
+ endif
+ if (nucleation .and. idust_opacity == 2) then
+    call read_inopt(kappa_gas,'kappa_gas',db,errcount=nerr,min=0.)
+    call read_inopt(wind_CO_ratio,'wind_CO_ratio',db,errcount=nerr,min=0.)
+ endif
  if (idust_opacity > 0) store_dust_temperature = .true.
+ if (do_nucleation .and. ieos == 5) call error('read_infile','with nucleation you must use ieos = 2')
 
 end subroutine read_options_dust_formation
 

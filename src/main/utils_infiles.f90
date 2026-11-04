@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,9 +18,13 @@ module infile_utils
 ! :Dependencies: None
 !
  implicit none
- public :: write_inopt, read_inopt
- public :: read_next_inopt, get_inopt
- public :: write_infile_series, check_infile, contains_loop, get_optstring
+ public :: write_inopt,read_inopt,get_inopt
+ public :: check_and_unroll_infile,check_infile,get_optstring
+ public :: int_to_string
+ public :: get_options
+ public :: infile_exists
+ public :: get_option_arg,parse_option_string
+ public :: set_overrides,clear_overrides,count_unused_overrides
 !
 ! generic interface write_inopt to write an input option of any type
 !
@@ -31,7 +35,7 @@ module infile_utils
 ! generic interface read_inopt to read an input option of any type
 !
  interface read_inopt
-  module procedure read_inopt_int,read_inopt_real,read_inopt_string,read_inopt_logical
+  module procedure read_inopt_int,read_inopt_real4,read_inopt_real8,read_inopt_string,read_inopt_logical
  end interface read_inopt
 
 !
@@ -40,6 +44,30 @@ module infile_utils
  interface get_inopt
   module procedure get_inopt_int,get_inopt_real,get_inopt_string,get_inopt_logical
  end interface get_inopt
+!
+! interfaces required for the high level get_options routine
+!
+ abstract interface
+  subroutine write_func(filename)
+   character(len=*), intent(in) :: filename
+  end subroutine write_func
+ end interface
+
+ abstract interface
+  subroutine read_func(filename,ierr)
+   character(len=*), intent(in)  :: filename
+   integer,          intent(out) :: ierr
+  end subroutine read_func
+ end interface
+
+ abstract interface
+  subroutine set_func()
+  end subroutine set_func
+ end interface
+
+ interface get_options
+  module procedure get_options, get_options_interactive
+ end interface get_options
 !
 ! maximum length for input strings
 ! (if you change this, must also change format statements below)
@@ -65,6 +93,14 @@ module infile_utils
     ierr_rangemin = 2, &
     ierr_rangemax = 3
 
+ ! options given on the command line as --option=value, which override
+ ! values read from parameter files by get_options
+ character(len=maxlen),    allocatable, private :: override_tag(:)
+ character(len=maxlenval), allocatable, private :: override_val(:)
+ logical,                  allocatable, private :: override_used(:)
+ logical, private :: use_overrides = .false.
+ logical, private :: overrides_fixed = .false.  ! set by set_overrides, e.g. in the test suite
+
  private
 
 contains
@@ -75,13 +111,15 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_int(ival,name,descript,iunit,ierr)
- integer,          intent(in)  :: ival
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ integer,          intent(in) :: ival
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  integer,          intent(out), optional :: ierr
  integer :: ierror
+ character(len=3) :: fmts
 
- write(iunit,"(a20,' = ',1x,i10,4x,'! ',a)",iostat=ierror) name,ival,descript
+ call get_format_string(name,fmts)
+ write(iunit,"("//trim(fmts)//",' = ',1x,i10,4x,'! ',a)",iostat=ierror) name,ival,descript
  if (present(ierr)) ierr = ierror
 
 end subroutine write_inopt_int
@@ -92,13 +130,15 @@ end subroutine write_inopt_int
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_logical(lval,name,descript,iunit,ierr)
- logical,          intent(in)  :: lval
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ logical,          intent(in) :: lval
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  integer,          intent(out), optional :: ierr
  integer :: ierror
+ character(len=3) :: fmts
 
- write(iunit,"(a20,' = ',1x,l10,4x,'! ',a)",iostat=ierror) name,lval,descript
+ call get_format_string(name,fmts)
+ write(iunit,"("//trim(fmts)//",' = ',1x,l10,4x,'! ',a)",iostat=ierror) name,lval,descript
  if (present(ierr)) ierr = ierror
 
 end subroutine write_inopt_logical
@@ -109,15 +149,16 @@ end subroutine write_inopt_logical
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
- real(kind=4),     intent(in)  :: rval
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ real(kind=4),     intent(in) :: rval
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  logical,          intent(in),  optional :: exp,time
  integer,          intent(out), optional :: ierr
  logical :: doexp,dotime
  integer :: nhr,nmin !,nsec
  character(len=6) :: fmtstring
  character(len=14) :: tmpstring
+ character(len=3) :: fmts
  real(kind=4) :: trem
  integer :: ierror
 
@@ -129,6 +170,7 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
  if (present(time)) then
     if (time) dotime = .true.
  endif
+ call get_format_string(name,fmts)
 
  if (dotime) then
     trem = rval
@@ -138,13 +180,13 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
     if (nmin > 0) trem = trem - nmin*60._4
     !nsec = int(trem)
 
-    write(iunit,"(a20,' = ',5x,i3.3,':',i2.2,4x,'! ',a)",iostat=ierror) &
+    write(iunit,"("//trim(fmts)//",' = ',5x,i3.3,':',i2.2,4x,'! ',a)",iostat=ierror) &
           name,nhr,nmin,descript
  else
     if (doexp .or. (abs(rval) < 1.e-4 .and. abs(rval) > tiny(rval)) &
               .or. (abs(rval) >= 1.e4)) then
        fmtstring = 'es10.3'
-       write(iunit,"(a20,' = ',1x,"//fmtstring//",4x,'! ',a)",iostat=ierror) name,rval,descript
+       write(iunit,"("//trim(fmts)//",' = ',1x,"//fmtstring//",4x,'! ',a)",iostat=ierror) name,rval,descript
     else
        if (abs(rval) < 1.e-1) then
           write(tmpstring,"(f10.7)",iostat=ierror) rval
@@ -156,7 +198,7 @@ subroutine write_inopt_real4(rval,name,descript,iunit,ierr,exp,time)
           write(tmpstring,"(g14.7)",iostat=ierror) rval
           tmpstring = adjustl(strip_zeros(tmpstring,3))
        endif
-       write(iunit,"(a20,' = ',1x,a10,4x,'! ',a)",iostat=ierror) name,adjustr(trim(tmpstring)),descript
+       write(iunit,"("//trim(fmts)//",' = ',1x,a10,4x,'! ',a)",iostat=ierror) name,adjustr(trim(tmpstring)),descript
     endif
  endif
  if (present(ierr)) ierr = ierror
@@ -169,9 +211,9 @@ end subroutine write_inopt_real4
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_real8(rval,name,descript,iunit,ierr,exp,time)
- real(kind=8),     intent(in)  :: rval
- character(len=*), intent(in)  :: name,descript
- integer,          intent(in)  :: iunit
+ real(kind=8),     intent(in) :: rval
+ character(len=*), intent(in) :: name,descript
+ integer,          intent(in) :: iunit
  logical,          intent(in),  optional :: exp,time
  integer,          intent(out), optional :: ierr
  logical :: doexp,dotime
@@ -189,9 +231,7 @@ subroutine write_inopt_real8(rval,name,descript,iunit,ierr,exp,time)
  if (present(time)) then
     if (time) dotime = .true.
  endif
-
- fmts = "a20"
- if (len_trim(name) > 20) fmts = "a"
+ call get_format_string(name,fmts)
 
  if (dotime) then
     trem = rval
@@ -265,19 +305,33 @@ end function strip_zeros
 
 !-----------------------------------------------------------------
 !+
+!  internal function to return the format string, either a20
+!  or "a" if the string exceeds 20 characters in length
+!+
+!-----------------------------------------------------------------
+subroutine get_format_string(name,fmts)
+ character(len=*), intent(in)  :: name
+ character(len=*), intent(out) :: fmts
+
+ fmts = "a20"
+ if (len_trim(name) > 20) fmts = "a"
+
+end subroutine get_format_string
+
+!-----------------------------------------------------------------
+!+
 !  write string to input file
 !+
 !-----------------------------------------------------------------
 subroutine write_inopt_string(sval,name,descript,iunit,ierr)
- character(len=*), intent(in)  :: sval,name,descript
- integer,          intent(in)  :: iunit
+ character(len=*), intent(in) :: sval,name,descript
+ integer,          intent(in) :: iunit
  integer,          intent(out), optional :: ierr
  character(len=40) :: fmtstring
  character(len=3)  :: fmts
  integer :: ierror
 
- fmts = "a20"
- if (len_trim(name) > 20) fmts = "a"
+ call get_format_string(name,fmts)
 
  if (len_trim(sval) > 10) then
     fmtstring = '('//fmts//','' = '',1x,a,3x,''! '',a)'
@@ -354,6 +408,7 @@ subroutine open_db_from_file(db,filename,iunit,ierr)
     ierr = -1
  endif
  close(unit=iunit)
+ if (ierr == 0 .and. use_overrides) call add_overrides_to_db(db)
 
 end subroutine open_db_from_file
 
@@ -376,8 +431,8 @@ end subroutine close_db
 !+
 !-----------------------------------------------------
 function errtext(ierr)
- character(len=25) :: errtext
  integer, intent(in) :: ierr
+ character(len=25) :: errtext
 
  select case(ierr)
  case(ierr_notfound)
@@ -418,37 +473,48 @@ end subroutine print_error
 !  read an integer variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
- integer,                   intent(out)   :: ival
- character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- integer,                   intent(in), optional :: min,max
+subroutine read_inopt_int(ival,tag,db,err,errcount,min,max,default)
+ integer,          intent(inout) :: ival
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ integer,          intent(in),    optional :: min,max
+ integer,          intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
 
- chmin = ''
- chmax = ''
- valstring = ''
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
 
- ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) ival
     if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    ival = default
  else
     ierr = ierr_notfound
  endif
  if (ierr==0) then
     if (present(min)) then
        write(chmin,"(g10.0)") min
-       if (ival < min) ierr = ierr_rangemin
+       if (ival < min) then
+          ierr = ierr_rangemin
+          ival = min
+       endif
     endif
     if (present(max)) then
        write(chmax,"(g10.0)") max
-       if (ival > max) ierr = ierr_rangemax
+       if (ival > max) then
+          ierr = ierr_rangemax
+          ival = max
+       endif
     endif
+ endif
+
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    ival = default
  endif
 
  ! print error message unless err argument is given
@@ -457,74 +523,154 @@ subroutine read_inopt_int(ival,tag,db,err,errcount,min,max)
  elseif (ierr /= 0) then
     call print_error(tag,valstring,chmin,chmax,ierr)
  endif
- if (present(errcount)) then
-    if (ierr /= 0) errcount = errcount + 1
- endif
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
 
 end subroutine read_inopt_int
 
 !-----------------------------------------------------------------
 !+
 !  read a real variable from an input options database
+!  if variable is not found, val assumes the input value
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_real(val,tag,db,err,errcount,min,max)
- real,                      intent(out)   :: val
- character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
- real,                      intent(in), optional :: min,max
+subroutine read_inopt_real8(val,tag,db,err,errcount,min,max,default)
+ real(kind=8),     intent(inout) :: val
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ real(kind=8),     intent(in),    optional :: min,max
+ real(kind=8),     intent(in),    optional :: default
  character(len=maxlen) :: valstring
  character(len=16)     :: chmin,chmax
  integer :: ioerr,ierr
+ real(kind=8) :: val_default
 
- chmin = ''
- chmax = ''
- valstring = ''
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
+ val_default = val
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
 
- ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
     read(valstring,*,iostat=ioerr) val
     if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    val = val_default
  else
     ierr = ierr_notfound
  endif
+
  if (ierr==0) then
     if (present(min)) then
        write(chmin,"(g13.4)") min
-       if (val < min) ierr = ierr_rangemin
+       if (val < min) then
+          ierr = ierr_rangemin
+          val = min
+       endif
     endif
     if (present(max)) then
        write(chmax,"(g13.4)") max
-       if (val > max) ierr = ierr_rangemax
+       if (val > max) then
+          ierr = ierr_rangemax
+          val = max
+       endif
     endif
  endif
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    val = val_default
+ endif
+
  if (present(err)) then
     err = ierr
  elseif (ierr /= 0) then
     call print_error(tag,valstring,chmin,chmax,ierr)
  endif
- if (present(errcount)) then
-    if (ierr /= 0) errcount = errcount + 1
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
+
+end subroutine read_inopt_real8
+
+!-----------------------------------------------------------------
+!+
+!  read a real*4 variable from an input options database
+!+
+!-----------------------------------------------------------------
+subroutine read_inopt_real4(val,tag,db,err,errcount,min,max,default)
+ real(kind=4),     intent(inout) :: val
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ real(kind=4),     intent(in),    optional :: min,max
+ real(kind=4),     intent(in),    optional :: default
+ character(len=maxlen) :: valstring
+ character(len=16)     :: chmin,chmax
+ integer :: ioerr,ierr
+ real(kind=4) :: val_default
+
+ chmin = ''; chmax = ''; valstring = ''; ierr = 0
+ val_default = val
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
+
+ if (match_inopt_in_db(db,tag,valstring)) then
+    read(valstring,*,iostat=ioerr) val
+    if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    val = val_default
+ else
+    ierr = ierr_notfound
  endif
 
-end subroutine read_inopt_real
+ if (ierr==0) then
+    if (present(min)) then
+       write(chmin,"(g13.4)") min
+       if (val < min) then
+          ierr = ierr_rangemin
+          val = min
+       endif
+    endif
+    if (present(max)) then
+       write(chmax,"(g13.4)") max
+       if (val > max) then
+          ierr = ierr_rangemax
+          val = max
+       endif
+    endif
+ endif
+ ! if exceed range and default is present, set value to default
+ if (present(default) .and. (ierr == ierr_rangemin .or. ierr == ierr_rangemax)) then
+    val = val_default
+ endif
+
+ if (present(err)) then
+    err = ierr
+ elseif (ierr /= 0) then
+    call print_error(tag,valstring,chmin,chmax,ierr)
+ endif
+ if (present(errcount) .and. ierr /= 0) errcount = errcount + 1
+
+end subroutine read_inopt_real4
 
 !-----------------------------------------------------------------
 !+
 !  read a string variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_string(valstring,tag,db,err,errcount)
- character(len=*),          intent(out)   :: valstring
- character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
+subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
+ character(len=*), intent(inout) :: valstring
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ character(len=*), intent(in),    optional :: default
+ character(len=len(valstring)) :: val_default
  integer :: ierr
 
  ierr = 0
+ val_default = ''
+ ! necessary in case where output variable used as default= argument
+ if (present(default)) val_default = default
  if (.not.match_inopt_in_db(db,tag,valstring)) ierr = -1
  if (present(err)) then
     err = ierr
@@ -534,6 +680,10 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount)
  if (present(errcount)) then
     if (ierr /= 0) errcount = errcount + 1
  endif
+ ! default string to use if the string read is blank
+ if (present(default)) then
+    if (len_trim(valstring) <= 0) valstring = val_default
+ endif
 
 end subroutine read_inopt_string
 
@@ -542,20 +692,24 @@ end subroutine read_inopt_string
 !  read a logical variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_logical(lval,tag,db,err,errcount)
- logical,                   intent(out)   :: lval
- character(len=*),          intent(in)    :: tag
- type(inopts), allocatable, intent(inout) :: db(:)
- integer,                   intent(out),   optional :: err
- integer,                   intent(inout), optional :: errcount
+subroutine read_inopt_logical(lval,tag,db,err,errcount,default)
+ logical,          intent(inout) :: lval
+ character(len=*), intent(in)    :: tag
+ type(inopts),     intent(inout) :: db(:)
+ integer,          intent(out),   optional :: err
+ integer,          intent(inout), optional :: errcount
+ logical,          intent(in),    optional :: default
  character(len=maxlen) :: valstring
- integer :: ierr
+ integer :: ioerr,ierr
 
  ierr = 0
  if (match_inopt_in_db(db,tag,valstring)) then
-    read(valstring,*,iostat=ierr) lval
+    read(valstring,*,iostat=ioerr) lval
+    if (ioerr /= 0) ierr = ierr_inread
+ elseif (present(default)) then
+    lval = default
  else
-    ierr = -1
+    ierr = ierr_notfound
  endif
  if (present(err)) then
     err = ierr
@@ -575,16 +729,16 @@ end subroutine read_inopt_logical
 !+
 !-----------------------------------------------------------------
 logical function match_inopt_in_db(db,tag,valstring)
- type(inopts), allocatable, intent(inout) :: db(:)
- character(len=*),          intent(in)    :: tag
- character(len=*),          intent(out)   :: valstring
+ type(inopts),     intent(inout) :: db(:)
+ character(len=*), intent(in)    :: tag
+ character(len=*), intent(out)   :: valstring
  integer :: n
 
  match_inopt_in_db = .false.
- if (.not.allocated(db)) then
-    valstring = ' '
-    return
- endif
+ !if (.not.allocated(db)) then
+ !   valstring = ' '
+ !   return
+ !endif
 
  do n=1,size(db)
     if (trim(db(n)%tag)==trim(adjustl(tag))) then
@@ -594,6 +748,9 @@ logical function match_inopt_in_db(db,tag,valstring)
        db(n)%retrieved = .true.
     endif
  enddo
+ if (match_inopt_in_db .and. use_overrides) then
+    where (override_tag == adjustl(tag)) override_used = .true.
+ endif
 
 end function match_inopt_in_db
 
@@ -604,11 +761,11 @@ end function match_inopt_in_db
 !+
 !-----------------------------------------------------------------
 subroutine read_next_inopt(tag,valstring,iunit,ierr,nlinesread)
- character(len=maxlenline)      :: line
  character(len=*), intent(out) :: tag,valstring
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr ! not optional for reads
  integer,          intent(out), optional :: nlinesread
+ character(len=maxlenline)      :: line
  integer :: ierrtemp
 
  tag = ' '
@@ -632,12 +789,12 @@ subroutine read_next_inopt(tag,valstring,iunit,ierr,nlinesread)
 
 end subroutine read_next_inopt
 
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 !+
 !  extract the tag and the string section containing the data value
 !  from the line read from the file
 !+
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
  character(len=*), intent(in)  :: line
  character(len=*), intent(out) :: name
@@ -676,8 +833,9 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
 !
 !--for time strings, assume they are of the form hh:mm:ss
 !  convert to a number of seconds as a real
+!  but be careful to ignore datetime strings like 2020-10-04 12:00:00
 !
- if (index(valstring,':') /= 0) then
+ if (index(valstring,':') /= 0 .and. index(valstring,'-')==0) then
     nsec = 0
     read(valstring,"(i3.3,1x,i2.2,1x,i2.2)",iostat=ierr) nhr,nmin,nsec
     if (ierr/=0) then
@@ -694,7 +852,6 @@ subroutine read_inopt_from_line(line,name,valstring,ierr,comment)
     endif
  endif
 
- return
 end subroutine read_inopt_from_line
 
 !-----------------------------------------------------------------
@@ -721,14 +878,13 @@ subroutine get_inopt_string(valstring,varname,infile,iunit,ierr)
  if (.not.imatch) ierr = -1
  close(iunit)
 
- return
 end subroutine get_inopt_string
 
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 !+
 !  read a real variable matching the varname tag from an input file
 !+
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------
 subroutine get_inopt_real(rval,varname,infile,iunit,ierr)
  real,             intent(out) :: rval
  character(len=*), intent(in)  :: varname,infile
@@ -739,14 +895,13 @@ subroutine get_inopt_real(rval,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) rval
 
- return
 end subroutine get_inopt_real
 
-!-----------------------------------------------------------------
+!------------------------------------------------------------------------
 !+
 !  read an integer variable matching the varname tag from an input file
 !+
-!-----------------------------------------------------------------
+!------------------------------------------------------------------------
 subroutine get_inopt_int(ival,varname,infile,iunit,ierr)
  integer,          intent(out) :: ival
  character(len=*), intent(in)  :: varname,infile
@@ -757,14 +912,13 @@ subroutine get_inopt_int(ival,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) ival
 
- return
 end subroutine get_inopt_int
 
-!-----------------------------------------------------------------
+!-----------------------------------------------------------------------
 !+
 !  read a logical variable matching the varname tag from an input file
 !+
-!-----------------------------------------------------------------
+!-----------------------------------------------------------------------
 subroutine get_inopt_logical(lval,varname,infile,iunit,ierr)
  logical,          intent(out) :: lval
  character(len=*), intent(in)  :: varname,infile
@@ -775,7 +929,6 @@ subroutine get_inopt_logical(lval,varname,infile,iunit,ierr)
  call get_inopt_string(valstring,varname,infile,iunit,ierr)
  read(valstring,*,iostat=ierr) lval
 
- return
 end subroutine get_inopt_logical
 
 !--------------------------------------------------------------------
@@ -784,29 +937,62 @@ end subroutine get_inopt_logical
 !  a loop (public)
 !+
 !--------------------------------------------------------------------
-subroutine check_infile(infile,lu_read,containsloop,ierrline)
+subroutine check_infile(infile,containsloop,ierrline,nlines)
  character(len=*), intent(in)  :: infile
- integer,          intent(in)  :: lu_read ! unit to read file on
  logical,          intent(out) :: containsloop
- integer,          intent(out) :: ierrline
+ integer,          intent(out) :: ierrline,nlines
  character(len=maxlen)       :: name
  character(len=maxlenstring) :: valstring
- integer :: nlinesread,line,ierr
+ integer :: nlinesread,line,ierr,iunit
 
  containsloop = .false.
  ierrline = 0
  line = 0
- open(unit=lu_read,iostat=ierr,file=infile,status='old',form='formatted')
+ open(newunit=iunit,iostat=ierr,file=infile,status='old',form='formatted')
  if (ierr /= 0) ierrline = -1
  do while (ierr == 0)
-    call read_next_inopt(name,valstring,lu_read,ierr,nlinesread)
+    call read_next_inopt(name,valstring,iunit,ierr,nlinesread)
     line = line + nlinesread
     if (ierr > 0) ierrline = line
     if (ierr==0 .and. contains_loop(valstring)) containsloop = .true.
  enddo
- close(unit=lu_read)
+ close(unit=iunit)
+ nlines = line
 
 end subroutine check_infile
+
+!-----------------------------------------------------------------
+!+
+!  check the input file for loops and errors
+!  and unroll them into a series of input files
+!  e.g. "var=1 to 10 step 1" will be unrolled into 10 input files
+!  with var set to 1, 2, 3, ..., 10
+!+
+!-----------------------------------------------------------------
+subroutine check_and_unroll_infile(infile,igotloops,ierr)
+ character(len=*), intent(in)  :: infile
+ logical,          intent(out) :: igotloops
+ integer,          intent(out) :: ierr
+ integer :: ierrline,nlines
+ character(len=10)  :: cline
+
+ ierr = 0
+ call check_infile(infile,igotloops,ierrline,nlines)
+ ierr = ierrline
+
+ if (ierrline > 0) then
+    write(cline,"(i10)") ierrline
+    write(*,"(a)") 'ERROR! could not parse '//trim(infile)//' at line '//trim(adjustl(cline))
+    ierr = ierrline
+ endif
+
+ if (igotloops) then
+    write(*,"(1x,a)") 'loops detected in input file:'
+    call write_infile_series(trim(infile),nlines,ierr)
+    if (ierr /= 0) write(*,"(a)") 'ERROR! could not write input file series'
+ endif
+
+end subroutine check_and_unroll_infile
 
 !--------------------------------------------------------------------
 !+
@@ -906,7 +1092,6 @@ subroutine get_loopinfo_real(valstring,rvalstart,rvalend,rstep,njobs,log,ierr)
     endif
  endif
 
- return
 end subroutine get_loopinfo_real
 
 !--------------------------------------------------------------------
@@ -931,7 +1116,6 @@ subroutine get_loopinfo_int(valstring,ivalstart,ivalend,istep,ierr)
     read(valstring(isteppos+6:),*,iostat=ierr) istep
  endif
 
- return
 end subroutine get_loopinfo_int
 
 !--------------------------------------------------------------------
@@ -1022,15 +1206,15 @@ end function isintloop
 !  where var is either a real or integer input variable
 !+
 !--------------------------------------------------------------------
-subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
+subroutine write_infile_series(infile,nlines,ierr)
  character(len=*), intent(in) :: infile
- integer,          intent(in) :: lu_read,lu_write,nlines
+ integer,          intent(in) :: nlines
  character(len=120)            :: infiledata(nlines)
  character(len=40)             :: name,valstring,nameloopval,valstringloop
  character(len=60)             :: commentstring,commentloop
  character(len=len(infile)+30) :: infilenew
  integer, parameter :: maxloop = 1000
- integer :: line,ierr,ierr2,idot
+ integer :: line,ierr,ierr2,idot,lu_read
  integer :: nloops,loopline,njobs,i,ivalstart,ivalend,istep
  real    :: rval,rvalstart,rvalend,rstep
  logical :: logloop
@@ -1038,7 +1222,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
 !--first of all, we read the whole input file as plain text
 !
  ierr = 0
- open(unit=lu_read,file=infile,status='old',form='formatted',iostat=ierr)
+ open(newunit=lu_read,file=infile,status='old',form='formatted',iostat=ierr)
  line = 0
  nloops = 0
  loopline = 0
@@ -1105,7 +1289,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
           endif
           call formatreal(rval,valstring,precision=rstep)
           write(infilenew(idot:),"(a)") '_'//trim(nameloopval)//'_'//trim(valstring)//infile(idot:)
-          call write_infile_lines(lu_write,infilenew,infiledata,loopline,nameloopval,commentloop,ierr,rval)
+          call write_infile_lines(infilenew,infiledata,loopline,nameloopval,commentloop,ierr,rval)
           if (ierr /= 0) return
        enddo
     elseif (isintloop(valstringloop)) then
@@ -1127,7 +1311,7 @@ subroutine write_infile_series(lu_read,lu_write,infile,nlines,ierr)
        do i=ivalstart,ivalend,istep
           write(valstring,*) i
           write(infilenew(idot:),"(a)") '_'//trim(nameloopval)//'_'//trim(adjustl(valstring))//infile(idot:)
-          call write_infile_lines(lu_write,infilenew,infiledata,loopline,nameloopval,commentloop,ierr,ival=i)
+          call write_infile_lines(infilenew,infiledata,loopline,nameloopval,commentloop,ierr,ival=i)
           if (ierr /= 0) return
        enddo
     else
@@ -1186,7 +1370,6 @@ subroutine formatreal(val,string,precision)
  i = len_trim(string)
  if (string(i:i)=='.') string(i:i) = ' '
  string = trim(adjustl(string))
- return
 end subroutine formatreal
 
 !--------------------------------------------------------------------
@@ -1195,20 +1378,20 @@ end subroutine formatreal
 !  writing the new input file
 !+
 !--------------------------------------------------------------------
-subroutine write_infile_lines(iunit,infilenew,infiledata,linenum,nameval,commentval,ierr,rval,ival)
+subroutine write_infile_lines(infilenew,infiledata,linenum,nameval,commentval,ierr,rval,ival)
  character(len=*), intent(in)  :: infilenew
  character(len=*), intent(in)  :: infiledata(:)
- integer,          intent(in)  :: iunit,linenum
+ integer,          intent(in)  :: linenum
  character(len=*), intent(in)  :: nameval,commentval
  integer,          intent(out) :: ierr
  real,             intent(in), optional :: rval
  integer,          intent(in), optional :: ival
  integer, parameter :: stdout = 6
- integer :: i
+ integer :: i,iunit
 
  ierr = 0
  write(*,"(15('-'),a,15('-'))") trim(infilenew)
- open(unit=iunit,file=trim(infilenew),form='formatted',status='replace',iostat=ierr)
+ open(newunit=iunit,file=trim(infilenew),form='formatted',status='replace',iostat=ierr)
  if (ierr /= 0) then
     write(*,"(/,a)") 'ERROR! write_infile_series: error opening '//trim(infilenew)//' for write'
     return
@@ -1240,13 +1423,14 @@ end subroutine write_infile_lines
 ! Creates a string out of a list of options
 !
 !---------------------------------------------------------------------------
-subroutine get_optstring(nopts,optstring,string,maxlen)
+subroutine get_optstring(nopts,optstring,string,maxlen,from_zero)
  integer,          intent(in)  :: nopts
  character(len=*), intent(in)  :: optstring(nopts)
  character(len=*), intent(out) :: string
  integer,          intent(in), optional :: maxlen
+ logical,          intent(in), optional :: from_zero
  character(len=len(string)) :: temp
- integer            :: i,maxl,ierr
+ integer            :: i,maxl,ierr,ioffset
 
  if (present(maxlen)) then
     maxl = max(maxlen,1)
@@ -1255,15 +1439,330 @@ subroutine get_optstring(nopts,optstring,string,maxlen)
  endif
 
  string = ''
+ !--allow for enumeration that starts from 0 instead of 1
+ ioffset = 0
+ if (present(from_zero)) then
+    if (from_zero) ioffset = 1
+ endif
+
  do i=1,nopts
     temp = adjustl(optstring(i))
     if (i==nopts) then
-       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i-ioffset,trim(temp(1:maxl))
     else
-       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i-ioffset,trim(temp(1:maxl))
     endif
  enddo
 
 end subroutine get_optstring
+
+!---------------------------------------------------------------------------
+!
+! convert an integer to a string without using write statements
+! so the function itself can be used in a print or write statement
+!
+!---------------------------------------------------------------------------
+function int_to_string(num) result(str)
+ integer, intent(in) :: num
+ character(len=20) :: str
+ integer :: i, n
+ character(len=1) :: digit
+
+ n = abs(num)  ! Get the absolute value of the number
+ str = ''      ! Initialize the string
+
+ ! Convert integer to string
+ do while (n > 0)
+    i = mod(n, 10)  ! Get the last digit
+    digit = char(i + ichar('0'))  ! Convert digit to character
+    str = trim(adjustl(digit)) // str  ! Prepend digit to string
+    n = n / 10      ! Remove the last digit
+ enddo
+
+ if (num < 0) then
+    str = '-' // trim(str)  ! Add negative sign if necessary
+ endif
+
+ if (num == 0) then
+    str = '0'  ! Handle the case for zero
+ endif
+
+end function int_to_string
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files
+!+
+!--------------------------------------------------------------------
+subroutine get_options(filename,iallow_write,ierr,read_pars,write_pars)
+ character(len=*), intent(in)  :: filename
+ logical,          intent(in)  :: iallow_write
+ integer,          intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+
+ call get_options_any(filename,iallow_write,ierr,read_pars,write_pars)
+
+end subroutine get_options
+
+!--------------------------------------------------------------------
+!+
+!  routine to handle high level read/write of parameter files,
+!  prompting for the options if the file does not exist
+!+
+!--------------------------------------------------------------------
+subroutine get_options_interactive(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+ character(len=*), intent(in)  :: filename
+ logical,          intent(in)  :: iallow_write
+ integer,          intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ procedure(set_func)   :: set_pars
+
+ call get_options_any(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+
+end subroutine get_options_interactive
+
+!--------------------------------------------------------------------
+!+
+!  read the parameter file if it exists, otherwise write one
+!  (prompting first if set_pars is given). Options given on the
+!  command line as --option=value override those in the file, or
+!  are used with the defaults instead of prompting if there is no
+!  file, and the file is rewritten with the values used
+!+
+!--------------------------------------------------------------------
+subroutine get_options_any(filename,iallow_write,ierr,read_pars,write_pars,set_pars)
+ character(len=*), intent(in)  :: filename
+ logical,          intent(in)  :: iallow_write
+ integer,          intent(out) :: ierr
+ procedure(read_func)  :: read_pars
+ procedure(write_func) :: write_pars
+ procedure(set_func), optional :: set_pars
+ logical :: iexist,ioverride
+ integer :: ierr_defaults,i
+
+ ioverride = (count_overrides() > 0)
+
+ ! check if file exists
+ inquire(file=filename,exist=iexist)
+ if (iexist) then
+    ! read from parameter file, applying command line options
+    call read_with_overrides(filename,read_pars,ierr)
+    if ((ierr /= 0 .or. ioverride) .and. iallow_write) call write_pars(filename)
+ elseif (iallow_write) then
+    if (ioverride) then
+       ! use the command line options with the defaults instead of prompting
+       call write_pars(filename)
+       call read_with_overrides(filename,read_pars,ierr_defaults)
+    elseif (present(set_pars)) then
+       print "(a,/)",trim(filename)//' not found: using interactive setup'
+       call set_pars()
+    endif
+    call write_pars(filename)
+    ierr = 1
+ else
+    ! threads not allowed to write just return an error
+    ierr = ierr_notfound
+ endif
+
+ ! warn about command line options not used in this parameter file
+ if (ioverride .and. iallow_write) then
+    do i=1,size(override_tag)
+       if (.not.override_used(i)) print "(a)",' WARNING: unknown option --'//trim(override_tag(i))
+    enddo
+ endif
+
+end subroutine get_options_any
+
+!--------------------------------------------------------------------
+!+
+!  call read_pars with command line options applied to any
+!  database it opens
+!+
+!--------------------------------------------------------------------
+subroutine read_with_overrides(filename,read_pars,ierr)
+ character(len=*), intent(in)  :: filename
+ procedure(read_func)  :: read_pars
+ integer,          intent(out) :: ierr
+
+ ! overrides are loaded by count_overrides in get_options_any
+ use_overrides = allocated(override_tag)
+ call read_pars(filename,ierr)
+ use_overrides = .false.
+
+end subroutine read_with_overrides
+
+!--------------------------------------------------------------------
+!+
+!  number of options given on the command line as --option=value,
+!  (re)loading them from the command line arguments unless they
+!  were set with set_overrides
+!+
+!--------------------------------------------------------------------
+integer function count_overrides() result(n)
+ character(len=240), allocatable :: args(:)
+ integer :: iarg
+
+ if (.not.overrides_fixed) then
+    allocate(args(command_argument_count()))
+    do iarg=1,size(args)
+       call get_command_argument(iarg,args(iarg))
+    enddo
+    call load_overrides(args)
+ endif
+ override_used = .false.
+ n = size(override_tag)
+
+end function count_overrides
+
+!-----------------------------------------------------------------------
+!+
+!  set the options as if given on the command line (e.g. for testing),
+!  until clear_overrides is called
+!+
+!-----------------------------------------------------------------------
+subroutine set_overrides(args)
+ character(len=*), intent(in) :: args(:)
+
+ call load_overrides(args)
+ overrides_fixed = .true.
+
+end subroutine set_overrides
+
+!--------------------------------------------------------------------
+!+
+!  remove options set with set_overrides
+!+
+!--------------------------------------------------------------------
+subroutine clear_overrides()
+
+ if (allocated(override_tag)) deallocate(override_tag,override_val,override_used)
+ overrides_fixed = .false.
+
+end subroutine clear_overrides
+
+!--------------------------------------------------------------------
+!+
+!  number of options from the last call to get_options that were
+!  not read from the parameter file
+!+
+!--------------------------------------------------------------------
+integer function count_unused_overrides() result(n)
+
+ n = 0
+ if (allocated(override_used)) n = count(.not.override_used)
+
+end function count_unused_overrides
+
+!-------------------------------------------------------------------------
+!+
+!  store the --option=value strings from a list of arguments,
+!  skipping flags used by the programs themselves (--maxp, --nprocsfake)
+!+
+!-------------------------------------------------------------------------
+subroutine load_overrides(args)
+ character(len=*), intent(in) :: args(:)
+ character(len=maxlen)    :: tag
+ character(len=maxlenval) :: val
+ integer :: i,n,pass
+
+ do pass=1,2
+    n = 0
+    do i=1,size(args)
+       if (.not.parse_option_string(args(i),tag,val)) cycle
+       if (tag=='maxp' .or. tag=='nprocsfake') cycle
+       n = n + 1
+       if (pass==2) then
+          override_tag(n) = tag
+          override_val(n) = val
+       endif
+    enddo
+    if (pass==1) then
+       if (allocated(override_tag)) deallocate(override_tag,override_val,override_used)
+       allocate(override_tag(n),override_val(n),override_used(n))
+       override_used = .false.
+    endif
+ enddo
+
+end subroutine load_overrides
+
+!--------------------------------------------------------------------
+!+
+!  append the command line options to a database; as the last
+!  match is used, these take precedence over values from the file
+!+
+!--------------------------------------------------------------------
+subroutine add_overrides_to_db(db)
+ type(inopts), allocatable, intent(inout) :: db(:)
+ type(inopts), allocatable :: dbnew(:)
+ integer :: n,i
+
+ if (.not.allocated(override_tag)) return !- avoid compiler warning
+ n = size(db)
+ allocate(dbnew(n+size(override_tag)))
+ dbnew(1:n) = db
+ do i=1,size(override_tag)
+    dbnew(n+i)%tag = override_tag(i)
+    dbnew(n+i)%val = override_val(i)
+    dbnew(n+i)%retrieved = .false.
+ enddo
+ call move_alloc(dbnew,db)
+
+end subroutine add_overrides_to_db
+
+!-------------------------------------------------------------------
+!+
+!  check whether command line argument iarg is of the form
+!  --name=value (or -name=value), returning the name and value
+!+
+!-------------------------------------------------------------------
+logical function get_option_arg(iarg,name,val)
+ integer,          intent(in)  :: iarg
+ character(len=*), intent(out) :: name,val
+ character(len=240) :: arg
+
+ call get_command_argument(iarg,arg)
+ get_option_arg = parse_option_string(arg,name,val)
+
+end function get_option_arg
+
+!------------------------------------------------------------------------
+!+
+!  check whether a string is of the form --name=value (or -name=value),
+!  returning the name and value
+!+
+!------------------------------------------------------------------------
+logical function parse_option_string(arg,name,val)
+ character(len=*), intent(in)  :: arg
+ character(len=*), intent(out) :: name,val
+ integer :: ieq,istart
+
+ ieq = index(arg,'=')
+ istart = verify(arg,'-')   ! first character after the leading dashes
+ parse_option_string = (len_trim(arg) > 0 .and. istart > 1 .and. ieq > istart)
+ if (parse_option_string) parse_option_string = (arg(1:1)=='-')
+ if (parse_option_string) then
+    name = arg(istart:ieq-1)
+    val  = arg(ieq+1:)
+ else
+    name = ''
+    val  = ''
+ endif
+
+end function parse_option_string
+
+!--------------------------------------------------------------------
+!+
+!  routine to check if the input file exists
+!+
+!--------------------------------------------------------------------
+logical function infile_exists(fileprefix)
+ character(len=*), intent(in) :: fileprefix
+
+ infile_exists = .false. ! avoid compiler warning
+ inquire(file=trim(fileprefix)//'.in',exist=infile_exists)
+
+end function infile_exists
 
 end module infile_utils

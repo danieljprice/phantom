@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,13 +15,13 @@ module getneighbours
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, kdtree, kernel, linklist, part
+! :Dependencies: boundary, dim, kdtree, kernel, neighkdtree, part
 !
  implicit none
 
  public :: generate_neighbour_lists, neighbours_stats, read_neighbours, write_neighbours
- integer, public, allocatable, dimension(:)   :: neighcount
- integer, public, allocatable, dimension(:,:) :: neighb
+ integer, public, allocatable :: neighcount(:)
+ integer, public, allocatable :: neighb(:,:)
  real,    public            :: meanneigh, sdneigh, neighcrit
  logical                    :: neigh_overload
  integer,         parameter :: maxcellcache =  50000
@@ -38,40 +38,40 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_list)
- use dim,      only:maxneigh,maxp
- use kernel,   only:radkern2
- use linklist, only:ncells, ifirstincell, set_linklist, get_neighbour_list
- use part,     only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
- use kdtree,   only:inodeparts,inoderange
+ use dim,         only:maxp
+ use kernel,      only:radkern2
+ use neighkdtree, only:ncells, leaf_is_active, build_tree, get_neighbour_list
+ use part,        only:get_partinfo, igas, maxphase, iphase, iamboundary, iamtype
+ use kdtree,      only:inodeparts,inoderange,ix,iy,iz,ih1
 #ifdef PERIODIC
- use boundary, only:dxbound,dybound,dzbound
+ use boundary,    only:dxbound,dybound,dzbound
 #endif
- real,             intent(in)     :: xyzh(:,:),vxyzu(:,:)
- integer,          intent(in)     :: npart
- character(len=*), intent(in)     :: dumpfile
- logical,          intent(in)     :: write_neighbour_list
- real,allocatable, dimension(:,:) :: dumxyzh
+ real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
+ integer,          intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
+ logical,          intent(in) :: write_neighbour_list
+ real, allocatable :: dumxyzh(:,:)
 
  integer      :: i,j,k,p,ip,icell,ineigh,nneigh,dummynpart
  integer      :: ineigh_all(neighall)
  real         :: dx,dy,dz,rij2
  real         :: hi1,hj1,hi21,hj21,q2i,q2j
- integer,save :: listneigh(maxneigh)
- real,   save :: xyzcache(maxcellcache,4)
+ integer, allocatable, save :: listneigh(:)
+ real,    allocatable, save :: xyzcache(:,:)
  real         :: rneigh_all(neighall)
  !$omp threadprivate(xyzcache,listneigh)
  character(len=100) :: neighbourfile
 
  !****************************************
- ! 1. Build kdtree and linklist
+ ! 1. Build kdtree
  ! --> global (shared) neighbour lists for all particles in tree cell
  !****************************************
 
- print*, 'Building kdtree and linklist: '
+ print*, 'Building kdtree : '
  allocate(dumxyzh(4,npart))
  dumxyzh = xyzh
  dummynpart = npart
- call set_linklist(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
+ call build_tree(dummynpart,npart,dumxyzh,vxyzu(:,1:npart))
 
  print*, 'Allocating arrays for neighbour storage : '
  allocate(neighcount(npart))
@@ -89,7 +89,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  print*, 'Creating neighbour lists for particles'
 
  !$omp parallel default(none) &
- !$omp shared(ncells,ifirstincell,npart,maxphase,maxp,inodeparts,inoderange) &
+ !$omp shared(ncells,leaf_is_active,npart,maxphase,maxp,inodeparts,inoderange) &
  !$omp shared(xyzh,vxyzu,iphase,neighcount,neighb) &
 #ifdef PERIODIC
  !$omp shared(dxbound,dybound,dzbound) &
@@ -98,13 +98,17 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  !$omp private(nneigh,ineigh_all,rneigh_all) &
  !$omp private(hi1,hi21,hj1,hj21,rij2,q2i,q2j) &
  !$omp private(dx,dy,dz)
+
+ ! Allocate threadprivate arrays within parallel region
+ ! to ensure each thread gets allocated copy
+ if (.not.allocated(listneigh)) allocate(listneigh(maxp))
+ if (.not.allocated(xyzcache)) allocate(xyzcache(4,maxcellcache))
+
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
 
-    k = ifirstincell(icell)
-
     ! Skip empty/inactive cells
-    if (k <= 0) cycle over_cells
+    if (leaf_is_active(icell) <= 0) cycle over_cells
 
     ! Get neighbour list for the cell
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)
@@ -129,18 +133,25 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
           ! Skip self
           if (i==j) cycle over_neighbours
 
-          dx = xyzh(1,i) - xyzh(1,j)
-          dy = xyzh(2,i) - xyzh(2,j)
-          dz = xyzh(3,i) - xyzh(3,j)
+          if (ineigh <= maxcellcache) then
+             ! positions from cache are already mod boundary
+             dx = xyzh(1,i) - xyzcache(ix,ineigh)
+             dy = xyzh(2,i) - xyzcache(iy,ineigh)
+             dz = xyzh(3,i) - xyzcache(iz,ineigh)
+             hj1  = xyzcache(ih1,ineigh)
+          else
+             dx = xyzh(1,i) - xyzh(1,j)
+             dy = xyzh(2,i) - xyzh(2,j)
+             dz = xyzh(3,i) - xyzh(3,j)
 #ifdef PERIODIC
-          if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-          if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-          if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+             if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+             if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+             if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
+             hj1  = 1.0/xyzh(4,j)
+          endif
           rij2 = dx*dx + dy*dy + dz*dz
           q2i  = rij2*hi21
-
-          hj1  = 1.0/xyzh(4,j)
           hj21 = hj1*hj1
           q2j  = rij2*hj21
 
@@ -183,9 +194,9 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  ! 3. Output neighbour lists to file (if requested; these files can become very big)
  !**************************************
  if (write_neighbour_list) then
-    neighbourfile = 'neigh_'//TRIM(dumpfile)
+    neighbourfile = 'neigh_'//trim(dumpfile)
     call write_neighbours(neighbourfile, npart)
-    print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+    print*, 'Neighbour finding complete for file ', trim(dumpfile)
  endif
 
  deallocate(dumxyzh)
@@ -214,7 +225,7 @@ subroutine neighbours_stats(npart)
     stop
  endif
 
- meanneigh = sum(neighcount)/REAL(npart)
+ meanneigh = sum(neighcount)/real(npart)
  sdneigh   = 0.0
 
 !$omp parallel default(none) &
@@ -228,7 +239,7 @@ subroutine neighbours_stats(npart)
  !$omp enddo
  !$omp end parallel
 
- sdneigh = sqrt(sdneigh/REAL(npart))
+ sdneigh = sqrt(sdneigh/real(npart))
 
  print*, 'Mean neighbour number is ', meanneigh
  print*, 'Standard Deviation: ', sdneigh
@@ -250,8 +261,8 @@ subroutine read_neighbours(neighbourfile,npart)
  neighcount(:) = 0
  neighb(:,:)   = 0
 
- print*, 'Reading neighbour file ', TRIM(neighbourfile)
- open(2, file= neighbourfile,  form = 'UNFORMATTED')
+ print*, 'Reading neighbour file ', trim(neighbourfile)
+ open(2,file= neighbourfile,  form = 'UNFORMATTED')
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
  if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
  read(2) (neighcount(i), i=1,npart)
@@ -287,10 +298,10 @@ subroutine write_neighbours(neighbourfile,npart)
  real, parameter     :: tolerance = 2.0e0  ! A dummy parameter used to keep file format similar to other codes (Probably delete later)
 
  neigh_overload = .false.
- neighbourfile  = TRIM(neighbourfile)
+ neighbourfile  = trim(neighbourfile)
  print*, 'Writing neighbours to file ', neighbourfile
 
- open (2, file=neighbourfile, form='unformatted')
+ open(2,file=neighbourfile,form='unformatted')
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart

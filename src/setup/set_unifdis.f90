@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module unifdis
  use stretchmap, only:rho_func, mass_func
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
- public :: is_valid_lattice, is_closepacked, latticetype
+ public :: is_valid_lattice, is_closepacked, get_latticetype
 
  ! following lines of code allow an optional mask= argument
  ! to setup only certain subsets of the particle domain (used for MPI)
@@ -29,10 +29,21 @@ module unifdis
   end function mask_prototype
  end interface
 
+ ! integer codes for the various lattices
  integer, parameter, public :: i_cubic       = 1, &
                                i_closepacked = 2, &
                                i_hexagonal   = 3, &
-                               i_random      = 4
+                               i_random      = 4, &
+                               i_hcp         = 5
+
+ ! human-readable labels for these
+ integer, parameter, public  :: ilattice_max = 5
+ character(len=*), parameter, public :: latticetype(ilattice_max) = (/ &
+      'cubic      ', &
+      'closepacked', &
+      'hexagonal  ', &
+      'random     ', &
+      'hcp        '/)
 
  public :: mask_prototype, mask_true, rho_func
 
@@ -56,7 +67,6 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        nptot,npy,npz,npnew_in,rhofunc,massfunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
- !use mpidomain,  only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np
@@ -64,16 +74,16 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  real,             intent(out)   :: xyzh(:,:)
  logical,          intent(in)    :: periodic ! true or false
 
- real,             intent(in),    optional :: rmin,rmax
- real,             intent(in),    optional :: rcylmin,rcylmax
- real,             intent(in),    optional :: rellipsoid(3)
- integer(kind=8),  intent(inout), optional :: nptot
- integer,          intent(in),    optional :: npy,npz,npnew_in,dir,geom
+ real,            intent(in),    optional :: rmin,rmax
+ real,            intent(in),    optional :: rcylmin,rcylmax
+ real,            intent(in),    optional :: rellipsoid(3)
+ integer(kind=8), intent(inout), optional :: nptot
+ integer,         intent(in),    optional :: npy,npz,npnew_in,dir,geom
  procedure(rho_func), pointer,    optional :: rhofunc
  procedure(mass_func), pointer,   optional :: massfunc
- integer,          intent(in),    optional :: inputiseed
- logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
- integer,          intent(out),   optional :: err
+ integer, intent(in),  optional :: inputiseed
+ logical, intent(in),  optional :: verbose,centre,in_ellipsoid
+ integer, intent(out), optional :: err
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: i_belong
 
@@ -297,9 +307,9 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           xstart = xstart + delx
        endif
 
-       xi = xstart + float(k - 1)*deltax
-       yi = ystart + float(l - 1)*deltay
-       zi = zstart + float(m - 1)*deltaz
+       xi = xstart + real(k - 1)*deltax
+       yi = ystart + real(l - 1)*deltay
+       zi = zstart + real(m - 1)*deltaz
 
        xpartmin = min(xpartmin,xi)
        ypartmin = min(ypartmin,yi)
@@ -319,7 +329,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
-             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             if (ipart > maxp) stop 'ipart > maxp: re-run with --maxp=N where N is desired number of particles'
              xyzh(1,ipart) = xi
              xyzh(2,ipart) = yi
              xyzh(3,ipart) = zi
@@ -485,7 +495,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
-             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             if (ipart > maxp) stop 'ipart > maxp: re-run with --maxp=N where N is desired number of particles'
              xyzh(1,ipart) = xi
              xyzh(2,ipart) = yi
              xyzh(3,ipart) = zi
@@ -541,7 +551,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
           iparttot = iparttot + 1
           if (i_belong(iparttot)) then
              ipart = ipart + 1
-             if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+             if (ipart > maxp) stop 'ipart > maxp: re-run with --maxp=N where N is desired number of particles'
              xyzh(1,ipart) = xi
              xyzh(2,ipart) = yi
              xyzh(3,ipart) = zi
@@ -623,7 +633,7 @@ end function mask_true
 !+
 !-------------------------------------------------------------
 pure subroutine get_ny_nz_closepacked(delta,ymin,ymax,zmin,zmax,ny,nz)
- real,     intent(in) :: delta,ymin,ymax,zmin,zmax
+ real,    intent(in)  :: delta,ymin,ymax,zmin,zmax
  integer, intent(out) :: ny,nz
  real :: deltay,deltaz
 
@@ -645,11 +655,11 @@ end subroutine get_ny_nz_closepacked
 !+
 !-------------------------------------------------------------
 pure subroutine get_xyzmin_xyzmax_exact(latticetype,xmin,xmax,ymin,ymax,zmin,zmax,ierr,delta_in,nx_in)
- real,              intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
- integer,           intent(out)   :: ierr
- real,    optional, intent(in)    :: delta_in
- integer, optional, intent(in)    :: nx_in
- character(len=*),  intent(in)    :: latticetype
+ real,             intent(inout) :: xmin,xmax,ymin,ymax,zmin,zmax
+ integer,          intent(out)   :: ierr
+ character(len=*), intent(in)    :: latticetype
+ real,             intent(in), optional :: delta_in
+ integer,          intent(in), optional :: nx_in
  integer                          :: nx,ny,nz
  real                             :: delta,deltax,deltay,deltaz,boxx,boxy,boxz,exact_width,dbounds
 
@@ -730,22 +740,18 @@ end function is_valid_lattice
 !  given integer lattice choice
 !+
 !-------------------------------------------------------------
-function latticetype(ilattice)
+function get_latticetype(ilattice) result(latticetype_out)
  integer, intent(in) :: ilattice
- character(len=11) :: latticetype
+ character(len=11) :: latticetype_out
 
  select case(ilattice)
- case(i_random)
-    latticetype = 'random'
- case(i_hexagonal)
-    latticetype = 'hexagonal'
- case(i_closepacked)
-    latticetype = 'closepacked'
+ case(1:ilattice_max)
+    latticetype_out = latticetype(ilattice)
  case default
-    latticetype = 'cubic'
+    latticetype_out = latticetype(i_closepacked)
  end select
 
-end function latticetype
+end function get_latticetype
 
 !---------------------------------------------------------------
 !+

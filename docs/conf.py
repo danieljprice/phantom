@@ -20,13 +20,13 @@ import sys
 # -- Project information -----------------------------------------------------
 
 project = 'Phantom'
-copyright = '2024 The Authors'
+copyright = '2026 The Authors'
 author = 'Daniel Price'
 
 # The short X.Y version
-version = '2024.0'
+version = '2026.0.1'
 # The full version, including alpha/beta/rc tags
-release = '2024.0.0'
+release = '2026.0.1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -62,7 +62,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -226,7 +226,7 @@ fortran_src = [
  '../src/tests/test_indtstep.f90',
  '../src/tests/test_kdtree.f90',
  '../src/tests/test_kernel.f90',
- '../src/tests/test_link.f90',
+ '../src/tests/test_neigh.f90',
  '../src/tests/test_luminosity.f90',
  '../src/tests/test_nonidealmhd.f90',
  '../src/tests/test_ptmass.f90',

@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Analysis routine calculating to determine the radial profile of a sphere
+! Analysis routine for single or binary polytrope simulations
 !
 ! :References: None
 !
@@ -25,9 +25,8 @@ module analysis
  logical, private :: binary    = .false. ! The model is of a binary star
  real,    private :: rthresh   = 0.5     ! Radius within which the L1 error will be calculated
  integer, private :: frequency = 10      ! Will determine the density profile every frequency-th dump;
- ! keep this since, if binary, then the CoM will be required
- ! more frequently
- !--stored values to track orbital period of binary
+ ! keep this since, if binary, then the CoM will be required more frequently
+ ! stored values to track orbital period of binary
  integer          :: iperiod(4)
  real             :: period(8,32)
  logical          :: nextP  (4)
@@ -37,12 +36,12 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use centreofmass,   only: get_centreofmass,reset_centreofmass
- use rho_profile,    only: rho_polytrope
- use physcon,        only: pi
- use part,           only: rhoh
- use eos,            only: gamma,polyk
- use infile_utils,   only: open_db_from_file,inopts,close_db,read_inopt
+ use centreofmass,   only:get_centreofmass,reset_centreofmass
+ use rho_profile,    only:rho_polytrope
+ use physcon,        only:pi
+ use part,           only:rho
+ use eos,            only:gamma,polyk
+ use infile_utils,   only:open_db_from_file,inopts,close_db,read_inopt
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) !due to reset center of mass
@@ -61,7 +60,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=200)              :: fileout
  !
  !--from .setup, determine if binary or not
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.setup'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'.setup'
  inquire(file=fileout,exist=iexist)
  if ( iexist ) then
     write(*,'(2a)') "reading setup file: ",trim(fileout)
@@ -78,7 +77,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if ( binary ) then
     !
     !--Open file (appendif exists)
-    fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_centres.dat'
+    fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_centres.dat'
     inquire(file=fileout,exist=iexist)
     if ( .not.iexist .or. firstcall ) then
        open(iunit,file=fileout,status='replace')
@@ -139,7 +138,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           zi = xyzh(3,i) - xposA(3)
        endif
        rad        = sqrt( xi*xi + yi*yi + zi*zi )
-       rho_actual = rhoh(xyzh(4,i),particlemass)
+       rho_actual = rho(i)
        j = 2
        do while(j < npts .and. rad > r(j))
           j = j + 1
@@ -186,7 +185,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !
     profileH = 0.0
     j        = 0
-    deltar   = 1.0/float(bins)*nstar
+    deltar   = 1.0/real(bins)*nstar
     idr1     = npart
     do k = 1,nstar
        aver   = 0.0
@@ -214,7 +213,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              j = j + 1
              calc_average    = .false.
              profileH(  1,j) = 0.5*(rmax+rmin)
-             if (icount > 0)    profileH(2:3,j) = aver(2:3)/float(icount)
+             if (icount > 0)    profileH(2:3,j) = aver(2:3)/real(icount)
              if (aver(3) > 0.0) profileH(  4,j) = abs(aver(2)-aver(3))/aver(3)*100.0
              ! rest values with new properties
              fill_next = .true.
@@ -250,9 +249,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
     close(iunit)
     !
-    !--print period tracking to file (overwriting anything in existance)
+    !--print binary orbital period to file (overwriting anything in existence)
+    !
     if ( binary ) then
-       fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_period.dat'
+       fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_period.dat'
        fileout=trim(fileout)
        open(iunit,file=fileout)
        write(iunit,"('#',4(1x,'[',i2.2,1x,a11,']',2x))") &
@@ -265,20 +265,25 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        enddo
        close(iunit)
     endif
-    L1error = L1error/float(nL1)
+    L1error = L1error/real(nL1)
     write(*,*) "npart,N(Rthresh), L_1 error = ",npart,nL1,L1error
  endif
  !
  if (firstcall) firstcall = .false. ! performed here since multiple commands require this knowledge
  !
 end subroutine do_analysis
-!
+
+!-----------------------------------------------------------------------
+!+
+!  track the period of the binary
+!+
+!-----------------------------------------------------------------------
 subroutine track_period(time,pos,ival)
  implicit none
  real,         intent(in) :: time
  real(kind=8), intent(in) :: pos
  integer,      intent(in) :: ival
- !
+
  if (pos < period(ival,iperiod(ival))) then
     period(ival  ,iperiod(ival)) = pos
     period(ival+4,iperiod(ival)) = time
@@ -287,8 +292,7 @@ subroutine track_period(time,pos,ival)
     iperiod(ival) = iperiod(ival) + 1
     nextP  (ival) = .false.
  endif
- !
+
 end subroutine track_period
-!-----------------------------------------------------------------------
-!
+
 end module analysis

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -38,7 +38,7 @@ subroutine split_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < npart*nchild) then
-    call error('split_all_particles','not enough memory, increase MAXP and recompile')
+    call error('split_all_particles','not enough memory, rerun with --maxp=N where N is desired number of particles')
     ierr = 1
     return
  endif
@@ -81,8 +81,8 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
  integer, intent(in)    :: nchild
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- logical, optional, intent(in) :: fancy_merging
- integer, optional, intent(in) :: nactive_here
+ logical, intent(in), optional :: fancy_merging
+ integer, intent(in), optional :: nactive_here
  integer :: ierr,nparent,remainder, i,k
  integer :: on_list(npart), children_list(nchild)
  integer :: neighbours(neighmax),neigh_count
@@ -123,7 +123,7 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
 
  !--check there is enough memory
  if (size(xyzh(1,:)) < nparent + npart) then
-    call error('merge_particles','not enough memory, increase MAXP and recompile')
+    call error('merge_particles','not enough memory, rerun with --maxp=N where N is desired number of particles')
     ierr = 1
     return
  endif
@@ -212,7 +212,6 @@ subroutine merge_all_particles(npart,npartoftype,massoftype,xyzh,vxyzu, &
           children_list(ichild) = child_found
           on_list(child_found)  = child_found
        enddo finding_children
-
 
        ! send in children, parent returns
        ! parents temporarily stored after all the children

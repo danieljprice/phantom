@@ -1,18 +1,19 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module rho_profile
 !
 ! This computes several radial density profiles useful for stars
-! and gravitational collapse calculations, including
-!               1) uniform
-!               2) polytrope
-!               3) piecewise polytrope
-!               4) Evrard
-!               5) Bonnor-Ebert sphere
+! and gravitational collapse calculations, including:
+!
+!  1. uniform
+!  2. polytrope
+!  3. piecewise polytrope
+!  4. Evrard
+!  5. Bonnor-Ebert sphere
 !
 ! :References: Evrard (1988), MNRAS 235, 911-934
 !
@@ -65,18 +66,18 @@ end subroutine rho_uniform
 !+
 !-----------------------------------------------------------------------
 subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,Rstar)
- integer, intent(out)             :: npts
- real,    intent(in)              :: gamma
- real,    intent(in)              :: Mstar
- real,    intent(inout)           :: rtab(:),polyk
- real,    intent(out)             :: rhotab(size(rtab))
+ integer, intent(out)   :: npts
+ real,    intent(in)    :: gamma
+ real,    intent(in)    :: Mstar
+ real,    intent(inout) :: rtab(:),polyk
+ real,    intent(out)   :: rhotab(size(rtab))
  real,    intent(inout), optional :: Rstar
  real,    intent(out),   optional :: rhocentre
  logical, intent(in),    optional :: set_polyk
  integer                          :: i,j
  real                             :: r(size(rtab)),v(size(rtab)),den(size(rtab))
  real                             :: dr,an,rhs,Mstar_f,rhocentre0
- real                             :: fac,rfac
+ real                             :: fac,rfac,rfac_target
 
  dr   = 0.001
  an   = 1./(gamma-1.)
@@ -118,9 +119,10 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
 
  if (present(set_polyk) .and. present(Rstar) ) then
     if ( set_polyk ) then
-       !--Rescale radius to get polyk
-       rfac      = Rstar/(r(npts)*rfac)
-       polyk     = polyk*rfac
+       !--Rescale K so radius matches target Rstar.
+       !  With fixed mass, radius scales as R ~ K^(1/(3*gamma-4)).
+       rfac_target = Rstar/(r(npts)*rfac)
+       polyk       = polyk*rfac_target**(3.*gamma - 4.)
        !
        !--Re-rescale central density to give desired mass (using the correct polyk)
        fac        = (gamma*polyk)/(fourpi*(gamma - 1.))
@@ -129,8 +131,11 @@ subroutine rho_polytrope(gamma,polyk,Mstar,rtab,rhotab,npts,rhocentre,set_polyk,
     endif
  endif
 
- rtab   = r * rfac
- rhotab = rhocentre0 * den
+ ! only 1:npts is physical; zero the rest so callers can safely use whole arrays
+ rtab = 0.
+ rhotab = 0.
+ rtab(1:npts)   = r(1:npts) * rfac
+ rhotab(1:npts) = rhocentre0 * den(1:npts)
  if (present(Rstar))     Rstar     = r(npts)*rfac
  if (present(rhocentre)) rhocentre = rhocentre0
 
@@ -144,9 +149,9 @@ end subroutine rho_polytrope
 !+
 !-----------------------------------------------------------------------
 subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,get_dPdrho,npts,ierr)
- integer, intent(out)   :: npts,ierr
- real,    intent(in)    :: mstar_in
- real,    intent(out)   :: rhocentre,rtab(:),rhotab(:)
+ integer, intent(out) :: npts,ierr
+ real,    intent(in)  :: mstar_in
+ real,    intent(out) :: rhocentre,rtab(:),rhotab(:)
  integer, parameter     :: itermax = 1000
  integer                :: iter,lastsign
  real                   :: dr,drho,mstar
@@ -162,6 +167,7 @@ subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,get_dPdrho,npt
  lastsign  = 1
  iterate   = .true.
  bisect    = .false.
+ rtab      = 0.
  !
  !--Iterate to get the correct density profile
  do while ( iterate )
@@ -169,6 +175,10 @@ subroutine rho_piecewise_polytrope(rtab,rhotab,rhocentre,mstar_in,get_dPdrho,npt
     if (ierr > 0) then
        !--did not complete the profile; reset dr
        dr   = 2.0*dr
+       ierr = 0
+    elseif (npts < size(rtab)/4) then
+       !--profile is unresolved by radial grid, take smaller dr
+       dr = 0.5*dr
        ierr = 0
     else
        call calc_mass_enc(npts,rtab,rhotab,mstar=mstar)
@@ -233,6 +243,8 @@ subroutine integrate_rho_profile(rtab,rhotab,rhocentre,get_dPdrho,dr,npts,ierr)
     i = i + 1
     rhotab(i) = rhotab(i-1) + dr*drhodr
     rtab(i)   = rtab(i-1)   + dr
+    if (rhotab(i) < 0.0) exit
+
     dPdrho    = get_dPdrho(rhotab(i))
     if (i==2) then
        drhodr = drhodr - fourpi*rhotab(i-1)**2*dr/dPdrho
@@ -242,7 +254,6 @@ subroutine integrate_rho_profile(rtab,rhotab,rhocentre,get_dPdrho,dr,npts,ierr)
               - (dPdrho-dPdrho_prev)/(dr*dPdrho)*drhodr - 2.0*drhodr/rtab(i) )
     endif
     dPdrho_prev = dPdrho
-    if (rhotab(i) < 0.0) iterate = .false.
     if (i >=size(rtab)) then
        ierr    = 1
        iterate = .false.
@@ -258,8 +269,8 @@ end subroutine integrate_rho_profile
 !  Calculate the enclosed mass of a star
 !-----------------------------------------------------------------------
 subroutine calc_mass_enc(npts,rtab,rhotab,mtab,mstar)
- integer, intent(in)            :: npts
- real,    intent(in)            :: rtab(:),rhotab(:)
+ integer, intent(in) :: npts
+ real,    intent(in) :: rtab(:),rhotab(:)
  real,    intent(out), optional :: mtab(:),mstar
  integer                        :: i
  real                           :: ri,ro,menc(npts)
@@ -334,7 +345,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  phi            = 0.0
  func           = 0.0
  containedmass  = 0.0
- dxi            = 5.01*6.45/float(npts)
+ dxi            = 5.01*6.45/real(npts)
  dfunc          = (-exp(phi))*dxi
  rtab           = 0.  ! array of radii
  mtab           = 0.  ! array of enclosed masses

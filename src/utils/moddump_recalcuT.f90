@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,6 +18,7 @@ module moddump
 ! :Dependencies: eos, eos_gasradrec, io, part, units
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -26,7 +27,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                          gmw,X_in,Z_in,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
- use part,          only:rhoh,eos_vars,itemp,igasP,igas
+ use part,          only:rho,eos_vars,itemp,igasP
  use units,         only:unit_density,unit_pressure,unit_ergg
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -51,7 +52,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  read*
 
  do i = 1,npart
-    densi = rhoh(xyzh(4,i),massoftype(igas))
+    densi = rho(i)
     eos_vars(igasP,i) = get_pressure(ieos,xyzh(:,i),densi,vxyzu(:,i))
  enddo
 
@@ -75,7 +76,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  tempi = 0.
  do i = 1,npart
-    densi = rhoh(xyzh(4,i),massoftype(igas))
+    densi = rho(i)
     call calc_temp_and_ene(ieos,densi*unit_density,eos_vars(igasP,i)*unit_pressure,eni,tempi,ierr)
     vxyzu(4,i) = eni / unit_ergg
     eos_vars(itemp,i) = tempi

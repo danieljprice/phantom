@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,14 +20,14 @@ module analysis
 ! :Dependencies: centreofmass, dim, eos, infile_utils, io, kernel, nicil,
 !   options, part, physcon, sortutils, units
 !
- use dim,         only: maxp,maxvxyzu,mhd_nonideal
- use options,     only: alphaB
- use part,        only: maxptmass,nden_nimhd
- use part,        only: eos_vars,ics,itemp
- use part,        only: isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rhoh
- use eos,         only: ieos,init_eos,get_TempPresCs
- use nicil,       only: nicil_initialise,nicil_update_nimhd,unit_eta,n_data_out,n_warn
- use physcon,     only: pi
+ use dim,         only:maxp,maxvxyzu,mhd_nonideal
+ use options,     only:alphaB
+ use part,        only:maxptmass,nden_nimhd
+ use part,        only:eos_vars,ics,itemp
+ use part,        only:isdead_or_accreted,iamtype,iphase,igas,massoftype,maxphase,rho
+ use eos,         only:ieos,init_eos,get_TempPresCs
+ use nicil,       only:nicil_initialise,nicil_update_nimhd,unit_eta,n_data_out,n_warn
+ use physcon,     only:pi
  implicit none
  character(len=20), parameter, public :: analysistype = 'discRM'
  public :: do_analysis
@@ -83,23 +83,23 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: mhd
- use sortutils,    only: indexx
- use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
- use centreofmass, only: reset_centreofmass
- use part,         only: igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
- use units,        only: udist,umass,unit_density,unit_velocity,unit_Bfield
- use physcon,      only: au,solarm
+ use dim,          only:mhd
+ use sortutils,    only:indexx
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use centreofmass, only:reset_centreofmass
+ use part,         only:igas,idust,istar,xyzmh_ptmass,vxyz_ptmass,nptmass,Bxyz
+ use units,        only:udist,umass,unit_density,unit_velocity,unit_Bfield
+ use physcon,      only:au,solarm
 #ifdef NONIDEALMHD
- use io,           only: fatal
- use units,        only: utime
- use nicil,        only: use_ohm,use_hall,use_ambi,fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs
+ use io,           only:fatal
+ use units,        only:utime
+ use nicil,        only:use_ohm,use_hall,use_ambi,fdg,rho_bulk,a0_grain,an_grain,ax_grain,zeta_cgs
 #endif
- character(len=*), intent(in) :: dumpfile
- integer,          intent(in) :: num,iunit
+ character(len=*), intent(in)    :: dumpfile
+ integer,          intent(in)    :: num,iunit
  integer,          intent(inout) :: npart
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) !due to reset center of mass
- real,             intent(in) :: particlemass,time
+ real,             intent(in)    :: particlemass,time
  integer                      :: i,j,isink,isink0,isinkN,itype,ibin,ierr,ndens
  real                         :: dthresh,mdisc,rdisc,msink, &
                                  xi,yi,hi,rhoi,rmax,rmin,rtmp2,m_low_dens,logr_min,dlogr
@@ -115,7 +115,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 #ifdef NONIDEALMHD
  integer                                 :: iloc
  character(len=200)                      :: infile,fileprefix
- type(inopts), dimension(:), allocatable :: db
+ type(inopts), allocatable :: db(:)
 #endif
 
  ! Yell if contradictory commands
@@ -182,9 +182,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           rbins2(i) = (10**(logr_min +(i-1)*dlogr ))**2
        enddo
     else
-       dr   = rmax/float(nbins)
+       dr   = rmax/real(nbins)
        do i = 1,nbins
-          rbins2(i) = (float(i)*dr)**2
+          rbins2(i) = (real(i)*dr)**2
        enddo
     endif
     print*, rbins2
@@ -230,7 +230,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "THIS IS NOT A TRUE REPRESENTATION OF ETA_art since it uses a different vsig!"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,eos_vars,alphaB,iphase,massoftype,etaart,Bxyz,dthresh,rho) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -238,7 +238,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        hi = xyzh(4,i)
        if (.not.isdead_or_accreted(hi)) then
           if (maxphase==maxp) itype = iamtype(iphase(i))
-          rhoi = rhoh(hi,massoftype(itype))
+          rhoi = rho(i)
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
              etaart(i) = etaart_old(hi,rhoi,alphaB,Bxyz(1:3,i),eos_vars(ics,i))
           endif
@@ -251,7 +251,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     print*, "starting to calculate etaart"
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh) &
+!$omp shared(npart,xyzh,vxyzu,iphase,massoftype,etaart,Bxyz,dthresh,rho) &
 !$omp private(i,hi,rhoi) &
 !$omp firstprivate(itype)
 !$omp do
@@ -259,7 +259,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        hi = xyzh(4,i)
        if (.not.isdead_or_accreted(hi)) then
           if (maxphase==maxp) itype = iamtype(iphase(i))
-          rhoi = rhoh(hi,massoftype(itype))
+          rhoi = rho(i)
           if (rhoi > dthresh .and. itype==igas) then ! to save time since we never care about low density material
              etaart(i) = etaart_new(i,npart,massoftype(itype),xyzh,vxyzu)
           endif
@@ -294,7 +294,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 + (xyzmh_ptmass(2,isink)-xyzmh_ptmass(2,j))**2 &
                 + (xyzmh_ptmass(3,isink)-xyzmh_ptmass(3,j))**2
           if (rtmp2 < rmerge2) then
-             write(filelog,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'.log'
+             write(filelog,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'.log'
              inquire(file=filelog,exist=iexist)
              if ( firstlog .or. .not.iexist ) then
                 firstlog = .false.
@@ -315,13 +315,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     write(rval, '(I3.3)') rthreshAU
     write(csink,'(I3.3)') isink
     if (isink==0) then
-       write(fileout1,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_discRM.dat'
-       write(fileout2,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_discRMnx.dat'
-       write(fileout3,'(5a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_vol',rval,'RM.dat'
+       write(fileout1,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_discRM.dat'
+       write(fileout2,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_discRMnx.dat'
+       write(fileout3,'(5a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_vol',rval,'RM.dat'
     else
-       write(fileout1,'(5a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_S',csink,'discRM.dat'
-       write(fileout2,'(5a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_S',csink,'discRMnx.dat'
-       write(fileout3,'(7a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_S',csink,'vol',rval,'RM.dat'
+       write(fileout1,'(5a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_S',csink,'discRM.dat'
+       write(fileout2,'(5a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_S',csink,'discRMnx.dat'
+       write(fileout3,'(7a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_S',csink,'vol',rval,'RM.dat'
     endif
     if ( no_file(isink) ) then
        open(iunit,file=fileout1,status='replace')
@@ -377,7 +377,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! Determines disc mass and properties
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars) &
+!$omp shared(npart,isink,isink0,isinkN,xyzh,Bxyz,nden_nimhd,etaart,iphase,eos_vars,rho) &
 !$omp shared(calc_eta,particlemass,dthresh,rsepmin2,rad2,dr,calc_rad_prof,rbins2,log_rbin) &
 !$omp private(i,xi,yi,hi,rhoi,rtmp2,ibin,etaohm,etahall,etaambi) &
 !$omp firstprivate(itype) &
@@ -390,7 +390,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        if (.not.isdead_or_accreted(hi)) then
           if (maxphase==maxp) itype = iamtype(iphase(i))
           if (itype==igas) then
-             rhoi = rhoh(hi,particlemass)
+             rhoi = rho(i)
              if (rhoi > dthresh) then
                 calc_rad_prof = .true.
                 rtmp2  = xi*xi + yi*yi
@@ -473,7 +473,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Print the globally averaged eta-values, for particles with rho > rho_crit
  if (calc_eta) then
-    write(fileout6,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_eta.dat'
+    write(fileout6,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_eta.dat'
     if ( no_file(maxptmass+1) ) then
        open(eunit,file=fileout6,status='replace')
        call write_header_file6(eunit)
@@ -504,9 +504,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call get_mu(npart,nptmass,nmu_global,rmu_global,mu_global,mass_mu_global,B_mu_global, &
                 xyzh,xyzmh_ptmass,Bxyz,particlemass)
 
-    write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu.dat'
-    write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_mass.dat'
-    write(fileout9,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_B.dat'
+    write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_mu.dat'
+    write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_mu_mass.dat'
+    write(fileout9,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_mu_B.dat'
     if ( no_file(maxptmass+1) ) then
        open(eunit,file=fileout7,status='replace')
        call write_header_file7(eunit)
@@ -539,6 +539,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     no_file(isink) = .false.
  enddo
  no_file(maxptmass+1) = .false.
+ deallocate(etaart)
 
 end subroutine do_analysis
 !
@@ -586,9 +587,9 @@ end subroutine get_radius
 !+
 !----------------------------------------------------------------
 subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc)
- real,    intent(in)    :: rad2(:),zdir(:),hdir(:),pmass
- integer, intent(in)    :: npart,ndens,indx(:)
- real,    intent(out)   :: rdisc,mdisc
+ real,    intent(in)  :: rad2(:),zdir(:),hdir(:),pmass
+ integer, intent(in)  :: npart,ndens,indx(:)
+ real,    intent(out) :: rdisc,mdisc
  integer                :: i,j,k,ninring_loc
  real                   :: zmin,zmax,totmass,notdisc,dring,rmin2,rmax2,dmax,dr0,rad2old,rad2now,rad2next
  logical                :: indisc
@@ -677,10 +678,10 @@ end subroutine get_mass_and_radius
 !+
 !----------------------------------------------------------------
 subroutine get_eta_global(etaohm,etahall,etaambi,rhoi,nden_nimhd0,B,temperature)
- real,   intent(inout) :: nden_nimhd0(:)
- real,   intent(in)    :: rhoi,temperature
- real,   intent(in)    :: B(3)
- real,   intent(out)   :: etaohm,etahall,etaambi
+ real, intent(inout) :: nden_nimhd0(:)
+ real, intent(in)    :: rhoi,temperature
+ real, intent(in)    :: B(3)
+ real, intent(out)   :: etaohm,etahall,etaambi
  integer               :: ierrlist(n_warn)
  real                  :: B2i
 
@@ -715,7 +716,7 @@ end function etaart_old
 !+
 !----------------------------------------------------------------
 real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
- use kernel, only: get_kernel,radkern2,cnormk
+ use kernel, only:get_kernel,radkern2,cnormk
  integer, intent(in) :: ipart,npart
  real,    intent(in) :: pmass,xyzh(:,:),vxyzu(:,:)
  integer             :: j
@@ -749,7 +750,7 @@ real function etaart_new(ipart,npart,pmass,xyzh,vxyzu)
              if (dz2 < radkern2i) then
                 rad2 = dx2 + dy2 + dz2
                 if (rad2 < radkern2i) then
-                   rhoj       = rhoh(hj,pmass)
+                   rhoj       = rho(j)
                    runix      = (xi-xj)/sqrt(rad2)
                    runiy      = (yi-yj)/sqrt(rad2)
                    runiz      = (zi-zj)/sqrt(rad2)
@@ -821,13 +822,13 @@ subroutine get_mu(npart,nptmass,nrad,rad_mu,mu,mass,B,xyzh,xyzmh_ptmass,Bxyz,pma
     endif
  enddo
 !$omp enddo
-!$omp critical(collatedata)
+!$omp critical(collate_environ)
  do j = 1,nrad
     mass(j) = mass(j) + mass_thread(j)
     vol(j)  = vol(j)  + vol_thread(j)
     B(j)    = B(j)    + B_thread(j)
  enddo
-!$omp end critical(collatedata)
+!$omp end critical(collate_environ)
 !$omp end parallel
 
  ! Add mass contribution of point masses
@@ -1033,7 +1034,7 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        angx =   yi*vzi - zi*vyi
        angy =   zi*vxi - xi*vzi
        angz =   xi*vyi - yi*vxi
-       rhoi = rhoh(hi,particlemass)
+       rhoi = rho(i)
        call get_TempPresCs(ieos,xyzh(:,i),vxyzu(:,i),rhoi,tempi=temperature,presi=pressure,spsoundi=eos_vars(ics,i))
        eos_vars(itemp,i) = temperature
        if (B2i > 0.0) then
@@ -1194,32 +1195,31 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
        endif
     endif
  enddo parts
- deallocate(etaart)
 
  angx = 0.0
  angy = 0.0
  angz = 0.0
  do i = 1,nbins-1
     if (ibins(1,i) > 0) then
-       Dbins(iDvr:  iDvz,  i) = Dbins(iDvr:  iDvz,  i)/float(ibins(1,i))
-       Dbins(iDbr:  iDb,   i) = Dbins(iDbr:  iDb,   i)/float(ibins(1,i))
-       Dbins(iDbrat:iDbeta,i) = Dbins(iDbrat:iDbeta,i)/float(ibins(1,i))
-       Dbins(iDetaF:iDtemA,i) = Dbins(iDetaF:iDtemA,i)/float(ibins(1,i))
-       Dbins(iDnn  :iD,    i) = Dbins(iDnn  :iD,    i)/float(ibins(1,i))
-       if (ibins(3,i) > 0)      Dbins(iDetaHp,i) = Dbins(iDetaHp,i)/float(ibins(3,i))
-       if (ibins(4,i) > 0)      Dbins(iDetaHn,i) = Dbins(iDetaHn,i)/float(ibins(4,i))
+       Dbins(iDvr:  iDvz,  i) = Dbins(iDvr:  iDvz,  i)/real(ibins(1,i))
+       Dbins(iDbr:  iDb,   i) = Dbins(iDbr:  iDb,   i)/real(ibins(1,i))
+       Dbins(iDbrat:iDbeta,i) = Dbins(iDbrat:iDbeta,i)/real(ibins(1,i))
+       Dbins(iDetaF:iDtemA,i) = Dbins(iDetaF:iDtemA,i)/real(ibins(1,i))
+       Dbins(iDnn  :iD,    i) = Dbins(iDnn  :iD,    i)/real(ibins(1,i))
+       if (ibins(3,i) > 0)      Dbins(iDetaHp,i) = Dbins(iDetaHp,i)/real(ibins(3,i))
+       if (ibins(4,i) > 0)      Dbins(iDetaHn,i) = Dbins(iDetaHn,i)/real(ibins(4,i))
        if (rbins2(i) < rdisc2) then
           angx     = angx + Dbins(iDLx,i)
           angy     = angy + Dbins(iDLy,i)
           angz     = angz + Dbins(iDLz,i)
        endif
-       Dbins(iDLx:iDLz,i) = Dbins(iDLx:iDLz,i)/float(ibins(1,i))
+       Dbins(iDLx:iDLz,i) = Dbins(iDLx:iDLz,i)/real(ibins(1,i))
     endif
     if (ibins(2,i) > 0) then
-       Cbins(2,i) = Cbins(2,i)/float(ibins(2,i))
-       Cbins(3,i) = Cbins(3,i)/float(ibins(2,i))
+       Cbins(2,i) = Cbins(2,i)/real(ibins(2,i))
+       Cbins(3,i) = Cbins(3,i)/real(ibins(2,i))
        Cbins(7,i) = sqrt( Cbins(4,i)*Cbins(4,i) + Cbins(5,i)*Cbins(5,i) + Cbins(6,i)*Cbins(6,i))
-       Cbins(7,i) = Cbins(7,i)/float(ibins(2,i))
+       Cbins(7,i) = Cbins(7,i)/real(ibins(2,i))
     endif
     if (fracrotDisc(1,i) > 0) then
        fracrotDisc(4,i) = fracrotDisc(4,i)/fracrotDisc(1,i)
@@ -1311,11 +1311,11 @@ subroutine doanalysisRPZ(csink,dumpfile,num,npart,xyzh,vxyzu,Bxyz,particlemass,d
                                      Hbins(1,iHeart:iHeambi)*unit_eta
  if ( printvol ) then
     ! Write time averaged quantities: volume properties
-    write(kunit,'(I18,1x,16(1pe18.10,1x))') num, time, float(volN(iVN))*particlemass*umass/solarm, &
+    write(kunit,'(I18,1x,16(1pe18.10,1x))') num, time, real(volN(iVN))*particlemass*umass/solarm, &
                                      dmassp*umass/solarm,volP(iVb)*unit_Bfield, &
                                      volP(iVvphi)*unit_velocity,volP(iVvphip)*unit_velocity,&
                                      volP(iVvphin)*unit_velocity,volL*udist*unit_velocity,volP(iVbeta),&
-                                     fracrotVol,float(volN(iVNrhoh))/float(volN(iVN))
+                                     fracrotVol,real(volN(iVNrhoh))/real(volN(iVN))
  endif
 
 end subroutine doanalysisRPZ
@@ -1370,7 +1370,7 @@ subroutine adjust_origin(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,xyz0,
  do i = 1,npart
     hi = xyzh(4,i)
     if (hi > 0.0) then
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
        if (rhoi > 10.*dthresh) then
           rtmp2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
           if (rtmp2 < rcom2) then
@@ -1395,7 +1395,7 @@ end subroutine adjust_origin
 !----------------------------------------------------------------
 ! Write header for fileout1 = analysisout_*_discRM.dat
 subroutine write_header_file1(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',      &
         2,'time',     &
@@ -1408,7 +1408,7 @@ end subroutine write_header_file1
 
 ! Write header for fileout2 = analysisout_*_discRMnx.dat
 subroutine write_header_file2(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',45(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',       &
         2,'time',      &
@@ -1459,7 +1459,7 @@ end subroutine write_header_file2
 
 ! Write header for fileout3 = analysisout_*_vol*RM.dat
 subroutine write_header_file3(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',      &
         2,'time',     &
@@ -1477,7 +1477,7 @@ end subroutine write_header_file3
 
 ! Write header for fileout4 = rhosurf_*.dat
 subroutine write_header_file4(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',47(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'r',          &
         2,'v_r',        &
@@ -1530,7 +1530,7 @@ end subroutine write_header_file4
 
 ! Write header for fileout5 = rhosurfM_*.dat
 subroutine write_header_file5(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'r',    &
         2,'B_r',  &
@@ -1545,7 +1545,7 @@ end subroutine write_header_file5
 
 ! Write header for fileout6 = analysisout_*_eta.dat
 subroutine write_header_file6(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',        &
         2,'time',       &
@@ -1560,7 +1560,7 @@ end subroutine write_header_file6
 
 ! Write header for fileout7 = analysisout_*_mu.dat
 subroutine write_header_file7(inunit)
- integer, intent(in)  :: inunit
+ integer, intent(in) :: inunit
  write(inunit,"('#',22(1x,'[',i2.2,1x,a11,']',2x))") &
         1,'num',        &
         2,'time',       &

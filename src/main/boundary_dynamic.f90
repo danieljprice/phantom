@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -30,9 +30,10 @@ module boundary_dyn
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain, part
 !
 
- use dim, only: maxvxyzu
+ use dim, only:maxvxyzu
  use io,  only: fatal
- use boundary, only: xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,totvol,cross_boundary
+ use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,&
+                     hdlx,hdly,hdlz,totvol,cross_boundary
  implicit none
 
  logical, public :: dynamic_bdy    = .false.
@@ -75,11 +76,11 @@ contains
 !  the paramters are correct.
 !+
 !---------------------------------------------------------------
-subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax)
- use part, only: xyzh,rhoh,iorig,massoftype,igas
+subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax,rho)
+ use part, only:iorig
  integer, intent(in)    :: icall,nptmass
  integer, intent(inout) :: npart
- real,    intent(in)    :: dtmax
+ real,    intent(in)    :: dtmax,rho(:)
  real    :: xyz_n_all(3),xyz_x_all(3)
  integer :: ndummy1,ndummy2,ierr
  logical :: abortrun
@@ -88,14 +89,14 @@ subroutine init_dynamic_bdy(icall,npart,nptmass,dtmax)
     ! Update the background medium, if required.  Do this prior
     ! to calling derivs so the new particles are properly initialised
     call set_dynamic_bdy_width()
-    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
+    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr,rho)
     call update_boundaries(ndummy1,ndummy2,npart,abortrun)
  elseif (icall==2) then
     ! Reset the background density for dynamic boundaries, if necessary;
     ! this is to ensure a consistent density
     if (irho_bkg_ini > 0.) then
        print*, 'original rho_bkg_ini = ',rho_bkg_ini
-       rho_bkg_ini  = rhoh(xyzh(4,iorig(irho_bkg_ini)),massoftype(igas))
+       rho_bkg_ini  = rho(iorig(irho_bkg_ini))
        rho_bkg_ini1 = 1.0/rho_bkg_ini
        print*, 'revised rho_bkg_ini = ',rho_bkg_ini
        irho_bkg_ini = 0
@@ -112,7 +113,7 @@ end subroutine init_dynamic_bdy
 !---------------------------------------------------------------
 subroutine set_dynamic_bdy_width()
  use part,   only: massoftype,igas,hfact
- use kernel, only: radkern
+ use kernel, only:radkern
  integer :: i,j
  real    :: minborder
 
@@ -192,14 +193,14 @@ end function in_domain
 !  This will calculate the location of the dynamic boundaries
 !+
 !---------------------------------------------------------------
-subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
+subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr,rho)
  use io,     only:id,master
- use part,   only: maxp,maxphase,mhd,massoftype,igas,ics,isdead_or_accreted,rhoh,iamtype
+ use part,   only: maxp,maxphase,mhd,massoftype,igas,ics,isdead_or_accreted,iamtype
  use part,   only: xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,Bevol,eos_vars,iphase
- use kernel, only: radkern
+ use kernel, only:radkern
  integer, intent(in)  :: npart,nptmass
  integer, intent(out) :: ierr
- real,    intent(in)  :: dtmax
+ real,    intent(in)  :: dtmax,rho(:)
  real,    intent(out) :: xyz_n_all(3),xyz_x_all(3)
  integer              :: i,itype,ibkg_thread,n_bkg
  real                 :: xi,yi,zi,hi,pmassi,rhoi,rho1i,vxi,vyi,vzi,v2i,vi1,Bxi,Byi,Bzi,B2i,valfven2i,spsoundi,spsound2i
@@ -224,7 +225,7 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(npart,xyzh,vxyzu,Bevol,eos_vars,iphase,massoftype,id) &
+!$omp shared(npart,xyzh,vxyzu,Bevol,eos_vars,iphase,massoftype,rho,id) &
 !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass) &
 !$omp shared(rho_thresh_bdy,rho_bkg,ibkg,high_density_gas,rho_bkg_ini1) &
 !$omp shared(xmin,xmax,ymin,zmin,ymax,zmax) &
@@ -250,7 +251,7 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
           if (itype <= 0) call fatal('energies','particle type <= 0')
           pmassi = massoftype(itype)
        endif
-       rhoi = rhoh(hi,pmassi)
+       rhoi = rho(i)
 
        ! determine the particle whose density is closest to the original background
        ! all new particles will initially be copied from this particle
@@ -405,12 +406,12 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
     !$omp enddo
  endif
 
-!$omp critical(collatedata)
+!$omp critical(collate_bkg)
  if (rho_bkg_thread < rho_bkg) then
     rho_bkg = rho_bkg_thread
     ibkg    = ibkg_thread
  endif
-!$omp end critical(collatedata)
+!$omp end critical(collate_bkg)
 !$omp end parallel
 
  if (n_bkg > 1) then
@@ -428,8 +429,8 @@ end subroutine find_dynamic_boundaries
 !+
 !---------------------------------------------------------------
 subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
- use dim,       only: maxp_hard,mhd
- use mpidomain, only: isperiodic
+ use dim,       only: maxp,mhd
+ use mpidomain, only:isperiodic
  use io,        only: iprint
  use part,      only: set_particle_type,copy_particle_all,shuffle_part,kill_particle,&
                       isdead_or_accreted,npartoftype,xyzh,igas,vxyzu,Bxyz
@@ -515,7 +516,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dy = ymin + 0.5*dxyz
        do while (dy < ymax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -538,7 +539,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -561,7 +562,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dy < ymax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -584,7 +585,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dy = ymin + 0.5*dxyz
        do while (dy < ymax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -607,7 +608,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dz < zmax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -630,7 +631,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
     do while (dy < ymax)
        dx = xmin + 0.5*dxyz
        do while (dx < xmax)
-          npart = min(npart + 1,maxp_hard)
+          npart = min(npart + 1,maxp)
           call copy_particle_all(ibkg,npart,.true.)
           xyzh(1,npart) = dx
           xyzh(2,npart) = dy
@@ -644,7 +645,7 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
  npartoftype(igas) = npartoftype(igas) + nadd
 
  !--Failsafe
- if (npart==maxp_hard) call fatal('update_boundary','npart >=maxp_hard.  Recompile with larger maxp and rerun')
+ if (npart==maxp) call fatal('update_boundary','npart >=maxp.  Rerun with --maxp=N where N is larger than the current value')
 
  !--Reset boundaries to remove particles
  do while (xmin + dxyz < border(1,1))
@@ -718,10 +719,17 @@ subroutine update_boundaries(nactive,nalive,npart,abortrun_bdy)
  dxbound = xmax - xmin
  dybound = ymax - ymin
  dzbound = zmax - zmin
+ hdlx    = 0.5*dxbound
+ hdly    = 0.5*dybound
+ hdlz    = 0.5*dzbound
  totvol  = dxbound*dybound*dzbound
 
- !--Cleanly end at next full dump if we predict to go over maxp_hard next time we add particles
- if (nadd+npart > maxp_hard) abortrun_bdy = .true.
+ !--Cleanly end at next full dump if we predict to go over maxp next time we add particles
+ if (nadd+npart > maxp) then
+    abortrun_bdy = .true.
+    write(iprint,"(1x,a)") 'Will likely surpass maxp next time we need to add particles.'
+    write(iprint,"(1x,a,i12)") 'Restart the code with --maxp=',2*maxp
+ endif
 
  !--Final print-statements
  if (nadd > 0 .or. ndie > 0) then
@@ -764,7 +772,7 @@ subroutine write_options_boundary(iunit)
  integer, intent(in) :: iunit
 
  if (dynamic_bdy) then
-    write(iunit,"(/,a)") '# options controlling dynamic boundaries particles [all values in code units]'
+    write(iunit,"(/,a)") '# options controlling dynamic boundary particles [all values in code units]'
     call write_inopt(dynamic_bdy,'dynamic_bdy','turn on/off dynamic boundaries',iunit)
     call write_inopt(rho_thresh_bdy,'rho_thresh_bdy','threshold density separating dense gas from background gas',iunit)
     call write_inopt(width_bkg(1,1),'width_bkg_nx','width of the boundary in the -x direction',iunit)
@@ -786,64 +794,26 @@ end subroutine write_options_boundary
 !  reads boundary options from the input file (for dynamic boundaries only)
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_boundary(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter  :: label = 'read_options_boundary'
+subroutine read_options_boundary(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- imatch  = .true.
- select case(trim(name))
- case('dynamic_bdy')
-    read(valstring,*,iostat=ierr) dynamic_bdy
-    ngot = ngot + 1
- case('rho_thresh_bdy')
-    read(valstring,*,iostat=ierr) rho_thresh_bdy
-    if (rho_thresh_bdy < 0.) call fatal(label,'rho_thresh_bdy < 0')
-    ngot = ngot + 1
- case('width_bkg_nx')
-    read(valstring,*,iostat=ierr) width_bkg(1,1)
-    ngot = ngot + 1
- case('width_bkg_ny')
-    read(valstring,*,iostat=ierr) width_bkg(2,1)
-    ngot = ngot + 1
- case('width_bkg_nz')
-    read(valstring,*,iostat=ierr) width_bkg(3,1)
-    ngot = ngot + 1
- case('width_bkg_px')
-    read(valstring,*,iostat=ierr) width_bkg(1,2)
-    ngot = ngot + 1
- case('width_bkg_py')
-    read(valstring,*,iostat=ierr) width_bkg(2,2)
-    ngot = ngot + 1
- case('width_bkg_pz')
-    read(valstring,*,iostat=ierr) width_bkg(3,2)
-    ngot = ngot + 1
- case('vbdyx')
-    read(valstring,*,iostat=ierr) vbdyx
-    ngot = ngot + 1
- case('vbdyy')
-    read(valstring,*,iostat=ierr) vbdyy
-    ngot = ngot + 1
- case('vbdyz')
-    read(valstring,*,iostat=ierr) vbdyz
-    ngot = ngot + 1
- case('n_dtmax')
-    read(valstring,*,iostat=ierr) n_dtmax
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- !--make sure we have got all compulsory options (otherwise, rewrite input file)
+ call read_inopt(dynamic_bdy,'dynamic_bdy',db,errcount=nerr,default=.false.)
  if (dynamic_bdy) then
-    igotall = (ngot == 12)
- else
-    igotall = .true.
+    call read_inopt(rho_thresh_bdy,'rho_thresh_bdy',db,errcount=nerr,min=0.)
+    call read_inopt(width_bkg(1,1),'width_bkg_nx',db,errcount=nerr)
+    call read_inopt(width_bkg(2,1),'width_bkg_ny',db,errcount=nerr)
+    call read_inopt(width_bkg(3,1),'width_bkg_nz',db,errcount=nerr)
+    call read_inopt(width_bkg(1,2),'width_bkg_px',db,errcount=nerr)
+    call read_inopt(width_bkg(2,2),'width_bkg_py',db,errcount=nerr)
+    call read_inopt(width_bkg(3,2),'width_bkg_pz',db,errcount=nerr)
+    call read_inopt(vbdyx,'vbdyx',db,errcount=nerr)
+    call read_inopt(vbdyy,'vbdyy',db,errcount=nerr)
+    call read_inopt(vbdyz,'vbdyz',db,errcount=nerr)
+    call read_inopt(n_dtmax,'n_dtmax',db,errcount=nerr)
  endif
 
 end subroutine read_options_boundary
 
-!-----------------------------------------------------------------------
 end module boundary_dyn

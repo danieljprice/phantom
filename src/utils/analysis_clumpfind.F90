@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,7 +22,7 @@ module analysis
 !   readwrite_dumps, sortutils, units
 !
  use dim,             only:maxp
- use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
+ use getneighbours,    only:generate_neighbour_lists,read_neighbours,write_neighbours,&
                            neighcount,neighb,neighmax
  implicit none
  character(len=20), parameter, public :: analysistype = 'clumpfind'
@@ -43,15 +43,15 @@ module analysis
  type sphclump
 
     integer           :: num,mbp,pointmass,ID,border
-    real,dimension(3) :: r,v
+    real :: r(3),v(3)
     real              :: mass,size
     real              :: kinetic,potential,thermal,bound,virial
 
  end type sphclump
 
- type(sphclump), allocatable, dimension(:) :: clump,oldclump
- integer,        allocatable, dimension(:) :: member,oldmember
- real,           allocatable, dimension(:) :: dpoten
+ type(sphclump), allocatable :: clump(:),oldclump(:)
+ integer, allocatable :: member(:),oldmember(:)
+ real, allocatable :: dpoten(:)
  integer                                   :: nclump
 
  private
@@ -59,7 +59,7 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,            only:iphase,maxphase,igas,get_partinfo,ihacc,poten,rhoh
+ use part,            only:rho,iphase,maxphase,igas,get_partinfo,ihacc,poten
  use readwrite_dumps, only:opened_full_dump
  use units,           only:unit_density
  use sortutils,       only:indexx
@@ -69,8 +69,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  integer, parameter                :: neighcrit = 40
- integer, dimension(1)             :: maxclump
- integer, allocatable,dimension(:) :: neighclump, ipotensort
+ integer :: maxclump(1)
+ integer, allocatable :: neighclump(:), ipotensort(:)
  integer            :: k,l,iclump,ipart,jpart,iamtypei,deletedclumps
  real               :: percent,percentcount,rhomin
  logical            :: existneigh,iactivei,iamdusti,iamgasi
@@ -121,11 +121,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Check if a neighbour file is present
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
  else
     ! If there is no neighbour file, generate the list
@@ -145,8 +145,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  allocate(ipotensort(npart)) ! Array for sorting particles by potential
  allocate(dpoten(npart)) ! Holding array for potential (real*8)
 
-
- dpoten = DBLE(poten)
+ dpoten = dble(poten)
 
 ! Add potential contribution from all sinks first
 
@@ -219,7 +218,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  over_parts: do l = 1,npart
 
-    percent = 100.0*REAL(l)/REAL(npart)
+    percent = 100.0*real(l)/real(npart)
 
     if (percent > percentcount) then
        write(*,'(I3," % complete")') int(percentcount)
@@ -230,7 +229,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ipart = ipotensort(npart-l+1)
 
     ! skip particle if not dense enough
-    if (rhoh(xyzh(4,ipart),particlemass) < rhomin) cycle over_parts
+    if (rho(ipart) < rhomin) cycle over_parts
 
     ! Only calculate for gas particles
     if (maxphase==maxp) then
@@ -377,7 +376,7 @@ subroutine read_analysis_options(dumpfile)
 
  if (inputexist) then
     print '(a,a,a)', "File ",inputfile, " found: reading analysis options"
-    open(10,file=inputfile, form='formatted')
+    open(10,file=inputfile,form='formatted')
     read(10,*) boundchoice
     read(10,*) sinkchoice
     read(10,*) skipchoice
@@ -413,7 +412,7 @@ subroutine read_analysis_options(dumpfile)
     if (skipsmalldumps) skipchoice  = 'y'
 
     ! Write choices to new inputfile
-    open(10,file=inputfile, status='new', form='formatted')
+    open(10,file=inputfile,status='new',form='formatted')
     write(10,*) boundchoice, "      Test clumps for gravitational boundness?"
     write(10,*) sinkchoice,  "      Include sinks' contribution to potential?"
     write(10,*) skipchoice,  "      Skip small dumps (velocity data missing)?"
@@ -462,10 +461,10 @@ end subroutine read_analysis_options
 !+
 !-----------------------------------------------------------------------
 subroutine amend_options_file(dumpfile)
- character(len=*),intent(in) :: dumpfile
+ character(len=*), intent(in) :: dumpfile
 
  ! Open the options file, and wind forward to the line of interest
- open(10,file='clumpfind.options', form='formatted')
+ open(10,file='clumpfind.options',form='formatted')
  read(10,*)
  read(10,*)
  read(10,*)
@@ -595,7 +594,7 @@ end subroutine create_sink_clumps
 !+
 !-----------------------------------------------------------------------
 subroutine initialise_clump(ipart)
- use part, only: xyzh, vxyzu, massoftype,igas
+ use part, only:xyzh,vxyzu,massoftype,igas
  integer, intent(in) :: ipart
  character(len=100)  :: fmt
  integer             :: k
@@ -711,16 +710,16 @@ end subroutine remove_particle_from_clump
 !+
 !-----------------------------------------------------------------------
 subroutine test_clump_boundness(deletedclumps,npart,xyzh,pmass)
- use part,      only: xyzmh_ptmass,ihacc
- use sortutils, only: indexx
+ use part,      only:xyzmh_ptmass,ihacc
+ use sortutils, only:indexx
 #ifdef PERIODIC
  use boundary,  only:dxbound,dybound,dzbound
 #endif
  integer, intent(inout) :: deletedclumps
  integer, intent(in)    :: npart
  real,    intent(in)    :: pmass,xyzh(:,:)
- integer, dimension(:), allocatable :: iseparr,iorig
- real,    dimension(:), allocatable :: separr
+ integer, allocatable :: iseparr(:),iorig(:)
+ real, allocatable :: separr(:)
  integer                :: iclump,ipart,jpart,counter,originalnum
  real                   :: sep,dx,dy,dz
 
@@ -838,7 +837,7 @@ end subroutine test_clump_boundness
 !+
 !-----------------------------------------------------------------------
 subroutine calc_clump_boundness(iclump)
- integer,intent(in) :: iclump
+ integer, intent(in) :: iclump
 
  if ( clump(iclump)%potential > 0. ) then
     clump(iclump)%bound  = (clump(iclump)%thermal + clump(iclump)%kinetic) / clump(iclump)%potential
@@ -912,12 +911,12 @@ subroutine update_border_potential(iclump,npart,xyzh,xyzmh_ptmass,pmass)
     endif
  enddo
 !$omp enddo
-!$omp critical(collatedata)
+!$omp critical(collate_clumps)
  do ii = 1,nmember
     i = imember(ii)
     dpoten(i) = dpoten(i) + dpotenj_thread(i)
  enddo
-!$omp end critical(collatedata)
+!$omp end critical(collate_clumps)
 !$omp end parallel
 
 !$omp parallel default(none) &
@@ -979,7 +978,7 @@ subroutine write_clump_data(nclump,deletedclumps,npart,time,dumpfile,tag)
 
  clumpfile = trim(tag)//"_clumpcat_"//trim(dumpfile)
 
- open(10,file=clumpfile, status='unknown')
+ open(10,file=clumpfile,status='unknown')
  write(10,*) nclump-deletedclumps, time
 
  do iclump=1,nclump
@@ -1006,7 +1005,7 @@ subroutine write_clump_data(nclump,deletedclumps,npart,time,dumpfile,tag)
     if (member(i) > 0) member(i) = clump(member(i))%ID
  enddo
 
- open(10,file=clumpfile, form='unformatted')
+ open(10,file=clumpfile,form='unformatted')
  write(10) (member(i), i=1,npart)
  close(10)
 
@@ -1033,7 +1032,7 @@ subroutine read_oldclump_data(noldclump,npart,oldtime,olddumpfile,tag)
 
  clumpfile = trim(tag)//"_clumpcat_"//trim(olddumpfile)
 
- open(10,file=clumpfile, status='unknown')
+ open(10,file=clumpfile,status='unknown')
  read(10,*) noldclump, oldtime
 
  allocate(oldclump(noldclump))
@@ -1054,7 +1053,7 @@ subroutine read_oldclump_data(noldclump,npart,oldtime,olddumpfile,tag)
 
  allocate(oldmember(npart))
 
- open(10,file=clumpfile, form='unformatted')
+ open(10,file=clumpfile,form='unformatted')
  read(10) (oldmember(i), i=1,npart)
  close(10)
 
@@ -1065,8 +1064,8 @@ end subroutine read_oldclump_data
 !+
 !-----------------------------------------------------------------------
 subroutine merger_tree(npart,dumpfile)
- integer,         intent(in) :: npart
- character(len=*),intent(in) :: dumpfile
+ integer,          intent(in) :: npart
+ character(len=*), intent(in) :: dumpfile
  integer                     :: IDmax,noldclump,ipart,iclump,jclump
  real                        :: memberfraction,oldtime
 

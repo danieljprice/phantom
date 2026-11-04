@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -33,11 +33,11 @@ module analysis
 contains
 !--------------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: maxp,maxvxyzu
- use centreofmass, only: reset_centreofmass
- use physcon,      only: pi,gg,years,pc
- use part,         only: igas,iamtype,iphase,maxphase,rhoh
- use units,        only: umass,udist,utime,unit_density
+ use dim,          only:maxp,maxvxyzu
+ use centreofmass, only:reset_centreofmass
+ use physcon,      only:pi,gg,years,pc
+ use part,         only:rho,igas,iamtype,iphase,maxphase
+ use units,        only:umass,udist,utime,unit_density
  character(len=*), intent(in)    :: dumpfile
  integer,          intent(in)    :: num,npart,iunit
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:) !due to reset center of mass
@@ -67,20 +67,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Set bins (linear or log)
  if (logr ) then
-    dr = (log10(rmax)-log10(rmin))/float(nbins)
+    dr = (log10(rmax)-log10(rmin))/real(nbins)
     do i = 1,nbins
        rbins(i) = 10**(log10(rmin) +(i-1)*dr )
     enddo
  else
-    dr   = rmax/float(nbins)
+    dr   = rmax/real(nbins)
     do i = 1,nbins
-       rbins(i) = float(i)*dr
+       rbins(i) = real(i)*dr
     enddo
  endif
 
  !--Reset centre
  if (centre_rhomax) then
     hmin = huge(hmin)
+    xdense = 0.
     ! find densest particle
     do i = 1,npart
        hi = xyzh(4,i)
@@ -93,12 +94,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     xcom   = 0.
     icom   = 0
     twoh2  = 4.0*hmin*hmin
-    rhomax = rhoh(hmin,particlemass)
+    rhomax = rho(i)
     print*, 'rhomax = ',rhomax*unit_density
     do i = 1,npart
        hi = xyzh(4,i)
        if (hi > tiny(hi)) then
-          rhoi = rhoh(hi,particlemass)
+          rhoi = rho(i)
           if (rhoi > 0.1*rhomax) then
              dr2 = dot_product((xdense-xyzh(1:3,i)),(xdense-xyzh(1:3,i)))
              if (dr2 < twoh2 .and. .true.) then
@@ -132,7 +133,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        itype = igas
     endif
     if (itype/=igas) cycle parts         ! not gas
-    rhoi = rhoh(hi,particlemass)
+    rhoi = rho(i)
     if (rhoi > rhothresh) then
        rad   = sqrt(xi*xi + yi*yi + zi*zi)
        rad2d = sqrt(xi*xi + yi*yi)
@@ -222,7 +223,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  enddo
  close(iunit)
 
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_AM.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_AM.dat'
  inquire(file=fileout,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.

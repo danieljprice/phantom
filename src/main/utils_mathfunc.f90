@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -25,24 +25,18 @@ module mathfunc
 
 contains
 
-
-!--------------------------------------------------------------------
-!Gegenbauer polynomials
-!--------------------------------------------------------------------
 subroutine gegenbauer_poly( n, alpha, x, cx )
 !
-!Taken from the Polpak http://people.sc.fsu.edu/~jburkardt/
+!  GEGENBAUER_POLY computes the Gegenbauer polynomials C(I,ALPHA,X).
 !
-!*****************************************************************************80
-!
-!! GEGENBAUER_POLY computes the Gegenbauer polynomials C(I,ALPHA,X).
+!  Taken from the Polpak http://people.sc.fsu.edu/~jburkardt/
 !
 !  Discussion:
 !
 !    The Gegenbauer polynomial can be evaluated in Mathematica with
 !    the command
 !
-!      GegenbauerC[n,m,x]
+!    GegenbauerC[n,m,x]
 !
 !    ALPHA must be greater than -0.5.
 !
@@ -104,11 +98,11 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
 !    polynomials at the point X.
 !
 
- integer, intent(in) :: n
+ integer,      intent(in)  :: n
  real(kind=8), intent(in)  :: alpha
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8), intent(in)  :: x
- integer (kind=4) :: i
+ integer(kind=4) :: i
 
  if ( alpha <= -0.5D+00 ) then
     write ( *, '(a)' ) ' '
@@ -136,17 +130,14 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
       + ( real (   - i + 2, kind = 8 ) - 2.0D+00 * alpha )     * cx(i-2) ) &
       /   real (     i,     kind = 8 )
  enddo
- return
 end subroutine gegenbauer_poly
 
 !--------------------------------------------------------------------
-!Associated Legendre polynomials
+! Associated Legendre polynomials
 !--------------------------------------------------------------------
 subroutine legendre_associated( n, m, x, cx )
-
-!*****************************************************************************80
 !
-!! LEGENDRE_ASSOCIATED evaluates the associated Legendre functions.
+! LEGENDRE_ASSOCIATED evaluates the associated Legendre functions.
 !
 !  Differential equation:
 !
@@ -249,8 +240,7 @@ subroutine legendre_associated( n, m, x, cx )
 !    Output, real ( kind = 8 ) CX(0:N), the values of the first N+1 functions.
 !
 
-
- integer, intent(in) :: n, m
+ integer,      intent(in)  :: n, m
  real(kind=8), intent(in)  :: x
  real(kind=8), intent(out) :: cx(0:n)
  real(kind=8) :: fact
@@ -311,7 +301,6 @@ subroutine legendre_associated( n, m, x, cx )
             / real (     i - m,     kind = 8 )
  enddo
 
- return
 end subroutine legendre_associated
 
 !--------------------------------------------------------------------
@@ -414,7 +403,6 @@ real(kind=8) function bessk1_s(x)
 
 end function bessk1_s
 
-
 !-----------------------------------------------------------------------------
 ! Below taken from http://jin.ece.illinois.edu/routines/routines.html
 ! Provides a higher accuracy than the bessel functions above
@@ -460,14 +448,14 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     do k=1,50
        r=0.25d0*r*x2/(k*k)
        bi0=bi0+r
-       if (dabs(r/bi0) < 1.0d-15) exit
+       if (abs(r/bi0) < 1.0d-15) exit
     enddo
     bi1=1.0d0
     r=1.0d0
     do k=1,50
        r=0.25d0*r*x2/(k*(k+1))
        bi1=bi1+r
-       if (dabs(r/bi1) < 1.0d-15) exit
+       if (abs(r/bi1) < 1.0d-15) exit
     enddo
     bi1=0.5d0*x*bi1
  else
@@ -486,7 +474,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     k0=12
     if (x >= 35.0) k0=9
     if (x >= 50.0) k0=7
-    ca=dexp(x)/dsqrt(2.0d0*pi*x)
+    ca=exp(x)/sqrt(2.0d0*pi*x)
     bi0=1.0d0
     xr=1.0d0/x
     do k=1,k0
@@ -500,7 +488,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
     bi1=ca*bi1
  endif
  if (x <= 9.0d0) then
-    ct=-(dlog(x/2.0d0)+el)
+    ct=-(log(x/2.0d0)+el)
     bk0=0.0d0
     w0=0.0d0
     ww=bk0   ! added by DJP, fixes compiler warning
@@ -509,7 +497,7 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
        w0=w0+1.0d0/k
        r=0.25d0*r/(k*k)*x2
        bk0=bk0+r*(w0+ct)
-       if (dabs((bk0-ww)/bk0) < 1.0d-15) exit
+       if (abs((bk0-ww)/bk0) < 1.0d-15) exit
        ww=bk0
     enddo
     bk0=bk0+ct
@@ -532,7 +520,6 @@ subroutine ik01a(x,bi0,di0,bi1,di1,bk0,dk0,bk1,dk1)
  dk0=-bk1
  dk1=-bk0-bk1/x
 
- return
 end subroutine ik01a
 
 !--------------------------------------------------------------------

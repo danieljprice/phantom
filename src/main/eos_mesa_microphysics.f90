@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,9 +14,10 @@ module mesa_microphysics
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles
+! :Dependencies: datafiles, io
 !
  use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
 
  implicit none
  public
@@ -30,17 +31,29 @@ module mesa_microphysics
 !Opacity
  integer                           :: mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
  real                              :: mesa_opacs_dr,mesa_opacs_dt
- real, dimension(:), allocatable   :: mesa_opacs_zs,mesa_opacs_xs, mesa_opacs_rs,mesa_opacs_ts
- real, dimension(:,:), allocatable :: mesa_opacs_k,mesa_opacs_kd,mesa_opacs_kt
+ real, allocatable :: mesa_opacs_zs(:),mesa_opacs_xs(:), mesa_opacs_rs(:),mesa_opacs_ts(:)
+ real, allocatable :: mesa_opacs_k(:,:),mesa_opacs_kd(:,:),mesa_opacs_kt(:,:)
 
 !EOS
  integer                                 :: mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
  real                                    :: mesa_eos_v1, mesa_eos_e1, mesa_eos_de, mesa_eos_dv
- real, dimension(:), allocatable         :: mesa_eos_z, mesa_eos_h, mesa_eos_logEs, mesa_eos_logVs
- integer, dimension(:,:), allocatable    :: mesa_eos_data_exists
- real, dimension(:,:,:), allocatable     :: mesa_de_data
- real, dimension(:,:,:,:), allocatable   :: mesa_eos0
- real, dimension(:,:,:,:,:), allocatable :: mesa_de_data0
+ real, allocatable :: mesa_eos_z(:), mesa_eos_h(:), mesa_eos_logEs(:), mesa_eos_logVs(:)
+ integer, allocatable :: mesa_eos_data_exists(:,:)
+ real, allocatable :: mesa_de_data(:,:,:)
+ real, allocatable :: mesa_eos0(:,:,:,:)
+ real, allocatable :: mesa_de_data0(:,:,:,:,:)
+
+! EOS tables in entropy and density for GR
+ integer            :: mesa_eos_gr_nz=3, mesa_eos_gr_nh=5   !Number of Z values in EOS tables, number of hydrogen values in EOS tables
+ real               :: mesa_eos_gr_z1=0.d0, mesa_eos_gr_h1=0.d0, mesa_eos_gr_dz=0.02d0, mesa_eos_gr_dh=0.2d0 !lowest Z, lowest H, delta Z, delta H in EOS tables
+ integer                                 :: mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
+ real                                    :: mesa_eos_gr_rho1, mesa_eos_gr_s1, mesa_eos_gr_ds, mesa_eos_gr_drho
+ character(len=200) :: mesa_eos_gr_prefix="eos_gr_" ! prefix for EOS GR table files
+ real, allocatable :: mesa_eos_gr_z(:), mesa_eos_gr_h(:),mesa_eos_gr_logSs(:), mesa_eos_gr_logrhos(:)
+ integer, allocatable :: mesa_eos_gr_data_exists(:,:)
+ real, allocatable :: mesa_gr_ds_data(:,:,:)
+ real, allocatable :: mesa_eos_gr0(:,:,:,:)
+ real, allocatable :: mesa_gr_ds_data0(:,:,:,:,:)
 
  public :: get_opacity_constants_mesa
  public :: read_opacity_mesa
@@ -53,6 +66,8 @@ module mesa_microphysics
  !public :: getgamma1_mesa
  !public :: getpressure_mesa
  public :: getvalue_mesa
+ public :: read_eos_mesa_gr
+ public :: getvalue_mesa_gr
 
  private :: eos_cubic_spline_mesa
  private :: cubic_spline_mesa
@@ -62,14 +77,15 @@ contains
 ! Get the constants to be used in the MESA opacities
 subroutine get_opacity_constants_mesa
  character(len=500) :: opacs_file,filename
- integer            :: fnum
+ integer            :: fnum,ierr
 
  ! Find the opacity table
  filename   = 'opacs'//trim(mesa_opacs_suffix)//'.bindata'
- opacs_file = find_phantom_datafile(filename,'eos/mesa')
+ opacs_file = find_phantom_datafile(filename,'eos/mesa_opac')
 
  ! Read the constants from the header of the opacity file
- open(newunit=fnum, file=trim(opacs_file), status='old', action='read', form='unformatted')
+ open(newunit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted',iostat=ierr)
+ if (ierr /= 0) call fatal('mesa_microphysics','data file not found: '//trim(opacs_file))
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
  close(fnum)
 
@@ -86,9 +102,9 @@ end subroutine get_opacity_constants_mesa
 subroutine read_opacity_mesa(x,z)
  real, intent(in) :: x,z
  real :: dz, dx
- real, dimension(:,:,:,:), allocatable :: kappas
+ real, allocatable :: kappas(:,:,:,:)
  character(len=500) :: opacs_file,filename
- integer :: zz, xx, k, i
+ integer :: zz, xx, k, i, ierr
  character(len=7) :: empty
  integer :: nz2,nx2
  integer :: fnum
@@ -97,12 +113,12 @@ subroutine read_opacity_mesa(x,z)
 
  empty='       '
 
-
  !Find the opacity table
  filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
 ! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
- opacs_file = find_phantom_datafile(filename,'eos/mesa')
- open(unit=fnum, file=trim(opacs_file), status='old', action='read', form='unformatted')
+ opacs_file = find_phantom_datafile(filename,'eos/mesa_opac')
+ open(unit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted',iostat=ierr)
+ if (ierr /= 0) call fatal('mesa_microphysics','data file not found: '//trim(opacs_file))
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
 
  ! Read in the size of the table and the data
@@ -187,7 +203,6 @@ subroutine read_opacity_mesa(x,z)
                                               (mesa_opacs_ts(2)   - mesa_opacs_ts(3))   - &
                                                3.d0 * mesa_opacs_kd(i,1)
 
-
     mesa_opacs_kt(i,mesa_opacs_nt+1-1) =  mesa_opacs_kt(i,mesa_opacs_nt+1-3) + &
                                          (mesa_opacs_ts(mesa_opacs_nt+1-1)   - mesa_opacs_ts(mesa_opacs_nt+1-3))   * &
                                          (mesa_opacs_kt(i,mesa_opacs_nt+1-2) - mesa_opacs_kt(i,mesa_opacs_nt+1-3)) / &
@@ -202,14 +217,11 @@ subroutine read_opacity_mesa(x,z)
 
  deallocate(kappas)
 
- return
 end subroutine read_opacity_mesa
-
-
 
 ! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
 subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
- real, intent(in) :: rho,temp
+ real, intent(in)  :: rho,temp
  real, intent(out) :: kap,kapt,kapr
  real :: opac_k,opac_kd,opac_kt
  real :: dnr, dnt
@@ -249,7 +261,6 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
  opac_kd =       dr  * (dt * mesa_opacs_kd(nr+1,nt+1) + (1.d0-dt) * mesa_opacs_kd(nr+1,nt)) + &
            (1.d0-dr) * (dt * mesa_opacs_kd(nr,nt+1)   + (1.d0-dt) * mesa_opacs_kd(nr,nt))
 
-
  kap  = 10.d0**opac_k
  kapt = opac_kt * kap / temp
  kapr = opac_kd * kap / rho
@@ -258,10 +269,9 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 
 end subroutine get_kappa_mesa
 
-
 real function get_1overmu_mesa(rho,u) result(rmu)
- real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
  real, intent(in) :: rho,u
+ real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
  real :: temp,pgas
  integer :: ierr
 
@@ -271,13 +281,12 @@ real function get_1overmu_mesa(rho,u) result(rmu)
 
 end function get_1overmu_mesa
 
-
 ! Get the constants to be used in the MESA EoS
 subroutine get_eos_constants_mesa(ierr)
  integer, intent(out) :: ierr
- character (len=20)   :: zz, hh
- character (len=300)  :: filename
- character (len=8)    :: fmt1
+ character(len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
  integer              :: fnum, i
 
  ! Allocate the arrays to carry X and Z values.
@@ -308,7 +317,7 @@ subroutine get_eos_constants_mesa(ierr)
  filename = find_phantom_datafile(filename,'eos/mesa')
 
  ! Read constants from the header of first EoS tables
- open(unit=fnum, file=trim(filename), status='old', action='read', form='unformatted',iostat=ierr)
+ open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
  if (ierr /= 0) return
  read(fnum) mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
  close(fnum)
@@ -321,8 +330,60 @@ subroutine get_eos_constants_mesa(ierr)
  allocate(mesa_de_data0(mesa_eos_nz,mesa_eos_nh,mesa_eos_ne,mesa_eos_nv,mesa_eos_nvar2))
 
  return
+
 end subroutine get_eos_constants_mesa
 
+! Get the constants to be used in the MESA EoS for GR
+subroutine get_eos_constants_mesa_gr(ierr)
+ integer, intent(out) :: ierr
+ character(len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ integer              :: fnum, i
+
+ ! Allocate the arrays to carry X and Z values.
+ allocate(mesa_eos_gr_z(mesa_eos_gr_nz), mesa_eos_gr_h(mesa_eos_gr_nh))
+
+ ! Assigning the X and Z values of the EoS tables to be read in (based on parameters at the beginning of the file.
+ mesa_eos_gr_z(1)=mesa_eos_gr_z1
+ mesa_eos_gr_h(1)=mesa_eos_gr_h1
+
+ do i=2,mesa_eos_gr_nz
+    mesa_eos_gr_z(i)=mesa_eos_gr_z(i-1)+mesa_eos_gr_dz
+ enddo
+
+ do i=2,mesa_eos_gr_nh
+    mesa_eos_gr_h(i)=mesa_eos_gr_h(i-1)+mesa_eos_gr_dh
+ enddo
+
+ fmt1 = '(F4.2)' !
+
+ fnum=126
+
+ ! Convert first X and Z to string
+ write (zz,fmt1) mesa_eos_gr_z1
+ write (hh,fmt1) mesa_eos_gr_h1
+
+ ! Find the first EoS tables
+ filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
+ filename = find_phantom_datafile(filename,'eos/mesa')
+
+ ! Read constants from the header of first EoS tables
+ open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
+! allocate GR tables
+ if (ierr /= 0) return
+ read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
+ close(fnum)
+
+ allocate(mesa_eos_gr_logSs(mesa_eos_gr_ns), mesa_eos_gr_logrhos(mesa_eos_gr_nrho))
+ allocate(mesa_eos_gr_data_exists(mesa_eos_gr_nz,mesa_eos_gr_nh))
+ allocate(mesa_gr_ds_data(mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
+ allocate(mesa_eos_gr0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho))
+ allocate(mesa_gr_ds_data0(mesa_eos_gr_nz,mesa_eos_gr_nh,mesa_eos_gr_ns,mesa_eos_gr_nrho,mesa_eos_gr_nvar2))
+
+ return
+
+end subroutine get_eos_constants_mesa_gr
 
 ! Read MESA EoS tables, and then construct a new array for the specific values of X and Z
 subroutine read_eos_mesa(x,z,ierr)
@@ -330,9 +391,9 @@ subroutine read_eos_mesa(x,z,ierr)
  integer, intent(out) :: ierr
  real, parameter      :: arad=7.5657d-15
  integer              :: i,j,k,l,m
- character (len=300)  :: filename
- character (len=8)    :: fmt1
- character (len=20)   :: zz, hh
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ character(len=20)   :: zz, hh
  integer              :: nz1,nz2,nx1,nx2
  real                 :: dz,dx
  integer              :: fnum
@@ -357,14 +418,14 @@ subroutine read_eos_mesa(x,z,ierr)
        ! Find the EoS tables
        filename = trim(mesa_eos_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
        filename = find_phantom_datafile(filename,'eos/mesa')
-
        ! Note that the data exists
        mesa_eos_data_exists(i,j)=1
 
        ! Read in the size of the tables and the data
        ! i and j hold the Z and X values respectively
        ! k, l and m hold the values of V, Eint and the data respectively
-       open(unit=fnum, file=trim(filename), status='old', action='read', form='unformatted')
+
+       open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
        read(fnum) mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
        read(fnum)(mesa_eos_logVs(k),k=1,mesa_eos_nv)
        read(fnum)(mesa_eos_logEs(l),l=1,mesa_eos_ne)
@@ -416,7 +477,6 @@ subroutine read_eos_mesa(x,z,ierr)
     enddo
  enddo
 
-
  ! Save some things to make the interpolation fast
  mesa_eos_dv=mesa_eos_logVs(2)-mesa_eos_logVs(1)
  mesa_eos_de=mesa_eos_logEs(2)-mesa_eos_logEs(1)
@@ -430,7 +490,109 @@ subroutine read_eos_mesa(x,z,ierr)
 
 end subroutine read_eos_mesa
 
+! same as above but for GR tables (entropy and density instead of internal energy and density)
+subroutine read_eos_mesa_gr(x,z,ierr)
+ real,    intent(in)  :: x, z
+ integer, intent(out) :: ierr
+ real, parameter      :: arad=7.5657d-15
+ integer              :: i,j,k,l,m
+ character(len=300)  :: filename
+ character(len=8)    :: fmt1
+ character(len=20)   :: zz, hh
+ integer              :: nz1,nz2,nx1,nx2
+ real                 :: dz,dx
+ integer              :: fnum
 
+ fmt1 = '(F4.2)'
+
+ fnum = 126
+ ierr = 0
+
+ ! following lines to prevent compiler warnings
+ nx1 = 0
+ nx2 = 0
+ dx = 0.
+
+ !Loop over files
+ do i=1,mesa_eos_gr_nz
+    write (zz,fmt1) mesa_eos_gr_z(i) ! Z value as string
+
+    do j=1,mesa_eos_gr_nh
+       write (hh,fmt1) mesa_eos_gr_h(j) ! X value as string
+       ! Find the EoS tables
+       filename = trim(mesa_eos_gr_prefix)//'z'//trim(zz)//'x'//trim(hh)//'.bindata'
+       filename = find_phantom_datafile(filename,'eos/mesa')
+
+       ! Note that the data exists
+       mesa_eos_gr_data_exists(i,j)=1
+
+       ! Read in the size of the tables and the data
+       ! i and j hold the Z and X values respectively
+       ! k, l and m hold the values of V, Eint and the data respectively
+       open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
+       read(fnum) mesa_eos_gr_ns, mesa_eos_gr_nrho, mesa_eos_gr_nvar2
+       read(fnum)(mesa_eos_gr_logrhos(k),k=1,mesa_eos_gr_nrho)
+       read(fnum)(mesa_eos_gr_logss(l),l=1,mesa_eos_gr_ns)
+       do k=1,mesa_eos_gr_nrho
+          do l=1,mesa_eos_gr_ns
+             read(fnum) (mesa_gr_ds_data0(i,j,l,k,m),m=1,mesa_eos_gr_nvar2)
+          enddo
+       enddo
+
+       close(fnum)
+    enddo
+ enddo
+
+ ! Chooses the Z values from the available values which is greater than the input Z
+ nz2=mesa_eos_gr_nz
+ do i=2,mesa_eos_gr_nz-1
+    if (mesa_eos_gr_z(i) >= z) then
+       nz2=i
+       exit
+    endif
+ enddo
+
+ ! Chooses Z values below input Z, and then finds fraction of input Z distance between two enclosing Z (sorry if confusing, just read the code)
+ nz1 = nz2 - 1
+ dz=(z-mesa_eos_gr_z(nz1))/(mesa_eos_gr_z(nz2)-mesa_eos_gr_z(nz1))
+
+ ! Seems to do the same as above, except for X. I can't quite figure out the weird if statements.
+ do j=2,mesa_eos_gr_nh
+    if (mesa_eos_gr_h(j) > x.or.j==mesa_eos_gr_nh) then
+       nx2=j
+       if (j==2.and.mesa_eos_gr_data_exists(i,j-2)==0) then
+          nx2=3
+       elseif (j==mesa_eos_gr_nh.and.mesa_eos_gr_data_exists(i,mesa_eos_gr_nh-1)==0) then
+          nx2=mesa_eos_gr_nh-1
+       endif
+       exit
+    endif
+ enddo
+ nx1 = nx2 - 1
+ dx = (x-mesa_eos_gr_h(nx1))/(mesa_eos_gr_h(nx2)-mesa_eos_gr_h(nx1))
+
+ ! Bilinear interpolation of values from the four tables (two values each of X and Z)
+ do l=1,mesa_eos_gr_ns
+    do k=1,mesa_eos_gr_nrho
+       do m=1,mesa_eos_gr_nvar2
+          mesa_gr_ds_data(l,k,m)=(1.d0-dx)*(1.d0-dz)*mesa_gr_ds_data0(nz1,nx1,l,k,m)+dz*(1.d0-dx)*mesa_gr_ds_data0(nz2,nx1,l,k,m) &
+               +dx*(1.d0-dz)*mesa_gr_ds_data0(nz1,nx2,l,k,m)+dx*dz*mesa_gr_ds_data0(nz2,nx2,l,k,m)
+       enddo
+    enddo
+ enddo
+
+ ! Save some things to make the interpolation fast
+ mesa_eos_gr_drho=mesa_eos_gr_logrhos(2)-mesa_eos_gr_logrhos(1)
+ mesa_eos_gr_ds=mesa_eos_gr_logss(2)-mesa_eos_gr_logss(1)
+ mesa_eos_gr_rho1=mesa_eos_gr_logrhos(1)
+ mesa_eos_gr_s1=mesa_eos_gr_logss(1)
+
+ !deallocate(mesa_eos_gr0)
+ !deallocate(mesa_gr_ds_data0)
+
+ return
+
+end subroutine read_eos_mesa_gr
 
 ! Get value from the MESA tables given a specific value of density and internal energy
 ! The columns in the data are:
@@ -438,16 +600,16 @@ end subroutine read_eos_mesa
 ! 5. dlnP/dlnrho|e 6. dlnP/dlne|rho 7. dlnT/dlnrho|e 8. dlnT/dlne|rho
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
+
 pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
- real, intent(in) :: rho, eint
- real, intent(out) :: vout
- integer, intent(in) :: ivout
+ real,    intent(in)  :: rho, eint
+ real,    intent(out) :: vout
+ integer, intent(in)  :: ivout
  integer, intent(out), optional :: ierr
  real :: loge, logv, de, dv
  integer :: ne, nv
  real :: dx
  integer :: nx
-
 
  ! logRho = logV + 0.7*logE - 20
 
@@ -468,16 +630,18 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  dv = (logv - mesa_eos_logVs(nv)) / mesa_eos_dv
 
  ! If the given Eint and V fall within the limits of the table, then use cubic spline interpolation to find value
- ! Else use linear extrapolation beyond the limits of the table (I think? I can't tell if this is the correct way to do this)
+ ! Else use linear extrapolation beyond the limits of the table
  if (ne > 1 .and. nv > 1 .and. ne < mesa_eos_ne-1 .and. nv < mesa_eos_nv-1) then
     call eos_cubic_spline_mesa(ne,nv,loge,logv,ivout,vout,nx,dx)
-    if (ivout < 5) vout=10.d0**vout
+    if (ivout < 5 .or. ivout == 9) vout=10.d0**vout ! this is applied only for the first four columns of the data which are stored in log10 form.
     if (present(ierr)) ierr = 0
  else
-    vout = 10.d0**((1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout)   + &
-                         de  * (1.d0-dv) * mesa_de_data(ne+1,nv,ivout) + &
-                   (1.d0-de) *       dv  * mesa_de_data(ne,nv+1,ivout) + &
-                         de  *       dv  * mesa_de_data(ne+1,nv+1,ivout))
+    vout = (1.d0-de) * (1.d0-dv) * mesa_de_data(ne,nv,ivout) + &
+            de      * (1.d0-dv) * mesa_de_data(ne+1,nv,ivout) + &
+      (1.d0-de)     *       dv  * mesa_de_data(ne,nv+1,ivout) + &
+            de      *       dv  * mesa_de_data(ne+1,nv+1,ivout)
+
+    if (ivout <= 4 .or. ivout == 9) vout = 10.d0**vout
     if (present(ierr)) ierr = 1  ! warn if extrapolating
  endif
 
@@ -485,6 +649,55 @@ pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
 
 end subroutine getvalue_mesa
 
+! Get value from the MESA tables for GR given a specific value of density and entropy
+! The columns in the data are:
+! 1. logP          2. logu       3. logT         4. Gamma1
+! Note: ivout=1,2,3,4 returns the unlogged quantity
+! inputted s should be the specific entropy S in cgs units (erg/g/K), as tabulated (in log10) in the MESA tables
+pure subroutine getvalue_mesa_gr(rho,s,ivout,vout,ierr)
+ real,    intent(in)  :: rho, s
+ real,    intent(out) :: vout
+ integer, intent(in)  :: ivout
+ integer, intent(out), optional :: ierr
+ real :: logs, logrho, ds, drho
+ integer :: ns, nrho
+ real :: dx
+ integer :: nx
+
+ logs = log10(s)
+ logrho = log10(rho)
+
+ ! Get the s and rho indices for looking up the tables
+ ns = 1 + int((logs - mesa_eos_gr_s1) / mesa_eos_gr_ds)
+ nrho = 1 + int((logrho - mesa_eos_gr_rho1) / mesa_eos_gr_drho)
+
+ ! Allow extrapolation
+ if (ns < 1) ns=1
+ if (ns > mesa_eos_gr_ns-1) ns=mesa_eos_gr_ns-1
+ if (nrho < 1) nrho=1
+ if (nrho > mesa_eos_gr_nrho-1) nrho=mesa_eos_gr_nrho-1
+
+ ds = (logs - mesa_eos_gr_logSs(ns)) / mesa_eos_gr_ds
+ drho = (logrho - mesa_eos_gr_logRhos(nrho)) / mesa_eos_gr_drho
+
+ ! If the given S and Rho fall within the limits of the table, then use cubic spline interpolation to find value
+ ! Else use linear extrapolation beyond the limits of the table
+ if (ns > 1 .and. nrho > 1 .and. ns < mesa_eos_gr_ns-1 .and. nrho < mesa_eos_gr_nrho-1) then
+    call eos_cubic_spline_mesa_gr(ns,nrho,logs,logrho,ivout,vout,nx,dx)
+    if (ivout < 4) vout=10.d0**vout ! this is applied only for the first three columns of the data which are stored in log10 form.
+    if (present(ierr)) ierr = 0
+ else
+    vout = (1.d0-ds) * (1.d0-drho) * mesa_gr_ds_data(ns,nrho,ivout)   + &
+                 ds  * (1.d0-drho) * mesa_gr_ds_data(ns+1,nrho,ivout) + &
+           (1.d0-ds) *       drho  * mesa_gr_ds_data(ns,nrho+1,ivout) + &
+                 ds  *       drho  * mesa_gr_ds_data(ns+1,nrho+1,ivout)
+    if (ivout <= 3) vout = 10.d0**vout
+    if (present(ierr)) ierr = 1  ! warn if extrapolating
+ endif
+
+ return
+
+end subroutine getvalue_mesa_gr
 
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
@@ -494,7 +707,7 @@ pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
  implicit none
 
  integer, intent(in) :: e1, v1, h1, n_var
- real, intent(in) :: e, v, dh
+ real,    intent(in) :: e, v, dh
 
  real, intent(out) :: z
 
@@ -542,15 +755,71 @@ pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
 
 end subroutine eos_cubic_spline_mesa
 
+!Spline for GR: since eos_cubic_spline_mesa has the original tables embedded in it, I have to make a new one for the GR tables.
+! It's basically the same as above but with different variables and using mesa_gr_ds_data instead of mesa_de_data
+! only use if between s(2) < s < s(n_s-1) and rho(2) < rho < rho(n_rho-1)
 
+pure subroutine  eos_cubic_spline_mesa_gr(s1,rho1,s,rho,n_var,z,h1,dh)
+
+! use mesa_eos_gr_logss, mesa_eos_gr_logrhos
+ implicit none
+
+ integer, intent(in) :: s1, rho1, h1, n_var
+ real,    intent(in) :: s, rho, dh
+
+ real, intent(out) :: z
+
+ real :: x0,x1,x2,x3,y0,y1,y2,y3
+ real :: as,bs,tt
+
+ real :: yy(4)
+ integer :: j
+
+ x0=mesa_eos_gr_logss(s1-1)
+ x1=mesa_eos_gr_logss(s1+0)
+ x2=mesa_eos_gr_logss(s1+1)
+ x3=mesa_eos_gr_logss(s1+2)
+
+ tt=(s-x1)/mesa_eos_gr_ds
+
+ do j=1,4
+
+    y0 = mesa_gr_ds_data(s1-1,rho1+j-2,n_var)
+    y1 = mesa_gr_ds_data(s1+0,rho1+j-2,n_var)
+    y2 = mesa_gr_ds_data(s1+1,rho1+j-2,n_var)
+    y3 = mesa_gr_ds_data(s1+2,rho1+j-2,n_var)
+
+    call cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
+    yy(j)=(1.d0-tt)*y1+tt*y2+tt*(1.d0-tt)*(as*(1.d0-tt)+bs*tt)
+
+ enddo
+
+ x0=mesa_eos_gr_logrhos(rho1-1)
+ x1=mesa_eos_gr_logrhos(rho1+0)
+ x2=mesa_eos_gr_logrhos(rho1+1)
+ x3=mesa_eos_gr_logrhos(rho1+2)
+
+ y0=yy(1)
+ y1=yy(2)
+ y2=yy(3)
+ y3=yy(4)
+
+ tt=(rho-x1)/mesa_eos_gr_drho
+
+ call cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
+ z=(1.d0-tt)*y1+tt*y2+tt*(1.d0-tt)*(as*(1.d0-tt)+bs*tt)
+
+ return
+
+end subroutine eos_cubic_spline_mesa_gr
 
 pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
 
  implicit none
 
- real, intent(in) :: x0,x1,x2,x3,y0,y1,y2,y3
- real :: k1,k2  !k1 and k2 are derivatives
+ real, intent(in)  :: x0,x1,x2,x3,y0,y1,y2,y3
  real, intent(out) :: as,bs
+ real :: k1,k2  !k1 and k2 are derivatives
 
  k2=(y3-y1)/(x3-x1)
  k1=(y2-y0)/(x2-x0)
@@ -558,7 +827,6 @@ pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
  as=k1*(x2-x1)-(y2-y1)
  bs=-k2*(x2-x1)+(y2-y1)
 
- return
 end subroutine cubic_spline_mesa
 
 subroutine deallocate_arrays_mesa
@@ -581,6 +849,15 @@ subroutine deallocate_arrays_mesa
  if (allocated(mesa_eos0)) deallocate(mesa_eos0)
  if (allocated(mesa_de_data)) deallocate(mesa_de_data)
  if (allocated(mesa_de_data0)) deallocate(mesa_de_data0)
+!eos gr
+ if (allocated(mesa_eos_gr_z)) deallocate(mesa_eos_gr_z)
+ if (allocated(mesa_eos_gr_h)) deallocate(mesa_eos_gr_h)
+ if (allocated(mesa_eos_gr0)) deallocate(mesa_eos_gr0)
+ if (allocated(mesa_eos_gr_logss)) deallocate(mesa_eos_gr_logss)
+ if (allocated(mesa_eos_gr_logrhos)) deallocate(mesa_eos_gr_logrhos)
+ if (allocated(mesa_eos_gr_data_exists)) deallocate(mesa_eos_gr_data_exists)
+ if (allocated(mesa_gr_ds_data)) deallocate(mesa_gr_ds_data)
+ if (allocated(mesa_gr_ds_data0)) deallocate(mesa_gr_ds_data0)
 
 end subroutine deallocate_arrays_mesa
 

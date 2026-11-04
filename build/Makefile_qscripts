@@ -2,7 +2,7 @@
 # target to write appropriate queue submission script
 #
 ifndef QSYS
-    QSYS=pbs
+    QSYS=slurm
 endif
 ifndef WALLTIME
     WALLTIME='1000:00:00'
@@ -31,7 +31,9 @@ endif
 ifeq ($(USEMPI),yes)
     ifndef NMPI
         NMPI=4
-        NOMP=8
+    endif
+    ifndef NOMP
+        NOMP=1
     endif
     ifndef QPE
         QPE=mpi
@@ -39,24 +41,28 @@ ifeq ($(USEMPI),yes)
     ifndef NPAR
         NPAR=$(NMPI)
     endif
-    ifeq ($(QSYS),slurm)
-        MPIEXEC=srun
-    else ifndef MPIEXEC
-        MPIEXEC=mpiexec -np ${NMPI}
+    ifndef MPIEXEC
+        ifeq ($(QSYS),slurm)
+            MPIEXEC=srun --cpus-per-task=$(NOMP)
+        else
+            MPIEXEC=mpiexec -np ${NMPI}
+        endif
     endif
 else
     ifndef NMPI
         NMPI=1
     endif
 endif
+# name of queue output file, based on infile, or jobname if running a user command
+QOUTNAME=$(or $(INFILE),$(JOBNAME),phantom)
 ifndef OUTFILE
   ifeq ($(QSYS),sge)
-    OUTFILE=$(INFILE)'.sgeout'
+    OUTFILE=$(QOUTNAME)'.sgeout'
   else
     ifeq ($(QSYS),pbs)
-        OUTFILE=$(INFILE)'.pbsout'
+        OUTFILE=$(QOUTNAME)'.pbsout'
     else
-        OUTFILE=$(INFILE)'.qout'
+        OUTFILE=$(QOUTNAME)'.qout'
     endif
   endif
 endif
@@ -65,8 +71,13 @@ ifndef MAILTO
 endif
 GETLOG='`grep logfile "$(INFILE)" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`'
 
-ifndef CMD
-CMD='./phantom $(INFILE) >& $$outfile'
+ifdef CMD
+    USERCMD=yes
+    # passed to the recipe through the environment, so it is written to the script
+    # literally rather than being interpreted (e.g. redirections) by the shell running make
+    qscript: export QSCRIPT_CMD = $(value CMD)
+else
+    CMD='./phantom $(INFILE) >& $$outfile'
 endif
 
 .PHONY: qscript
@@ -76,11 +87,14 @@ qscript:
 	@echo "Error: qscript needs known SYSTEM variable set"
 	@${MAKE} err;
     endif
-    ifndef INFILE
+    ifneq ($(USERCMD),yes)
+    ifeq ($(INFILE),)
 	@echo
 	@echo "Usage: make qscript INFILE=infile"
+	@echo "   or: make qscript CMD='command to run' JOBNAME=name"
 	@echo
 	@${MAKE} err;
+    endif
     endif
     # set default values for variables not set
     ifeq ($(QSHELL),tcsh)
@@ -229,14 +243,16 @@ qscript:
         else
 	   @echo '#SBATCH --job-name='`../scripts/randomword.pl`
         endif
-        ifdef QNAME
-	   @echo '#SBATCH --queue='$(QNAME)
-        endif
         ifdef QPROJECT
 	   @echo '#SBATCH --account='$(QPROJECT)
         endif
         ifdef QPARTITION
 	   @echo '#SBATCH --partition='$(QPARTITION)
+        else ifdef QNAME
+	   @echo '#SBATCH --partition='$(QNAME)
+        endif
+        ifeq ($(QEXCLUSIVE),yes)
+	   @echo '#SBATCH --exclusive'
         endif
 	@echo '#SBATCH --output='$(OUTFILE)
         ifdef MAILTO
@@ -271,6 +287,9 @@ qscript:
 	   @echo 'export OMP_SCHEDULE="'$(OMP_SCHEDULE)'"'
 	   @echo 'export OMP_NUM_THREADS='$(NOMP)
 	   @echo 'export OMP_STACKSIZE=1024m'
+           ifeq ($(USEMPI),yes)
+	      @echo 'export OMP_PROC_BIND=close OMP_PLACES=cores'
+           endif
         endif
     endif
 	@echo
@@ -284,16 +303,23 @@ qscript:
         endif
 	@cat ~/.modules
     endif
+    ifdef QMODULES
+	@echo 'module load '$(QMODULES)
+    endif
 	@echo
     #--final line is code execution
 	@echo 'echo "starting phantom run..."'
+    ifneq ($(USERCMD),yes)
     ifeq ($(QSHELL),tcsh)
 	@echo 'setenv outfile '$(GETLOG)
     else
 	@echo 'export outfile='$(GETLOG)
     endif
 	@echo 'echo "writing output to $$outfile"'
-    ifeq ($(USEMPI),yes)
+    endif
+    ifeq ($(USERCMD),yes)
+	@printf '%s\n' "$$QSCRIPT_CMD"
+    else ifeq ($(USEMPI),yes)
 	@echo $(MPIEXEC)' '$(CMD)
     else
 	@echo $(CMD)

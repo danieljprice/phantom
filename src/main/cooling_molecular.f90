@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module cooling_molecular
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, eos, infile_utils, physcon, units
+! :Dependencies: datafiles, eos, infile_utils, io, physcon, units
 !
 
  implicit none
@@ -22,8 +22,8 @@ module cooling_molecular
  real                                :: CO_abun  = 1.e-4
  real                                :: H2O_abun = 5.e-5
  real                                :: HCN_abun = 3.e-7
- real, dimension(40, 40, 40, 6)      :: coolingTable
- real, dimension(36, 102, 6, 8, 5)   :: cdTable
+ real :: coolingTable(40, 40, 40, 6)
+ real :: cdTable(36, 102, 6, 8, 5)
  logical                             :: do_molecular_cooling = .false.
  real                                :: fit_rho_power, fit_rho_inner, fit_vel, r_compOrb
  real                                :: Tfloor = 0. ![K]  to prevent u < 0 (this is independent of Tfloor in cooling.F90)
@@ -54,33 +54,18 @@ end subroutine write_options_molecularcooling
 !  read the molecular cooling options from the parameter card for restart
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_molecular_cooling(name,valstring,imatch,igotall,ierr)
+subroutine read_options_molecular_cooling(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer :: ierr_co,ierr_hcn,ierr_h2o
 
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer :: ngot = 0
+ call read_inopt(CO_abun,'CO_abun',db,ierr_co,errcount=nerr,min=0.,default=CO_abun)
+ call read_inopt(HCN_abun,'HCN_abun',db,ierr_hcn,errcount=nerr,min=0.,default=HCN_abun)
+ call read_inopt(H2O_abun,'H2O_abun',db,ierr_h2o,errcount=nerr,min=0.,default=H2O_abun)
 
- imatch  = .true.
- igotall = .true. ! none of the cooling options are compulsory
-
- select case(trim(name))
- case('CO_abun')
-    read(valstring,*,iostat=ierr) CO_abun
-    if (CO_abun < 0.) CO_abun = 0.
-    ngot = ngot + 1
- case('HCN_abun')
-    read(valstring,*,iostat=ierr) HCN_abun
-    if (HCN_abun < 0.) HCN_abun = 0.
-    ngot = ngot + 1
- case('H2O_abun')
-    read(valstring,*,iostat=ierr) H2O_abun
-    if (H2O_abun < 0.) H2O_abun = 0.
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
- do_molecular_cooling = ngot > 0 .and. CO_abun+H2O_abun+HCN_abun > 0.
+ do_molecular_cooling = (ierr_co == 0 .and. ierr_hcn == 0 .and. ierr_h2o == 0) &
+                        .and. (CO_abun+H2O_abun+HCN_abun > 0.)
 
 end subroutine read_options_molecular_cooling
 
@@ -108,18 +93,18 @@ subroutine calc_cool_molecular( T, r, rho_sph, Q, dlnQdlnT)
  use units,   only:udist
 
 ! Data dictionary: Arguments
- real, intent(out)  :: Q, dlnQdlnT           ! In CGS and linear scale
- real, intent(in)   :: T, rho_sph            ! In CGS
- real, intent(in)   :: r                     ! code units
+ real, intent(out) :: Q, dlnQdlnT           ! In CGS and linear scale
+ real, intent(in)  :: T, rho_sph            ! In CGS
+ real, intent(in)  :: r                     ! code units
 
 ! Data dictionary: Additional parameters for calculations
  integer                                     :: i
  real                                        :: rho_H, n_H, Temp, Lambda, r_au
  real                                        :: fit_n_inner,T_log, n_H_log, N_hydrogen, N_coolant_log
  real                                        :: abundance, widthLine_molecule
- real, dimension(3)                          :: lambda_log, params_cool, widthLine,Qi
- real, dimension(4)                          :: params_cd
- real, dimension(3)                          :: molecular_abun
+ real :: lambda_log(3), params_cool(3), widthLine(3),Qi(3)
+ real :: params_cd(4)
+ real :: molecular_abun(3)
  real, dimension(3), parameter               :: mass_molecules = [28.01, 18.01528, 27.0253]*atomic_mass_unit
  character(len=3), dimension(3), parameter   :: moleculeNames = ["CO ", "H2O", "HCN"]
  character(len=3)                            :: moleculeName
@@ -183,9 +168,10 @@ end subroutine calc_cool_molecular
 !+
 !-----------------------------------------------------------------------
 subroutine loadCoolingTable(data_array)
- use datafiles,  only:find_phantom_datafile
+ use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
 
- real, dimension(40, 40, 40, 6), intent(out) :: data_array
+ real, intent(out) :: data_array(40, 40, 40, 6)
 
  ! Data dictionary: Read radiative cooling file
  integer            :: i, j, k, o, iunit, istat
@@ -193,7 +179,6 @@ subroutine loadCoolingTable(data_array)
  integer, parameter :: headerLines = 5
  real               :: T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
  character(len=120) :: filename
-
 
  ! Initialise variables
  i          = 0
@@ -210,37 +195,33 @@ subroutine loadCoolingTable(data_array)
 
  iunit = 1
  filename = find_phantom_datafile('radcool_all.dat','cooling')
- OPEN(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
+ open(unit=iunit,file=trim(filename),status="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
+ if (istat /= 0) call fatal('cooling_molecular','data file not found: '//trim(filename))
 
  ! Begin loading in data
- openif: if (istat == 0) then
-    !!! Skip header
-    rewind(unit=iunit)
-    do o = 1, headerLines
-       read(iunit, *, iostat=istat, IOMSG = imsg)
-    enddo
+ !!! Skip header
+ rewind(unit=iunit)
+ do o = 1, headerLines
+    read(iunit, *,iostat=istat, IOMSG = imsg)
+ enddo
 
-    ! Read data
-    skipheaderif: if ((istat == 0)) then
-       readdo: do
-          read(iunit, *, iostat=istat) i, j, k, T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
-          if (istat /= 0) exit
-          data_array(i, j, k, :) = [T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN]
+ ! Read data
+ skipheaderif: if ((istat == 0)) then
+    readdo: do
+       read(iunit, *,iostat=istat) i, j, k, T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
+       if (istat /= 0) exit
+       data_array(i, j, k, :) = [T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN]
 
-       enddo readdo
+    enddo readdo
 
-       if (istat > 0) write(*, *) "Error at line ", i, j, k, " during loading data into array."
-
-    else
-       write(*, 100) headerLines
-100    format("Error: Header consists of more than ", I2, " lines.")
-       write(*, *) trim(imsg)
-    endif skipheaderif
+    if (istat > 0) write(*, *) "Error at line ", i, j, k, " during loading data into array."
 
  else
-    write(*, *) "Error: Radiative cooling table ", trim(filename) ," does not exist."
- endif openif
+    write(*, 100) headerLines
+100 format("Error: Header consists of more than ", I2, " lines.")
+    write(*, *) trim(imsg)
+ endif skipheaderif
 end subroutine loadCoolingTable
 
 !-----------------------------------------------------------------------
@@ -249,8 +230,9 @@ end subroutine loadCoolingTable
 !+
 !-----------------------------------------------------------------------
 subroutine loadCDTable(data_array)
- use datafiles,  only:find_phantom_datafile
- real, dimension(36, 102, 6, 8, 5), intent(out) :: data_array
+ use datafiles, only:find_phantom_datafile
+ use io,        only:fatal
+ real, intent(out) :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Read radiative cooling file
  integer            :: i, j, k, l, o, iunit, istat
@@ -258,7 +240,6 @@ subroutine loadCDTable(data_array)
  integer, parameter :: headerLines = 8
  real               :: r_part, widthLine, m_exp, r_sep, N_H
  character(len=120) :: filename
-
 
  ! Initialise variables
  i           = 0
@@ -275,36 +256,32 @@ subroutine loadCDTable(data_array)
 
  iunit = 1
  filename = find_phantom_datafile('table_cd.dat','cooling')
- open(unit=iunit, file=filename, STATUS="OLD", iostat=istat, IOMSG=imsg)
+ open(unit=iunit,file=filename,status="OLD",iostat=istat, IOMSG=imsg)
+ if (istat /= 0) call fatal('cooling_molecular','data file not found: '//trim(filename))
 
  ! Begin loading in data
- openif: if (istat == 0) then
-    !!! Skip header
-    rewind(unit=iunit)
-    do o = 1, headerLines
-       read(iunit, *, iostat=istat, IOMSG = imsg)
-    enddo
+ !!! Skip header
+ rewind(unit=iunit)
+ do o = 1, headerLines
+    read(iunit, *,iostat=istat, IOMSG = imsg)
+ enddo
 
-    !!! Read data
-    skipheaderif: if ((istat == 0)) then
-       readdo: do
-          read(iunit, *, iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
-          if (istat /= 0) exit
-          data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_sep, N_H]
+ !!! Read data
+ skipheaderif: if ((istat == 0)) then
+    readdo: do
+       read(iunit, *,iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
+       if (istat /= 0) exit
+       data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_sep, N_H]
 
-       enddo readdo
+    enddo readdo
 
-       if (istat > 0) write(*, *) "Error at line ", i, j, k, l, " during loading data into array."
-
-    else
-       write(*, 100) headerLines
-100    format("Error: Header consists of more than ", I2, " lines.")
-       write(*, *) trim(imsg)
-    endif skipheaderif
+    if (istat > 0) write(*, *) "Error at line ", i, j, k, l, " during loading data into array."
 
  else
-    write(*, *) "Error: Column density table ", trim(filename)," does not exist."
- endif openif
+    write(*, 100) headerLines
+100 format("Error: Header consists of more than ", I2, " lines.")
+    write(*, *) trim(imsg)
+ endif skipheaderif
 end subroutine loadCDTable
 
 !-----------------------------------------------------------------------
@@ -315,15 +292,15 @@ end subroutine loadCDTable
 subroutine lambdaGradT(data_array, params, dudt, dlnQdlnT)
 
  ! Data dictionary: Arguments
- real, dimension(40, 40, 40, 6), intent(in)  :: data_array
- real, dimension(3), intent(in)              :: params
- real, intent(in)                            :: dudt
- real, intent(out)                           :: dlnQdlnT
+ real, intent(in)  :: data_array(40, 40, 40, 6)
+ real, intent(in)  :: params(3)
+ real, intent(in)  :: dudt
+ real, intent(out) :: dlnQdlnT
 
  ! Data dictionary: Additional arguments for calculations
  real                    :: T_lower, T_upper, dT, T, dQ
- integer, dimension(3)   :: index_lower_bound
- real, dimension(3)      :: dQ_lower, dQ_upper
+ integer :: index_lower_bound(3)
+ real :: dQ_lower(3), dQ_upper(3)
  integer                 :: index_T_lower, index_T_upper, index_nH, index_N
  integer                 :: index_molecule
 
@@ -355,14 +332,14 @@ end subroutine lambdaGradT
 subroutine findLower_cool(data_array, params, index_lower_bound)
 
  ! Data dictionary: Arguments
- real, dimension(3), intent(in)              :: params
- integer, dimension(3), intent(out)          :: index_lower_bound
- real, dimension(40, 40, 40, 6), intent(in)  :: data_array
+ real,    intent(in)  :: params(3)
+ integer, intent(out) :: index_lower_bound(3)
+ real,    intent(in)  :: data_array(40, 40, 40, 6)
  real, parameter                             :: tol = 1.E-6
 
  ! Data dictionary: Find index values
- real, dimension(3) :: params0, dparams
- real, dimension(3) :: real_lower_bound
+ real :: params0(3), dparams(3)
+ real :: real_lower_bound(3)
 
  params0(:) = data_array(1, 1, 1, 1:3)
  dparams(:) = data_array(2, 2, 2, 1:3) - params0(:)
@@ -381,9 +358,9 @@ end subroutine findLower_cool
 subroutine findLower_cd(data_array, params, index_lower_bound)
 
  ! Data dictionary: Arguments
- real, dimension(4), intent(in)                  :: params
- integer, dimension(4), intent(out)              :: index_lower_bound
- real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
+ real,    intent(in)  :: params(4)
+ integer, intent(out) :: index_lower_bound(4)
+ real,    intent(in)  :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Find index values
  integer, parameter  :: N_compZone = 15, N_r_part_sample = 36
@@ -391,7 +368,7 @@ subroutine findLower_cd(data_array, params, index_lower_bound)
  real, parameter     :: dv = 0.02, dm = 0.3, widthLine_min = 0.001, widthLine_max = 2., perturbation = 0.0001
  real, parameter     :: r_part_min = 1.1, r_part_max = 250.
  integer             :: i, j, k, l
- real, dimension(4)  :: min_array, max_array
+ real :: min_array(4), max_array(4)
 
  i = -1
  j = -1
@@ -450,20 +427,20 @@ end subroutine findLower_cd
 subroutine CoolingRate(data_array, params, molecule, lambda)
 
  ! Data dictionary: Arguments
- real, intent(out)                           :: lambda
- real, dimension(3), intent(in)              :: params
- real, dimension(40, 40, 40, 6), intent(in)  :: data_array
- character(len=3), intent(in)                :: molecule
+ real,             intent(out) :: lambda
+ real,             intent(in)  :: params(3)
+ real,             intent(in)  :: data_array(40, 40, 40, 6)
+ character(len=3), intent(in)  :: molecule
 
  ! Data dictionary: Find lambda value
  integer                 :: i
- logical, dimension(3)   :: checkBoundaries
- integer, dimension(3)   :: index_lower_bound
+ logical :: checkBoundaries(3)
+ integer :: index_lower_bound(3)
 
  ! Data dictionary: Interpolation
  real                     :: x_d, y_d, z_d
- real, dimension(3)       :: xyz
- real, dimension(2, 2, 2) :: c_grid_CO, c_grid_H2O, c_grid_HCN
+ real :: xyz(3)
+ real :: c_grid_CO(2, 2, 2), c_grid_H2O(2, 2, 2), c_grid_HCN(2, 2, 2)
  integer                  :: i0, i1, j0, j1, k0, k1
 
  ! Initialise variables
@@ -551,19 +528,19 @@ end subroutine CoolingRate
 subroutine ColumnDensity(data_array, params, N_hydrogen)
 
  ! Data dictionary: Arguments
- real, intent(out)                               :: N_hydrogen
- real, dimension(4), intent(in)                  :: params
- real, dimension(36, 102, 6, 8, 5), intent(in)   :: data_array
+ real, intent(out) :: N_hydrogen
+ real, intent(in)  :: params(4)
+ real, intent(in)  :: data_array(36, 102, 6, 8, 5)
 
  ! Data dictionary: Find column density
  integer                 :: i
- logical, dimension(4)   :: checkBoundaries
- integer, dimension(4)   :: index_lower_bound, max_boundary
+ logical :: checkBoundaries(4)
+ integer :: index_lower_bound(4), max_boundary(4)
 
  ! Data dictionary: Interpolation
  real                     :: x_d, y_d, z_d
- real, dimension(3)       :: xyz
- real, dimension(2, 2, 2) :: c_grid
+ real :: xyz(3)
+ real :: c_grid(2, 2, 2)
  integer                  :: i0, i1, j0, j1, k0, k1, l
 
  ! Initialise variables
@@ -639,9 +616,9 @@ end subroutine ColumnDensity
 subroutine interpolate(xyz, c_grid, c_interpol)
 
  ! Data dictionary: Arguments
- real, dimension(3), intent(in)  :: xyz
- real, dimension(2, 2, 2)        :: c_grid
- real, intent(out)               :: c_interpol
+ real, intent(in)  :: xyz(3)
+ real, intent(out) :: c_interpol
+ real :: c_grid(2, 2, 2)
 
  ! Data dictionary: Additional parameters for interpolation
  real    :: c00, c01, c10, c11, c0, c1, x_d, y_d, z_d

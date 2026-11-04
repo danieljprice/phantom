@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,21 +10,21 @@ module derivutils
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpiutils, timing
+! :Dependencies: io, kernel, mpiutils, options, timing
 !
- use timing, only: timers,itimer_dens,itimer_force,itimer_link,itimer_extf,itimer_balance,itimer_cons2prim,&
+ use timing, only:timers,itimer_dens,itimer_force,itimer_tree,itimer_balance,itimer_cons2prim,&
                    itimer_radiation,itimer_rad_save,itimer_rad_neighlist,itimer_rad_arrays,itimer_rad_its,&
-                   itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store
+                   itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store,itimer_HII
 
  implicit none
 
  private
 
- public :: do_timing
+ public :: do_timing,get_grkern_corrected
 
 contains
 
@@ -53,8 +53,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     itimer = itimer_dens
  case ('force')
     itimer = itimer_force
- case ('link')
-    itimer = itimer_link
+ case ('tree')
+    itimer = itimer_tree
  case ('cons2prim')
     itimer = itimer_cons2prim
  case ('radiation')
@@ -75,6 +75,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     itimer = itimer_rad_update
  case ('radstore')
     itimer = itimer_rad_store
+ case ('HII_region')
+    itimer = itimer_HII
  case default
     itimer = 1
  end select
@@ -94,5 +96,31 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
  tcpulast = tcpu2
 
 end subroutine do_timing
+
+!-------------------------------------------------------------
+!+
+!  Kernel gradient with the smoothing-length correction for h set from
+!  number density: grad W + zeta/(Omega~ m_j) grad W~ (with grad W~ = grad W
+!  unless two_kernel), so that m_j*grkern_corr is the term in d(rho_i)/dr_i.
+!  h41 is 1/h^4; zetaomega is zeta_i/Omega~_i; pmassj is the neighbour mass.
+!+
+!-------------------------------------------------------------
+pure subroutine get_grkern_corrected(q2,q,h41,zetaomega,pmassj,grkern_corr,grkern_tilde)
+ use kernel,  only:grkern,cnormk,cnormk_tilde,get_kernel_tilde
+ use options, only:two_kernel
+ real, intent(in)  :: q2,q,h41,zetaomega,pmassj
+ real, intent(out) :: grkern_corr,grkern_tilde
+ real :: wtilde
+
+ grkern_corr = grkern(q2,q)*h41*cnormk
+ if (two_kernel) then
+    call get_kernel_tilde(q2,q,wtilde,grkern_tilde)
+    grkern_tilde = grkern_tilde*h41*cnormk_tilde
+ else
+    grkern_tilde = grkern_corr
+ endif
+ if (pmassj > tiny(pmassj)) grkern_corr = grkern_corr + (zetaomega/pmassj)*grkern_tilde
+
+end subroutine get_grkern_corrected
 
 end module derivutils

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -12,20 +12,22 @@ program phantommoddump
 !
 ! :Owner: Daniel Price
 !
-! :Usage: moddump dumpfilein dumpfileout [time] [outformat]
+! :Usage: phantom_moddump dumpfilein dumpfileout [time] [outformat] --maxp=50000000
 !
-! :Dependencies: checkconserved, checksetup, dim, eos, io, memory, moddump,
-!   options, part, prompting, readwrite_dumps, readwrite_infile, setBfield,
-!   setup_params
+! :Dependencies: checkconserved, checksetup, dim, eos, eos_stamatellos, io,
+!   memory, moddump, moddump_utils, options, part, prompting,
+!   readwrite_dumps, readwrite_infile, setBfield, setup_params, systemutils
 !
- use dim,             only:tagline,maxp_hard
- use eos,             only:polyk
+ use dim,             only:tagline,maxp_alloc
+ use eos,             only:polyk,ieos
+ use eos_stamatellos, only:init_coolra,finish_coolra
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,mhd
- use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master
- use readwrite_dumps, only:init_readwrite_dumps,read_dump,write_fulldump,is_not_mhd
+ use io,              only:set_io_unit_numbers,iprint,idisk1,warning,fatal,iwritein,id,master,fileprefix
+ use readwrite_dumps, only:read_dump,write_fulldump,is_not_mhd
  use setBfield,       only:set_Bfield
- use moddump,         only:modify_dump
+ use moddump,         only:modify_dump,flags=>moddump_flags
+ use moddump_utils,   only:moddump_dumpfile_in,moddump_time
  use readwrite_infile,only:write_infile,read_infile
  use options,         only:set_default_options
  use setup_params,    only:ihavesetupB
@@ -33,16 +35,15 @@ program phantommoddump
  use checksetup,      only:check_setup
  use checkconserved,  only:get_conserv
  use memory,          only:allocate_memory
+ use systemutils,     only:get_command_option
  implicit none
- integer :: nargs
- character(len=120) :: dumpfilein,dumpfileout
- character(len=10) :: string
+ integer :: nargs, i, nposargs
+ character(len=120) :: dumpfilein,dumpfileout,arg,string
  real :: time,timeout
  integer :: ierr,nerr,nwarn,iloc
  logical :: idumpsphNG,iexist,ians
  integer, parameter          :: lenprefix = 120
- character(len=lenprefix)    :: fileprefix
- character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
+ character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,progname
 
  call set_io_unit_numbers
  iprint = 6
@@ -50,13 +51,52 @@ program phantommoddump
 !--get name of run from the command line
 !
  nargs = command_argument_count()
- if (nargs < 2 .or. nargs > 4) then
+ if (nargs < 2) then
     print "(a,/)",trim(tagline)
-    print "(a)",' Usage: moddump dumpfilein dumpfileout [time] [outformat]'
+    call get_command_argument(0,progname)
+    print "(a)",' Usage: '//trim(progname)//' dumpfilein dumpfileout [time] [outformat] --maxp=50000000 '//trim(flags)
+    print "(a)",'        options in the .moddump file can be set as --option=value'
     stop
  endif
- call get_command_argument(1,dumpfilein)
- call get_command_argument(2,dumpfileout)
+
+ ! Process positional arguments (those not starting with '-')
+ idumpsphNG = .false.
+ timeout = -1.
+ nposargs = 0
+ do i = 1, nargs
+    call get_command_argument(i,arg)
+    if (arg(1:1) /= '-') then
+       nposargs = nposargs + 1
+       select case(nposargs)
+       case(1)
+          dumpfilein = arg
+       case(2)
+          dumpfileout = arg
+       case(3)
+          string = arg
+          read(string,*,iostat=ierr) timeout
+          if (ierr /= 0) then
+             if (index(string,'sphNG') /= 0) then
+                idumpsphNG = .true.
+             else
+                stop 'error reading output time from command line'
+             endif
+          else
+             print*,' setting time = ',timeout
+          endif
+       case(4)
+          if (index(arg,'sphNG') /= 0) idumpsphNG = .true.
+       end select
+    endif
+ enddo
+
+ if (nposargs < 2 .or. len_trim(dumpfilein) == 0 .or. len_trim(dumpfileout) == 0) then
+    print "(a,/)",trim(tagline)
+    call get_command_argument(0,progname)
+    print "(a)",' Usage: '//trim(progname)//' dumpfilein dumpfileout [time] [outformat] --maxp=50000000 '//trim(flags)
+    print "(a)",'        options in the .moddump file can be set as --option=value'
+    stop
+ endif
 
  print "(/,a,/)",' Phantom moddump: pimp my dumpfiles'
 !
@@ -64,7 +104,7 @@ program phantommoddump
 !  read this if it exists
 !
  call set_default_options
- iloc = index(dumpfilein,'_0')
+ iloc = index(dumpfilein,'_0',back=.true.)
  if (iloc > 1) then
     fileprefix = trim(dumpfilein(1:iloc-1))
  else
@@ -83,7 +123,7 @@ program phantommoddump
 !--look for an existing input file with name corresponding to the OUTPUT dump file
 !  read this if it exists; this will overwrite the values from the input .in file
 !
- iloc = index(dumpfileout,'_0')
+ iloc = index(dumpfileout,'_0',back=.true.)
  if (iloc > 1) then
     fileprefix = trim(dumpfileout(1:iloc-1))
  else
@@ -96,6 +136,9 @@ program phantommoddump
     print "(2a,/)",' Reading revised default values from ', trim(infile)
     call read_infile(infile,logfile,evfile,dumpfile)
  endif
+
+ if (ieos == 24) call init_coolra()
+
 !
 !--reset logfile name
 !
@@ -108,26 +151,29 @@ program phantommoddump
  endif
 !
 !--allocate memory BEFORE reading the first file
-!  will be reallocated automatically if npart > maxp_hard
+!  will be reallocated automatically if npart > maxp_alloc
 !  but allows user to manually preset array sizes if necessary
 !
- call allocate_memory(int(maxp_hard,kind=8))
+ maxp_alloc = get_command_option('maxp',default=int(maxp_alloc))
+ call allocate_memory(maxp_alloc)
 !
 !--read particle setup from dumpfile
 !
- call init_readwrite_dumps()
  call read_dump(trim(dumpfilein),time,hfact,idisk1,iprint,0,1,ierr)
+ if (timeout < 0.) timeout = time
  if (mhd .and. ierr==is_not_mhd) then
     ihavesetupB = .false.
  elseif (ierr /= 0) then
-    stop 'error reading dumpfile'
+    call warning('moddump','error reading dumpfile')
  endif
  call check_setup(nerr,nwarn,restart=.true.)
  if (nwarn > 0) call warning('moddump','warnings from original setup',var='warnings',ival=nwarn)
  if (nerr > 0) call warning('moddump','ERRORS in original setup',var='errors',ival=nerr)
 !
-!--modify the dump file
+!--modify the dump file, recording its origin in the .moddump file
 !
+ moddump_dumpfile_in = dumpfilein
+ moddump_time = timeout
  call modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  get_conserv = 1.
 !
@@ -136,33 +182,6 @@ program phantommoddump
  call check_setup(nerr,nwarn,restart=.true.)
  if (nwarn > 0) call warning('moddump','warnings from modified setup',var='warnings',ival=nwarn)
  if (nerr > 0)  call fatal('moddump','errors in modified setup',var='errors',ival=nerr)
-
- idumpsphNG = .false.
- if (nargs >= 3) then
-    call get_command_argument(3,string)
-    read(string,*,iostat=ierr) timeout
-    if (ierr /= 0) then
-       if (nargs==3) then
-          timeout = time
-          print*,' using time = ',timeout,' from dump file'
-          if (index(string,'sphNG') /= 0) then
-             idumpsphNG = .true.
-          endif
-       else
-          stop 'error reading output time from command line'
-       endif
-    else
-       print*,' setting time = ',timeout
-    endif
- else
-    timeout = time
- endif
- if (nargs==4) then
-    call get_command_argument(4,string)
-    if (index(string,'sphNG') /= 0) then
-       idumpsphNG = .true.
-    endif
- endif
 
  if (mhd) then
     ians = .false.
@@ -183,6 +202,7 @@ program phantommoddump
     print "(a,/,/,a)",' To start the calculation, use: ',' ./phantom '//trim(infile)
  endif
 
+ if (ieos == 24) call finish_coolra()
  print "(/,a,/)",' Phantom moddump: another happy customer'
 
 end program phantommoddump

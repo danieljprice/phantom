@@ -1,10 +1,10 @@
 name: mpi
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  workflow_call:
+
+env:
+  PHANTOM_DATA_SOURCE: github  # download data files from the GitHub mirror before Zenodo
 
 jobs:
   test:
@@ -24,8 +24,8 @@ jobs:
           - ['test', '']
           - ['testkd', '']
           - ['testdust', 'dust']
-          - ['testgr', 'gr']
-          - ['testgrav', 'gravity ptmass']
+          - ['testgr', 'gr ptmass eos']
+          - ['testgrav', 'gravity ptmass sinktree']
           - ['testgrowth', 'dustgrowth']
           - ['testnimhd', 'nimhd']
           - ['test2', '']
@@ -53,33 +53,12 @@ jobs:
         sudo apt-get --yes install gfortran openmpi-bin openmpi-common libopenmpi-dev
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Compile with MPI
-      run: make SETUP=${{ matrix.input[0] }} MPI=yes DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}  phantomtest
+      run: make SETUP=${{ matrix.input[0] }} MPI=yes NOWARN=yes DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}  phantomtest
       env:
         SYSTEM: gfortran
 
     - name: Test with MPI
       run: mpirun --allow-run-as-root -np ${{ matrix.ntasks }} --oversubscribe ./bin/phantomtest ${{ matrix.input[1] }}
-
-  # Gather results into a dummy job that will fail if the previous job fails
-  gather_results:
-    if: always()
-    needs:
-    - test
-
-    # This name matches the branch protection requirement
-    name: mpi
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Check all tests
-      run: |
-        if [[ "${{ needs.test.result }}" == "success" ]]; then
-          echo "All tests succeeded"
-        else
-          echo "At least one test failed"
-          exit 1
-        fi

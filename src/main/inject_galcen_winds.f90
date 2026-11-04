@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,7 +26,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'galcen_winds'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  real :: outer_boundary = 20.
  character(len=120) :: datafile = 'winddata.txt'
@@ -62,8 +62,8 @@ end subroutine init_inject
 !  Main routine handling injection at the L1 point.
 !+
 !-----------------------------------------------------------------------
-subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
+                            npart,npart_old,npartoftype,dtinject)
  use io,        only:fatal,iverbose
  use part,      only:massoftype,igas,ihacc,i_tlast
  use partinject,only:add_or_update_particle
@@ -72,8 +72,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use random,    only:ran2
  use eos,       only:gmw,gamma
  real,    intent(in)    :: time, dtlast
- real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real,    intent(in)    :: rho(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  real :: r2,Mcut,Mdot_fac,vel_fac,Minject,Mdot_code,tlast
@@ -223,6 +225,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
+
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file.
@@ -242,32 +249,21 @@ end subroutine write_options_inject
 !  Reads input options from the input file.
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
- use io,      only:fatal,error,warning
- use physcon, only:solarm,years
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
- integer, save :: ngot = 0
- character(len=30), parameter :: label = 'read_options_inject'
- integer :: nstars
+subroutine read_options_inject(db,nerr)
+ use io,           only:warning
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer :: nstars,ierr
 
- imatch  = .true.
- select case(trim(name))
- case('outer_boundary')
-    read(valstring,*,iostat=ierr) outer_boundary
- case('datafile')
-    read(valstring,*,iostat=ierr) datafile
+ call read_inopt(outer_boundary,'outer_boundary',db,errcount=nerr,default=outer_boundary)
+ call read_inopt(datafile,'datafile',db,ierr,errcount=nerr)
+ if (ierr == 0) then
     call read_wind_data(datafile,nstars)
     if (nstars /= nptmass) then
        call warning('read_options_inject','number of stars /= number of wind sources')
     endif
-    ngot = ngot + 1
- case default
-    imatch = .false.
- end select
-
- igotall = (ngot >= 1)
+ endif
 
 end subroutine read_options_inject
 
@@ -306,7 +302,7 @@ end subroutine read_wind_data
 
 subroutine set_default_options_inject(flag)
 
- integer, optional, intent(in) :: flag
+ integer, intent(in), optional :: flag
 end subroutine set_default_options_inject
 
 end module inject

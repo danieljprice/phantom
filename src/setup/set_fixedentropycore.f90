@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -8,7 +8,7 @@ module setfixedentropycore
 !
 ! This module replaces the core of a MESA stellar profile with a flat-
 ! entropy profile that is in hydrostatic equilibrium with an added sink
-! particle. 
+! particle.
 !
 ! :References:
 !
@@ -37,11 +37,11 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
  use physcon,     only:pi,gg,solarm,solarr
  use table_utils, only:interpolator
  use io,          only:fatal
- integer, intent(in)  :: eos_type
- real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore
+ integer, intent(in)    :: eos_type
+ real,    intent(inout) :: r(:),rho(:),m(:),pres(:),mcore
+ real,    intent(in)    :: rcore,Xcore,Ycore
+ integer, intent(out)   :: ierr
  real, allocatable    :: r_alloc(:),rho_alloc(:),pres_alloc(:)
- real, intent(in)     :: rcore,Xcore,Ycore
- integer, intent(out) :: ierr
  real                 :: mc,msoft,rc
  integer              :: icore,iverbose
 
@@ -62,7 +62,7 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
        ientropy = 2
     case default
        call fatal('setfixedentropycore',&
-                   'eos_type not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
+                   'eos_type not one of 2 (ideal gas), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
     end select
  endif
 
@@ -86,7 +86,6 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
 
 end subroutine set_fixedS_softened_core
 
-
 !-----------------------------------------------------------------------
 !+
 !  Returns softened core profile with fixed entropy
@@ -94,13 +93,14 @@ end subroutine set_fixedS_softened_core
 !-----------------------------------------------------------------------
 subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
  use eos, only:entropy,get_mean_molecular_weight
- real, allocatable, dimension(:), intent(in)    :: r
- integer, intent(in)                            :: iverbose
- real, intent(in)                               :: mh,Xcore,Ycore
- real, intent(inout)                            :: mcore
- real, allocatable, dimension(:), intent(inout) :: rho,pres
+ real, allocatable, intent(in)    :: r(:)
+ integer,           intent(in)    :: iverbose
+ real,              intent(in)    :: mh,Xcore,Ycore
+ real,              intent(inout) :: mcore
+ real, allocatable, intent(inout) :: rho(:),pres(:)
  integer                                        :: Nmax,it,ierr
  real                                           :: Sc,mass,mold,msoft,fac,mu
+ integer, parameter :: it_max = 5001
 
 ! INSTRUCTIONS
 
@@ -122,7 +122,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
  mass = msoft
  it = 0
 
- do
+ do while (it < it_max)
     mold = mass
     ierr = 0
     call one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr) ! returned mass is m(r=0)
@@ -139,8 +139,8 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
     if (mold * mass < 0.) fac = fac * 0.5
 
     if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
-       write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
-                                 &central mass. m(r=0)/msoft = ',mass/msoft
+       write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero'// &
+                                 'central mass. m(r=0)/msoft = ',mass/msoft
        write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
        exit
     endif
@@ -148,8 +148,11 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
     if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e12.5))') it,'m(r=0) = ',mass,'mcore = ',mcore,'fac = ',fac
  enddo
 
-end subroutine calc_rho_and_pres
+ if (it >= it_max) then
+    write(*,'(/,1x,a,e12.5)') 'WARNING: Failed to converge on mcore! m(r=0)/msoft = ',mass/msoft
+ endif
 
+end subroutine calc_rho_and_pres
 
 !-----------------------------------------------------------------------
 !+
@@ -159,15 +162,15 @@ end subroutine calc_rho_and_pres
 subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
  use physcon, only:gg,pi,solarm
  use eos,     only:get_rho_from_p_s
- real, intent(in)                               :: Sc,mcore,msoft,mu
- integer, intent(in)                            :: iverbose
- real, allocatable, dimension(:), intent(in)    :: r
- real, allocatable, dimension(:), intent(inout) :: rho,pres
- real, intent(out)                              :: mass
- integer, intent(out)                           :: ierr
+ real,              intent(in)    :: Sc,mcore,msoft,mu
+ integer,           intent(in)    :: iverbose
+ real, allocatable, intent(in)    :: r(:)
+ real, allocatable, intent(inout) :: rho(:),pres(:)
+ real,              intent(out)   :: mass
+ integer,           intent(out)   :: ierr
  integer                                        :: i,Nmax
  real                                           :: rcore,rhoguess
- real, allocatable, dimension(:)                :: dr,dvol
+ real, allocatable :: dr(:),dvol(:)
 
  Nmax = size(rho)-1
  allocate(dr(1:Nmax+1),dvol(1:Nmax+1))
@@ -197,7 +200,7 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
        return
     endif
     if (rho(i-1)<rho(i)) then
-       if (iverbose > 1) then 
+       if (iverbose > 1) then
           print*,'WARNING: Density inversion at i = ',i, 'm = ',mass/solarm
           write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,rho(i),rho(i-1),mass
        endif
@@ -232,7 +235,6 @@ function gcore(r,rcore)
  gcore = gcore / hsoft**2 ! Note: gcore is not multiplied by G or mcore yet.
 
 end function gcore
-
 
 subroutine calc_mass_from_rho(r,rho,m)
  use physcon, only:pi

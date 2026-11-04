@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -33,11 +33,11 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,          only: mhd
- use part,         only: nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,isdead_or_accreted
- use physcon,      only: solarm,km
- use units,        only: unit_velocity,unit_density,umass
- use sortutils,    only: indexx
+ use dim,          only:mhd
+ use part,         only:rho,nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted
+ use physcon,      only:solarm,km
+ use units,        only:unit_velocity,unit_density,umass
+ use sortutils,    only:indexx
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -63,8 +63,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
  ! Initialise values & Open file
  !
- fileoutSV = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_SinkVel.dat'
- fileoutSA = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_SinkAverages.dat'
+ fileoutSV = trim(dumpfile(1:index(dumpfile,'_')-1))//'_SinkVel.dat'
+ fileoutSA = trim(dumpfile(1:index(dumpfile,'_')-1))//'_SinkAverages.dat'
  inquire(file=fileoutSV,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.
@@ -100,7 +100,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     imass0 = 0
     do i = 1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-          if (rhoh(xyzh(4,i),particlemass) > (1.1d-23)/unit_density) imass0 = imass0+1
+          if (rho(i) > (1.1d-23)/unit_density) imass0 = imass0+1
        endif
     enddo
     print*, "The total initial mass of the clouds is ",imass0*particlemass," M_sun"
@@ -117,7 +117,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           7,'vy',      &
           8,'vz'
     do k = 1,nres
-       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
+       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
        open(iunit+(2*k+1),file=fileoutSH,status='replace')
        write(iunit+(2*k+1),"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'idump',   &
@@ -130,7 +130,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           8,'N velx',  &
           9,'N vely',  &
          10,'N velz'
-       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
+       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
        open(iunit+(2*k+2),file=fileoutGH,status='replace')
        write(iunit+(2*k+2),"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'idump',      &
@@ -162,8 +162,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     open(iunit   ,file=fileoutSV,position='append')
     open(iunit+20,file=fileoutSA,position='append')
     do k = 1,nres
-       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
-       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
+       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
+       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
        open(iunit+(2*k+1),file=fileoutSH,position='append')
        open(iunit+(2*k+2),file=fileoutGH,position='append')
     enddo
@@ -268,12 +268,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  mvbins = 0
  mtot   = 0.
 !$omp parallel do default(none) &
-!$omp shared(npart,xyzh,vxyzu,particlemass,nbins,vmd,dtsh) &
+!$omp shared(npart,xyzh,vxyzu,particlemass,nbins,vmd,dtsh,rho) &
 !$omp private(i,j,k,vel,rhoi) &
 !$omp reduction(+:mvbins,mtot)
  do i = 1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       rhoi = rhoh(xyzh(4,i),particlemass)
+       rhoi = rho(i)
        if (rhoi > dtsh) then
           vel  = sqrt(dot_product(vxyzu(1:3,i),vxyzu(1:3,i)))
           mtot = mtot + 1.0

@@ -13,25 +13,19 @@
 #
 # Written by Daniel Price, 2012-2023, daniel.price@monash.edu
 #
-if [ X$SYSTEM == X ]; then
+if [ "X$SYSTEM" == "X" ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
    echo "Usage: $0 [max idim to check] [url]";
    exit;
 fi
 
 # Default arguments
-maxdim=11000000;
 url='';
 batch=1;
 nbatch=1;
 
 while [[ "$1" == --* ]]; do
   case $1 in
-    --maxdim)
-      shift;
-      maxdim=$1; # max idim to check
-      ;;
-
     --url)
       shift;
       url=$1; # url for results
@@ -59,19 +53,11 @@ if [[ "$badflag" != "" ]]; then
    exit
 fi
 
-
-if (($maxdim > 0)) && (($maxdim < 2000000000)); then
-   echo "Using maxdim = $maxdim";
-else
-   echo "Usage: $0 [max idim to check] [url]";
-   exit;
-fi
-
 echo "url = $url";
 
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main setup analysis utils';
+listofcomponents='main setup analysis utils allmoddumps allkernels allanalysis';
 #listofcomponents='setup'
 #
 # get list of targets, components and setups to check
@@ -153,7 +139,11 @@ print_result()
      colour=$amber;;
   $fail )
      nfail=$(( nfail + 1 ));
-     colour=$red;;
+     colour=$red;
+     # list the failure in the GitHub Actions run summary
+     if [ "$GITHUB_ACTIONS" == "true" ]; then
+        echo "::error title=SETUP=${setup} (SYSTEM=${SYSTEM})::${text}";
+     fi;;
   * )
      colour=$white;;
   esac
@@ -181,9 +171,11 @@ check_phantomsetup ()
    cp $phantomdir/bin/phantomsetup .;
    #
    # run ./phantomsetup prefix, answering any questions with "Enter"
+   # (without flags, which would skip the prompts)
    #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
+   flags="--np=1000 --np1=1000 --np2=1000"
    echo -e "$myinput" > myinput.txt;
    sed '/-e/d' myinput.txt > mycleanin.txt
    ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
@@ -197,11 +189,23 @@ check_phantomsetup ()
    # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
    #
    infile="${prefix}.in"
-   ./phantomsetup $prefix < myinput.txt > /dev/null;
-   ./phantomsetup $prefix < myinput.txt > /dev/null;
+   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null;
+   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
-      #test_setupfile_options "$prefix" "$prefix.setup" $infile;
+      test_setupfile_options "$prefix.setup" "$flags" "$setup" $infile;
+      #
+      # check that --np=1000 etc. on the command line were applied to the .setup file
+      # (skipped if the .setup file has no np, np1, np2... option)
+      #
+      for npval in $(sed -n 's/^ *np[0-9]* *= *\([^ !]*\).*/\1/p' "$prefix.setup"); do
+         if awk -v x="$npval" 'BEGIN{exit !(x+0 == 1000)}'; then
+            print_result "command line option --np applied to .setup file" $pass;
+         else
+            print_result "FAIL: command line option --np not applied (np = $npval)" $fail;
+            myfail=$(( myfail + 1 ));
+         fi
+      done
    else
       print_result "no .setup file" $warn;
    fi
@@ -228,6 +232,7 @@ check_phantomsetup ()
             dumpfile="${prefix}_00000"
             if [ -s $dumpfile ]; then
                print_result "${dumpfile} successfully created" $pass;
+               check_phantommoddump $dumpfile;
             else
                print_result "FAIL: did not create ${dumpfile}" $fail;
                myfail=$(( myfail + 1 ));
@@ -249,28 +254,69 @@ check_phantomsetup ()
    fi
 }
 #
+# check that phantommoddump (built for this setup) runs on a dump file.
+# The first run may only write the .moddump file, so run it twice,
+# answering any questions with "Enter"
+#
+check_phantommoddump()
+{
+   dumpin=$1;
+   if [ -e $phantomdir/bin/phantommoddump ]; then
+      cp $phantomdir/bin/phantommoddump .;
+      ./phantommoddump $dumpin moddump_00000 0. < mycleanin.txt > /dev/null;
+      ./phantommoddump $dumpin moddump_00000 0. < mycleanin.txt > /dev/null;
+      if [ -s moddump_00000 ]; then
+         print_result "phantommoddump runs ok" $pass;
+      else
+         print_result "phantommoddump did not create moddump_00000" $warn;
+         if [ "$GITHUB_ACTIONS" == "true" ]; then
+            echo "::warning title=SETUP=${setup} (SYSTEM=${SYSTEM})::phantommoddump failed";
+         fi
+      fi
+   fi
+}
+#
 # check that all possible values of certain
 # variables in the .setup file work
 #
 test_setupfile_options()
 {
    myfail=0;
-   setup=$1;
-   setupfile=$2;
-   infile=$3;
+   #"$prefix.setup" "$flags" "$setup" $infile
+   setupfile=$1;
+   flags=$2;
+   setup=$3;
+   infile=$4;
    range=''
-   if [ "X$setup"=="Xstar" ]; then
-      param='iprofile'
-      range='1 2 3 4 5 6 7'
+   if [ "X$setup" == "Xstar" ]; then
+      param='iprofile1'
+      range='0 1 2 3 4 5 6 7'
+   fi
+   if [ "X$setup" == "Xbinary" ]; then
+      param='nstars'
+      range='0 1 2 3 4 5'
+   fi
+   if [ "X$setup" == "Xgrowingdisc" ]; then
+      param='iporosity'
+      range='0 1'
    fi
    for x in $range; do
        valstring="$param = $x"
-       echo "checking $valstring"
+       echo "checking $valstring for SETUP=$setup"
+       rm $setupfile;
+       ./phantomsetup $setupfile < mycleanin.txt > /dev/null;
        sed "s/$param.*=.*$/$valstring/" $setupfile > ${setupfile}.tmp
-       cp ${setupfile}.tmp $setupfile
+       mv ${setupfile}.tmp $setupfile
+       if [ "X$x" == "X6" ]; then
+          #sed "s/ieos.*=.*$/ieos = 9/" $setupfile > ${setupfile}.tmp
+          #mv ${setupfile}.tmp $setupfile
+          sed "s/dist_unit.*=.*$/dist_unit = km/" $setupfile > ${setupfile}.tmp
+          mv ${setupfile}.tmp $setupfile
+       fi
+       echo $setupfile
        rm $infile
-       ./phantomsetup $setupfile < /dev/null > /dev/null;
-       ./phantomsetup $setupfile < /dev/null;
+       ./phantomsetup $setupfile $flags < /dev/null > /dev/null;
+       ./phantomsetup $setupfile $flags < /dev/null > /dev/null;
 
        if [ -e $infile ]; then
           print_result "successful phantomsetup with $valstring" $pass;
@@ -306,11 +352,14 @@ check_phantomanalysis ()
    fi
    cd /tmp/$dirname;
    cp $phantomdir/bin/phantomanalysis .;
-   if [ "X$setup" == "Xstar" ]; then
+   if [ "X$setup" == "Xstar"  -a  "$SYSTEM" != "aocc" ]; then
       echo "performing analysis unit tests for SETUP=$setup"
       $pwd/test_analysis_ce.sh; err=$?;
       python $pwd/test_analysis_ce.py; err=$?;
    else
+      if [ "$SYSTEM" == "aocc" ]; then
+         echo "skipping CE analysis unit test for SYSTEM=aocc"
+      fi
       #echo "there are no analysis unit tests for SETUP=$setup"
       err=0;
    fi
@@ -344,10 +393,10 @@ for setup in $listofsetups; do
     'setup')
       text="$component runs, creates .setup and .in files with no unspecified user input";
       listoftargets='setup';;
-    'utils')
+    'utils'|'allmoddumps'|'allkernels'|'allanalysis')
       text="$component build";
       if [ "$setup" != "test" ]; then continue; fi # skip unless SETUP=test
-      listoftargets='utils';;
+      listoftargets=$component;;
     *)
       text='build';
       listoftargets='phantom setup analysis moddump phantomtest';;
@@ -370,17 +419,6 @@ for setup in $listofsetups; do
       echo "<table>" >> $htmlfile;
    fi
    cd $phantomdir;
-   dims="`make --quiet SETUP=$setup getdims`";
-   dims=${dims//[^0-9]/};  # number only
-   if [ "X$dims" == "X" ]; then
-      dims=$maxdim;
-   fi
-   if (($dims <= $maxdim)); then
-      maxp='';
-   else
-      maxp="MAXP=$maxdim";
-      echo "compiling $setup with $maxp";
-   fi
    echo "<tr>" >> $htmlfile;
    for target in $listoftargets; do
       ntotal=$((ntotal + 1));
@@ -403,28 +441,31 @@ for setup in $listofsetups; do
          mydebug='DEBUG=yes' # compile phantomsetup with DEBUG=yes for setup test
          #make clean >& /dev/null;
       fi
-      if [[ "$setup" == "blob" ]]; then
+      if [[ "$setup" == "blob" || "$setup" == "coaladisc" || "$setup" == "coala_collapse" || "$SYSTEM" == "nvfortran" ]]; then
          mynowarn='';
-         echo "allowing warnings for SETUP=blob"
+         echo "allowing warnings for SETUP=$setup SYSTEM=$SYSTEM"
       else
          mynowarn=$nowarn;
       fi
-      make SETUP=$setup $nolibs $mynowarn $maxp $target $mydebug 1> $makeout 2> $errorlog; err=$?;
+      make SETUP=$setup $nolibs $mynowarn $target $mydebug 1> $makeout; err=$?;
       #--remove line numbers from error log files
-      sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
+      #sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then
          echo "OK";
          colour=$green;
          text='OK';
       else
-         echo "FAILED"; grep Error $errorlog;
+         echo "FAILED"; #grep Error $errorlog;
          colour=$red;
          text='**FAILED**';
          nfail=$((nfail + 1));
          echo $setup >> $faillog;
+         if [ "$GITHUB_ACTIONS" == "true" ]; then
+            echo "::error title=make SETUP=${setup} ${target} (SYSTEM=${SYSTEM})::compilation failed";
+         fi
       fi
       if [ -e $errorlogold ]; then
-         diff --unchanged-line-format="" --old-line-format="" --new-line-format="%L" $errorlogold $errorlog | tail -20 > warnings.tmp
+         diff $errorlogold $errorlog | tail -20 > warnings.tmp
          if [ -s warnings.tmp ]; then
             newwarn=1;
          else
@@ -477,7 +518,7 @@ for setup in $listofsetups; do
       if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
          # also build phantom main binary
          echo "compiling phantom with SETUP=$setup"
-         make SETUP=$setup $nolibs $mynowarn $maxp $mydebug 1>> $makeout 2>> $errorlog; err=$?;
+         make SETUP=$setup $nolibs $mynowarn $mydebug 1>> $makeout; err=$?;
          check_phantomsetup $setup;
       elif [ "X$target" == "Xanalysis" ] && [ "X$component" == "Xanalysis" ]; then
          check_phantomanalysis $setup;

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,34 +18,141 @@ module readwrite_mesa
 !
  implicit none
 
- public :: read_mesa,write_mesa
+ public :: read_mesa,write_mesa,read_masstransferrate
 
  private
 
 contains
+
+!-----------------------------------------------------------------------
+!+
+!  Reads mass transfer rate vs. time data.
+!  Assumes input time data are in years and Mdot data in Msun/yr, outputs
+!  columns in code units.
+!+
+!-----------------------------------------------------------------------
+subroutine read_masstransferrate(filepath,time,mdot,ierr)
+ use physcon,   only:solarm,solarr,years
+ use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
+ use datafiles, only:find_phantom_datafile
+ use units,     only:umass,utime
+ character(len=*),  intent(in)  :: filepath
+ real, allocatable, intent(out) :: time(:),mdot(:)
+ integer,           intent(out) :: ierr
+ integer                                    :: lines,i,ncols,nheaderlines,nlabels
+ integer                                    :: iu
+ character(len=120)                         :: fullfilepath
+ character(len=24), allocatable              :: header(:)
+ logical                                    :: iexist,got_column
+ real, allocatable :: dat(:,:)
+
+ !
+ !--Get path name
+ !
+ ierr = 0
+ fullfilepath = find_phantom_datafile(filepath,'star_data_files')
+ inquire(file=trim(fullfilepath),exist=iexist)
+ if (.not.iexist) then
+    ierr = 1
+    return
+ endif
+ lines = get_nlines(fullfilepath) ! total number of lines in file
+
+ print "(1x,a)",trim(fullfilepath)
+ open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR opening file '//trim(fullfilepath)
+    return
+ endif
+
+ print*,lines, 'LINES'
+
+ call get_ncolumns(iu,ncols,nheaderlines)
+ read(iu,*,iostat=ierr) lines,lines
+ read(iu,'()',iostat=ierr)
+
+ lines = lines - nheaderlines
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file header'
+    return
+ endif
+
+ if (lines <= 0) then ! file not found
+    ierr = 1
+    return
+ endif
+
+ ! extract column labels from the file header
+ allocate(header(ncols),dat(lines,ncols))
+ call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
+ if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
+
+ allocate(time(lines),mdot(lines))
+
+ ! read file forwards, from centre to surface
+ do i = 1,lines
+    read(iu,*,iostat=ierr) dat(i,1:ncols)
+ enddo
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading data from file: reached end of file?'
+    return
+ endif
+
+ do i = 1,ncols
+    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
+       print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
+       ierr = 2
+       return
+    endif
+    got_column = .true.
+    select case(trim(lcase(header(i))))
+    case('tiempo')
+       time = dat(1:lines,i)
+    case('mdot')
+       mdot = dat(1:lines,i)
+    case default
+       got_column = .false.
+    end select
+    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
+ enddo
+ print "(a)"
+
+ close(iu)
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file [missing required columns]'
+    return
+ endif
+
+ time = time * years / utime
+ mdot = mdot * (solarm / years) * utime / umass
+
+end subroutine read_masstransferrate
+
 !-----------------------------------------------------------------------
 !+
 !  Read quantities from MESA profile or from profile in the format of
 !  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits)
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits)
  use physcon,   only:solarm,solarr
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
  use datafiles, only:find_phantom_datafile
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- character(len=*), intent(in)               :: filepath
- integer, intent(out)                       :: ierr
- real,    intent(in)                        :: X_in,Z_in
- real, allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
- real, intent(out)                          :: Mstar
- logical, intent(in), optional              :: cgsunits
+ character(len=*),  intent(in)  :: filepath
+ integer,           intent(out) :: ierr
+ real,              intent(in)  :: X_in,Z_in
+ real, allocatable, intent(out) :: rho(:),r(:),pres(:),m(:),ene(:),temp(:),Xfrac(:),Yfrac(:),mu(:)
+ real,              intent(out) :: Mstar
+ logical,           intent(in), optional :: cgsunits
  integer                                    :: lines,i,ncols,nheaderlines,nlabels
  integer                                    :: idir,iu
  character(len=120)                         :: fullfilepath
- character(len=24),allocatable              :: header(:)
+ character(len=24), allocatable              :: header(:)
  logical                                    :: iexist,usecgs,ismesafile,got_column
- real,allocatable,dimension(:,:)            :: dat
+ real, allocatable :: dat(:,:)
 
  usecgs = .false.
  if (present(cgsunits)) usecgs = cgsunits
@@ -61,7 +168,6 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
- print "(1x,a)",trim(fullfilepath)
  open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
  if (ierr /= 0) then
     print "(a,/)",' ERROR opening file '//trim(fullfilepath)
@@ -99,10 +205,11 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  ! extract column labels from the file header
  allocate(header(ncols),dat(lines,ncols))
  call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
- if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
+ if (nlabels /= ncols) print*,'WARNING: got ',nlabels,' labels for ',ncols,' columns'
 
- allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
-          temp(lines),Xfrac(lines),Yfrac(lines))
+ allocate(m(lines))
+ m = -1.
+ allocate(r,pres,rho,ene,temp,Xfrac,Yfrac,mu,source=m)
 
  over_directions: do idir=1,2   ! try backwards, then forwards
     if (idir==1) then
@@ -124,6 +231,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
     ! Set mass fractions to fixed inputs if not in file
     Xfrac = X_in
     Yfrac = 1. - X_in - Z_in
+    mu = 0.
     do i = 1,ncols
        if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
           print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
@@ -137,27 +245,46 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
        case('mass','#mass','m')
           m = dat(1:lines,i)
           if (ismesafile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
+       case('logM','log_mass')
+          m = 10**dat(1:lines,i)
+          if (ismesafile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
        case('rho','density')
           rho = dat(1:lines,i)
        case('logrho')
           rho = 10**(dat(1:lines,i))
-       case('energy','e_int','e_internal')
+       case('energy','e_int','e_internal','cell_specific_ie')
           ene = dat(1:lines,i)
+       case('loge')
+          ene = 10**dat(1:lines,i)
        case('radius_cm')
           r = dat(1:lines,i)
+       case('radius_km')
+          r = dat(1:lines,i) * 1e5
        case('radius','r')
           r = dat(1:lines,i)
           if (ismesafile .or. maxval(r) < 1e-10*solarr) r = r * solarr
        case('logr')
           r = (10**dat(1:lines,i)) * solarr
+       case('logr_cm')
+          r = 10**dat(1:lines,i)
        case('pressure','p')
           pres = dat(1:lines,i)
+       case('logp')
+          pres = 10**dat(1:lines,i)
        case('temperature','t')
           temp = dat(1:lines,i)
-       case('x_mass_fraction_h','xfrac')
+       case('logt')
+          temp = 10**dat(1:lines,i)
+       case('x_mass_fraction_h','x','xfrac','h1')
           Xfrac = dat(1:lines,i)
-       case('y_mass_fraction_he','yfrac')
+       case('log_x')
+          Xfrac = 10**dat(1:lines,i)
+       case('y_mass_fraction_he','y','yfrac','he4')
           Yfrac = dat(1:lines,i)
+       case('log_y')
+          Yfrac = 10**dat(1:lines,i)
+       case('mu')
+          mu = dat(1:lines,i)
        case default
           got_column = .false.
        end select
@@ -175,6 +302,13 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
     enddo
  enddo over_directions
  close(iu)
+
+ if (min(minval(pres),minval(rho))<0d0)ierr = 1
+
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR reading MESA file [missing required columns]'
+    return
+ endif
 
  if (.not. usecgs) then
     m = m / umass
@@ -195,9 +329,9 @@ end subroutine read_mesa
 !+
 !----------------------------------------------------------------
 subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
- real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
- character(len=120), intent(in)  :: outputpath
+ real,               intent(in) :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
+ character(len=120), intent(in) :: outputpath
+ real,               intent(in), optional :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=200)              :: headers(100)
  integer                         :: i,ncols,noptionalcols,j,iu
  real, allocatable               :: optionalcols(:,:)
@@ -230,7 +364,7 @@ subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
     optionalcols(:,noptionalcols) = csound
  endif
 
- open(newunit=iu, file = outputpath, status = 'replace')
+ open(newunit=iu,file=outputpath,status='replace')
  do i = 1,noptionalcols+ncols-1
     write(iu,'(a24,2x)',advance="no") trim(headers(i))
  enddo

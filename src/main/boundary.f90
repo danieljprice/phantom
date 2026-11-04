@@ -1,13 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module boundary
 !
-! This module contains variables and subroutines relating to boundaries,
-! including dynamically adjusting periodic boundaries
+! This module contains variables and subroutines relating to boundaries
 !
 ! :References:
 !
@@ -15,19 +14,24 @@ module boundary
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim
+! :Dependencies: None
 !
-
- use dim, only: maxvxyzu
  implicit none
  real,    public :: xmin,xmax,ymin,ymax,zmin,zmax
  real,    public :: dxbound,dybound,dzbound
  real,    public :: totvol
+ real,    public :: hdlx,hdly,hdlz
 
  public :: set_boundary
  public :: cross_boundary
-
+ public :: print_boundaries
+ public :: mod_boundary
  private
+
+ ! fold a separation, given as components or as a vector, to its nearest periodic image
+ interface mod_boundary
+  module procedure mod_boundary_xyz,mod_boundary_vec
+ end interface mod_boundary
 
 contains
 
@@ -44,6 +48,15 @@ contains
 !
 !   call set_boundary()
 !
+!  Or with a single argument, which gives the box length:
+!
+!   call set_boundary(l=1.)
+!
+!  equivalent to:
+!
+!   call set_boundary(x_min=-0.5*l,x_max=0.5*l,y_min=-0.5*l,&
+!                     y_max=0.5*l,z_min=-0.5*l,z_max=0.5*l)
+!
 !  Or with each boundary set individually:
 !
 !   call set_boundary(0.,1.,0.,1.,0.,1.)
@@ -53,9 +66,10 @@ contains
 !   call set_boundary(pos=array)
 !+
 !---------------------------------------------------------------
-subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos)
+subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos,l)
  real, intent(in), optional :: x_min, x_max, y_min, y_max, z_min, z_max
  real, intent(in), optional :: pos(6)
+ real, intent(in), optional :: l
  !
  ! give default values if no settings given
  !
@@ -75,6 +89,13 @@ subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos)
     ymax = pos(4)
     zmin = pos(5)
     zmax = pos(6)
+ elseif (present(l)) then
+    xmin = -0.5*l
+    xmax = -xmin
+    ymin = -0.5*l
+    ymax = -ymin
+    zmin = -0.5*l
+    zmax = -zmin
  else
     if (present(x_min)) xmin = x_min
     if (present(x_max)) xmax = x_max
@@ -90,6 +111,10 @@ subroutine set_boundary(x_min,x_max,y_min,y_max,z_min,z_max,pos)
  dxbound = xmax - xmin
  dybound = ymax - ymin
  dzbound = zmax - zmin
+
+ hdlx = 0.5*dxbound
+ hdly = 0.5*dybound
+ hdlz = 0.5*dzbound
 
  totvol = dxbound*dybound*dzbound
 
@@ -140,5 +165,59 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
 
 end subroutine cross_boundary
 
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------
+!+
+!  Fold a separation vector to its nearest periodic image
+!+
+!----------------------------------------------------------------
+pure subroutine mod_boundary_xyz(dx,dy,dz)
+ real, intent(inout) :: dx,dy,dz
+
+ if (abs(dx) > hdlx) dx = dx - dxbound*sign(1.0,dx)
+ if (abs(dy) > hdly) dy = dy - dybound*sign(1.0,dy)
+ if (abs(dz) > hdlz) dz = dz - dzbound*sign(1.0,dz)
+
+end subroutine mod_boundary_xyz
+
+!----------------------------------------------------------------
+!+
+!  Fold a separation vector to its nearest periodic image
+!  (vector form)
+!+
+!----------------------------------------------------------------
+pure subroutine mod_boundary_vec(dx)
+ real, intent(inout) :: dx(3)
+
+ call mod_boundary_xyz(dx(1),dx(2),dx(3))
+
+end subroutine mod_boundary_vec
+
+!----------------------------------------------------------------
+!+
+!  This subroutine prints the boundaries to the screen
+!+
+!---------------------------------------------------------------
+subroutine print_boundaries(iprint,periodic)
+ integer, intent(in) :: iprint
+ logical, intent(in) :: periodic
+
+ if (periodic) then
+    write(iprint,"(1x,a)") 'Periodic boundaries: '
+    if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
+        abs(ymin) > 1.0d4 .or. abs(ymax) > 1.0d4 .or. &
+        abs(zmin) > 1.0d4 .or. abs(zmax) > 1.0d4      ) then
+       write(iprint,"(2x,2(a,es14.6))") 'xmin = ',xmin,' xmax = ',xmax
+       write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
+       write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
+    else
+       write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
+       write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
+       write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
+    endif
+ else
+    write(iprint,"(a)") ' No boundaries set '
+ endif
+
+end subroutine print_boundaries
+
 end module boundary

@@ -54,15 +54,16 @@ def pimp_my_sim(gdump_name,
     else:
         print(f"ERROR: check {compil_logfile} for more informations")
 
-    # create input param file for moddump
-    with open("bin_param.txt", "w") as paramfile:
-        line = f"{force_smax} {smax_user} {bins_per_dex}"
-        paramfile.write(line)
-
     # run moddump on input dustgrowth dump
     print(f"--> Running Phantommoddump on input file {gdump_name}...")
     if os.path.exists(outdump_name+".in"):
         os.system(f"rm {outdump_name}*")
+
+    # write the moddump options file, read by phantommoddump instead of prompting
+    with open(outdump_name+".moddump", "w") as paramfile:
+        paramfile.write(f"force_smax = {'T' if force_smax else 'F'}\n")
+        paramfile.write(f"smax_user = {smax_user}\n")
+        paramfile.write(f"bins_per_dex = {bins_per_dex}\n")
     os.system(f"./phantommoddump {gdump_name} {outdump_name}_00000.tmp &> {logfile_moddump}")
 
     # check for errors in the execution of phantommoddump

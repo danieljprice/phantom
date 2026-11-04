@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -13,13 +13,13 @@ module externalforces
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - accradius1      : *soft accretion radius of black hole*
-!   - accradius1_hard : *hard accretion radius of black hole*
+!   - accradius1      : *soft accretion radius of black hole(s) (in units of M_bh)*
+!   - accradius1_hard : *hard accretion radius of black hole (in units of M_bh)*
 !
 ! :Dependencies: dump_utils, infile_utils, io, metric, metric_tools, part,
 !   units
 !
- use metric, only:mass1
+ use metric, only:mass1,a,charge
  implicit none
 
  private
@@ -27,7 +27,7 @@ module externalforces
  public :: accrete_particles,was_accreted
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
- public :: update_vdependent_extforce_leapfrog
+ public :: update_vdependent_extforce
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
@@ -36,7 +36,7 @@ module externalforces
  !
  integer, parameter, public :: iext_gr = 1
 
- public :: mass1  ! exported from metric module
+ public :: mass1,a,charge  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
  real, public :: accretedmass1 = 0.
@@ -44,16 +44,30 @@ module externalforces
 
  logical, public :: extract_iextern_from_hdr = .false.
 
- ! (the following for compatibility with non-relativistic code)
- integer, parameter, public :: iext_lensethirring = -1
- integer, parameter, public :: iext_einsteinprec = -2
- integer, parameter, public :: iext_binary = -3
- integer, parameter, public :: iext_spiral = -4
- integer, parameter, public :: iext_star = -5
- integer, parameter, public :: iext_corotate = -6
- integer, parameter, public :: iext_corot_binary = -7
- integer, parameter, public :: iext_gwinspiral = -8
- integer, parameter, public :: iext_densprofile = -9
+ !
+ ! enumerated list of external forces
+ ! (for compatibility with non-relativistic code)
+ !
+ integer, parameter, public :: &
+   iext_star          = -1, &
+   iext_corotate      = -2, &
+   iext_binary        = -3, &
+   iext_prdrag        = -4, &
+   iext_torus         = -5, &
+   iext_toystar       = -6, &
+   iext_externB       = -7, &
+   iext_spiral        = -8, &
+   iext_lensethirring = -9, &
+   iext_densprofile   = -10, &
+   iext_einsteinprec  = -11, &
+   iext_gnewton       = -12, &
+   iext_staticsine    = -13, &
+   iext_gwinspiral    = -14, &
+   iext_discgravity   = -15, &
+   iext_corot_binary  = -16, &
+   iext_geopot        = -17
+
+ real, public :: omega_corotate = 0.
 
  !
  ! Human-readable labels for these
@@ -68,15 +82,22 @@ contains
 !  This doesn't doesn't actually get used in gr...
 !+
 !-----------------------------------------------------------------------
-subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
+subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii,rhoi)
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: xi,yi,zi,hi,ti
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
- integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
+ integer, intent(in),  optional :: ii
+ real,    intent(in),  optional :: rhoi
  !
  !  This doesn't doesn't actually get used in gr...
  !
+ fextxi = 0.
+ fextyi = 0.
+ fextzi = 0.
+ phi    = 0.
+ if (present(dtf)) dtf    = 0.
+
 end subroutine externalforce
 
 !-----------------------------------------------------------------------
@@ -106,15 +127,17 @@ end function is_velocity_dependent
 !+
 !-----------------------------------------------------------------------
 subroutine externalforce_vdependent(iexternalforce,xyzi,veli,fexti,poti,densi,ui)
- integer, intent(in)  :: iexternalforce
- real,    intent(in)  :: xyzi(3),veli(3)
- real,    intent(out) :: fexti(3)
+ integer, intent(in)    :: iexternalforce
+ real,    intent(in)    :: xyzi(3),veli(3)
+ real,    intent(out)   :: fexti(3)
  real,    intent(inout) :: poti
  real,    intent(in),    optional :: densi
  real,    intent(inout), optional :: ui
  !
  ! This doesn't doesn't actually get used in gr...
  !
+ fexti = 0.
+
 end subroutine externalforce_vdependent
 
 !-----------------------------------------------------------------------
@@ -124,7 +147,7 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
-subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
+subroutine update_vdependent_extforce(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
@@ -136,7 +159,9 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  !
  ! This doesn't doesn't actually get used in gr...
  !
-end subroutine update_vdependent_extforce_leapfrog
+ fexti = 0.
+
+end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
 !+
@@ -144,8 +169,12 @@ end subroutine update_vdependent_extforce_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
+ use metric_tools, only:imetric,imet_binarybh
+ use metric,       only:update_metric
  integer, intent(in) :: iexternalforce
  real,    intent(in) :: ti,dmdt
+
+ call update_metric(ti)
 
 end subroutine update_externalforce
 
@@ -158,8 +187,9 @@ end subroutine update_externalforce
 !+
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
- use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr,imetric
+ use metric_tools, only:imet_minkowski,imet_schwarzschild,imet_kerr,imet_rn,imetric,imet_binarybh
  use part,         only:set_particle_type,iboundary,maxphase,maxp,igas,npartoftype
+ use metric,       only:accrete_particles_metric
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
@@ -173,7 +203,7 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  case(imet_minkowski)
     if (first) print*,"WARNING: Accrete particles: but Metric = Minkowski"
 
- case(imet_schwarzschild,imet_kerr)
+ case(imet_schwarzschild,imet_kerr,imet_rn)
     r2 = xi*xi + yi*yi + zi*zi
     if (accradius1>accradius1_hard .and. r2 < accradius1**2 .and. maxphase==maxp .and. present(i)) then
        call set_particle_type(i,iboundary)
@@ -181,7 +211,8 @@ subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
        npartoftype(iboundary) = npartoftype(iboundary) + 1
     endif
     if (r2 < (accradius1_hard)**2) accreted = .true.
-
+ case(imet_binarybh)
+    call accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accreted)
  end select
 
  if (accreted) then
@@ -217,15 +248,17 @@ end function was_accreted
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_externalforces(iunit,iexternalforce)
- use metric_tools, only:imet_minkowski,imetric
+ use metric_tools, only:imet_minkowski,imetric,imet_binarybh
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit,iexternalforce
 
  if (imetric /= imet_minkowski) then
     write(iunit,"(/,a)") '# options relating to GR external forces'
     if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
-    call write_inopt(accradius1,'accradius1','soft accretion radius of black hole',iunit)
-    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of black hole',iunit)
+    call write_inopt(accradius1,'accradius1','soft accretion radius of black hole(s) (in units of M_bh)',iunit)
+    if (imetric /= imet_binarybh) then
+       call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of black hole (in units of M_bh)',iunit)
+    endif
  endif
 
 end subroutine write_options_externalforces
@@ -236,11 +269,15 @@ end subroutine write_options_externalforces
 !+
 !-----------------------------------------------------------------------
 subroutine write_headeropts_extern(iexternalforce,hdr,time,ierr)
- use dump_utils, only:dump_h
+ use dump_utils,   only:dump_h
+ use metric,       only:write_headeropts_metric
  integer,      intent(in)    :: iexternalforce
  type(dump_h), intent(inout) :: hdr
  real,         intent(in)    :: time
  integer,      intent(out)   :: ierr
+
+ ierr = 0
+ call write_headeropts_metric(hdr,time,accradius1,ierr)
 
 end subroutine write_headeropts_extern
 
@@ -251,11 +288,13 @@ end subroutine write_headeropts_extern
 !-----------------------------------------------------------------------
 subroutine read_headeropts_extern(iexternalforce,hdr,nptmass,ierr)
  use dump_utils, only:dump_h
+ use metric,     only:read_headeropts_metric
  integer,      intent(in)  :: iexternalforce,nptmass
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
 
  ierr = 0
+ call read_headeropts_metric(hdr,ierr)
 
 end subroutine read_headeropts_extern
 
@@ -264,46 +303,31 @@ end subroutine read_headeropts_extern
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexternalforce)
- use io,           only:fatal,warn
- use metric_tools, only:imet_minkowski,imetric
- character(len=*), intent(in)    :: name,valstring
- logical,          intent(out)   :: imatch,igotall
- integer,          intent(out)   :: ierr
- integer,          intent(inout) :: iexternalforce
- integer, save :: ngot = 0
+subroutine read_options_externalforces(db,nerr,iexternalforce)
+ use io,           only:error
+ use infile_utils, only:inopts,read_inopt
+ use metric_tools, only:imet_minkowski,imetric,imet_binarybh
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
+ integer,      intent(inout) :: iexternalforce
  character(len=*), parameter :: tag = 'externalforces_gr'
 
- imatch            = .true.
- igotall           = .false.
-
  if (imetric /= imet_minkowski) then
-
-    select case(trim(name))
-    case('accradius1')
-       read(valstring,*,iostat=ierr) accradius1
-       if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
-       if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1 value')
-       ngot = ngot + 1
-    case('accradius1_hard')
-       read(valstring,*,iostat=ierr) accradius1_hard
-       if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
-       if (imetric == imet_minkowski) call warn(tag,'Minkowski metric: ignoring accradius1_hard value')
-       ngot = ngot + 1
-    case default
-       imatch = .false.
-    end select
-
-    igotall = (ngot >= 2)
-
+    call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.)
+    if (imetric /= imet_binarybh) then
+       call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
+    endif
  else
-
-    igotall = .true.
-    imatch  = .false.
-
-    if (accradius1 > 0.)      call fatal(tag,'accradius1 > 0 when metric = Minkowski')
-    if (accradius1_hard > 0.) call fatal(tag,'accradius1_hard > 0 when metric = Minkowski')
-
+    call read_inopt(accradius1,'accradius1',db,errcount=nerr,min=0.,default=accradius1)
+    call read_inopt(accradius1_hard,'accradius1_hard',db,errcount=nerr,min=0.,max=accradius1,default=accradius1_hard)
+    if (accradius1 > 0.) then
+       call error(tag,'accradius1 > 0 when metric = Minkowski')
+       nerr = nerr + 1
+    endif
+    if (accradius1_hard > 0.) then
+       call error(tag,'accradius1_hard > 0 when metric = Minkowski')
+       nerr = nerr + 1
+    endif
  endif
 
 end subroutine read_options_externalforces

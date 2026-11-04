@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,6 @@ module cons2primsolver
  public :: conservative2primitive,primitive2conservative
 
  private :: get_u
-
 
 !!!!!!====================================================
 !
@@ -79,11 +78,11 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use metric_tools, only:unpack_metric
  use io,           only:error
  use eos,          only:gmw,get_entropy
- real, intent(in)  :: x(1:3),metrici(:,:,:)
- real, intent(in)  :: dens,v(1:3),u,P
- real, intent(out) :: rho,pmom(1:3),en
- integer, intent(in) :: ien_type
- real, dimension(0:3,0:3) :: gcov
+ real,    intent(in)  :: x(1:3),metrici(:,:,:)
+ real,    intent(in)  :: dens,v(1:3),u,P
+ real,    intent(out) :: rho,pmom(1:3),en
+ integer, intent(in)  :: ien_type
+ real :: gcov(0:3,0:3)
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
  real :: gam1
  integer :: i, mu, ierror
@@ -136,24 +135,26 @@ end subroutine primitive2conservative
 subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
  use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
- use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
+ use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,get_u_from_rho_s,gamma_global=>gamma
  use io,           only:fatal
  use physcon,      only:radconst,Rg
  use units,        only:unit_density,unit_ergg
- real, intent(in)    :: x(1:3),metrici(:,:,:)
- real, intent(inout) :: dens,P,u,temp,gamma
- real, intent(out)   :: v(1:3)
- real, intent(in)    :: rho,pmom(1:3),en
- integer, intent(out) :: ierr
- integer, intent(in)  :: ien_type
- real, dimension(1:3,1:3) :: gammaijUP
+ real,    intent(in)    :: x(1:3),metrici(:,:,:)
+ real,    intent(inout) :: dens,P,u,temp,gamma
+ real,    intent(out)   :: v(1:3)
+ real,    intent(in)    :: rho,pmom(1:3),en
+ integer, intent(out)   :: ierr
+ integer, intent(in)    :: ien_type
+ real :: gammaijUP(1:3,1:3)
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
  real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,sqrt_gamma
+ real :: dens_eos,p_eos,temp_eos
  real(kind=8) :: cgsdens,cgsu
  integer :: niter, i
  real, parameter :: tol = 1.e-12
+ real, parameter :: dens_eps = 1.e-12
  integer, parameter :: nitermax = 100
- logical :: converged
+ logical :: converged,have_eos_cache
  real    :: gcov(0:3,0:3)
  ierr = 0
 
@@ -173,6 +174,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
 
  niter = 0
  converged = .false.
+ have_eos_cache = .false.
  call get_sqrt_gamma(gcov,sqrt_gamma)
  sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
  term = rho*sqrt_gamma_inv
@@ -191,7 +193,15 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = (gamma-1.)*dens*polyk
     elseif (ien_type == ien_entropy_s) then
        call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+       dens_eos = dens
+       p_eos    = P
+       temp_eos = temp
+       have_eos_cache = .true.
        select case(ieos)
+       case (10)
+          ! inputs and outputs are all in code units
+          call get_u_from_rho_s(ieos,en,dens,u)
+
        case (12)
           cgsdens = dens * unit_density
           cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
@@ -206,7 +216,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
           endif
        case (2)
        case default
-          call fatal('cons2primsolver','only implemented for eos 2 and 12')
+          call fatal('cons2primsolver','only implemented for eos 2,10 and 12')
        end select
     else
        p = en*dens**gamma
@@ -240,7 +250,6 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
 
  if (.not.converged) ierr = 1
 
-
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO
 
@@ -249,8 +258,17 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  elseif (ieos==4) then
     p = (gamma-1.)*dens*polyk
  elseif (ien_type == ien_entropy_s) then
-    call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+    if (have_eos_cache .and. abs(dens-dens_eos) <= dens_eps*dens) then
+       P    = p_eos
+       temp = temp_eos
+    else
+       call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+    endif
     select case(ieos)
+    case (10)
+       ! inputs and outputs are all in code units
+       call get_u_from_rho_s(ieos,en,dens,u)
+
     case (12)
        cgsdens = dens * unit_density
        cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens

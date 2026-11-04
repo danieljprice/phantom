@@ -1,12 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module metric
 !
-! None
+! Generic module for a tabulated metric, e.g. from the Einstein Toolkit
 !
 ! :References: None
 !
@@ -14,58 +14,69 @@ module metric
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: einsteintk_utils, eos_shen, infile_utils
+! :Dependencies: dump_utils, infile_utils, metric_et_utils, table_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
- integer,          parameter :: imetric     = 6
+ integer,          parameter :: imetric     = 7
  ! This are dummy parameters to stop the compiler complaing
  ! Not used anywhere in the code - Needs a fix!
  real, public  :: mass1 = 1.       ! mass of central object
  real, public  :: a     = 0.0       ! spin of central object
-contains
+ real, public  :: charge= 0.       ! charge of central object
 
+contains
 !----------------------------------------------------------------
 !+
 !  Compute the metric tensor in both covariant (gcov) and
-!  contravariant (gcon) form
+!  contravariant (gcon) form. Here we merely interpolate
+!  these values from the global grid.
 !+
 !----------------------------------------------------------------
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
- use einsteintk_utils, only:gridinit
+ use metric_et_utils, only:gridinit
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
+ integer :: ierr
 
  ! The subroutine that computes the metric tensor for a given position
  ! In this case it is interpolated from the global grid values
-
- ! Perform trilenar interpolation
+ ! Perform trilinear interpolation
  if ( .not. gridinit) then
+    ierr = 1
     ! This is required for phantomsetup
     ! As no grid information has been passed to phantom from ET
     ! So interpolation cannot be performed
-    gcov = 0.
-    gcov(0,0) = -1.
-    gcov(1,1) = 1.
-    gcov(2,2) = 1.
-    gcov(3,3) = 1.
-    if (present(gcon)) then
-       gcon      = 0.
-       gcon(0,0) = -1.
-       gcon(1,1) = 1.
-       gcon(2,2) = 1.
-       gcon(3,3) = 1.
+    if (ierr /= 0) then
+       gcov = 0.
+       gcov(0,0) = -1.
+       gcov(1,1) = 1.
+       gcov(2,2) = 1.
+       gcov(3,3) = 1.
+       if (present(gcon)) then
+          gcon      = 0.
+          gcon(0,0) = -1.
+          gcon(1,1) = 1.
+          gcon(2,2) = 1.
+          gcon(3,3) = 1.
+       endif
+       if (present(sqrtg)) sqrtg   = -1.
     endif
-    if (present(sqrtg)) sqrtg   = -1.
  elseif (present(gcon) .and. present(sqrtg)) then
     call interpolate_metric(position,gcov,gcon,sqrtg)
  else
     call interpolate_metric(position,gcov)
  endif
+
 end subroutine get_metric_cartesian
 
+!-----------------------------------------------------------------------
+!+
+!  dummy routine to get the metric in spherical coordinates (not used)
+!+
+!-----------------------------------------------------------------------
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
@@ -95,22 +106,42 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
 
 end subroutine get_metric_spherical
 
+!-----------------------------------------------------------------------
+!+
+!  cartesian metric derivatives, interpolates the derivatives from
+!  the grid
+!+
+!-----------------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- use einsteintk_utils, only:gridinit
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ use metric_et_utils, only:gridinit
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+ integer :: ierr
+
  if (.not. gridinit) then
-    dgcovdx = 0.
-    dgcovdy = 0.
-    dgcovdz = 0.
+    ierr  = 1
+    if (ierr /= 0) then
+       dgcovdx = 0.
+       dgcovdy = 0.
+       dgcovdz = 0.
+    else
+       !    gridinit = .true.
+       call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
+    endif
  else
     call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
  endif
+
 end subroutine metric_cartesian_derivatives
 
+!-----------------------------------------------------------------------
+!+
+!  dummy routine for spherical metric derivatives, not used
+!+
+!-----------------------------------------------------------------------
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
- real, intent(in) :: position(3)
- real, intent(out), dimension(0:3,0:3) :: dgcovdr,dgcovdtheta,dgcovdphi
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcovdr(0:3,0:3),dgcovdtheta(0:3,0:3),dgcovdphi(0:3,0:3)
  real :: r, theta
 
  r     = position(1)
@@ -127,6 +158,11 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
 
 end subroutine metric_spherical_derivatives
 
+!-----------------------------------------------------------------------
+!+
+!  dummy routine to convert cartesian to spherical coordinates
+!+
+!-----------------------------------------------------------------------
 pure subroutine cartesian2spherical(xcart,xspher)
  real, intent(in)  :: xcart(3)
  real, intent(out) :: xspher(3)
@@ -142,7 +178,60 @@ pure subroutine cartesian2spherical(xcart,xspher)
  phi   = atan2(y,x)
 
  xspher   = (/r,theta,phi/)
+
 end subroutine cartesian2spherical
+
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to update the metric inputs if time dependent
+!+
+!-------------------------------------------------------------------------------
+subroutine update_metric(time)
+ real, intent(in) :: time
+
+end subroutine update_metric
+
+!-----------------------------------------------------------------------
+!+
+!  Check if a particle should be accreted by the black hole
+!+
+!-----------------------------------------------------------------------
+subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius,accreted)
+ real,    intent(in)  :: xi,yi,zi,mi,ti,accradius
+ logical, intent(out) :: accreted
+
+ accreted = .false.
+
+end subroutine accrete_particles_metric
+
+!-----------------------------------------------------------------------
+!+
+!  writes relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_metric(hdr,time,accradius,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(inout) :: hdr
+ real,         intent(in)    :: time,accradius
+ integer,      intent(out)   :: ierr
+
+ ierr = 0
+
+end subroutine write_headeropts_metric
+
+!-----------------------------------------------------------------------
+!+
+!  reads relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_metric(hdr,ierr)
+ use dump_utils, only:dump_h
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr  = 0
+
+end subroutine read_headeropts_metric
 
 !-----------------------------------------------------------------------
 !+
@@ -150,10 +239,11 @@ end subroutine cartesian2spherical
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_metric(iunit)
- use infile_utils, only:write_inopt
+ !use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
+ !write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
+ !call write_inopt(metric_file,'metric_file','file from which to read tabulated metric (blank if used with einsteintk)',iunit)
 
 end subroutine write_options_metric
 
@@ -162,13 +252,12 @@ end subroutine write_options_metric
 !  reads metric options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
- character(len=*), intent(in)  :: name,valstring
- logical,          intent(out) :: imatch,igotall
- integer,          intent(out) :: ierr
+subroutine read_options_metric(db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), intent(inout) :: db(:)
+ integer,      intent(inout) :: nerr
 
- ! imatch  = .true.
- ! igotall = .true.
+ !call read_inopt(metric_file,'metric_file',db,errcount=nerr)
 
 end subroutine read_options_metric
 
@@ -177,15 +266,14 @@ end subroutine read_options_metric
 ! Interpolates value from grid to position
 !+
 !-----------------------------------------------------------------------
-
 pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  ! linear and cubic interpolators should be moved to their own subroutine
  ! away from eos_shen
- use eos_shen, only:linear_interpolator_one_d
- use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
+ use table_utils,     only:linear_interpolator_one_d
+ use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
- real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
+ real, intent(out), optional :: gcon(0:3,0:3), sqrtg
  integer :: xlower,ylower,zlower!,xupper,yupper,zupper
  real    :: xlowerpos,ylowerpos,zlowerpos
  real :: xd,yd,zd
@@ -197,19 +285,9 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  ! from ET during phantomsetup
  ! Then simply set gcov and gcon to 0
  ! as these values will be overwritten during the run anyway
- !print*, "Calling interp metric!"
  ! Get neighbours
  call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
- !print*,"Neighbours: ", xlower,ylower,zlower
- ! This is not true as upper neighbours on the boundary will be on the side
- ! take a mod of grid size
-!  xupper = mod(xlower + 1, gridsize(1))
-!  yupper = mod(ylower + 1, gridsize(2))
-!  zupper = mod(zlower + 1, gridsize(3))
- ! xupper - xlower should always just be dx provided we are using a uniform grid
- ! xd = (position(1) - xlower)/(xupper - xlower)
- ! yd = (position(2) - ylower)/(yupper - ylower)
- ! zd = (position(3) - zlower)/(zupper - zlower)
+
  xlowerpos = gridorigin(1) + (xlower-1)*dxgrid(1)
  ylowerpos = gridorigin(2) + (ylower-1)*dxgrid(2)
  zlowerpos = gridorigin(3) + (zlower-1)*dxgrid(3)
@@ -286,12 +364,16 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
     sqrtg = interptmp(7)
  endif
 
-
 end subroutine interpolate_metric
 
+!-----------------------------------------------------------------------
+!+
+! Interpolates derivatives of the metric from the grid to the position
+!+
+!-----------------------------------------------------------------------
 pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
- use eos_shen, only:linear_interpolator_one_d
- use einsteintk_utils, only:metricderivsgrid, dxgrid,gridorigin
+ use table_utils,     only:linear_interpolator_one_d
+ use metric_et_utils, only:metricderivsgrid, dxgrid,gridorigin
  real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real, intent(in)  :: position(3)
  integer :: xlower,ylower,zlower!,xupper,yupper,zupper
@@ -300,13 +382,6 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
  integer :: i,j
 
  call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
- !print*,"Neighbours: ", xlower,ylower,zlower
-!  xupper = xlower + 1
-!  yupper = yupper + 1
-!  zupper = zupper + 1
- ! xd = (position(1) - xlower)/(xupper - xlower)
- ! yd = (position(2) - ylower)/(yupper - ylower)
- ! zd = (position(3) - zlower)/(zupper - zlower)
 
  xlowerpos = gridorigin(1) + (xlower-1)*dxgrid(1)
  ylowerpos = gridorigin(2) + (ylower-1)*dxgrid(2)
@@ -383,15 +458,17 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
     enddo
  enddo
 
-
-
-
 end subroutine interpolate_metric_derivs
 
+!-----------------------------------------------------------------------
+!+
+!  Utility routine to get the lower grid neighbours of a position
+!+
+!-----------------------------------------------------------------------
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
- use einsteintk_utils, only:gridorigin
- real, intent(in) :: position(3)
- real, intent(in) :: dx(3)
+ use metric_et_utils, only:gridorigin
+ real,    intent(in)  :: position(3)
+ real,    intent(in)  :: dx(3)
  integer, intent(out) :: xlower,ylower,zlower
 
  ! Get the lower grid neighbours of the position
@@ -409,8 +486,7 @@ pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
  ylower = ylower + 1
  zlower = zlower + 1
 
-
 end subroutine get_grid_neighbours
 
-
 end module metric
+

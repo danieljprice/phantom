@@ -10,7 +10,7 @@ The Phantom SPH code, by Daniel Price.
 
 This code is designed to be an ultra-sleek, ultra-low-memory, code for high resolution SPH simulations.
 
-- Project homepage: http://phantomsph.bitbucket.io/
+- Project homepage: http://phantomsph.github.io/
 - Code repository: https://github.com/danieljprice/phantom
 - Documentation: https://phantomsph.readthedocs.org/
 
@@ -20,12 +20,12 @@ Contents
 .. toctree::
    :maxdepth: 1
 
-   getting-started
-   user-guide
-   examples
-   external-utilities
-   physics-guide
-   developer-guide
+   getting-started/index
+   user-guide/index
+   examples/index
+   external-utilities/index
+   physics/index
+   developer-guide/index
    faq
    releasenotes
 

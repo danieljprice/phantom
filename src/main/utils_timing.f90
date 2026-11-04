@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,16 +17,18 @@ module timing
 ! :Dependencies: io, mpiutils
 !
  implicit none
- integer, private :: istarttime(6)
- real(kind=4), private :: starttime
-
- data starttime/-1./
+ !--wall clock origin, as a system_clock count (64-bit, so it never wraps);
+ !  icount_rate stays zero if no clock is available
+ integer(kind=8), private :: icount_start = 0
+ integer(kind=8), private :: icount_rate  = 0
+ logical,         private :: timing_initialised = .false.
 
  public :: getused,get_timings,printused
  public :: wallclock,log_timing,print_time
 
  public :: timer,reset_timer,increment_timer,print_timer
  public :: setup_timers,reduce_timer_mpi,reduce_timers
+ public :: reset_timers
 
  integer, parameter, private :: treelabel_len = 30
  type timer
@@ -39,32 +41,61 @@ module timing
     character(len=treelabel_len) :: treelabel
  end type timer
 
- integer, public, parameter ::   itimer_fromstart     = 1,  &
-                                 itimer_lastdump      = 2,  &
-                                 itimer_step          = 3,  &
-                                 itimer_link          = 4,  &
-                                 itimer_balance       = 5,  &
-                                 itimer_dens          = 6,  &
-                                 itimer_dens_local    = 7,  &
-                                 itimer_dens_remote   = 8,  &
-                                 itimer_force         = 9,  &
-                                 itimer_force_local   = 10, &
-                                 itimer_force_remote  = 11, &
-                                 itimer_radiation     = 12, &
-                                 itimer_rad_save      = 13, &
-                                 itimer_rad_neighlist = 14, &
-                                 itimer_rad_arrays    = 15, &
-                                 itimer_rad_its       = 16, &
-                                 itimer_rad_flux      = 17, &
-                                 itimer_rad_diff      = 18, &
-                                 itimer_rad_update    = 19, &
-                                 itimer_rad_store     = 20, &
-                                 itimer_cons2prim     = 21, &
-                                 itimer_extf          = 22, &
-                                 itimer_ev            = 23, &
-                                 itimer_io            = 24
- integer, public, parameter :: ntimers = 24 ! should be equal to the largest itimer index
+ integer, public, parameter :: itimer_fromstart     =  1, &
+                                itimer_lastdump      =  2, &
+                                itimer_step          =  3, &
+                                itimer_tree          =  4, &
+                                itimer_tree_global   =  5, &
+                                itimer_balance       =  6, &
+                                itimer_tree_top      =  7, &
+                                itimer_tree_sub      =  8, &
+                                itimer_tree_revise   =  9, &
+                                itimer_tree_graft    = 10, &
+                                itimer_dens          = 11, &
+                                itimer_dens_local    = 12, &
+                                itimer_dens_lcomp    = 13, &
+                                itimer_dens_lsend    = 14, &
+                                itimer_dens_remote   = 15, &
+                                itimer_dens_rcomp    = 16, &
+                                itimer_dens_rsend    = 17, &
+                                itimer_dens_wait     = 18, &
+                                itimer_force         = 19, &
+                                itimer_force_let     = 20, &
+                                itimer_force_local   = 21, &
+                                itimer_force_lcomp   = 22, &
+                                itimer_force_lsend   = 23, &
+                                itimer_force_remote  = 24, &
+                                itimer_force_rcomp   = 25, &
+                                itimer_force_rsend   = 26, &
+                                itimer_force_wait    = 27, &
+                                itimer_radiation     = 28, &
+                                itimer_rad_save      = 29, &
+                                itimer_rad_neighlist = 30, &
+                                itimer_rad_arrays    = 31, &
+                                itimer_rad_its       = 32, &
+                                itimer_rad_flux      = 33, &
+                                itimer_rad_diff      = 34, &
+                                itimer_rad_update    = 35, &
+                                itimer_rad_store     = 36, &
+                                itimer_cons2prim     = 37, &
+                                itimer_substep       = 38, &
+                                itimer_sinksink      = 39, &
+                                itimer_gasf          = 40, &
+                                itimer_acc           = 41, &
+                                itimer_sg_id         = 42, &
+                                itimer_sg_evol       = 43, &
+                                itimer_kick          = 44, &
+                                itimer_drift         = 45, &
+                                itimer_kickdrift     = 46, &
+                                itimer_HII           = 47, &
+                                itimer_ev            = 48, &
+                                itimer_io            = 49
+
+ integer, public, parameter :: ntimers = 49 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
+ !--running totals are summed in double precision; timers(:)%wall and %cpu hold
+ !  copies in single precision, so a small increment is not lost in a large total
+ real(kind=8), private :: wall_sum(ntimers) = 0._8, cpu_sum(ntimers) = 0._8
 
  private
 
@@ -75,21 +106,39 @@ contains
 !+
 !--------------------------------------
 subroutine setup_timers
+ !
  ! These timers must be initialised with the correct tree hierarchy,
  ! i.e. children must immediately follow their parents or siblings
  !
+
  !               timer from array     label          parent
  call init_timer(itimer_fromstart   , 'all',         0            )
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
- call init_timer(itimer_link        , 'tree',        itimer_step  )
- call init_timer(itimer_balance     , 'balance',     itimer_link  )
+ call init_timer(itimer_tree        , 'tree',        itimer_step  )
+ call init_timer(itimer_tree_global , 'global',      itimer_tree  )
+ call init_timer(itimer_balance     , 'balance',     itimer_tree_global )
+ call init_timer(itimer_tree_top    , 'top',         itimer_tree  )
+ call init_timer(itimer_tree_sub    , 'subtrees',    itimer_tree  )
+ call init_timer(itimer_tree_revise , 'revise',      itimer_tree  )
+ call init_timer(itimer_tree_graft  , 'graft',       itimer_tree  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
  call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
+ call init_timer(itimer_dens_lcomp  , 'compute',     itimer_dens_local )
+ call init_timer(itimer_dens_lsend  , 'send_wait',   itimer_dens_lcomp )
  call init_timer(itimer_dens_remote , 'remote',      itimer_dens  )
+ call init_timer(itimer_dens_rcomp  , 'compute',     itimer_dens_remote)
+ call init_timer(itimer_dens_rsend  , 'send_wait',   itimer_dens_rcomp )
+ call init_timer(itimer_dens_wait   , 'mpi_wait',    itimer_dens  )
  call init_timer(itimer_force       , 'force',       itimer_step  )
+ call init_timer(itimer_force_let   , 'let',         itimer_force )
  call init_timer(itimer_force_local , 'local',       itimer_force )
+ call init_timer(itimer_force_lcomp , 'compute',     itimer_force_local )
+ call init_timer(itimer_force_lsend , 'send_wait',   itimer_force_lcomp )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_force_rcomp , 'compute',     itimer_force_remote)
+ call init_timer(itimer_force_rsend , 'send_wait',   itimer_force_rcomp )
+ call init_timer(itimer_force_wait  , 'mpi_wait',    itimer_force )
  call init_timer(itimer_radiation   , 'radiation',   itimer_step  )
  call init_timer(itimer_rad_save    , 'save',        itimer_radiation  )
  call init_timer(itimer_rad_neighlist,'neighlist',   itimer_radiation  )
@@ -100,7 +149,16 @@ subroutine setup_timers
  call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
- call init_timer(itimer_extf        , 'extf',        itimer_step  )
+ call init_timer(itimer_substep     , 'substep',     itimer_step  )
+ call init_timer(itimer_sinksink    , 'sink-sink',   itimer_substep  )
+ call init_timer(itimer_gasf        , 'gas_force',   itimer_substep  )
+ call init_timer(itimer_acc         , 'accretion',   itimer_substep  )
+ call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
+ call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
+ call init_timer(itimer_kick        , 'kick',        itimer_substep  )
+ call init_timer(itimer_drift       , 'drift',       itimer_substep  )
+ call init_timer(itimer_kickdrift   , 'kickdrift',   itimer_substep  )
+ call init_timer(itimer_HII         , 'HII_regions', itimer_step     )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 
@@ -250,27 +308,42 @@ subroutine finish_timer_tree_symbols
 end subroutine finish_timer_tree_symbols
 
 subroutine reset_timer(itimer)
- integer, intent(in)        :: itimer
+ integer, intent(in) :: itimer
 
  timers(itimer)%wall = 0.0_4
  timers(itimer)%cpu  = 0.0_4
+ wall_sum(itimer) = 0._8
+ cpu_sum(itimer)  = 0._8
 
 end subroutine reset_timer
+
+subroutine reset_timers
+ integer :: itimer
+
+ do itimer = 1,ntimers
+    call reset_timer(itimer)
+ enddo
+
+end subroutine reset_timers
 
 subroutine increment_timer(itimer,wall,cpu)
  integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: wall, cpu
 
- timers(itimer)%wall = timers(itimer)%wall + wall
- timers(itimer)%cpu  = timers(itimer)%cpu  + cpu
+ wall_sum(itimer) = wall_sum(itimer) + real(wall,kind=8)
+ cpu_sum(itimer)  = cpu_sum(itimer)  + real(cpu,kind=8)
+ timers(itimer)%wall = real(wall_sum(itimer),kind=4)
+ timers(itimer)%cpu  = real(cpu_sum(itimer),kind=4)
 
 end subroutine increment_timer
 
 subroutine reduce_timers
  integer :: itimer
- do itimer = 1, ntimers
+
+ do itimer = 1,ntimers
     call reduce_timer_mpi(itimer)
  enddo
+
 end subroutine reduce_timers
 
 subroutine reduce_timer_mpi(itimer)
@@ -298,6 +371,8 @@ subroutine reduce_timer_mpi(itimer)
 
  timers(itimer)%cpu  = cputot
  timers(itimer)%wall = reduceall_mpi('max',timers(itimer)%wall)
+ wall_sum(itimer) = real(timers(itimer)%wall,kind=8)
+ cpu_sum(itimer)  = real(timers(itimer)%cpu,kind=8)
 
 end subroutine reduce_timer_mpi
 
@@ -348,10 +423,10 @@ end subroutine print_timer
 !--------------------------------------------------------------------
 subroutine log_timing(label,twall,tcpu,start,iunit)
  character(len=*), intent(in) :: label
- character(len=len(label)+16) :: string,stringcpu,stringwall
  real(kind=4),     intent(in) :: twall,tcpu
  logical,          intent(in), optional :: start
  integer,          intent(in), optional :: iunit
+ character(len=len(label)+16) :: string,stringcpu,stringwall
  character(len=240), save :: logtiming,logtimingwall,logtimingcpu
 
  write(stringwall,"(1x,a,' =',f10.2,'s')") trim(label),twall
@@ -376,7 +451,6 @@ subroutine log_timing(label,twall,tcpu,start,iunit)
     write(iunit,"(a)") ' (cpu/wall:'//trim(logtiming)
  endif
 
- return
 end subroutine log_timing
 
 !--------------------------------------------------------------------
@@ -385,29 +459,11 @@ end subroutine log_timing
 !+
 !--------------------------------------------------------------------
 subroutine initialise_timing
- integer :: iday,imonth,iyear,ihour,imin,isec,imsec,ivalues(8)
- character(len=8)  :: date
- character(len=5)  :: zone
- character(len=10) :: time
+ call system_clock(count=icount_start,count_rate=icount_rate)
+ !--without a clock, system_clock returns count=-huge (and may return count_rate=0)
+ if (icount_start < 0) icount_rate = 0
+ timing_initialised = .true.
 
- call date_and_time(date,time,zone,ivalues)
- iyear  = ivalues(1)
- imonth = ivalues(2)
- iday   = ivalues(3)
- ihour  = ivalues(5)
- imin   = ivalues(6)
- isec   = ivalues(7)
- imsec  = ivalues(8)
- istarttime(1) = iyear
- istarttime(2) = imonth
- istarttime(3) = iday
- istarttime(4) = ihour
- istarttime(5) = imin
- istarttime(6) = isec
- !istarttime(7) = imsec
- starttime = iday*86400._4 + ihour*3600._4 + imin*60._4 + isec + imsec*0.001_4
-
- return
 end subroutine initialise_timing
 
 !--------------------------------------------------------------------
@@ -417,39 +473,21 @@ end subroutine initialise_timing
 !--------------------------------------------------------------------
 subroutine getused(tused)
  real(kind=4), intent(out) :: tused
- integer :: i,iday,imonth,ihour,imin,isec,imsec,ivalues(8)
- character(len=8)  :: date
- character(len=5)  :: zone
- character(len=10) :: time
-
- !tused = wallclockabs()
+ integer(kind=8) :: icount
 
  !--do self-initialisation the first time it is called
- if (starttime < 0.) call initialise_timing
+ if (.not.timing_initialised) call initialise_timing
 
- call date_and_time(date,time,zone,ivalues)
- iday   = ivalues(3)
- ihour  = ivalues(5)
- imin   = ivalues(6)
- isec   = ivalues(7)
- imsec  = ivalues(8)
-
- if (ivalues(2) < istarttime(2)) then
-    ivalues(2) = ivalues(2) + 12
+ !--system_clock is not affected by the calendar or by daylight saving changes;
+ !  the difference is formed in double precision and only the elapsed time is
+ !  returned in single precision. If there is no clock, or the system time is
+ !  stepped backwards, the elapsed time is returned as zero rather than negative
+ tused = 0._4
+ if (icount_rate > 0) then
+    call system_clock(count=icount)
+    if (icount > icount_start) tused = real(real(icount - icount_start,kind=8)/real(icount_rate,kind=8),kind=4)
  endif
- do i = istarttime(2), ivalues(2) - 1
-    imonth = mod(i,12)
-    if (imonth==4 .or. imonth==6 .or. imonth==9 .or. imonth==11) then
-       iday = iday + 30
-    elseif (imonth==2) then
-       iday = iday + 28
-    else
-       iday = iday + 31
-    endif
- enddo
- tused = iday*86400._4 + ihour*3600._4 + imin*60._4 + isec + imsec*0.001_4 - starttime
 
- return
 end subroutine getused
 
 !--------------------------------------------------------------------
@@ -481,7 +519,6 @@ subroutine printused(t1,string,iunit)
 
  call print_time(t2-t1,newstring,lunit)
 
- return
 end subroutine printused
 
 !--------------------------------------------------------------------
@@ -526,7 +563,6 @@ subroutine print_time(time,string,iunit)
     write(lunit,"(1x,a,1x,f6.2,a)") trim(newstring),trem,' s'
  endif
 
- return
 end subroutine print_time
 !--------------------------------------------------------------------
 !+
@@ -539,7 +575,6 @@ subroutine get_timings(twall,tcpu)
  call getused(twall)
  call cpu_time(tcpu)
 
- return
 end subroutine get_timings
 
 !--------------------------------------------------------------------
@@ -550,7 +585,7 @@ real function wallclock()
 ! From a routine originally by Aake Nordlund
 !+
 !-----------------------------------------------------------------------
- integer, save :: count, count_rate=0, count_max
+ integer(kind=8), save :: count, count_rate=0, count_max
  real, save :: previous=0., offset=0.
 
  if (count_rate == 0) then                                                     ! initialized?
@@ -568,27 +603,5 @@ real function wallclock()
  previous = wallclock+previous                                                 ! remember
 
 end function wallclock
-
-!--------------------------------------------------------------------
-!+
-!real function wallclockabs()
-!
-! Return the wall clock time (no corrections for across midnight)
-! From a routine originally by Aake Nordlund
-! DJP: this version returns non-differential wallclock time
-!+
-!-----------------------------------------------------------------------
-!  integer, save:: count, count_rate=0, count_max
-!  real, save:: offset=0.
-!
-!  if (count_rate == 0) then                                                     ! initialized?
-!    call system_clock(count=count, count_rate=count_rate, count_max=count_max)  ! no -- do it!
-!    offset = -count/real(count_rate)                                            ! time offset
-!  else
-!   call system_clock(count=count)                                              ! yes, get count
-!  endif
-!  wallclockabs  = count/real(count_rate) + offset
-!
-!end function wallclockabs
 
 end module timing

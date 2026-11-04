@@ -1,0 +1,12 @@
+# input file for sphere setup routines
+
+# resolution
+         n_particles =      100000    ! number of particles in sphere
+
+# options for sphere
+             M_cloud =       1.000    ! mass of cloud in solar masses
+             R_cloud =   1.000E+04    ! radius of cloud in au
+
+# options required for initial sound speed
+         Temperature =         10.    ! Temperature
+                  mu =       2.460    ! mean molecular mass

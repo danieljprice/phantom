@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,15 +29,14 @@ module analysis
  logical, private   :: ambitest,halltest
  logical, private   :: firstcall = .true.
 
-
  private
 
 contains
 !-----------------------------------------------------------------------
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use io,      only: id,master,fatal
- use part,    only: Bxyz,rhoh,mhd
- use physcon, only: pi,fourpi,qe,c,mass_proton_cgs
+ use io,      only:id,master,fatal
+ use part,    only:rho,Bxyz,mhd
+ use physcon, only:pi,fourpi,qe,c,mass_proton_cgs
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -51,7 +50,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical                      :: iexist
  !
  !--Open file (appendif exists)
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_bzrms.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_bzrms.dat'
  inquire(file=fileout,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.
@@ -83,7 +82,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  !
  !--Read the setup file to get the values of interest
- filename=trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.setup'
+ filename=trim(dumpfile(1:index(dumpfile,'_')-1))//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
     call read_setupfile(filename,mhd)
@@ -95,7 +94,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  !
  !--Get coefficient values from the .in file
- filename=trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.in'
+ filename=trim(dumpfile(1:index(dumpfile,'_')-1))//'.in'
  inquire(file=filename,exist=iexist)
  C_AD = 0.0
  C_HE = 0.0
@@ -110,7 +109,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  do i = 1,npart
     B2        = dot_product(Bxyz(1:3,i),Bxyz(1:3,i))
     Bave(1:3) = Bave(1:3) + Bxyz(1:3,i)
-    vaave     = vaave     + sqrt( B2 / rhoh(xyzh(4,i),particlemass) )
+    vaave     = vaave     + sqrt( B2 / rho(i) )
     vmax(1)   = max(vmax(1),abs(vxyzu(1,i)))
     vmax(2)   = max(vmax(2),abs(vxyzu(2,i)))
     vmax(3)   = max(vmax(3),abs(vxyzu(3,i)))
@@ -191,7 +190,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !--Write results to file
  write(iunit,'(19(es18.10,1x))') &
     time, Bzrms, Bave(3), Bzrmsnoa, hoft,pdiffW ,vmax(1:3), &
-    sqrt(Bzrmsc/float(num)),vrms, Bzrmsav/sqrt(float(num)), &
+    sqrt(Bzrmsc/real(num)),vrms, Bzrmsav/sqrt(real(num)), &
     vaave,Bave(1),ratioANA,ratioACT,pdiffR
  close(iunit)
  !

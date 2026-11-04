@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -24,6 +24,8 @@ module kernel
  real, parameter, public  :: radkern2 = 6.25
  real, parameter, public  :: cnormk = 0.05/pi
  real, parameter, public  :: wab0 = 14.375, gradh0 = -3.*wab0
+ real, parameter, public  :: cnormk_tilde = cnormk
+ real, parameter, public  :: wab0_tilde = wab0, gradh0_tilde = gradh0
  real, parameter, public  :: dphidh0 = 1199./960.
  real, parameter, public  :: cnormk_drag = 1./(23.*pi)
  real, parameter, public  :: hfact_default = 1.1
@@ -53,6 +55,14 @@ pure subroutine get_kernel(q2,q,wkern,grkern)
  endif
 
 end subroutine get_kernel
+
+pure subroutine get_kernel_tilde(q2,q,wkern,grkern)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: wkern,grkern
+
+ call get_kernel(q2,q,wkern,grkern)
+
+end subroutine get_kernel_tilde
 
 pure elemental real function wkern(q2,q)
  real, intent(in) :: q2,q
@@ -147,6 +157,31 @@ pure subroutine kernel_softening(q2,q,potensoft,fsoft)
  endif
 
 end subroutine kernel_softening
+
+!------------------------------------------
+! gradient acceleration kernel needed for
+! use in Forward symplectic integrator
+!------------------------------------------
+pure subroutine kernel_grad_soft(q2,q,gsoft)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: gsoft
+ real :: q4, q6
+
+ if (q < 0.5) then
+    gsoft = 6.*q2*q*(4.*q2 - 7.)/35.
+ elseif (q < 1.5) then
+    q4 = q2*q2
+    q6 = q4*q2
+    gsoft = (-1024.*q6*q + 4480.*q6 - 5376.*q4*q + 560.*q4 - 1.)/(2240.*q2)
+ elseif (q < 2.5) then
+    q4 = q2*q2
+    q6 = q4*q2
+    gsoft = (512.*q6*q - 4480.*q6 + 13440.*q4*q - 14000.*q4 + 2185.)/(4480.*q2)
+ else
+    gsoft = -3./q2
+ endif
+
+end subroutine kernel_grad_soft
 
 !------------------------------------------
 ! double-humped version of the kernel for

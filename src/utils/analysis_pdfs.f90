@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2026 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -39,7 +39,7 @@ contains
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use adaptivemesh,         only:build_mesh,nsub,ndim,ifirstlevel
  use boundary,             only:xmin,ymin,zmin,dxbound,dybound,dzbound
- use part,                 only:hfact,rhoh,mhd,Bxyz,isdead_or_accreted
+ use part,                 only:rho,hfact,mhd,Bxyz,isdead_or_accreted
  use interpolations3D_amr, only:interpolate3D_amr
  use pdfs,                 only:pdf_write
  use dim,                  only:periodic,tagline
@@ -99,7 +99,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  do i=1,npart
     hi     = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
-       rhoi   = rhoh(hi,particlemass)
+       rhoi   = rho(i)
        rhomax = max(rhomax,rhoi)
        rhomin = min(rhomin,rhoi)
        rhomean = rhomean + rhoi
@@ -341,7 +341,7 @@ subroutine read_analysis_options(xmin,dxmax,filename,iunit,ierr)
  integer,          intent(in)  :: iunit
  integer,          intent(out) :: ierr
  type(inopts), allocatable :: db(:)
- real, dimension(size(xmin)) :: xmax
+ real :: xmax(size(xmin))
  integer :: i,nerr
 
  nerr = 0
@@ -437,7 +437,6 @@ recursive subroutine get_variance(imesh,level,datgrid,rhomean,smean,rhovar,svar)
  enddo
 end subroutine get_variance
 
-
 recursive subroutine get_pdf_lnrho(imesh,level,datgrid,smin,smax,ds,nbins,pdf)
  use adaptivemesh, only:nsub,ndim,ifirstlevel,gridnodes
  real,    intent(in)    :: smin,smax,ds
@@ -479,8 +478,8 @@ recursive subroutine get_pdf_logBsq(imesh,level,datgrid,Bsqmin,Bsqmax,binspacing
  implicit none
  real,    intent(in)    :: Bsqmin,Bsqmax,binspacing
  integer, intent(in)    :: imesh,level,nbins
- real, dimension(:,:,:), intent(in) :: datgrid
- real, dimension(:),  intent(inout) :: pdf
+ real,    intent(in)    :: datgrid(:,:,:)
+ real,    intent(inout) :: pdf(:)
  real    :: dn,weightl,Bxi,Byi,Bzi,Bsqi,logBsqi
  integer :: isubmesh,icell,ibin
 
