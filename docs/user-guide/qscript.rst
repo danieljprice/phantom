@@ -23,7 +23,7 @@ or, using PBS:
    qsub run.q
 
 The output of the command above can be configured in the SYSTEM block in
-build/Makefile, meaning that you can configure the script according to
+build/Makefile_systems, meaning that you can configure the script according to
 the queueing system of the machine that you are running Phantom on.
 
 Here is an example from the Monarch machine, which uses the SLURM
@@ -122,7 +122,18 @@ A full description of the options are given below:
 +-----------------------+-----------------------+-----------------------+
 | NOMP=16               | a number              | specifies number of   |
 |                       |                       | openMP threads in job |
-|                       |                       | scripts               |
+|                       |                       | scripts (per MPI task |
+|                       |                       | with MPI=yes)         |
++-----------------------+-----------------------+-----------------------+
+| NMPI=4                | a number              | number of MPI tasks   |
+|                       |                       | (with MPI=yes)        |
++-----------------------+-----------------------+-----------------------+
+| MPIEXEC=‘srun’        | a command             | command used to start |
+|                       |                       | the MPI tasks         |
+|                       |                       | (default srun         |
+|                       |                       | --cpus-per-task=NOMP  |
+|                       |                       | for slurm, mpiexec    |
+|                       |                       | -np NMPI otherwise)   |
 +-----------------------+-----------------------+-----------------------+
 | QPE=smp               | string dependent on   | specifies parallel    |
 |                       | queue config          | environment in sge    |

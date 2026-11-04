@@ -20,7 +20,7 @@ module initial
 !   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
 !   growth, growth_coala, inject, io, io_control, io_summary,
 !   krome_interface, metric, metric_et_utils, metric_tools, mf_write,
-!   mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup,
+!   mpibalance, mpidomain, mpimemory, mpiutils, nicil, nicil_sup,
 !   omputils, options, part, partinject, porosity, ptmass, radiation_utils,
 !   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
 !   timing, units, utils_subgroup, writeheader
@@ -909,11 +909,9 @@ end subroutine write_initial_dump
 !----------------------------------------------------------------
 subroutine finalise()
  use dim, only:mpi
- use mpitree, only:finish_tree_comms
  use mpimemory, only:deallocate_mpi_memory
 
  if (mpi) then
-    call finish_tree_comms()
     call deallocate_mpi_memory()
  endif
 

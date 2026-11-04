@@ -41,8 +41,8 @@ module forces
 !
 ! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
 !   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, neighkdtree, nicil, options,
-!   part, physcon, ptmass, ptmass_heating, radiation_utils,
+!   mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils, neighkdtree,
+!   nicil, options, part, physcon, ptmass, ptmass_heating, radiation_utils,
 !   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
 !   viscosity
 !
@@ -50,17 +50,13 @@ module forces
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
  use mpiforce,    only:cellforce,stackforce,maxcellleaves
  use neighkdtree, only:leaf_is_active
- use kdtree,      only:inodeparts,inoderange,ih1,im,irho,izetaomega,isoftomega
+ use kdtree,      only:inodeparts,inoderange,ih1,im
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
 
  implicit none
 
  integer, parameter :: maxcellcache = 1000
-#ifdef GRAVITY
- integer, parameter :: nforcecache = 8
-#else
- integer, parameter :: nforcecache = 7
-#endif
+ integer, parameter :: nforcecache = 5  ! position, 1/h and mass of the trial neighbours
 
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
 
@@ -203,8 +199,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
-                        active_leaves,nactive_leaves,ncellchunk,let_exchange,use_dualtree,&
-                        get_leaf_neighbours
+                        active_leaves,nactive_leaves,ncellchunk,get_leaf_neighbours,&
+                        reset_dual_cache
+ use mpikdtree,    only:extend_local_tree
  use part,         only:alphaind,iactive,gradh,&
                         iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
                         dragreg,filfac,fxyz_dragold,nptmass,shortsinktree,&
@@ -394,6 +391,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        fxyz_ptmass_tree(:,i) = 0.
     enddo
     !$omp end parallel do
+
     ! the potential of a sink is set only by the task whose tree holds it, and
     ! summed over all tasks: clear any value left from when another task held it
     poten(maxpsph+1:maxpsph+nptmass) = 0.
@@ -412,11 +410,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call reset_stacks
     call reset_cell_counters(cell_counters)
  endif
- !--import the nodes of other tasks that the dual tree walk could open (the
+
+ !--import the nodes of other tasks that the dual tree walk could open(the
  !  locally essential tree), and check that the walk never meets a truncated node
- if (exchange .and. gravity .and. use_dualtree) then
+ if (exchange .and. gravity) then
     call get_timings(t1,tcpu1)
-    call let_exchange()
+    call extend_local_tree(1)
+    call reset_dual_cache()
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_force_let,t2-t1,tcpu2-tcpu1)
  endif
@@ -506,7 +506,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2) &
-!$omp shared(tc1,tcpuc1,tc2,tcpuc2,use_dualtree)
+!$omp shared(tc1,tcpuc1,tc2,tcpuc2)
 
  if (exchange) call init_cell_exchange(stack_remote)
 
@@ -536,9 +536,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     cell%owner = id
     do_export = any(remote_export)
-    !--send each task only the particles that interact with its particles. Not with
-    !  self-gravity: the remote task then computes the gravity of its nearby nodes,
-    !  which the global tree walk did not, on every particle of the cell
+
+    !--without self-gravity, send each task only the particles that interact with its
+    !  particles (with self-gravity, the leaves the dual tree walk paired with the cell)
     if (do_export .and. .not.gravity) then
        call particle_targets(cell,remote_export,ptargets)
        do_export = any(remote_export)
@@ -548,11 +548,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call recv_cells(stack_remote,cell_counters)
        if (do_export) then
           call reserve_stack(stack_waiting,cell%waiting_index)
-          if (gravity .and. use_dualtree) then
+          if (gravity) then
              ! to each task, with its leaves that the dual tree walk paired with the cell
              call send_cell_with_leaves(cell,stack_remote,cell_counters)
-          elseif (gravity) then
-             call send_cell(cell,remote_export,stack_remote,cell_counters)  ! send to remote
           else
              call send_cell(cell,remote_export,stack_remote,cell_counters,ptargets)
           endif
@@ -758,6 +756,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (use_sinktree) then
        fxyz_ptmass_tree   = reduceall_mpi('+',fxyz_ptmass_tree)
        bin_info(ipertg,:) = reduceall_mpi('+',bin_info(ipertg,:))
+
        ! one reduction for all sink pairs, rather than one per sink
        shortsinktree(1:nptmass,1:nptmass) = reshape(reduceall_mpi('max',&
           reshape(shortsinktree(1:nptmass,1:nptmass),[nptmass*nptmass])),[nptmass,nptmass])
@@ -1322,31 +1321,28 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qi   = 0.
        endif
 
-       ! neighbour mass, density and gradh products from cache (or tables if uncached)
+       ! neighbour mass from the cache (or tables if uncached); its density and gradh
+       ! products are read here, only for actual neighbours
        if (ifilledcellcache .and. n <= maxcellcache) then
-          pmassj       = xyzcache(im,n)
-          rhoj         = xyzcache(irho,n)
-          zetaomegaj   = xyzcache(izetaomega,n)
-#ifdef GRAVITY
-          softomegaj   = xyzcache(isoftomega,n)
-#endif
+          pmassj = xyzcache(im,n)
        elseif (iamsinkj) then
-          pmassj       = xyzmh_ptmass(4,j-maxpsph)
-          rhoj         = 0.
-          zetaomegaj   = 0.
+          pmassj = xyzmh_ptmass(4,j-maxpsph)
+       elseif (use_apr) then
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
+       else
+          pmassj = massoftype(iamtypej)
+       endif
+       if (iamsinkj) then
+          rhoj       = 0.
+          zetaomegaj = 0.
 #ifdef GRAVITY
-          softomegaj   = 0.
+          softomegaj = 0.
 #endif
        else
-          if (use_apr) then
-             pmassj = aprmassoftype(iamtypej,apr_level(j))
-          else
-             pmassj = massoftype(iamtypej)
-          endif
-          rhoj         = rho(j)
-          zetaomegaj   = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
+          rhoj       = rho(j)
+          zetaomegaj = real(gradh(igradzeta,j))*real(gradh(igradomega,j))
 #ifdef GRAVITY
-          softomegaj   = real(gradh(igradsoft,j))*real(gradh(igradomega,j))
+          softomegaj = real(gradh(igradsoft,j))*real(gradh(igradomega,j))
 #endif
        endif
 
@@ -3608,6 +3604,7 @@ subroutine particle_targets(cell,remote_export,ptargets)
  integer :: np
 
  np = cell%npcell
+
  ! a fraction more than the kernel radius, so that rounding can never drop a neighbour
  call get_particle_targets(np,cell%xpartvec(ixi:izi,1:np),radkern*cell%xpartvec(ihi,1:np)*(1. + 1.e-6),&
                            .true.,remote_export,ptargets)
@@ -3623,7 +3620,8 @@ end subroutine particle_targets
 !-----------------------------------------------------------------------
 subroutine send_cell_with_leaves(cell,stack,counters)
  use io,          only:nprocs
- use neighkdtree, only:remote_leaves,nremote_leaves,remote_leaf_owner,remote_local_index
+ use neighkdtree, only:remote_leaves,nremote_leaves
+ use mpikdtree,   only:remote_leaf_owner,remote_local_index
  use mpiderivs,   only:send_cell
  type(cellforce),  intent(in)    :: cell
  type(stackforce), intent(inout) :: stack
@@ -3631,9 +3629,13 @@ subroutine send_cell_with_leaves(cell,stack,counters)
  logical :: target(nprocs)
  integer :: iproc,k,n,nleaves,leaves(maxcellleaves)
 
+ ! for each task, its leaves met by the walk, sent with the cell in messages of at most
+ ! maxcellleaves leaves
  do iproc = 0,nprocs-1
     target = .false.
     target(iproc+1) = .true.
+
+    ! its leaves met by the walk
     nleaves = 0
     do k = 1,nremote_leaves
        n = remote_leaves(k)

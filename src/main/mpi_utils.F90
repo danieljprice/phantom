@@ -37,7 +37,7 @@ module mpiutils
 !
 !   call allgather_mpi(x,xall)
 !
-!   gathers one int or real*8 x from each task into xall(1:nprocs)
+!   gathers one int x from each task into xall(1:nprocs)
 !   on all tasks.
 !
 ! * allgatherv_mpi:
@@ -141,7 +141,7 @@ module mpiutils
 !--generic interface allgather_mpi
 !
  interface allgather_mpi
-  module procedure allgather_mpi_int,allgather_mpi_real8
+  module procedure allgather_mpi_int
  end interface allgather_mpi
 !
 !--generic interface allgatherv_mpi
@@ -1696,27 +1696,6 @@ end subroutine allgather_mpi_int
 
 !--------------------------------------------------------------------------
 !+
-!  gather one real*8 from each task into an array on all tasks
-!+
-!--------------------------------------------------------------------------
-subroutine allgather_mpi_real8(x,xall)
-#ifdef MPI
- use io, only:fatal
-#endif
- real(kind=8), intent(in)  :: x
- real(kind=8), intent(out) :: xall(:)
-
-#ifdef MPI
- call MPI_ALLGATHER(x,1,MPI_REAL8,xall,1,MPI_REAL8,MPI_COMM_WORLD,mpierr)
- if (mpierr /= 0) call fatal('allgather_mpi','error in MPI_ALLGATHER call')
-#else
- xall(:) = x
-#endif
-
-end subroutine allgather_mpi_real8
-
-!--------------------------------------------------------------------------
-!+
 !  offsets of the blocks of each task in a concatenated array,
 !  given the number of entries from each task
 !+
@@ -1727,6 +1706,8 @@ pure function get_displs_mpi(counts) result(displs)
  integer :: i
 
  if (size(counts) < 1) return
+
+ ! each block starts after the previous one
  displs(1) = 0
  do i = 2,size(counts)
     displs(i) = displs(i-1) + counts(i-1)

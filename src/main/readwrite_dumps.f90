@@ -624,11 +624,8 @@ subroutine read_dump(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,heade
     !
     if (iblock==1) then
        if (dynamic_bdy .or. inject_parts .or. use_apr) then
-          if (mpi) then
-             call allocate_memory(max(nparttot,maxp_alloc/nprocs))
-          else
-             call allocate_memory(max(nparttot,maxp_alloc))
-          endif
+          ! allocate_memory takes the total number of particles on all tasks
+          call allocate_memory(max(nparttot,maxp_alloc))
        else
           call allocate_memory(nparttot)
        endif

@@ -15,7 +15,7 @@ module memory
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, io, mpibalance, mpiderivs, mpimemory,
-!   mpitree, neighkdtree, part, ptmass_tree
+!   neighkdtree, part, ptmass_tree
 !
  implicit none
 
@@ -34,7 +34,6 @@ subroutine allocate_memory(ntot, part_only,reallocation)
  use mpimemory,   only:allocate_mpi_memory
  use mpibalance,  only:allocate_balance_arrays
  use mpiderivs,   only:allocate_cell_comms_arrays
- use mpitree,     only:allocate_tree_comms_arrays
 
  integer(kind=8), intent(in) :: ntot
  logical,         intent(in), optional :: part_only,reallocation
@@ -94,7 +93,6 @@ subroutine allocate_memory(ntot, part_only,reallocation)
     if (mpi) then
        call allocate_mpi_memory(npart=ntot) ! total number of particles on all tasks
        call allocate_balance_arrays
-       call allocate_tree_comms_arrays
     endif
     call allocate_cell_comms_arrays ! some dummy arrays need to be allocated when mpi=.false.
 
@@ -119,7 +117,6 @@ subroutine deallocate_memory(part_only,reallocation)
  use mpimemory,   only:deallocate_mpi_memory
  use mpibalance,  only:deallocate_balance_arrays
  use mpiderivs,   only:deallocate_cell_comms_arrays
- use mpitree,     only:deallocate_tree_comms_arrays
  use allocutils,  only:nbytes_allocated
 
  logical, intent(in), optional :: part_only,reallocation
@@ -146,7 +143,6 @@ subroutine deallocate_memory(part_only,reallocation)
  if (mpi) then
     call deallocate_mpi_memory
     call deallocate_balance_arrays
-    call deallocate_tree_comms_arrays
  endif
  call deallocate_cell_comms_arrays
 

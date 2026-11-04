@@ -41,51 +41,57 @@ module timing
     character(len=treelabel_len) :: treelabel
  end type timer
 
- integer, public, parameter :: itimer_fromstart     = 1,  &
-                                 itimer_lastdump      = 2,  &
-                                 itimer_step          = 3,  &
-                                 itimer_tree          = 4,  &
-                                 itimer_balance       = 5,  &
-                                 itimer_dens          = 6,  &
-                                 itimer_dens_local    = 7,  &
-                                 itimer_dens_lcomp    = 8,  &
-                                 itimer_dens_lsend    = 9,  &
-                                 itimer_dens_remote   = 10, &
-                                 itimer_dens_rcomp    = 11, &
-                                 itimer_dens_rsend    = 12, &
-                                 itimer_dens_wait     = 13, &
-                                 itimer_force         = 14, &
-                                 itimer_force_let     = 15, &
-                                 itimer_force_local   = 16, &
-                                 itimer_force_lcomp   = 17, &
-                                 itimer_force_lsend   = 18, &
-                                 itimer_force_remote  = 19, &
-                                 itimer_force_rcomp   = 20, &
-                                 itimer_force_rsend   = 21, &
-                                 itimer_force_wait    = 22, &
-                                 itimer_radiation     = 23, &
-                                 itimer_rad_save      = 24, &
-                                 itimer_rad_neighlist = 25, &
-                                 itimer_rad_arrays    = 26, &
-                                 itimer_rad_its       = 27, &
-                                 itimer_rad_flux      = 28, &
-                                 itimer_rad_diff      = 29, &
-                                 itimer_rad_update    = 30, &
-                                 itimer_rad_store     = 31, &
-                                 itimer_cons2prim     = 32, &
-                                 itimer_substep       = 33, &
-                                 itimer_sinksink      = 34, &
-                                 itimer_gasf          = 35, &
-                                 itimer_acc           = 36, &
-                                 itimer_sg_id         = 37, &
-                                 itimer_sg_evol       = 38, &
-                                 itimer_kick          = 39, &
-                                 itimer_drift         = 40, &
-                                 itimer_kickdrift     = 41, &
-                                 itimer_HII           = 42, &
-                                 itimer_ev            = 43, &
-                                 itimer_io            = 44
- integer, public, parameter :: ntimers = 44 ! should be equal to the largest itimer index
+ integer, public, parameter :: itimer_fromstart     =  1, &
+                                itimer_lastdump      =  2, &
+                                itimer_step          =  3, &
+                                itimer_tree          =  4, &
+                                itimer_tree_global   =  5, &
+                                itimer_balance       =  6, &
+                                itimer_tree_top      =  7, &
+                                itimer_tree_sub      =  8, &
+                                itimer_tree_revise   =  9, &
+                                itimer_tree_graft    = 10, &
+                                itimer_dens          = 11, &
+                                itimer_dens_local    = 12, &
+                                itimer_dens_lcomp    = 13, &
+                                itimer_dens_lsend    = 14, &
+                                itimer_dens_remote   = 15, &
+                                itimer_dens_rcomp    = 16, &
+                                itimer_dens_rsend    = 17, &
+                                itimer_dens_wait     = 18, &
+                                itimer_force         = 19, &
+                                itimer_force_let     = 20, &
+                                itimer_force_local   = 21, &
+                                itimer_force_lcomp   = 22, &
+                                itimer_force_lsend   = 23, &
+                                itimer_force_remote  = 24, &
+                                itimer_force_rcomp   = 25, &
+                                itimer_force_rsend   = 26, &
+                                itimer_force_wait    = 27, &
+                                itimer_radiation     = 28, &
+                                itimer_rad_save      = 29, &
+                                itimer_rad_neighlist = 30, &
+                                itimer_rad_arrays    = 31, &
+                                itimer_rad_its       = 32, &
+                                itimer_rad_flux      = 33, &
+                                itimer_rad_diff      = 34, &
+                                itimer_rad_update    = 35, &
+                                itimer_rad_store     = 36, &
+                                itimer_cons2prim     = 37, &
+                                itimer_substep       = 38, &
+                                itimer_sinksink      = 39, &
+                                itimer_gasf          = 40, &
+                                itimer_acc           = 41, &
+                                itimer_sg_id         = 42, &
+                                itimer_sg_evol       = 43, &
+                                itimer_kick          = 44, &
+                                itimer_drift         = 45, &
+                                itimer_kickdrift     = 46, &
+                                itimer_HII           = 47, &
+                                itimer_ev            = 48, &
+                                itimer_io            = 49
+
+ integer, public, parameter :: ntimers = 49 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
  !--running totals are summed in double precision; timers(:)%wall and %cpu hold
  !  copies in single precision, so a small increment is not lost in a large total
@@ -110,7 +116,12 @@ subroutine setup_timers
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
  call init_timer(itimer_tree        , 'tree',        itimer_step  )
- call init_timer(itimer_balance     , 'balance',     itimer_tree  )
+ call init_timer(itimer_tree_global , 'global',      itimer_tree  )
+ call init_timer(itimer_balance     , 'balance',     itimer_tree_global )
+ call init_timer(itimer_tree_top    , 'top',         itimer_tree  )
+ call init_timer(itimer_tree_sub    , 'subtrees',    itimer_tree  )
+ call init_timer(itimer_tree_revise , 'revise',      itimer_tree  )
+ call init_timer(itimer_tree_graft  , 'graft',       itimer_tree  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
  call init_timer(itimer_dens_local  , 'local',       itimer_dens  )
  call init_timer(itimer_dens_lcomp  , 'compute',     itimer_dens_local )

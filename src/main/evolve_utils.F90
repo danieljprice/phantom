@@ -16,9 +16,9 @@ module evolve_utils
 !
 ! :Dependencies: analysis, checkconserved, dim, dynamic_dtmax, energies,
 !   evwrite, externalforces, fileutils, forcing, injection, io, io_control,
-!   io_summary, mf_write, mpiutils, options, part, ptmass, readwrite_dumps,
-!   readwrite_infile, subgroup, substepping, timestep, timestep_ind,
-!   timing, utils_apr
+!   io_summary, mf_write, mpiderivs, mpikdtree, mpiutils, options, part,
+!   ptmass, readwrite_dumps, readwrite_infile, subgroup, substepping,
+!   timestep, timestep_ind, timing, utils_apr
 !
  implicit none
  public :: update_time_and_dt
@@ -26,6 +26,8 @@ module evolve_utils
  public :: write_ev_files
  public :: check_and_write_dump
  public :: print_log
+
+ integer, parameter :: ntaskvals = 13 ! values per task in the per-task summary
 
  private
 
@@ -105,9 +107,10 @@ subroutine update_time_and_dt(nsteps,time,dtmax,dtmaxold,rhomaxnow,tlast,tcheck,
                                     dtprint,dtinject,ntot)
  endif
 
- !   check that MPI threads are synchronised in time
+ !   check that MPI threads are synchronised in time (relative to the time, since
+ !   the mean over a task count that is not a power of two is not exact)
  timecheck = reduceall_mpi('+',time)
- if (abs(timecheck/nprocs - time) > 1.e-13) then
+ if (abs(timecheck/nprocs - time) > 1.e-13*max(abs(time),1.)) then
     call fatal('evolve','time differs between MPI threads',var='time',val=timecheck/nprocs)
  endif
 !
@@ -362,10 +365,10 @@ end subroutine check_and_write_dump
 !----------------------------------------------------------------
 subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,twalllast)
  use dim,          only:ind_timesteps,mpi
- use io,           only:iprint,id,master,iverbose
+ use io,           only:iprint,id,master,iverbose,nprocs
  use evwrite,      only:write_evlog
  use mpiderivs,    only:print_cell_exchange_stats
- use neighkdtree,  only:print_let_stats
+ use mpikdtree,    only:print_let_stats
  use part,         only:npart,nptmass,iphase,ibin,xyzh
  use io_summary,   only:summary_printout
  use timing,       only:reduce_timers,timers,itimer_lastdump,reset_timers,get_timings
@@ -375,9 +378,13 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  real,            intent(in)    :: dtmax
  real(kind=4),    intent(inout) :: tall
  real(kind=4),    intent(out)   :: tcpulast,twalllast
+ real(kind=8),    allocatable   :: taskvals(:)
 
+ ! per-task values are taken before the timers are summed over tasks
+ if (mpi .and. nprocs > 1) call gather_task_values(taskvals)
  call reduce_timers
  if (id==master) call print_timinginfo(iprint,nsteps,nsteplast)
+ if (mpi .and. nprocs > 1) call print_task_table(iprint,taskvals)
  if (mpi) call print_cell_exchange_stats(iprint)
  if (mpi) call print_let_stats(iprint)
  !--Write out summary to log file
@@ -399,6 +406,71 @@ subroutine print_log(nsteps,nalivetot,nmovedtot,nsteplast,dtmax,tall,tcpulast,tw
  call reset_timers
 
 end subroutine print_log
+
+!----------------------------------------------------------------
+!+
+!  gather on every task the values printed per task in the
+!  summary: particles, wall time of the main phases, and the
+!  exchange and import statistics since the last summary
+!+
+!----------------------------------------------------------------
+subroutine gather_task_values(allvals)
+ use io,          only:nprocs
+ use part,        only:npart
+ use mpiutils,    only:allgatherv_mpi
+ use mpiderivs,   only:get_exchange_counts
+ use timing,      only:timers,itimer_step,itimer_tree,itimer_dens_lcomp,itimer_dens_rcomp,&
+                       itimer_dens_wait,itimer_force_let,itimer_force_lcomp,&
+                       itimer_force_rcomp,itimer_force_wait
+ real(kind=8), allocatable, intent(out) :: allvals(:)
+ real(kind=8) :: vals(ntaskvals),exch(3)
+
+ call get_exchange_counts(exch)
+ vals(1)  = npart
+ vals(2)  = timers(itimer_step)%wall
+ vals(3)  = timers(itimer_tree)%wall
+ vals(4)  = timers(itimer_dens_lcomp)%wall
+ vals(5)  = timers(itimer_dens_rcomp)%wall
+ vals(6)  = timers(itimer_dens_wait)%wall
+ vals(7)  = timers(itimer_force_let)%wall
+ vals(8)  = timers(itimer_force_lcomp)%wall
+ vals(9)  = timers(itimer_force_rcomp)%wall
+ vals(10) = timers(itimer_force_wait)%wall
+ vals(11:13) = exch
+ allocate(allvals(ntaskvals*nprocs))
+ call allgatherv_mpi(vals,allvals)
+
+end subroutine gather_task_values
+
+!----------------------------------------------------------------
+!+
+!  print one row per task of the values from gather_task_values:
+!  wall times of each phase on that task (s), and the cells and data
+!  exchanged since the last summary
+!+
+!----------------------------------------------------------------
+subroutine print_task_table(iunit,allvals)
+ use io, only:id,master,nprocs
+ integer,      intent(in) :: iunit
+ real(kind=8), intent(in) :: allvals(:)
+ integer :: itask,k
+ character(len=*), parameter :: fmtrow = &
+    "(i5,1x,i9,9(1x,f8.2),2(1x,i10),1x,f9.1)"
+
+ if (id /= master) return
+ write(iunit,"(/,a)") ' MPI per task: wall time (s) of each phase, and cells and data exchanged since the last summary'
+ write(iunit,"(a5,1x,a9,9(1x,a8),2(1x,a10),1x,a9)") 'task','npart','step','tree',&
+       'd_lcomp','d_rcomp','d_wait','f_let','f_lcomp','f_rcomp','f_wait',&
+       'cells_sent','cells_recv','MB_recv'
+
+ ! one row per task
+ do itask = 0,nprocs-1
+    k = ntaskvals*itask
+    write(iunit,fmtrow) itask,nint(allvals(k+1)),allvals(k+2:k+10),nint(allvals(k+11:k+12),kind=8),allvals(k+13)
+ enddo
+ write(iunit,*)
+
+end subroutine print_task_table
 
 !----------------------------------------------------------------
 !+

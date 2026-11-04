@@ -508,7 +508,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if ((dosinktree.or.testall) .and. use_sinktree) then
     call allocate_memory(int8(maxp_requested),reallocation=.true.)
     call test_gravity(ntests,npass,string)
-    call test_ptmass(ntests,npass,string)
+    if (string /= 'sinktreegrav') call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
     use_sinktree = .false.
  endif

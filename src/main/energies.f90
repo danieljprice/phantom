@@ -622,8 +622,6 @@ subroutine compute_energies(t)
        angy   = angy + xyzmh_ptmass(ispiny,i)
        angz   = angz + xyzmh_ptmass(ispinz,i)
 
-       if (use_sinktree) epot = epot + poten(i+maxpsph)
-
        ! rotational energy around each axis through the origin
        if (calc_erot) then
           call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
@@ -683,6 +681,14 @@ subroutine compute_energies(t)
  !LS I don't know what to do here ? gamma should be replaced by gammai ?
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduceall_mpi('+',etherm)
  emag = reduceall_mpi('+',emag)
+
+ ! with sinks in the tree, the potential of each sink is set only on the task that holds it
+ if (use_sinktree) then
+    do i=1,nptmass
+       if (xyzmh_ptmass(4,i) < 0.) cycle
+       epot = epot + poten(i+maxpsph)
+    enddo
+ endif
  epot = reduceall_mpi('+',epot)
  erad = reduceall_mpi('+',erad)
  if (nptmass > 1) then

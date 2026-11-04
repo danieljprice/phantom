@@ -16,8 +16,8 @@ module testkdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpiutils,
-!   neighkdtree, part, testutils, timing, unifdis
+! :Dependencies: boundary, dim, io, kdtree, kernel, mpidomain, mpikdtree,
+!   mpisections, mpiutils, neighkdtree, part, testutils, timing, unifdis
 !
  implicit none
  public :: test_kdtree
@@ -243,11 +243,145 @@ subroutine test_kdtree(ntests,npass)
     deallocate(leaf_is_active_saved)
  endif
 
+ call test_section_tree(ntests,npass)
+ call test_cut_sections(ntests,npass)
  if (mpi .and. nprocs > 1) call test_global_tree(ntests,npass)
 
  if (id==master) write(*,"(/,a,/)") '<-- KDTREE TEST COMPLETE'
 
 end subroutine test_kdtree
+
+!-----------------------------------------------------------------------
+!+
+!   Tests of the tree of sections used for the MPI domain decomposition,
+!   on the cell centres of a grid in a flat box with two outliers far
+!   above and below it: every particle lies in the section it is located
+!   in (counts agree), the keys of the sections increase in depth first
+!   order, no section cuts through the plane of the grid, and the first
+!   split is at the midpoint of the bounds of the particles
+!+
+!-----------------------------------------------------------------------
+subroutine test_section_tree(ntests,npass)
+ use mpisections, only:sectiontree,build_sections,locate_section
+ use mpiutils,    only:reduceall_mpi
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: ngrid(3) = [16,16,4], np = ngrid(1)*ngrid(2)*ngrid(3) + 2
+ real,    parameter :: boxlen(3) = [4.,4.,0.25]
+ type(sectiontree) :: st
+ real       :: xyzh(4,np),wt(np),dx(3),xmid
+ integer    :: nfailed(4),nbad(4),i,ix,iy,iz,k,nround
+ integer, allocatable :: layers(:)
+ real,    allocatable :: nsec(:)
+
+ ! cell centres of the grid, plus two particles far above and below it
+ dx = boxlen/ngrid
+ i = 0
+ do iz = 1,ngrid(3)
+    do iy = 1,ngrid(2)
+       do ix = 1,ngrid(1)
+          i = i + 1
+          xyzh(1:3,i) = ([ix,iy,iz] - 0.5)*dx
+       enddo
+    enddo
+ enddo
+ xyzh(1:3,np-1) = [2.,2., 10.]
+ xyzh(1:3,np)   = [2.,2.,-10.]
+ xyzh(4,:) = 1.
+ wt = 1.
+ call build_sections(np,xyzh,wt,st,nround)
+
+ nbad = 0
+
+ ! the particles located in each section, on all tasks, are those it was built from
+ allocate(nsec(st%nsec))
+ nsec = 0.
+ do i = 1,np
+    k = locate_section(st,xyzh(1:3,i))
+    nsec(k) = nsec(k) + 1.
+ enddo
+ nsec = reduceall_mpi('+',nsec)
+ if (any(abs(nsec - st%secn) > 0.5)) nbad(1) = nbad(1) + 1
+
+ ! keys in increasing order
+ do k = 2,st%nsec
+    if (st%key(st%seccell(k)) <= st%key(st%seccell(k-1))) nbad(2) = nbad(2) + 1
+ enddo
+
+ ! no section cuts through the plane: each holding grid particles has all its layers
+ allocate(layers(st%nsec))
+ layers = 0
+ do i = 1,np-2
+    k = locate_section(st,xyzh(1:3,i))
+    iz = int(xyzh(3,i)/dx(3)) + 1
+    layers(k) = ibset(layers(k),iz-1)
+ enddo
+
+ ! a section holds all layers of the grid or none
+ do k = 1,st%nsec
+    layers(k) = int(reduceall_mpi('max',real(layers(k))))
+    if (layers(k) /= 0 .and. layers(k) /= 2**ngrid(3) - 1) nbad(3) = nbad(3) + 1
+ enddo
+
+ ! the root is split at the midpoint of the bounds of all particles, along z
+ xmid = 0.5*(xyzh(3,np) + xyzh(3,np-1))
+ if (st%axis(1) /= 3 .or. abs(st%xsplit(1) - xmid) > epsilon(xmid)) nbad(4) = nbad(4) + 1
+
+ nfailed = 0
+ call checkval(nbad(1),0,0,nfailed(1),'particles located in their sections')
+ call checkval(nbad(2),0,0,nfailed(2),'section keys in depth first order')
+ call checkval(nbad(3),0,0,nfailed(3),'flat distribution not cut through its plane')
+ call checkval(nbad(4),0,0,nfailed(4),'split at the midpoint of the particle bounds')
+
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_section_tree
+
+!-----------------------------------------------------------------------
+!+
+!   Tests of the cut of the sections into runs, one per task: the
+!   largest work of a run is the least possible, every task gets a
+!   section, and the cap on particles per task is respected
+!+
+!-----------------------------------------------------------------------
+subroutine test_cut_sections(ntests,npass)
+ use mpisections, only:cut_sections
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ real    :: w(10),np(10),wrun(4),nrun(4)
+ integer :: owner(10),nfailed(3),k
+
+ nfailed = 0
+
+ ! ten sections of equal work on three tasks: the best cut has 4 in the largest run
+ w  = 1.
+ np = 1.
+ call cut_sections(10,w,np,3,huge(1.),owner)
+ wrun = 0.
+ do k = 1,10
+    wrun(owner(k)+1) = wrun(owner(k)+1) + w(k)
+ enddo
+ call checkval(maxval(wrun(1:3)),4.,0.,nfailed(1),'least largest work of a run')
+
+ ! four sections on four tasks: one each, whatever their work
+ w(1:4) = [10.,1.,1.,1.]
+ call cut_sections(4,w(1:4),np(1:4),4,huge(1.),owner(1:4))
+ call checkval(count(owner(1:4) == [0,1,2,3]),4,0,nfailed(2),'one section for every task')
+
+ ! equal work, but the first five sections hold most of the particles: with at
+ ! most 12 particles on a task they cannot share a run
+ w  = 1.
+ np = [5.,5.,5.,5.,5.,1.,1.,1.,1.,1.]
+ call cut_sections(10,w,np,4,12.,owner)
+ nrun = 0.
+ do k = 1,10
+    nrun(owner(k)+1) = nrun(owner(k)+1) + np(k)
+ enddo
+ call checkval(count(nrun > 12.),0,0,nfailed(3),'particles per task within the cap')
+
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_cut_sections
 !-----------------------------------------------------------------------
 !+
 !   Tests of the global tree that every MPI task holds a copy of:
@@ -260,7 +394,8 @@ subroutine test_global_tree(ntests,npass)
  use io,          only:id,master
  use boundary,    only:set_boundary
  use mpiutils,    only:reduceall_mpi
- use neighkdtree, only:build_tree,active_leaves,nactive_leaves,set_hmaxcell,sync_hmax_mpi
+ use neighkdtree, only:build_tree,active_leaves,nactive_leaves,set_hmaxcell
+ use mpikdtree,   only:sync_hmax_mpi
  use kdtree,      only:inoderange,inodeparts
  use part,        only:npart,xyzh,vxyzu,hfact,massoftype,igas,iphase,isetphase,init_part
  use kernel,      only:hfact_default
@@ -268,7 +403,7 @@ subroutine test_global_tree(ntests,npass)
  use mpidomain,   only:i_belong
  use testutils,   only:update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(9),i,ip,icell,k
+ integer :: nfailed(10),i,ip,icell,k
  real    :: psep,hmaxcell
 
  if (id==master) write(*,"(/,a)") '--> testing global tree'
@@ -281,6 +416,7 @@ subroutine test_global_tree(ntests,npass)
                   psep,hfact,npart,xyzh,periodic,mask=i_belong)
  massoftype(igas) = 1./reduceall_mpi('+',npart)
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
+
  ! one particle whose kernel reaches into several domains
  if (id==master) xyzh(4,1) = 0.2
 
@@ -305,7 +441,7 @@ subroutine test_global_tree(ntests,npass)
  call sync_hmax_mpi()
  call check_global_hmax(nfailed(4:5))
  call check_exports(.true.,nfailed(6))
- call check_combined_tree(nfailed(7:9))
+ call check_combined_tree(nfailed(7:10))
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_global_tree
@@ -317,11 +453,13 @@ end subroutine test_global_tree
 !+
 !-----------------------------------------------------------------------
 subroutine walk_global_tree(list,nlist,nbad)
- use neighkdtree, only:nodeglobal,cellatid
+ use mpikdtree,   only:nodeglobal,cellatid
  integer, intent(out) :: list(:),nlist,nbad
  integer :: n,il,ir,i
 
  nbad = 0
+
+ ! list the nodes reachable from the root, breadth first
  nlist = 1
  list(1) = 1
  i = 0
@@ -353,7 +491,7 @@ end subroutine walk_global_tree
 subroutine check_global_links(nfailed)
  use dim,         only:gravity
  use io,          only:id,nprocs
- use neighkdtree, only:nodeglobal,cellatid
+ use mpikdtree,   only:nodeglobal,cellatid
  use part,        only:npart,massoftype,igas
  use testutils,   only:checkval
  integer, intent(out) :: nfailed(2)
@@ -363,6 +501,8 @@ subroutine check_global_links(nfailed)
 
  allocate(list(size(nodeglobal)))
  call walk_global_tree(list,nlist,nbad)
+
+ ! each leaf: one owner, no children, and its mass added to its owner's
  nleaves = 0
  leafmass = 0.
  do i=1,nlist
@@ -376,9 +516,11 @@ subroutine check_global_links(nfailed)
        leafmass(iowner) = leafmass(iowner) + nodeglobal(n)%mass
     endif
  enddo
+
  ! every node marked as a leaf must be reachable from the root
  if (count(cellatid /= 0) /= nleaves) nbad = nbad + 1
  call checkval(nbad,0,0,nfailed(1),'global tree links and leaf owners')
+
  ! node masses are only set with self-gravity
  nfailed(2) = 0
  if (gravity) call checkval(leafmass(id+1),npart*massoftype(igas),1.e-12,nfailed(2),'mass in leaves of this task')
@@ -393,7 +535,7 @@ end subroutine check_global_links
 !-----------------------------------------------------------------------
 subroutine check_global_hmax(nfailed)
  use io,          only:id
- use neighkdtree, only:nodeglobal,cellatid
+ use mpikdtree,   only:nodeglobal,cellatid
  use part,        only:npart,xyzh
  use testutils,   only:checkval
  integer, intent(out) :: nfailed(2)
@@ -403,6 +545,8 @@ subroutine check_global_hmax(nfailed)
 
  allocate(list(size(nodeglobal)))
  call walk_global_tree(list,nlist,nbad)
+
+ ! each internal node's hmax covers its children's
  hmaxleaves = 0.
  do i=1,nlist
     n = list(i)
@@ -421,22 +565,28 @@ end subroutine check_global_hmax
 !   check the combined tree (local tree with the global tree above it):
 !   its links, that walking down from its root reaches every local leaf
 !   and only leaves of other tasks outside this task, and that every task
-!   has exactly the same copy of each domain node as its owner
+!   has exactly the same copy of each section root as its owner, and that
+!   every section has one owner, the same on all tasks, with the roots of
+!   a task's sections holding exactly the particles of its local tree
 !+
 !-----------------------------------------------------------------------
 subroutine check_combined_tree(nfailed)
  use io,          only:id,nprocs
  use dim,         only:gravity
- use mpiutils,    only:allgatherv_mpi
- use neighkdtree, only:node,leaf_is_active,ncells,ncomb,irootcomb,remote_leaf_owner
- use kdtree,      only:irootnode
+ use mpiutils,    only:reduceall_mpi
+ use neighkdtree, only:node,leaf_is_active,ncells
+ use mpikdtree,   only:ncomb,irootcomb,remote_leaf_owner,nsec_top,top_leaf,top_owner,top_root
+ use kdtree,      only:irootnode,inoderange
  use testutils,   only:checkval
- integer, intent(out) :: nfailed(3)
- integer, allocatable :: list(:)
- integer :: n,i,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff,itask
- real    :: rootdata(6),nodedata(6),alldata(6*nprocs)
+ integer, intent(out) :: nfailed(4)
+ integer, allocatable :: list(:),ownmin(:),ownmax(:)
+ real,    allocatable :: secdata(:,:)
+ integer :: n,i,k,nlist,nbad,nlocal,nlocal_root,nbadremote,ndiff
+ integer :: nbadown,nown,npown,nproot
+ real    :: nodedata(6)
 
  allocate(list(ncomb))
+
  ! walk from the root of the combined tree
  call walk_tree_from(irootcomb,list,nlist,nbad)
  nlocal = 0
@@ -450,42 +600,81 @@ subroutine check_combined_tree(nfailed)
        nbadremote = nbadremote + 1
     endif
  enddo
+
  ! the local leaves reached from the local root
- call walk_tree_from(irootnode,list,nlist,ndiff)
+ call walk_tree_from(irootnode,list,nlist,ndiff,local_only=.true.)
  nlocal_root = count(leaf_is_active(list(1:nlist)) /= 0)
  call checkval(nbad+ndiff+nbadremote,0,0,nfailed(1),'combined tree links and leaf owners')
  call checkval(nlocal,nlocal_root,0,nfailed(2),'combined tree reaches every local leaf')
 
- ! the domain node of each task, as the task itself has it (its local root);
+ ! each section's root, as its owner has it, against its leaf on the other tasks;
  ! node masses are only set with self-gravity
- rootdata = [node(irootnode)%xcen,node(irootnode)%size,node(irootnode)%hmax,0.]
- if (gravity) rootdata(6) = node(irootnode)%mass
- call allgatherv_mpi(rootdata,alldata)
+ allocate(secdata(6,nsec_top))
+ secdata = 0.
+ do k=1,nsec_top
+    if (top_owner(k) /= id) cycle
+    n = top_root(k)
+    secdata(:,k) = [node(n)%xcen,node(n)%size,node(n)%hmax,0.]
+    if (gravity) secdata(6,k) = node(n)%mass
+ enddo
+ secdata = reduceall_mpi('+',secdata)
+
+ ! the copies of other tasks' section roots match the owners' data
  ndiff = 0
- do itask=0,nprocs-1
-    if (itask == id) cycle
-    n = int(ncells) + nprocs + itask
+ do k=1,nsec_top
+    if (top_owner(k) == id) cycle
+    n = int(ncells) + top_leaf(k)
     nodedata = [node(n)%xcen,node(n)%size,node(n)%hmax,0.]
     if (gravity) nodedata(6) = node(n)%mass
-    if (any(nodedata /= alldata(6*itask+1:6*itask+6))) ndiff = ndiff + 1
+    if (any(nodedata /= secdata(:,k))) ndiff = ndiff + 1
  enddo
- call checkval(ndiff,0,0,nfailed(3),'domain nodes identical on all tasks')
+ call checkval(ndiff,0,0,nfailed(3),'section roots identical on all tasks')
+
+ ! every section has a valid owner, the same on all tasks, and a top leaf of
+ ! its own; every task owns a section, and the roots of its sections hold
+ ! exactly the particles of its local tree
+ nbadown = 0
+ ownmin = int(reduceall_mpi('min',top_owner(1:nsec_top)))
+ ownmax = int(reduceall_mpi('max',top_owner(1:nsec_top)))
+ nown  = 0
+ npown = 0
+ do k=1,nsec_top
+    if (top_owner(k) < 0 .or. top_owner(k) >= nprocs) nbadown = nbadown + 1
+    if (ownmin(k) /= ownmax(k)) nbadown = nbadown + 1
+    if (count(top_leaf(1:nsec_top) == top_leaf(k)) /= 1) nbadown = nbadown + 1
+    if (top_owner(k) == id) then
+       nown = nown + 1
+       n = top_root(k)
+       npown = npown + inoderange(2,n) - inoderange(1,n) + 1
+    endif
+ enddo
+ if (nown == 0) nbadown = nbadown + 1
+ nproot = inoderange(2,irootnode) - inoderange(1,irootnode) + 1
+ if (npown /= nproot) nbadown = nbadown + 1
+ nbadown = int(reduceall_mpi('+',nbadown))
+ call checkval(nbadown,0,0,nfailed(4),'every section owned by one task')
 
 end subroutine check_combined_tree
 
 !-----------------------------------------------------------------------
 !+
 !   list the nodes below (and including) iroot in node, stopping at
-!   leaves, counting nodes whose children do not point back to them
+!   leaves, counting nodes whose children do not point back to them.
+!   With local_only, children whose parent is in the global tree (the
+!   roots of the sections, linked to it in the combined tree) are fine
 !+
 !-----------------------------------------------------------------------
-subroutine walk_tree_from(iroot,list,nlist,nbad)
- use neighkdtree, only:node,leaf_is_active
+subroutine walk_tree_from(iroot,list,nlist,nbad,local_only)
+ use neighkdtree, only:node,leaf_is_active,ncells
  integer, intent(in)  :: iroot
  integer, intent(out) :: list(:),nlist,nbad
- integer :: i,n,ichild(2),k
+ logical, intent(in), optional :: local_only
+ integer :: i,n,ichild(2),k,iparent
+ logical :: linked
 
  nbad = 0
+
+ ! list the nodes reachable from iroot, breadth first
  nlist = 1
  list(1) = iroot
  i = 0
@@ -493,10 +682,15 @@ subroutine walk_tree_from(iroot,list,nlist,nbad)
     i = i + 1
     n = list(i)
     if (leaf_is_active(n) /= 0) cycle
+
+    ! each child links back to its parent
     ichild = [node(n)%leftchild,node(n)%rightchild]
     do k=1,2
        if (ichild(k) <= 0) cycle
-       if (node(ichild(k))%parent /= n .or. nlist >= size(list)) then
+       iparent = node(ichild(k))%parent
+       linked = (iparent == n)
+       if (present(local_only)) linked = linked .or. (local_only .and. iparent > ncells)
+       if (.not.linked .or. nlist >= size(list)) then
           nbad = nbad + 1
        else
           nlist = nlist + 1
@@ -545,12 +739,15 @@ subroutine check_exports(getj,nfailed)
  xall(5,ioffset+1:ioffset+npart) = id
  call reduce_in_place_mpi('+',xall)
 
+ ! for each active leaf, the tasks the walk exports to against the tasks with neighbours
  nmissed = 0
  nexport = 0
  nneeded = 0
  do k=1,nactive_leaves
     icell = active_leaves(k)
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,0,getj=getj,remote_export=export)
+
+    ! the tasks holding a neighbour of any particle of the cell
     needed = .false.
     do ip=inoderange(1,icell),inoderange(2,icell)
        i = abs(inodeparts(ip))
