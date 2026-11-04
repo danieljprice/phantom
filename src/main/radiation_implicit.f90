@@ -254,15 +254,14 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
  use dim,             only:mpi
  use io,              only:id,master
  use mpiutils,        only:reduceall_mpi
- use mpiradiation,    only:icand_start,icand,xyzh_remote,start_remote_exchange,finish_remote_exchange
+ use mpiradiation,    only:icand_start,icand,xyzh_remote,exchange_remote_values
  real,    intent(in)    :: dt,time,xyzh(:,:),origEU(:,:)
  integer, intent(in)    :: npart
  real,    intent(inout) :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out)   :: failed,moresweep
  integer, intent(out)   :: nit,ierr
  real,    intent(out)   :: maxerrE2,maxerrU2,EU0(:,:)
- integer              :: its,nedges,ninterior
- integer, allocatable :: idiff(:)
+ integer              :: its,nedges
  real                 :: errmax(2)
  real                 :: maxerrE2last,maxerrU2last,maxerrE2last2,maxerrU2last2,omega,maxerrE2prev2,maxerrU2prev2
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
@@ -304,16 +303,10 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     return
  endif
 
- ! the particles without neighbours on other tasks first, whose diffusion term is
- ! computed while the remote values are exchanged
- allocate(idiff(max(ncompact,1)))
- call order_by_remote_neighbours(ncompact,npart,ivar,ijvar,idiff,ninterior)
-
  call do_timing('radneighlist',tlast,tcpulast,start=.true.)
 
  !$omp parallel default(none) &
  !$omp shared(tlast,tcpulast,t1,tcpu1,ncompact,ncompactlocal,npart,icompactmax,dt,time,its_global) &
- !$omp shared(idiff,ninterior) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0,mask,rho) &
  !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
@@ -345,25 +338,18 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     !$omp single
     call do_timing('radflux',t1,tcpu1)
     !$omp end single
-    !--E and opacity change in the update and the flux limiter in compute_flux, so the
-    !  remote particles get all three from their owners, while the diffusion term of the
-    !  particles without remote neighbours is computed
-    if (mpi) call start_remote_exchange(EU0)
-    call calc_diffusion_term(ivar,ijvar,varij,idiff,1,ninterior,npart,icompactmax,vari,EU0,varinew,mask,ierr)
-    !$omp single
-    call do_timing('raddiff',t1,tcpu1)
-    !$omp end single
+    !--E and opacity change in the update and the flux limiter in compute_flux,
+    !  so the remote particles get all three from their owners here
     if (mpi) then
-       call finish_remote_exchange(EU0,npart)
+       call exchange_remote_values(EU0,npart)
        !$omp single
        call do_timing('radexch',t1,tcpu1)
        !$omp end single
-       call calc_diffusion_term(ivar,ijvar,varij,idiff,ninterior+1,ncompact,npart,icompactmax,&
-                                vari,EU0,varinew,mask,ierr)
-       !$omp single
-       call do_timing('raddiff',t1,tcpu1)
-       !$omp end single
     endif
+    call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
+    !$omp single
+    call do_timing('raddiff',t1,tcpu1)
+    !$omp end single
 
     call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                      radprop,rad,origEU,varinew,EU0,&
@@ -673,26 +659,25 @@ end subroutine compute_flux
 !  calculate diffusion coefficients
 !+
 !---------------------------------------------------------
-subroutine calc_diffusion_term(ivar,ijvar,varij,idiff,n1,n2,npart,icompactmax, &
+subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
                                vari,EU0,varinew,mask,ierr)
  use io,       only:error
  use part,     only:dust_temp,nucleation
- integer, intent(in)    :: ivar(:,:),ijvar(:),idiff(:),n1,n2,npart,icompactmax
+ integer, intent(in)    :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
  real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(:,:)
  logical, intent(in)    :: mask(npart)
  integer, intent(out)   :: ierr
  real,    intent(inout) :: varinew(3,npart)
- integer              :: m,n,i,j,k,icompact
+ integer              :: n,i,j,k,icompact
  real                 :: rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,dWdrlightrhorhom
  real                 :: diffusion_numerator,diffusion_denominator
 
  ierr = 0
  !$omp do schedule(dynamic,nchunk)&
- !$omp private(i,j,k,m,n,rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
+ !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
  !$omp private(dWdrlightrhorhom,icompact)&
  !$omp reduction(max:ierr)
- do m = n1,n2
-    n = idiff(m)
+ do n = 1,ncompact
     i = ivar(3,n)
     if (mask(i)) then
        rhoi = vari(2,n)
@@ -750,32 +735,6 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,idiff,n1,n2,npart,icompactmax, &
  !$omp enddo
 
 end subroutine calc_diffusion_term
-
-!---------------------------------------------------------
-!+
-!  the entries of the compacted neighbour list in the order in
-!  which the diffusion term is computed: the particles without
-!  neighbours on other MPI tasks (ninterior of them), then those
-!  with remote neighbours (indices above npart)
-!+
-!---------------------------------------------------------
-subroutine order_by_remote_neighbours(ncompact,npart,ivar,ijvar,idiff,ninterior)
- integer, intent(in)  :: ncompact,npart,ivar(:,:),ijvar(:)
- integer, intent(out) :: idiff(:),ninterior
- logical, allocatable :: remote(:)
- integer :: n
-
- allocate(remote(ncompact))
- !$omp parallel do default(none) schedule(static) shared(ncompact,npart,ivar,ijvar,remote) private(n)
- do n = 1,ncompact
-    remote(n) = any(ijvar(ivar(2,n)+1:ivar(2,n)+ivar(1,n)) > npart)
- enddo
- !$omp end parallel do
- ninterior = count(.not.remote)
- idiff(1:ninterior) = pack([(n,n=1,ncompact)],.not.remote)
- idiff(ninterior+1:ncompact) = pack([(n,n=1,ncompact)],remote)
-
-end subroutine order_by_remote_neighbours
 
 !---------------------------------------------------------
 !+

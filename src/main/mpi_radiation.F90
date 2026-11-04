@@ -39,7 +39,7 @@ module mpiradiation
  integer, public :: nsendlist = 0
  integer, allocatable, public :: isendlist(:)
 
- public :: setup_remote_neighbours,exchange_remote_values,start_remote_exchange,finish_remote_exchange
+ public :: setup_remote_neighbours,exchange_remote_values
 
  private
 
@@ -55,9 +55,6 @@ module mpiradiation
  !  irecvoff(iproc)+1 ... irecvoff(iproc)+nrecvfrom(iproc) come from it
  integer, allocatable :: nsendto(:),isendoff(:),nrecvfrom(:),irecvoff(:)
  real,    allocatable, asynchronous :: sendvals(:),recvvals(:)  ! buffers of non-blocking messages
- !--the requests of the messages of values in flight, and their number
- integer, allocatable :: ivalreq(:)
- integer :: nvalreq = 0
 
  !--list of integers, used for the neighbours found for each requested leaf
  type intlist
@@ -114,35 +111,20 @@ end subroutine setup_remote_neighbours
 !+
 !  send the current E, opacity and flux limiter of the particles in the
 !  send lists, and receive those of the remote particles
-!  (must be called by every task, by all threads of a parallel region)
+!  (must be called by every task, by all threads of a parallel region:
+!  the packing and unpacking are shared, the messages sent by one thread)
 !+
 !-----------------------------------------------------------------------
 subroutine exchange_remote_values(EU0,npart)
- integer, intent(in)    :: npart
- real,    intent(inout) :: EU0(:,:)
-
- call start_remote_exchange(EU0)
- call finish_remote_exchange(EU0,npart)
-
-end subroutine exchange_remote_values
-
-!-----------------------------------------------------------------------
-!+
-!  start the exchange: pack the values of the particles in the send lists
-!  and post the messages, without waiting for them, so that the work that
-!  does not need the remote values can be done meanwhile
-!  (must be called by every task, by all threads of a parallel region:
-!  the packing is shared, the messages posted by one thread)
-!+
-!-----------------------------------------------------------------------
-subroutine start_remote_exchange(EU0)
 #ifdef MPI
  use io,       only:nprocs
- use mpiutils, only:isend_mpi,irecv_mpi
+ use mpiutils, only:isend_mpi,irecv_mpi,waitall_mpi
 #endif
- real, intent(in) :: EU0(:,:)
+ integer, intent(in)    :: npart
+ real,    intent(inout) :: EU0(:,:)
 #ifdef MPI
- integer :: iproc,k,j
+ integer :: iproc,k,j,nreq
+ integer :: ireq(2*nprocs)
 
  if (nprocs == 1) return
  !--pack
@@ -154,49 +136,24 @@ subroutine start_remote_exchange(EU0)
     sendvals(nvals*(k-1)+3) = EU0(5,j)
  enddo
  !$omp enddo
- !--post the receives and the sends
+ !--post the receives, send, and wait for both
  !$omp single
- if (.not.allocated(ivalreq)) allocate(ivalreq(2*nprocs))
- nvalreq = 0
+ nreq = 0
  do iproc=1,nprocs
     if (nrecvfrom(iproc) > 0) then
-       nvalreq = nvalreq + 1
+       nreq = nreq + 1
        call irecv_mpi(recvvals(nvals*irecvoff(iproc)+1:nvals*(irecvoff(iproc)+nrecvfrom(iproc))), &
-                      iproc-1,itag_remote,ivalreq(nvalreq))
+                      iproc-1,itag_remote,ireq(nreq))
     endif
  enddo
  do iproc=1,nprocs
     if (nsendto(iproc) > 0) then
-       nvalreq = nvalreq + 1
+       nreq = nreq + 1
        call isend_mpi(sendvals(nvals*isendoff(iproc)+1:nvals*(isendoff(iproc)+nsendto(iproc))), &
-                      iproc-1,itag_remote,ivalreq(nvalreq))
+                      iproc-1,itag_remote,ireq(nreq))
     endif
  enddo
- !$omp end single
-#endif
-
-end subroutine start_remote_exchange
-
-!-----------------------------------------------------------------------
-!+
-!  finish the exchange: wait for the messages and unpack the values of
-!  the remote particles (must be called by every task, by all threads of
-!  a parallel region, after start_remote_exchange)
-!+
-!-----------------------------------------------------------------------
-subroutine finish_remote_exchange(EU0,npart)
-#ifdef MPI
- use io,       only:nprocs
- use mpiutils, only:waitall_mpi
-#endif
- integer, intent(in)    :: npart
- real,    intent(inout) :: EU0(:,:)
-#ifdef MPI
- integer :: k
-
- if (nprocs == 1) return
- !$omp single
- call waitall_mpi(nvalreq,ivalreq)
+ call waitall_mpi(nreq,ireq)
  !$omp end single
  !--unpack into the remote entries
  !$omp do schedule(static)
@@ -208,7 +165,7 @@ subroutine finish_remote_exchange(EU0,npart)
  !$omp enddo
 #endif
 
-end subroutine finish_remote_exchange
+end subroutine exchange_remote_values
 
 #ifdef MPI
 !-----------------------------------------------------------------------
