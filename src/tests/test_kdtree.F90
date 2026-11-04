@@ -393,7 +393,7 @@ end subroutine test_cut_sections
 !+
 !-----------------------------------------------------------------------
 subroutine test_global_tree(ntests,npass)
- use dim,         only:periodic,maxphase,maxp,ind_timesteps,use_apr,use_sinktree
+ use dim,         only:periodic,maxphase,maxp,use_apr,use_sinktree
  use io,          only:id,master
  use boundary,    only:set_boundary
  use mpiutils,    only:reduceall_mpi
@@ -458,7 +458,7 @@ subroutine test_global_tree(ntests,npass)
     if (mod(i,50)==0 .or. maxphase /= maxp) nactive = nactive + 1
  enddo
  call build_tree(npart,nactive,xyzh,vxyzu,tree_revised=revised)
- can_revise = ind_timesteps .and. maxphase==maxp .and. .not.(periodic .or. use_apr .or. use_sinktree)
+ can_revise = maxphase==maxp .and. .not.(periodic .or. use_apr .or. use_sinktree)
  call checkval(revised,can_revise,nfailed(11),'global tree revised for moved particles')
  call check_global_links(nfailed(12:13))
  call check_exports(.true.,nfailed(14))
