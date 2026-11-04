@@ -68,6 +68,7 @@ module mpikdtree
  integer :: nlet_parent = 0
  integer, allocatable :: let_local(:)                      ! global leaves whose particles were imported
  integer :: nlet_local = 0
+ real    :: reach_ref = 0.                                 ! median reach of this task's active leaves
  integer, allocatable :: let_base(:)                       ! position before the nodes from each task
 
  ! the selection of the nodes to send each task
@@ -932,6 +933,7 @@ subroutine let_exchange()
  ! select the nodes and leaves to send to each task. The descent for each task is split
  ! into pairs near the top of the tree, shared by the threads; the nodes found are then
  ! listed for each task, one task per thread at a time
+ call set_reach_ref()
  call start_let_marks(reset)
  allocate(implist(2,maximport_leaves,nprocs),itemr(3,nlet_split+3,nprocs),nitemr(nprocs))
  nnode  = 0
@@ -1057,11 +1059,13 @@ end subroutine let_exchange
 !  in its combined tree (the leaves in list and this task's leaves in the
 !  global tree) that the walks of iproc's active cells could pair with
 !  (marked by let_pair_step). Of these, those with a reach (size +
-!  radkern*hmax) more than reach_import_factor times the median are sent,
-!  largest first: large leaves in sparse regions, which many of iproc's
-!  cells meet. Only leaves whose particles are all active are sent: the
-!  force calculation can wake inactive neighbours, which would then have
-!  to be returned. Each leaf is listed in implist with its locator on
+!  radkern*hmax) more than reach_import_factor times the median reach of
+!  this task's active leaves are sent, largest first: large leaves in
+!  sparse regions, which many of iproc's cells meet. The reference is not
+!  the median of the candidates, since a distant receiver may meet only a
+!  few leaves, all of them large. Only leaves whose particles are all
+!  active are sent: the force calculation can wake inactive neighbours,
+!  which would then have to be returned. Each leaf is listed in implist with its locator on
 !  iproc: its position in list, or minus its index in the global tree
 !+
 !-----------------------------------------------------------------------
@@ -1102,11 +1106,11 @@ subroutine select_import_leaves(list,nlist,implist,nleaves)
 
  if (nc == 0) return
 
- ! their reach, sorted, and the smallest reach sent
+ ! their reach, sorted
  allocate(reach(nc),indx(nc))
  reach = node(cand(1:nc))%size + radkern*node(cand(1:nc))%hmax
  call indexx(nc,reach,indx)
- reachmin = reach_import_factor*reach(indx(nc/2+1))
+ reachmin = reach_import_factor*reach_ref
 
  ! largest reach first, within the budgets of leaves and particles
  npsent = 0
@@ -1125,6 +1129,31 @@ subroutine select_import_leaves(list,nlist,implist,nleaves)
  enddo
 
 end subroutine select_import_leaves
+
+!-----------------------------------------------------------------------
+!+
+!  the median reach (size + radkern*hmax) of this task's active leaves,
+!  the reference for the reach of the leaves it sends with their particles
+!+
+!-----------------------------------------------------------------------
+subroutine set_reach_ref()
+ use dim,       only:reach_import_factor
+ use kernel,    only:radkern
+ use sortutils, only:indexx
+ real,    allocatable :: reach(:)
+ integer, allocatable :: indx(:)
+ integer :: n
+
+ n = nactive_leaves
+ ! no leaf is sent if there are no active leaves
+ reach_ref = huge(reach_ref)/reach_import_factor
+ if (n == 0) return
+ allocate(reach(n),indx(n))
+ reach = node(active_leaves(1:n))%size + radkern*node(active_leaves(1:n))%hmax
+ call indexx(n,reach,indx)
+ reach_ref = reach(indx(n/2+1))
+
+end subroutine set_reach_ref
 
 !-----------------------------------------------------------------------
 !+
