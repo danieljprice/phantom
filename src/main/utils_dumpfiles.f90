@@ -2040,22 +2040,22 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,n
     if (ipass==1) then
        nums(imatch,ib) = nums(imatch,ib) + (iend - istart) + 1
     elseif (ipass==2) then
+       ! one loop per kind, so that the buffer used is always the one allocated
        if (imatch==i_real4 .or. use_singleprec) then
           allocate(buf4(len2))
-       else
-          allocate(buf(len2))
-       endif
-       do j=istart,iend
-          call put_rec(iunit,tag(my_tag(j)),ierr)
-          if (imatch==i_real4 .or. use_singleprec) then
-             !print*, "done ", my_tag(j), " | ", tag(my_tag(j))
+          do j=istart,iend
+             call put_rec(iunit,tag(my_tag(j)),ierr)
              buf4(:) = real(arr(j,1:len2),kind=4)
              call put_rec(iunit,buf4,ierr)
-          else
+          enddo
+       else
+          allocate(buf(len2))
+          do j=istart,iend
+             call put_rec(iunit,tag(my_tag(j)),ierr)
              buf(:) = arr(j,1:len2)
              call put_rec(iunit,buf,ierr)
-          endif
-       enddo
+          enddo
+       endif
     endif
  endif
  if (ierr /= 0) nerr = nerr + 1
