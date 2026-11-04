@@ -28,7 +28,7 @@ module densityforce
 
  implicit none
 
- public :: densityiterate,get_neighbour_stats,get_density_at_pos,print_shared_cell_stats
+ public :: densityiterate,get_neighbour_stats,get_density_at_pos
 
  !--indexing for xpartveci array
  integer, parameter :: &
@@ -109,16 +109,9 @@ module densityforce
  !--long neighbour lists are done in blocks, so the neighbours' data stays in cache for all particles in the cell
  integer, parameter :: nneighblock = 4096
  integer, parameter :: maxdensits = 100
- !--cells with more trial neighbours than nneigh_shared are done one at a time after the
- !  other cells, with their neighbour list split into nslice slices shared between threads
- integer, parameter :: nneigh_shared = 100000
- integer, parameter :: maxshared = 1000
- integer, parameter :: nslice = 64
 
  !--statistics which can be queried later
  integer, private         :: maxneighact,minneighact,ncalls_neigh
- !--cells whose neighbour sums were shared between threads, since the last summary
- integer(kind=8), private :: ncells_shared = 0
  integer(kind=8), private :: nneightry,maxneightry,nneighact,ncalc
  integer(kind=8), private :: nptot = -1
 
@@ -133,11 +126,11 @@ contains
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
- use dim,         only:maxp,minpart,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
+ use dim,         only:maxp,curlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,          only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use neighkdtree, only:leaf_is_active,get_neighbour_list,get_hmaxcell,&
-                     listneigh,listneigh_global,get_cell_location,set_hmaxcell,&
+                     listneigh,get_cell_location,set_hmaxcell,&
                      active_leaves,nactive_leaves,ncellchunk
  use mpikdtree,   only:sync_hmax_mpi
  use part,        only:mhd,get_partinfo,iactive,&
@@ -178,12 +171,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  integer :: i,icell,ia
  integer :: nneigh,np
- integer :: nshared,ishare,islice,n1,n2
- integer :: icellshared(maxshared),nneigh_slice(minpart,nslice)
- real, allocatable :: rhosums_slice(:,:,:)
- type(celldens) :: sharedcell
- integer :: nneigh_sharedcell
- logical :: shared_converged
  integer :: nwarnup,nwarndown,nwarnroundoff
 
  logical :: getdv,realviscosity,getdB,converged
@@ -253,7 +240,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  ! number of cells that only have neighbours on this MPI task
  nlocal = 0
- nshared = 0
 
  rhomax = 0.0
  ! density sums returned from other tasks: the grad Wtilde copies only with unequal masses
@@ -294,8 +280,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(tcpu2) &
 !$omp shared(tc1,tcpuc1,tc2,tcpuc2) &
 !$omp shared(cell_counters,exchange,nimport_part,nimport_useful,nresend_part,nresend_conv) &
-!$omp shared(nshared,icellshared,sharedcell,shared_converged,ncells_shared) &
-!$omp shared(listneigh_global,nneigh_sharedcell,rhosums_slice,nneigh_slice) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
 !$omp private(ntotal) &
@@ -314,8 +298,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(+:ncalls_neigh) &
 !$omp reduction(+:stressmax) &
 !$omp reduction(max:rhomax) &
-!$omp private(i,icell,ia) &
-!$omp private(ishare,islice,n1,n2)
+!$omp private(i,icell,ia)
 
  if (exchange) call init_cell_exchange(stack_remote)
 
@@ -334,18 +317,6 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                            remote_export=remote_export)
     do_export = any(remote_export)
-
-    !--leave cells with very long neighbour lists until the end, to be shared between threads
-    if (nneigh > nneigh_shared .and. .not.exchange) then
-       !$omp atomic capture
-       nshared = nshared + 1
-       ishare = nshared
-       !$omp end atomic
-       if (ishare <= maxshared) then
-          icellshared(ishare) = icell
-          cycle over_cells
-       endif
-    endif
     cell%icell  = icell
     cell%owner  = id
     cell%nits   = 0
@@ -412,69 +383,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
  enddo over_cells
  !$omp enddo
-
- !--cells with very long neighbour lists, with the neighbour sums split between threads
- !  (summed in a fixed order, so the results do not depend on the number of threads)
- over_shared: do ishare = 1,min(nshared,maxshared)
-    !$omp single
-    if (.not.allocated(rhosums_slice)) allocate(rhosums_slice(maxrhosum,minpart,nslice))
-    sharedcell%icell  = icellshared(ishare)
-    sharedcell%owner  = id
-    sharedcell%nits   = 0
-    sharedcell%nneigh = 0
-    call start_cell(sharedcell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
-    call get_cell_location(sharedcell%icell,sharedcell%xpos,sharedcell%xsizei,sharedcell%rcuti)
-    call get_hmaxcell(sharedcell%icell,sharedcell%hmax)
-    call get_neighbour_list(sharedcell%icell,listneigh_global,nneigh_sharedcell,xyzh,xyzcache,0,getj=.false.)
-    !$omp end single
-    converged = .false.
-    shared_its: do while (.not.converged)
-       !$omp do schedule(dynamic)
-       do islice = 1,nslice
-          n1 = int((islice-1)*int(nneigh_sharedcell,kind=8)/nslice) + 1
-          n2 = int(islice*int(nneigh_sharedcell,kind=8)/nslice)
-          cell = sharedcell
-          call compute_cell(cell,listneigh_global(n1:n2),n2-n1+1,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                            xyzcache,rad,apr_level,ifilledcellcache=.false.)
-          rhosums_slice(:,:,islice) = cell%rhosums
-          nneigh_slice(:,islice) = cell%nneigh
-       enddo
-       !$omp enddo
-       !$omp single
-       sharedcell%rhosums = rhosums_slice(:,:,1)
-       do islice = 2,nslice
-          sharedcell%rhosums = sharedcell%rhosums + rhosums_slice(:,:,islice)
-       enddo
-       ! self is counted once in each slice
-       sharedcell%nneigh = sum(nneigh_slice,dim=2) - (nslice-1)
-       sharedcell%nneightry = nneigh_sharedcell
-       if (calculate_density) then
-          call finish_cell(sharedcell,shared_converged)
-          call compute_hmax(sharedcell,redo_neighbours)
-          if (icall == 0) shared_converged = .true.
-       else
-          shared_converged = .true.
-       endif
-       if (shared_converged) then
-          call store_results(icall,sharedcell,getdv,getdB,realviscosity,stressmax,xyzh,gradh,divcurlv, &
-               divcurlB,alphaind,dvdx,vxyzu,&
-               dustfrac,rhomax,nneightry,nneighact,maxneightry,maxneighact,minneighact,np,ncalc,radprop)
-          nlocal = nlocal + 1
-       elseif (redo_neighbours) then
-          call set_hmaxcell(sharedcell%icell,sharedcell%hmax)
-          call get_neighbour_list(-1,listneigh_global,nneigh_sharedcell,xyzh,xyzcache,0,getj=.false., &
-                                  cell_xpos=sharedcell%xpos,cell_xsizei=sharedcell%xsizei, &
-                                  cell_rcuti=sharedcell%rcuti)
-          ncalls_neigh = ncalls_neigh + 1
-       endif
-       !$omp end single
-       ! private copy, read before the flag is next written (after the barrier ending the loop over slices)
-       converged = shared_converged
-    enddo shared_its
- enddo over_shared
-
  !$omp single
- ncells_shared = ncells_shared + min(nshared,maxshared)
  call get_timings(tc2,tcpuc2)
  if (exchange) then
     call increment_timer(itimer_dens_lcomp,tc2-t1,tcpuc2-tcpu1)
@@ -1461,29 +1370,11 @@ subroutine reduce_and_print_neighbour_stats(np)
  endif
 
 end subroutine reduce_and_print_neighbour_stats
-
-!--------------------------------------------------------------------------
-!+
-!  print the number of cells whose neighbour sums were shared between
-!  threads since the last summary, then reset the count
-!+
-!--------------------------------------------------------------------------
-subroutine print_shared_cell_stats(iunit)
- use mpiutils, only:reduce_mpi
- use io,       only:id,master
- integer, intent(in) :: iunit
- integer(kind=8) :: ntot
-
- ntot = reduce_mpi('+',ncells_shared)
- if (id==master .and. ntot > 0) write(iunit,"(1x,a,i11)") 'density cells shared between threads:',ntot
- ncells_shared = 0
-
-end subroutine print_shared_cell_stats
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                             xyzcache,rad,apr_level,ifilledcellcache)
+                             xyzcache,rad,apr_level)
  use part,        only:get_partinfo,iamgas,igas,maxphase
  use viscosity,   only:irealvisc
  use io,          only:id
@@ -1500,7 +1391,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  real,            intent(in) :: xyzcache(5,isizecellcache)
  real,            intent(in) :: rad(:,:)
  integer(kind=1), intent(in) :: apr_level(:)
- logical,         intent(in), optional :: ifilledcellcache
 
  real                            :: dxcache(7,isizeneighcache)
 
@@ -1511,15 +1401,12 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical                         :: iactivei,iamgasi,iamdusti
 
  logical                         :: realviscosity
- logical                         :: ignoreself,usecache
+ logical                         :: ignoreself
  integer                         :: nneighi,apri
  integer                         :: i,lli,n1,n2
  real                            :: rhosum(maxrhosum)
 
  realviscosity = (irealvisc > 0)
- ! the cache holds the first entries of the neighbour list, so is not valid for later slices of it
- usecache = .true.
- if (present(ifilledcellcache)) usecache = ifilledcellcache
 
  over_blocks: do n1 = 1,max(nneigh,1),nneighblock
     n2 = min(n1+nneighblock-1,nneigh)
@@ -1555,7 +1442,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 
        call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           apri,listneigh(n1:n2),n2-n1+1,nneighi,dxcache,xyzcache,&
-                          rhosum,(usecache .and. n1==1),.false.,getdv,getdB,realviscosity,&
+                          rhosum,(n1==1),.false.,getdv,getdB,realviscosity,&
                           xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level)
 
        cell%nneightry = nneigh
