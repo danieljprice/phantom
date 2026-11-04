@@ -74,10 +74,6 @@ module neighkdtree
  integer,         parameter         :: maxnodecache_local = 4096
  integer,         parameter         :: maxneigh_per_node  = 16
  integer,         parameter         :: maxstacksize = 2048
- ! revise rather than rebuild the tree if fewer than this fraction of particles are active,
- ! until the particles have had about one step each since the tree was built
- real,            parameter         :: frac_active_revtree = 0.1
- integer(kind=8)                    :: nactive_since_build = 0
 
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
@@ -246,15 +242,16 @@ end subroutine get_distance_from_centre_of_mass
 
 !-----------------------------------------------------------------------
 !+
-!  build the tree
+!  build the tree, or revise the last one for new positions on substeps
+!  with few active particles (tree_revised=.true.)
 !+
 !-----------------------------------------------------------------------
-subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
+subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr,tree_revised)
  use io,           only:nprocs
  use kdtree,       only:maketree,revtree
  use mpikdtree,    only:maketreeglobal,extend_local_tree
- use dim,          only:mpi,use_sinktree
  use timing,       only:get_timings,increment_timer,itimer_tree_revise
+ use dim,          only:mpi,use_sinktree
  use part,         only:nptmass,xyzmh_ptmass,maxp
  use allocutils,   only:allocate_array
  integer, intent(inout) :: npart
@@ -262,11 +259,13 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
  logical, intent(in), optional :: for_apr
+ logical, intent(out), optional :: tree_revised
  logical :: apr_tree,revised
  real(kind=4) :: t1,t2,tcpu1,tcpu2
 
  apr_tree = .false.
  if (present(for_apr)) apr_tree = for_apr
+ revised = .false.
 
  !
  ! the listneigh array is threadprivate, but if the thread numbers or ids are changed
@@ -279,9 +278,9 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
 
  if (mpi .and. nprocs > 1) then
     if (use_sinktree) then
-       call maketreeglobal(xyzh,npart,nactive,apr_tree,nptmass,xyzmh_ptmass)
+       call maketreeglobal(xyzh,npart,nactive,apr_tree,revised,nptmass,xyzmh_ptmass)
     else
-       call maketreeglobal(xyzh,npart,nactive,apr_tree)
+       call maketreeglobal(xyzh,npart,nactive,apr_tree,revised)
     endif
     call extend_local_tree(0,nactive)
  else
@@ -291,20 +290,16 @@ subroutine build_tree(npart,nactive,xyzh,vxyzu,for_apr)
        ! with few active particles, revise the last tree for the new positions
        ! rather than rebuilding it: the nodes are looser, but only the active
        ! particles have to find their neighbours in it
-       revised = .false.
-       nactive_since_build = nactive_since_build + nactive
-       if (.not.apr_tree .and. nactive < frac_active_revtree*npart .and. nactive_since_build < npart) then
+       if (.not.apr_tree) then
           call get_timings(t1,tcpu1)
-          call revtree(node,xyzh,npart,leaf_is_active,ncells,revised)
+          call revtree(node,xyzh,npart,leaf_is_active,ncells,revised,nactivetot=real(nactive),nlivetot=real(npart))
           call get_timings(t2,tcpu2)
           call increment_timer(itimer_tree_revise,t2-t1,tcpu2-tcpu1)
        endif
-       if (.not.revised) then
-          call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
-          nactive_since_build = 0
-       endif
+       if (.not.revised) call maketree(node,xyzh,npart,leaf_is_active,ncells,apr_tree)
     endif
  endif
+ if (present(tree_revised)) tree_revised = revised
  call list_active_leaves()
  call expensive_leaves_first()
 

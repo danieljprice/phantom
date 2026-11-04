@@ -241,23 +241,26 @@ end subroutine deallocate_mpikdtree
 !  task that owns their section of the geometric tree, each task builds its
 !  local tree from its sections, and the cells of the geometric tree above
 !  the sections are built from the section roots of all tasks, identically
-!  on every task
+!  on every task. On substeps with few active particles, the local trees are
+!  instead revised for the new positions, keeping the owners (revised=.true.)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketreeglobal(xyzh,np,nactive,apr_tree,nptmass,xyzmh_ptmass)
+subroutine maketreeglobal(xyzh,np,nactive,apr_tree,revised,nptmass,xyzmh_ptmass)
  use mpibalance,   only:balancedomains
  use mpisections,  only:assign_section_owners
  use mpiutils,     only:reduceall_mpi
  use part,         only:ibelong,ibin,isdead_or_accreted
  use boundary,     only:cross_boundary
  use mpidomain,    only:isperiodic
- use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global
+ use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global,itimer_tree_revise
+ use kdtree,       only:revtree
  use dim,          only:ind_timesteps,periodic,maxpsph
 
  integer, intent(inout) :: np
  integer, intent(in)    :: nactive  ! number of active particles on this task
  real,    intent(inout) :: xyzh(:,:)
  logical, intent(in)    :: apr_tree
+ logical, intent(out)   :: revised
  integer, intent(in),    optional :: nptmass
  real,    intent(inout), optional :: xyzmh_ptmass(:,:)
  real,    allocatable :: wt(:)
@@ -290,6 +293,24 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,nptmass,xyzmh_ptmass)
  ! active), weighting particles by how often they are active
  ncount = reduceall_mpi('+',real([nactive,count(xyzh(4,1:np) > 0.)]))
  rebalance = (ncount(1) >= ncount(2))
+
+ ! with few active particles, the local trees are revised for the new positions, keeping
+ ! the owners, and the top of the global tree is rebuilt from their section roots
+ revised = .false.
+ if (.not.apr_tree) then
+    call get_timings(t1,tcpu1)
+    call revtree(node,xyzh,np,leaf_is_active,ncells,revised,nactivetot=ncount(1),nlivetot=ncount(2))
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_tree_revise,t2-t1,tcpu2-tcpu1)
+ endif
+ if (revised) then
+    call build_section_top()
+    call set_exact_top_sizes()
+    call get_timings(tg2,tcpug2)
+    ! the global time excludes the revision, which has its own timer
+    call increment_timer(itimer_tree_global,(tg2-tg1)-(t2-t1),(tcpug2-tcpug1)-(tcpu2-tcpu1))
+    return
+ endif
  allocate(wt(np))
  if (ind_timesteps) then
     wt = 2.**ibin(1:np)

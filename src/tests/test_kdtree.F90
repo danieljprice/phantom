@@ -111,8 +111,8 @@ subroutine test_kdtree(ntests,npass)
     call cpu_time(t2)
     call print_time(t2-t1,'revtree completed in')
     if (id==master) print*,' ratio of revtree/maketree: ',(t2-t1)/tmaketree
-    ! as in revtree: with more than one MPI task the global tree must be rebuilt too
-    can_revise = .not.(periodic .or. (mpi .and. nprocs > 1) .or. use_apr .or. use_sinktree)
+    ! as in revtree
+    can_revise = .not.(periodic .or. use_apr .or. use_sinktree)
     call checkval(revised,can_revise,nfailed(1),'revtree revised the tree')
     call update_test_scores(ntests,nfailed(1:1),npass)
     if (.not.revised) then
@@ -128,8 +128,9 @@ subroutine test_kdtree(ntests,npass)
     nchecked(:) = 0
     errmax(:)   = 0.
     tol = 2.e-11
-    ! use larger tolerance for some octupole moments due to variation from openMP loop ordering
-    tol_octs = 1.e-9
+    ! larger tolerance for the octupole moments, sums of cubes that nearly cancel, which the
+    ! order of summation (OpenMP loop order, the particles on each MPI task) changes at round-off
+    tol_octs = 3.e-10
     do i=1,int(ncells)
        if (i > 1 .and. node(i)%parent == 0) cycle
        ! if (leaf_is_active(i) /= 0) then
@@ -148,15 +149,15 @@ subroutine test_kdtree(ntests,npass)
        call checkvalbuf(node(i)%quads(5),old_tree(i)%quads(5),tol,'qyz',nfailed(11),nchecked(11),errmax(11))
        call checkvalbuf(node(i)%quads(6),old_tree(i)%quads(6),tol,'qzz',nfailed(12),nchecked(12),errmax(12))
        call checkvalbuf(node(i)%octs(1),old_tree(i)%octs(1),tol_octs,'oxxx',nfailed(13),nchecked(13),errmax(13))
-       call checkvalbuf(node(i)%octs(2),old_tree(i)%octs(2),tol,'oxxy',nfailed(14),nchecked(14),errmax(14))
-       call checkvalbuf(node(i)%octs(3),old_tree(i)%octs(3),tol,'oxxz',nfailed(15),nchecked(15),errmax(15))
+       call checkvalbuf(node(i)%octs(2),old_tree(i)%octs(2),tol_octs,'oxxy',nfailed(14),nchecked(14),errmax(14))
+       call checkvalbuf(node(i)%octs(3),old_tree(i)%octs(3),tol_octs,'oxxz',nfailed(15),nchecked(15),errmax(15))
        call checkvalbuf(node(i)%octs(4),old_tree(i)%octs(4),tol_octs,'oxyy',nfailed(16),nchecked(16),errmax(16))
-       call checkvalbuf(node(i)%octs(5),old_tree(i)%octs(5),tol,'oxyz',nfailed(17),nchecked(17),errmax(17))
+       call checkvalbuf(node(i)%octs(5),old_tree(i)%octs(5),tol_octs,'oxyz',nfailed(17),nchecked(17),errmax(17))
        call checkvalbuf(node(i)%octs(6),old_tree(i)%octs(6),tol_octs,'oxzz',nfailed(18),nchecked(18),errmax(18))
-       call checkvalbuf(node(i)%octs(7),old_tree(i)%octs(7),tol,'oyyy',nfailed(19),nchecked(19),errmax(19))
-       call checkvalbuf(node(i)%octs(8),old_tree(i)%octs(8),tol,'oyyz',nfailed(20),nchecked(20),errmax(20))
-       call checkvalbuf(node(i)%octs(9),old_tree(i)%octs(9),tol,'oyzz',nfailed(21),nchecked(21),errmax(21))
-       call checkvalbuf(node(i)%octs(10),old_tree(i)%octs(10),tol,'ozzz',nfailed(22),nchecked(22),errmax(22))
+       call checkvalbuf(node(i)%octs(7),old_tree(i)%octs(7),tol_octs,'oyyy',nfailed(19),nchecked(19),errmax(19))
+       call checkvalbuf(node(i)%octs(8),old_tree(i)%octs(8),tol_octs,'oyyz',nfailed(20),nchecked(20),errmax(20))
+       call checkvalbuf(node(i)%octs(9),old_tree(i)%octs(9),tol_octs,'oyzz',nfailed(21),nchecked(21),errmax(21))
+       call checkvalbuf(node(i)%octs(10),old_tree(i)%octs(10),tol_octs,'ozzz',nfailed(22),nchecked(22),errmax(22))
 #endif
        ! endif
     enddo
@@ -174,15 +175,15 @@ subroutine test_kdtree(ntests,npass)
     call checkvalbuf_end('qyz',nchecked(11),nfailed(11),errmax(11),tol)
     call checkvalbuf_end('qzz',nchecked(12),nfailed(12),errmax(12),tol)
     call checkvalbuf_end('oxxx',nchecked(13),nfailed(13),errmax(13),tol_octs)
-    call checkvalbuf_end('oxxy',nchecked(14),nfailed(14),errmax(14),tol)
-    call checkvalbuf_end('oxxz',nchecked(15),nfailed(15),errmax(15),tol)
+    call checkvalbuf_end('oxxy',nchecked(14),nfailed(14),errmax(14),tol_octs)
+    call checkvalbuf_end('oxxz',nchecked(15),nfailed(15),errmax(15),tol_octs)
     call checkvalbuf_end('oxyy',nchecked(16),nfailed(16),errmax(16),tol_octs)
-    call checkvalbuf_end('oxyz',nchecked(17),nfailed(17),errmax(17),tol)
+    call checkvalbuf_end('oxyz',nchecked(17),nfailed(17),errmax(17),tol_octs)
     call checkvalbuf_end('oxzz',nchecked(18),nfailed(18),errmax(18),tol_octs)
-    call checkvalbuf_end('oyyy',nchecked(19),nfailed(19),errmax(19),tol)
-    call checkvalbuf_end('oyyz',nchecked(20),nfailed(20),errmax(20),tol)
-    call checkvalbuf_end('oyzz',nchecked(21),nfailed(21),errmax(21),tol)
-    call checkvalbuf_end('ozzz',nchecked(22),nfailed(22),errmax(22),tol)
+    call checkvalbuf_end('oyyy',nchecked(19),nfailed(19),errmax(19),tol_octs)
+    call checkvalbuf_end('oyyz',nchecked(20),nfailed(20),errmax(20),tol_octs)
+    call checkvalbuf_end('oyzz',nchecked(21),nfailed(21),errmax(21),tol_octs)
+    call checkvalbuf_end('ozzz',nchecked(22),nfailed(22),errmax(22),tol_octs)
 #endif
     call update_test_scores(ntests,nfailed,npass)
 
@@ -386,11 +387,13 @@ end subroutine test_cut_sections
 !+
 !   Tests of the global tree that every MPI task holds a copy of:
 !   its links and leaf owners, its hmax after h grows on one task,
-!   and that a cell is exported to every task holding a neighbour
+!   and that a cell is exported to every task holding a neighbour,
+!   also after the trees are revised for moved particles on a
+!   substep with few active particles
 !+
 !-----------------------------------------------------------------------
 subroutine test_global_tree(ntests,npass)
- use dim,         only:periodic,maxphase,maxp
+ use dim,         only:periodic,maxphase,maxp,ind_timesteps,use_apr,use_sinktree
  use io,          only:id,master
  use boundary,    only:set_boundary
  use mpiutils,    only:reduceall_mpi
@@ -401,10 +404,11 @@ subroutine test_global_tree(ntests,npass)
  use kernel,      only:hfact_default
  use unifdis,     only:set_unifdis
  use mpidomain,   only:i_belong
- use testutils,   only:update_test_scores
+ use testutils,   only:update_test_scores,checkval
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(10),i,ip,icell,k
- real    :: psep,hmaxcell
+ integer :: nfailed(18),i,ip,icell,k,nactive
+ real    :: psep,hmaxcell,rand(3)
+ logical :: can_revise,revised
 
  if (id==master) write(*,"(/,a)") '--> testing global tree'
  call init_part()
@@ -442,6 +446,23 @@ subroutine test_global_tree(ntests,npass)
  call check_global_hmax(nfailed(4:5))
  call check_exports(.true.,nfailed(6))
  call check_combined_tree(nfailed(7:10))
+
+ ! a substep with one particle in fifty active, after the particles have moved: the
+ ! local trees are revised rather than rebuilt (as revtree allows), and the global
+ ! tree from them must still find every neighbour
+ nactive = 0
+ do i=1,npart
+    call random_number(rand)
+    xyzh(1:3,i) = xyzh(1:3,i) + 0.25*psep*(rand - 0.5)
+    if (maxphase==maxp) iphase(i) = isetphase(igas,iactive=(mod(i,50)==0))
+    if (mod(i,50)==0 .or. maxphase /= maxp) nactive = nactive + 1
+ enddo
+ call build_tree(npart,nactive,xyzh,vxyzu,tree_revised=revised)
+ can_revise = ind_timesteps .and. maxphase==maxp .and. .not.(periodic .or. use_apr .or. use_sinktree)
+ call checkval(revised,can_revise,nfailed(11),'global tree revised for moved particles')
+ call check_global_links(nfailed(12:13))
+ call check_exports(.true.,nfailed(14))
+ call check_combined_tree(nfailed(15:18))
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_global_tree

@@ -47,6 +47,10 @@ module kdtree
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned   = .false.
  logical, private :: tree_is_revisable = .false. ! last build was of the particle arrays
+ ! revise rather than rebuild the tree if fewer than this fraction of particles are active,
+ ! until the particles have had about one step each since the tree was built
+ real,    parameter, public :: frac_active_revtree = 0.1
+ real,    private :: nactive_since_build = 0.         ! active particles (all tasks) since the last build
  integer, private :: numthreads
  ! scratch space for the parallel partition in build_top_parallel
  real,    allocatable, private :: tcbuf(:,:)
@@ -166,6 +170,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  endif
  ! the tree used to merge particles is not of the particle arrays, so cannot be revised
  tree_is_revisable = .not.apr_tree
+ nactive_since_build = 0.
 
 ! Put root node on top of stack
  ncells = 1
@@ -2067,20 +2072,27 @@ end subroutine special_sort_particles_in_cell
 !  every node still bounds its particles: neighbour lists are unchanged,
 !  only longer to find.
 !
-!  Returns ok=.false., and the tree must be rebuilt, if the last build was
-!  not of these particles, or if particles have been added, accreted or
-!  killed since.
+!  Given the numbers of active and live particles (over all MPI tasks), the
+!  tree is only revised on substeps with few active particles, until the
+!  particles have had about one step each since it was built.
+!
+!  Returns ok=.false., and the tree must be rebuilt, if it is not to be
+!  revised, if the last build was not of these particles, or if particles
+!  have been added, accreted or killed since. With more than one MPI task,
+!  every task revises its tree or none does.
 !+
 !--------------------------------------------------------------------------------
-subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
- use dim,  only:ind_timesteps,periodic,mpi
- use part, only:iphase,iactive,isdead_or_accreted,maxphase,igas,massoftype,iamtype
+subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok,nactivetot,nlivetot)
+ use dim,      only:ind_timesteps,periodic,mpi
+ use part,     only:iphase,iactive,isdead_or_accreted,maxphase,igas,massoftype,iamtype
+ use mpiutils, only:reduceall_mpi
  type(kdnode),    intent(inout) :: node(:)
  real,            intent(in)    :: xyzh(:,:)
  integer,         intent(in)    :: np
  integer,         intent(inout) :: leaf_is_active(:)
  integer(kind=8), intent(in)    :: ncells
  logical,         intent(out)   :: ok
+ real,            intent(in), optional :: nactivetot,nlivetot  ! active and live particles, all tasks
  integer, allocatable :: nodelist(:)
  integer :: ilevel(0:maxdepth+1)
  integer :: nproot,nlive,nbad,ip,i,j,n,inode,il,level,nlevel,mymum
@@ -2088,15 +2100,21 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  logical :: nodeisactive
 
  ok = .false.
- ! with more than one MPI task the global tree must also be rebuilt (on one task there is none)
- if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic .or. (mpi .and. nprocs > 1)) return
- nproot = inoderange(2,irootnode)
- if (inoderange(1,irootnode) /= 1 .or. nproot < 1) return
+ if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic) return
+ if (present(nactivetot) .and. present(nlivetot)) then
+    nactive_since_build = nactive_since_build + nactivetot
+    if (nactivetot >= frac_active_revtree*nlivetot .or. nactive_since_build >= nlivetot) return
+ endif
  !
  ! refresh the particle list: positions, masses and active flags
  !
+ nproot = inoderange(2,irootnode)
  nlive = 0
- nbad  = 0
+ nbad   = 0
+ if (inoderange(1,irootnode) /= 1 .or. nproot < 1) then
+    nproot = 0
+    nbad   = 1
+ endif
  !$omp parallel default(none) &
  !$omp shared(np,nproot,xyzh,inodeparts,treecache,iphase,massoftype,maxphase,maxp) &
  !$omp private(ip,i) &
@@ -2130,7 +2148,11 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  enddo
  !$omp enddo
  !$omp end parallel
- if (nbad > 0 .or. nlive /= nproot) return
+ if (nlive /= nproot) nbad = nbad + 1
+ ! with more than one MPI task, every task revises its tree or all rebuild theirs
+ if (mpi .and. nprocs > 1) nbad = int(reduceall_mpi('+',nbad))
+ if (nbad > 0) return
+ ok = .true.
  !
  ! list the nodes level by level, from the root
  !
@@ -2197,7 +2219,6 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  enddo
  !$omp end parallel
  deallocate(nodelist)
- ok = .true.
 
 end subroutine revtree
 
