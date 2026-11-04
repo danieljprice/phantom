@@ -106,8 +106,6 @@ module densityforce
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
  integer, parameter :: isizecellcache = 1000
  integer, parameter :: isizeneighcache = 0
- !--long neighbour lists are done in blocks, so the neighbours' data stays in cache for all particles in the cell
- integer, parameter :: nneighblock = 4096
  integer, parameter :: maxdensits = 100
 
  !--statistics which can be queried later
@@ -1380,6 +1378,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use viscosity,   only:irealvisc
  use io,          only:id
  use dim,         only:mpi,use_apr
+ use neighkdtree, only:nneighblock
 
  type(celldens), intent(inout) :: cell
 

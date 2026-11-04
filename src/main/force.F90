@@ -56,8 +56,6 @@ module forces
  implicit none
 
  integer, parameter :: maxcellcache = 1000
- !--long neighbour lists are done in blocks, so the neighbours' data stays in cache for all particles in the cell
- integer, parameter :: nneighblock = 4096
  integer, parameter :: nforcecache = 5  ! position, 1/h and mass of the trial neighbours
 
  public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
@@ -2578,6 +2576,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use io,              only:error,id,master
  use dim,             only:maxvxyzu,use_apr,use_sinktree
  use options,         only:implicit_radiation
+ use neighkdtree,     only:nneighblock
  use part,            only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
  use viscosity,       only:irealvisc,bulkvisc
  use eos,             only:iresistive_heating

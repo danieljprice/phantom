@@ -32,6 +32,9 @@ module neighkdtree
  ! cells nearby in the list share neighbours, so small chunks keep them on one thread,
  ! but with self-gravity the cost per cell varies widely, so the cells are handed out one at a time
  integer,      parameter, public    :: ncellchunk = merge(1,16,gravity)
+ ! long neighbour lists are done in blocks in the density and force calculations, so that
+ ! the neighbours' data stays in cache for all particles in the cell
+ integer,      parameter, public    :: nneighblock = 1024
  integer,      public , allocatable :: listneigh(:)
  integer,      public , allocatable :: listneigh_global(:)
 !-- dual tree cache arrays
