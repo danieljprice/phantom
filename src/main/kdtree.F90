@@ -2066,11 +2066,9 @@ end subroutine special_sort_particles_in_cell
 !
 !  The particles stay in the leaves of the last build. The leaves are
 !  recomputed from their particles, and each parent from its two children,
-!  working up the tree a level at a time: one pass over the particles rather
-!  than one per level. A parent bounds its children rather than its
-!  particles, so the nodes are looser than a rebuilt tree would give, but
-!  every node still bounds its particles: neighbour lists are unchanged,
-!  only longer to find.
+!  working up the tree a level at a time. A parent's size is then set from
+!  its particles, as when built, since the bound from its children would
+!  open the node more often than needed.
 !
 !  Given the numbers of active and live particles (over all MPI tasks), the
 !  tree is only revised on substeps with few active particles, until the
@@ -2218,9 +2216,77 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok,nactivetot,nlivetot)
     !$omp enddo
  enddo
  !$omp end parallel
+ call set_exact_parent_sizes(node,nodelist(1:ilevel(nlevel)-1))
  deallocate(nodelist)
 
 end subroutine revtree
+
+!--------------------------------------------------------------------------------
+!+
+!  the size of each parent in the list from its particles: the largest
+!  distance from its centre of mass, as set when the tree is built. The
+!  particles of each parent are taken in pieces of at most maxpiece, so
+!  that the nodes near the root, which hold most of the particles, are
+!  shared between the threads
+!+
+!--------------------------------------------------------------------------------
+subroutine set_exact_parent_sizes(node,list)
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: list(:)
+ integer, parameter   :: maxpiece = 4096
+ integer, allocatable :: ifirst(:),inode(:),ip1(:)
+ real,    allocatable :: r2piece(:)
+ integer :: j,n,k,np,npiece,ip
+ real    :: dx(3),r2
+
+ ! the pieces of each parent: pieces ifirst(j) to ifirst(j+1)-1 for list(j)
+ allocate(ifirst(size(list)+1))
+ npiece = 0
+ do j = 1,size(list)
+    ifirst(j) = npiece + 1
+    n = list(j)
+    if (node(n)%leftchild <= 0) cycle
+    np = inoderange(2,n) - inoderange(1,n) + 1
+    npiece = npiece + (np + maxpiece - 1)/maxpiece
+ enddo
+ ifirst(size(list)+1) = npiece + 1
+ allocate(inode(npiece),ip1(npiece),r2piece(npiece))
+ do j = 1,size(list)
+    n = list(j)
+    do k = ifirst(j),ifirst(j+1)-1
+       inode(k) = n
+       ip1(k)   = inoderange(1,n) + (k - ifirst(j))*maxpiece
+    enddo
+ enddo
+
+ ! the furthest particle of each piece from its parent's centre
+ !$omp parallel default(none) &
+ !$omp shared(npiece,inode,ip1,r2piece,node,inoderange,treecache,list,ifirst) &
+ !$omp private(k,n,ip,dx,r2,j)
+ !$omp do schedule(dynamic,16)
+ do k = 1,npiece
+    n = inode(k)
+    r2 = 0.
+    do ip = ip1(k),min(ip1(k)+maxpiece-1,inoderange(2,n))
+       dx = treecache(1:3,ip) - node(n)%xcen
+       r2 = max(r2,dot_product(dx,dx))
+    enddo
+    r2piece(k) = r2
+ enddo
+ !$omp enddo
+
+ ! and of each parent
+ !$omp do schedule(static)
+ do j = 1,size(list)
+    if (ifirst(j+1) > ifirst(j)) then
+       r2 = maxval(r2piece(ifirst(j):ifirst(j+1)-1))
+       node(list(j))%size = sqrt(r2) + epsilon(r2)
+    endif
+ enddo
+ !$omp enddo
+ !$omp end parallel
+
+end subroutine set_exact_parent_sizes
 
 !--------------------------------------------------------------------------------
 !+

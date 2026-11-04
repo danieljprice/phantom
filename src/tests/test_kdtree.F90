@@ -137,8 +137,7 @@ subroutine test_kdtree(ntests,npass)
        call checkvalbuf(node(i)%xcen(1),old_tree(i)%xcen(1),tol,'x0',nfailed(1),nchecked(1),errmax(1))
        call checkvalbuf(node(i)%xcen(2),old_tree(i)%xcen(2),tol,'y0',nfailed(2),nchecked(2),errmax(2))
        call checkvalbuf(node(i)%xcen(3),old_tree(i)%xcen(3),tol,'z0',nfailed(3),nchecked(3),errmax(3))
-!       call checkvalbuf(node(i)%size,old_tree(i)%size,tol,'size',nfailed(4),nchecked(4),errmax(4))
-       call checkvalbuf((node(i)%size + tol >= old_tree(i)%size),.true.,'size',nfailed(4),nchecked(4))
+       call checkvalbuf(node(i)%size,old_tree(i)%size,tol,'size',nfailed(4),nchecked(4),errmax(4))
        call checkvalbuf(node(i)%hmax,old_tree(i)%hmax,tol,'hmax',nfailed(5),nchecked(5),errmax(5))
 #ifdef GRAVITY
        call checkvalbuf(node(i)%mass,old_tree(i)%mass,tol,'mass',nfailed(6),nchecked(6),errmax(6))
@@ -208,7 +207,8 @@ subroutine test_kdtree(ntests,npass)
     if (can_revise) then
        !
        ! move the particles, revise the tree, and check that every node
-       ! bounds its particles and their smoothing lengths
+       ! bounds its particles and their smoothing lengths, with the size
+       ! of the furthest particle from its centre, as when built
        !
        if (id==master) write(*,"(/,a)") '--> checking revtree for moved particles'
        do i=1,npart
@@ -220,6 +220,7 @@ subroutine test_kdtree(ntests,npass)
        call update_test_scores(ntests,nfailed(1:1),npass)
        nfailed(:)  = 0
        nchecked(:) = 0
+       errmax(:)   = 0.
        do i=1,int(ncells)
           if (i > 1 .and. node(i)%parent == 0) cycle
           if (inoderange(1,i) <= 0) cycle
@@ -234,10 +235,12 @@ subroutine test_kdtree(ntests,npass)
           call checkvalbuf((sqrt(r2max) <= node(i)%size*(1. + epsilon(r2max))),.true.,&
                            'size bounds particles',nfailed(1),nchecked(1))
           call checkvalbuf((hmax <= node(i)%hmax),.true.,'hmax bounds particles',nfailed(2),nchecked(2))
+          call checkvalbuf(node(i)%size,sqrt(r2max) + epsilon(r2max),tol,'size exact',nfailed(3),nchecked(3),errmax(3))
        enddo
        call checkvalbuf_end('size bounds particles',nchecked(1),nfailed(1))
        call checkvalbuf_end('hmax bounds particles',nchecked(2),nfailed(2))
-       call update_test_scores(ntests,nfailed(1:2),npass)
+       call checkvalbuf_end('size exact',nchecked(3),nfailed(3),errmax(3),tol)
+       call update_test_scores(ntests,nfailed(1:3),npass)
     endif
 
     deallocate(old_tree)
