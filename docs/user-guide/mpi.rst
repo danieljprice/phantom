@@ -64,7 +64,13 @@ How many tasks and threads?
      export OMP_PROC_BIND=close OMP_PLACES=cores
 
 - each task allocates room for up to four times its share of the particles,
-  so with four or more tasks a run needs about four times the memory of the particle arrays in openMP alone.
+  so with four or more tasks a run needs about four times the memory of the particle arrays in openMP alone;
+- with openMP alone on a whole node, spread the memory over all of the node's NUMA domains with::
+
+     numactl --interleave=all ./phantom disc.in
+
+  (``make qscript`` adds this when MPI is not used). On OzSTAR's milan nodes this is 10-35% faster
+  with 64 threads. Do not use it with MPI, where each task's memory is best kept close to its cores.
 
 The particles are divided between the tasks automatically, balancing the work. Forces and conservation are the same as with openMP alone, to round-off.
 At each full dump the log file reports the time each task spends in each phase and the data it exchanges with other tasks.
