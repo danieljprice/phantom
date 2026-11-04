@@ -40,6 +40,7 @@ module mpiradiation
  integer, allocatable, public :: isendlist(:)
 
  public :: setup_remote_neighbours,exchange_remote_values,start_remote_exchange,finish_remote_exchange
+ public :: progress_remote_exchange
 
  private
 
@@ -58,6 +59,8 @@ module mpiradiation
  !--the requests of the messages of values in flight, and their number
  integer, allocatable :: ivalreq(:)
  integer :: nvalreq = 0
+ logical :: valdone = .true.  ! all of them have completed
+ integer :: nsince_test = 0    ! calls of progress_remote_exchange since the last test
 
  !--list of integers, used for the neighbours found for each requested leaf
  type intlist
@@ -172,10 +175,35 @@ subroutine start_remote_exchange(EU0)
                       iproc-1,itag_remote,ivalreq(nvalreq))
     endif
  enddo
+ valdone = (nvalreq == 0)
  !$omp end single
 #endif
 
 end subroutine start_remote_exchange
+
+!-----------------------------------------------------------------------
+!+
+!  let the messages of the exchange progress while other work is done:
+!  without it, MPI may only move large messages on in finish_remote_exchange.
+!  Called by every thread for each unit of work; the first thread tests the
+!  messages every nprogress calls, until they have all completed
+!+
+!-----------------------------------------------------------------------
+subroutine progress_remote_exchange()
+#ifdef MPI
+ use mpiutils, only:testall_mpi
+!$ use omp_lib, only:omp_get_thread_num
+ integer, parameter :: nprogress = 64
+
+ if (valdone) return
+!$ if (omp_get_thread_num() /= 0) return
+ nsince_test = nsince_test + 1
+ if (nsince_test < nprogress) return
+ nsince_test = 0
+ call testall_mpi(nvalreq,ivalreq,valdone)
+#endif
+
+end subroutine progress_remote_exchange
 
 !-----------------------------------------------------------------------
 !+
@@ -197,6 +225,7 @@ subroutine finish_remote_exchange(EU0,npart)
  if (nprocs == 1) return
  !$omp single
  call waitall_mpi(nvalreq,ivalreq)
+ valdone = .true.
  !$omp end single
  !--unpack into the remote entries
  !$omp do schedule(static)
