@@ -768,7 +768,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     endif
  endif
 
-
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
     call reduceloc_mpi('max',rhomax,id_rhomax)
