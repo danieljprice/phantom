@@ -330,10 +330,13 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     !$omp end single
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
     !$omp single
+    call do_timing('radflux',t1,tcpu1)
     !--E and opacity change in the update and the flux limiter in compute_flux,
     !  so the remote particles get all three from their owners here
-    if (mpi) call exchange_remote_values(EU0,npart)
-    call do_timing('radflux',t1,tcpu1)
+    if (mpi) then
+       call exchange_remote_values(EU0,npart)
+       call do_timing('radexch',t1,tcpu1)
+    endif
     !$omp end single
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
     !$omp single
@@ -355,9 +358,11 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     its = its + 1
     !--every MPI task needs the same errors, to take the same number of sweeps
     if (mpi) then
+       call get_timings(t1,tcpu1)
        errmax = reduceall_mpi('max',[maxerrE2,maxerrU2])
        maxerrE2 = errmax(1)
        maxerrU2 = errmax(2)
+       call do_timing('radexch',t1,tcpu1)
     endif
     maxerrE2prev2 = 0.
     maxerrU2prev2 = 0.

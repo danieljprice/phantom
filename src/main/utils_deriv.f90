@@ -18,7 +18,8 @@ module derivutils
 !
  use timing, only:timers,itimer_dens,itimer_force,itimer_tree,itimer_balance,itimer_cons2prim,&
                    itimer_radiation,itimer_rad_save,itimer_rad_neighlist,itimer_rad_arrays,itimer_rad_its,&
-                   itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_store,itimer_HII
+                   itimer_rad_flux,itimer_rad_diff,itimer_rad_update,itimer_rad_exch,itimer_rad_store,&
+                   itimer_HII
 
  implicit none
 
@@ -45,8 +46,14 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
  real(kind=4) :: t2,tcpu2,tcpu,twall
 
  call get_timings(t2,tcpu2)
- twall = reduce_mpi('+',t2-tlast)
- tcpu  = reduce_mpi('+',tcpu2-tcpulast)
+ ! the totals over tasks are only needed for the log: reduce_mpi waits for every task,
+ ! which would synchronise the tasks at each timer (several times per radiation sweep)
+ twall = t2-tlast
+ tcpu  = tcpu2-tcpulast
+ if (iverbose >= 2) then
+    twall = reduce_mpi('+',twall)
+    tcpu  = reduce_mpi('+',tcpu)
+ endif
 
  select case (label)
  case ('dens')
@@ -73,6 +80,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     itimer = itimer_rad_diff
  case ('radupdate')
     itimer = itimer_rad_update
+ case ('radexch')
+    itimer = itimer_rad_exch
  case ('radstore')
     itimer = itimer_rad_store
  case ('HII_region')

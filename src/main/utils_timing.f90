@@ -76,24 +76,25 @@ module timing
                                 itimer_rad_flux      = 33, &
                                 itimer_rad_diff      = 34, &
                                 itimer_rad_update    = 35, &
-                                itimer_rad_store     = 36, &
-                                itimer_cons2prim     = 37, &
-                                itimer_substep       = 38, &
-                                itimer_sinksink      = 39, &
-                                itimer_gasf          = 40, &
-                                itimer_acc           = 41, &
-                                itimer_sg_id         = 42, &
-                                itimer_sg_evol       = 43, &
-                                itimer_kick          = 44, &
-                                itimer_drift         = 45, &
-                                itimer_kickdrift     = 46, &
-                                itimer_HII           = 47, &
-                                itimer_predict       = 48, &
-                                itimer_correct       = 49, &
-                                itimer_ev            = 50, &
-                                itimer_io            = 51
+                                itimer_rad_exch      = 36, &
+                                itimer_rad_store     = 37, &
+                                itimer_cons2prim     = 38, &
+                                itimer_substep       = 39, &
+                                itimer_sinksink      = 40, &
+                                itimer_gasf          = 41, &
+                                itimer_acc           = 42, &
+                                itimer_sg_id         = 43, &
+                                itimer_sg_evol       = 44, &
+                                itimer_kick          = 45, &
+                                itimer_drift         = 46, &
+                                itimer_kickdrift     = 47, &
+                                itimer_HII           = 48, &
+                                itimer_predict       = 49, &
+                                itimer_correct       = 50, &
+                                itimer_ev            = 51, &
+                                itimer_io            = 52
 
- integer, public, parameter :: ntimers = 51 ! should be equal to the largest itimer index
+ integer, public, parameter :: ntimers = 52 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
  !--running totals are summed in double precision; timers(:)%wall and %cpu hold
  !  copies in single precision, so a small increment is not lost in a large total
@@ -149,6 +150,7 @@ subroutine setup_timers
  call init_timer(itimer_rad_flux    , 'flux',        itimer_rad_its    )
  call init_timer(itimer_rad_diff    , 'diff',        itimer_rad_its    )
  call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
+ call init_timer(itimer_rad_exch    , 'exchange',    itimer_rad_its    )
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
  call init_timer(itimer_substep     , 'substep',     itimer_step  )
