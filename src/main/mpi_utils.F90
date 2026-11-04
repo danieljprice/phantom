@@ -71,8 +71,7 @@ module mpiutils
 ! * isend_mpi, irecv_mpi, waitall_mpi
 !
 !   call isend_mpi(buf,iproc,itag,ireq), likewise irecv_mpi, then
-!   call waitall_mpi(nreq,ireq): non-blocking messages; testall_mpi(nreq,ireq,done)
-!   tests them without waiting, which also lets the messages progress
+!   call waitall_mpi(nreq,ireq): non-blocking messages
 !
 ! :References: None
 !
@@ -177,7 +176,7 @@ module mpiutils
  public :: bcast_mpi
  public :: allgather_mpi, allgatherv_mpi, get_displs_mpi
  public :: alltoall_mpi, alltoallv_mpi
- public :: isend_mpi, irecv_mpi, waitall_mpi, testall_mpi
+ public :: isend_mpi, irecv_mpi, waitall_mpi
  public :: barrier_mpi
  public :: fill_buffer, unfill_buf
  public :: reduceloc_mpi
@@ -2006,29 +2005,5 @@ subroutine waitall_mpi(nreq,ireq)
 #endif
 
 end subroutine waitall_mpi
-
-!--------------------------------------------------------------------------
-!+
-!  whether the non-blocking sends and receives in ireq(1:nreq) have all
-!  completed, without waiting. Calling it also lets the messages progress
-!  while other work is done (large messages may otherwise not move until
-!  waitall_mpi is called)
-!+
-!--------------------------------------------------------------------------
-subroutine testall_mpi(nreq,ireq,done)
- use io, only:fatal
- integer, intent(in)    :: nreq
- integer, intent(inout) :: ireq(:)
- logical, intent(out)   :: done
-#ifdef MPI
- integer :: ierr
-
- call MPI_TESTALL(nreq,ireq,done,MPI_STATUSES_IGNORE,ierr)
- if (ierr /= 0) call fatal('testall_mpi','error in MPI_TESTALL call')
-#else
- done = .true.
-#endif
-
-end subroutine testall_mpi
 
 end module mpiutils

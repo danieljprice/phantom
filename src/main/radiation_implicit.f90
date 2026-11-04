@@ -675,9 +675,8 @@ end subroutine compute_flux
 !---------------------------------------------------------
 subroutine calc_diffusion_term(ivar,ijvar,varij,idiff,n1,n2,npart,icompactmax, &
                                vari,EU0,varinew,mask,ierr)
- use io,           only:error
- use part,         only:dust_temp,nucleation
- use mpiradiation, only:progress_remote_exchange
+ use io,       only:error
+ use part,     only:dust_temp,nucleation
  integer, intent(in)    :: ivar(:,:),ijvar(:),idiff(:),n1,n2,npart,icompactmax
  real,    intent(in)    :: vari(:,:),varij(2,icompactmax),EU0(:,:)
  logical, intent(in)    :: mask(npart)
@@ -693,8 +692,6 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,idiff,n1,n2,npart,icompactmax, &
  !$omp private(dWdrlightrhorhom,icompact)&
  !$omp reduction(max:ierr)
  do m = n1,n2
-    ! let the exchange of remote values progress meanwhile
-    call progress_remote_exchange()
     n = idiff(m)
     i = ivar(3,n)
     if (mask(i)) then
