@@ -75,6 +75,18 @@ How many tasks and threads?
 The particles are divided between the tasks automatically, balancing the work. Forces and conservation are the same as with openMP alone, to round-off.
 At each full dump the log file reports the time each task spends in each phase and the data it exchanges with other tasks.
 
+Writing dumps with MPI
+----------------------
+On a Lustre file system, all MPI tasks write a full dump at the same time where MPI-IO can use direct I/O and phantom was compiled with gfortran or Intel Fortran (ifort or ifx). ``make qscript MPI=yes`` puts the settings for this in the job script; otherwise add them to yours::
+
+    export I_MPI_EXTRA_FILESYSTEM=1              # Intel MPI
+    export OMPI_MCA_io_romio321_priority=100     # Open MPI 4.x
+    export OMPI_MCA_io_romio341_priority=100     # Open MPI 5.x
+
+It helps most when the run directory is striped over many storage targets, e.g. ``lfs setstripe -c 16 -S 1M .`` before the dumps are written. Otherwise the tasks take turns, as they also do with ``export PHANTOM_DUMP_PARALLEL=no``. The file is the same either way.
+
+So far this has been tested with Open MPI and Intel MPI only. Other MPI libraries (e.g. MPICH, MVAPICH2, Cray MPICH) are untested: they write at the same time only if their MPI-IO reports direct I/O on Lustre, and otherwise take turns.
+
 Running on a cluster
 --------------------
 On a supercomputing cluster, write your queue script with MPI=yes, giving the number of MPI tasks (NMPI) and
