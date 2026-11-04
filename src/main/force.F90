@@ -287,9 +287,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
- real    :: dtmaxi,minglobdt
+ real    :: dtmaxi,minglobdt,dtred(9)
 #else
  integer :: nbinmaxnew,ncheckbin
+ integer(kind=8) :: ndtsum(8)
  integer :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
  integer :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean
  real    :: dtitmp,dtrat,dtmaxi
@@ -767,17 +768,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     endif
  endif
 
-#ifdef IND_TIMESTEPS
- ! check for nbinmaxnew = 0, can happen if all particles
- ! are dead/inactive, e.g. after sink creation or if all
- ! have moved to a higher ibin; the following step on the
- ! higher ibin will yeild non-zero and modify nbinmax
- ! appropriately. With MPI this must be a global check, otherwise
- ! a task with no active particles would stop nbinmax decreasing
- if (reduceall_mpi('+',ncheckbin)==0) then
-    nbinmaxnew    = nbinmax
- endif
-#endif
 
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
@@ -812,15 +802,26 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 
 #ifdef IND_TIMESTEPS
- nbinmax    = int(reduceall_mpi('max',nbinmaxnew),kind=1)
- ndtforce   = int(reduce_mpi('+',ndtforce))
- ndtforceng = int(reduce_mpi('+',ndtforceng))
- ndtcool    = int(reduce_mpi('+',ndtcool))
- ndtdrag    = int(reduce_mpi('+',ndtdrag))
- ndtdragd   = int(reduce_mpi('+',ndtdragd))
- ndtdust    = int(reduce_mpi('+',ndtdust))
- ndtrad     = int(reduce_mpi('+',ndtrad))
- ndtclean   = int(reduce_mpi('+',ndtclean))
+ ! check for nbinmaxnew = 0, can happen if all particles
+ ! are dead/inactive, e.g. after sink creation or if all
+ ! have moved to a higher ibin; the following step on the
+ ! higher ibin will yeild non-zero and modify nbinmax
+ ! appropriately. With MPI this must be a global check, otherwise
+ ! a task with no active particles would stop nbinmax decreasing:
+ ! such a task offers -1, so nbinmax is kept only if no task set a bin
+ if (ncheckbin == 0) nbinmaxnew = -1
+ nbinmaxnew = int(reduceall_mpi('max',nbinmaxnew))
+ if (nbinmaxnew >= 0) nbinmax = int(nbinmaxnew,kind=1)
+ ! the particles each constraint set the timestep of, summed over tasks in one reduction
+ ndtsum = reduce_mpi('+',[ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ndtdust,ndtrad,ndtclean])
+ ndtforce   = int(ndtsum(1))
+ ndtforceng = int(ndtsum(2))
+ ndtcool    = int(ndtsum(3))
+ ndtdrag    = int(ndtsum(4))
+ ndtdragd   = int(ndtsum(5))
+ ndtdust    = int(ndtsum(6))
+ ndtrad     = int(ndtsum(7))
+ ndtclean   = int(ndtsum(8))
 
  !  Print warning statements, if required
  if (iverbose >= 1 .and. id==master) then
@@ -868,20 +869,22 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (ndtclean   > 0)  call summary_variable('dt',iosumdtB  ,ndtclean  ,dtcleanfacmean/real(ndtclean)  ,dtcleanfacmax)
 #else
 
- dtcourant = reduceall_mpi('min',dtcourant)
- dtforce   = reduceall_mpi('min',dtforce)
- dtvisc    = reduceall_mpi('min',dtvisc)
- dtmini    = reduce_mpi('min',dtmini)
- dtmaxi    = reduce_mpi('max',dtmaxi)
+ ! the timestep constraints over all tasks, in one reduction (the largest as minus the smallest)
+ dtred = reduceall_mpi('min',[dtcourant,dtforce,dtvisc,dtmini,-dtmaxi,dtohm,dthall,dtambi,dtrad])
+ dtcourant = dtred(1)
+ dtforce   = dtred(2)
+ dtvisc    = dtred(3)
+ dtmini    = dtred(4)
+ dtmaxi    = -dtred(5)
 
  if (iverbose >= 2 .and. id==master) write(iprint,*) 'dtmin = ',C_Cour*dtmini, ' dtmax = ',C_cour*dtmaxi, &
     ' dtmax/dtmin = ',dtmaxi/(dtmini + epsilon(0.)),'dtcour/dtf = ',(C_cour*dtcourant)/(C_force*dtforce + epsilon(0.))
  if ( dtforce < dtcourant ) call summary_variable('dt',iosumdtf,0,0.0)
  if ( dtvisc  < dtcourant ) call summary_variable('dt',iosumdtv,0,0.0)
  if ( mhd_nonideal ) then
-    dtohm    = reduceall_mpi('min',dtohm )
-    dthall   = reduceall_mpi('min',dthall)
-    dtambi   = reduceall_mpi('min',dtambi)
+    dtohm    = dtred(6)
+    dthall   = dtred(7)
+    dtambi   = dtred(8)
     if ( dthall < dtcourant ) call summary_variable('dt',iosumdth,0,0.0)
     if ( dtohm  < dtcourant ) call summary_variable('dt',iosumdto,0,0.0)
     if ( dtambi < dtcourant ) call summary_variable('dt',iosumdta,0,0.0)
@@ -913,7 +916,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 
  if (do_radiation) then
-    dtrad = reduceall_mpi('min',dtrad)
+    dtrad = dtred(9)
     if (dtrad < dtcourant) then
        call summary_variable('dt',iosumdtr,0,0.0)
        if (iverbose >= 1 .and. id==master) &
