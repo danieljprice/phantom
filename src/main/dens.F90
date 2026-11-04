@@ -677,6 +677,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  ! these are determined from iphase if multiple phases are used
  same_type = .true.
  gas_gas   = .true.
+ iamdustj  = .false.
  iamtypej  = iamtypei
 
  dphidhi   = 0.
