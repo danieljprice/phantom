@@ -23,7 +23,7 @@ module mpiradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, mpiutils, neighcompact,
+! :Dependencies: boundary, dim, io, kdtree, kernel, mpiutils, neighcompact,
 !   neighkdtree, part
 !
  implicit none

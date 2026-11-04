@@ -10,7 +10,7 @@ module mpitree
 !
 ! :References: None
 !
-! :Owner: Conrad Chan
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
