@@ -68,6 +68,11 @@ module mpiutils
 !
 !   calls MPI_BARRIER, no-op if called from non-MPI code
 !
+! * isend_mpi, irecv_mpi, waitall_mpi
+!
+!   call isend_mpi(buf,iproc,itag,ireq), likewise irecv_mpi, then
+!   call waitall_mpi(nreq,ireq): non-blocking messages
+!
 ! :References: None
 !
 ! :Owner: Daniel Price
@@ -155,12 +160,23 @@ module mpiutils
  interface alltoallv_mpi
   module procedure alltoallv_mpi_real4,alltoallv_mpi_real8
  end interface alltoallv_mpi
+!
+!--generic interfaces for non-blocking point-to-point messages
+!
+ interface isend_mpi
+  module procedure isend_mpi_real4,isend_mpi_real8
+ end interface isend_mpi
+
+ interface irecv_mpi
+  module procedure irecv_mpi_real4,irecv_mpi_real8
+ end interface irecv_mpi
 
  public :: init_mpi, finalise_mpi
  public :: reduce_mpi, reduceall_mpi, reduce_in_place_mpi
  public :: bcast_mpi
  public :: allgather_mpi, allgatherv_mpi, get_displs_mpi
  public :: alltoall_mpi, alltoallv_mpi
+ public :: isend_mpi, irecv_mpi, waitall_mpi
  public :: barrier_mpi
  public :: fill_buffer, unfill_buf
  public :: reduceloc_mpi
@@ -1879,5 +1895,115 @@ subroutine alltoallv_mpi_real8(xsend,nsend,xrecv,nrecv)
 #endif
 
 end subroutine alltoallv_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  start a non-blocking send of buf (real*4) to task iproc
+!  (buf must not change until the request completes, see waitall_mpi)
+!+
+!--------------------------------------------------------------------------
+subroutine isend_mpi_real4(buf,iproc,itag,ireq)
+ use io, only:fatal
+ integer,      intent(in)  :: iproc,itag
+ real(kind=4), intent(in), asynchronous, contiguous :: buf(:)
+ integer,      intent(out) :: ireq
+#ifdef MPI
+ integer :: ierr
+
+ call MPI_ISEND(buf,size(buf),MPI_REAL4,iproc,itag,MPI_COMM_WORLD,ireq,ierr)
+ if (ierr /= 0) call fatal('isend_mpi','error in MPI_ISEND call')
+#else
+ ireq = 0
+ if (size(buf) > 0 .and. iproc /= 0) call fatal('isend_mpi','send to another task without MPI')
+#endif
+
+end subroutine isend_mpi_real4
+
+!--------------------------------------------------------------------------
+!+
+!  start a non-blocking receive into buf (real*4) from task iproc
+!  (buf is filled once the request completes, see waitall_mpi)
+!+
+!--------------------------------------------------------------------------
+subroutine irecv_mpi_real4(buf,iproc,itag,ireq)
+ use io, only:fatal
+ integer,      intent(in)    :: iproc,itag
+ real(kind=4), intent(inout), asynchronous, contiguous :: buf(:)
+ integer,      intent(out)   :: ireq
+#ifdef MPI
+ integer :: ierr
+
+ call MPI_IRECV(buf,size(buf),MPI_REAL4,iproc,itag,MPI_COMM_WORLD,ireq,ierr)
+ if (ierr /= 0) call fatal('irecv_mpi','error in MPI_IRECV call')
+#else
+ ireq = 0
+ if (size(buf) > 0 .and. iproc /= 0) call fatal('irecv_mpi','receive from another task without MPI')
+#endif
+
+end subroutine irecv_mpi_real4
+
+!--------------------------------------------------------------------------
+!+
+!  start a non-blocking send of buf (real*8) to task iproc
+!  (buf must not change until the request completes, see waitall_mpi)
+!+
+!--------------------------------------------------------------------------
+subroutine isend_mpi_real8(buf,iproc,itag,ireq)
+ use io, only:fatal
+ integer,      intent(in)  :: iproc,itag
+ real(kind=8), intent(in), asynchronous, contiguous :: buf(:)
+ integer,      intent(out) :: ireq
+#ifdef MPI
+ integer :: ierr
+
+ call MPI_ISEND(buf,size(buf),MPI_REAL8,iproc,itag,MPI_COMM_WORLD,ireq,ierr)
+ if (ierr /= 0) call fatal('isend_mpi','error in MPI_ISEND call')
+#else
+ ireq = 0
+ if (size(buf) > 0 .and. iproc /= 0) call fatal('isend_mpi','send to another task without MPI')
+#endif
+
+end subroutine isend_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  start a non-blocking receive into buf (real*8) from task iproc
+!  (buf is filled once the request completes, see waitall_mpi)
+!+
+!--------------------------------------------------------------------------
+subroutine irecv_mpi_real8(buf,iproc,itag,ireq)
+ use io, only:fatal
+ integer,      intent(in)    :: iproc,itag
+ real(kind=8), intent(inout), asynchronous, contiguous :: buf(:)
+ integer,      intent(out)   :: ireq
+#ifdef MPI
+ integer :: ierr
+
+ call MPI_IRECV(buf,size(buf),MPI_REAL8,iproc,itag,MPI_COMM_WORLD,ireq,ierr)
+ if (ierr /= 0) call fatal('irecv_mpi','error in MPI_IRECV call')
+#else
+ ireq = 0
+ if (size(buf) > 0 .and. iproc /= 0) call fatal('irecv_mpi','receive from another task without MPI')
+#endif
+
+end subroutine irecv_mpi_real8
+
+!--------------------------------------------------------------------------
+!+
+!  wait for the non-blocking sends and receives in ireq(1:nreq)
+!+
+!--------------------------------------------------------------------------
+subroutine waitall_mpi(nreq,ireq)
+ use io, only:fatal
+ integer, intent(in)    :: nreq
+ integer, intent(inout) :: ireq(:)
+#ifdef MPI
+ integer :: ierr
+
+ call MPI_WAITALL(nreq,ireq,MPI_STATUSES_IGNORE,ierr)
+ if (ierr /= 0) call fatal('waitall_mpi','error in MPI_WAITALL call')
+#endif
+
+end subroutine waitall_mpi
 
 end module mpiutils

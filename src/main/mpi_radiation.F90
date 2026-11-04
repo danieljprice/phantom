@@ -23,12 +23,9 @@ module mpiradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, io, kdtree, mpi, mpiutils, neighcompact,
+! :Dependencies: boundary, dim, io, kdtree, mpiutils, neighcompact,
 !   neighkdtree, part
 !
-#ifdef MPI
- use mpi
-#endif
  implicit none
 
  !--number of remote particles, and their positions, masses, densities and
@@ -57,7 +54,7 @@ module mpiradiation
  !  isendoff(iproc)+nsendto(iproc)) go to task iproc-1, and the remote particles
  !  irecvoff(iproc)+1 ... irecvoff(iproc)+nrecvfrom(iproc) come from it
  integer, allocatable :: nsendto(:),isendoff(:),nrecvfrom(:),irecvoff(:)
- real,    allocatable :: sendvals(:),recvvals(:)
+ real,    allocatable, asynchronous :: sendvals(:),recvvals(:)  ! buffers of non-blocking messages
 
  !--list of integers, used for the neighbours found for each requested leaf
  type intlist
@@ -77,6 +74,7 @@ contains
 subroutine setup_remote_neighbours(npart,xyzh)
  use io,          only:nprocs
  use neighkdtree, only:ncells
+ use mpiutils,    only:alltoall_mpi,alltoallv_mpi
  integer, intent(in) :: npart
  real,    intent(in) :: xyzh(:,:)
 #ifdef MPI
@@ -95,9 +93,15 @@ subroutine setup_remote_neighbours(npart,xyzh)
  if (.not.allocated(nsendto)) allocate(nsendto(nprocs),isendoff(nprocs),nrecvfrom(nprocs),irecvoff(nprocs))
  call find_exported_leaves(xyzh,iexport,nleafto,ileafoff)
  call build_requests(xyzh,iexport,nleafto,ileafoff,reqsend,nreq)
- call alltoallv_reals(reqsend,nreq,reqrecv,nreqin,ireqinoff)
+ call alltoall_mpi(nreq,nreqin)
+ call set_offsets(nreqin,ireqinoff)
+ allocate(reqrecv(max(sum(nreqin),1)))
+ call alltoallv_mpi(reqsend,nreq,reqrecv,nreqin)
  call answer_requests(npart,xyzh,reqrecv,nreqin,ireqinoff,repsend,nrep)
- call alltoallv_reals(repsend,nrep,reprecv,nrepin,irepinoff)
+ call alltoall_mpi(nrep,nrepin)
+ call set_offsets(nrepin,irepinoff)
+ allocate(reprecv(max(sum(nrepin),1)))
+ call alltoallv_mpi(repsend,nrep,reprecv,nrepin)
  call read_replies(reprecv,irepinoff,iexport,nleafto,ileafoff)
 #endif
 
@@ -107,51 +111,58 @@ end subroutine setup_remote_neighbours
 !+
 !  send the current E, opacity and flux limiter of the particles in the
 !  send lists, and receive those of the remote particles
-!  (must be called by every task, from one thread)
+!  (must be called by every task, by all threads of a parallel region:
+!  the packing and unpacking are shared, the messages sent by one thread)
 !+
 !-----------------------------------------------------------------------
 subroutine exchange_remote_values(EU0,npart)
 #ifdef MPI
  use io,       only:nprocs
- use mpiutils, only:MPI_DEFAULT_REAL
+ use mpiutils, only:isend_mpi,irecv_mpi,waitall_mpi
 #endif
  integer, intent(in)    :: npart
  real,    intent(inout) :: EU0(:,:)
 #ifdef MPI
- integer :: iproc,k,j,nreq,ierr
+ integer :: iproc,k,j,nreq
  integer :: ireq(2*nprocs)
 
  if (nprocs == 1) return
- !--post the receives
- nreq = 0
- do iproc=1,nprocs
-    if (nrecvfrom(iproc) > 0) then
-       nreq = nreq + 1
-       call MPI_IRECV(recvvals(nvals*irecvoff(iproc)+1),nvals*nrecvfrom(iproc),MPI_DEFAULT_REAL, &
-                      iproc-1,itag_remote,MPI_COMM_WORLD,ireq(nreq),ierr)
-    endif
- enddo
- !--pack and send
+ !--pack
+ !$omp do schedule(static)
  do k=1,nsendlist
     j = isendlist(k)
     sendvals(nvals*(k-1)+1) = EU0(1,j)
     sendvals(nvals*(k-1)+2) = EU0(4,j)
     sendvals(nvals*(k-1)+3) = EU0(5,j)
  enddo
+ !$omp enddo
+ !--post the receives, send, and wait for both
+ !$omp single
+ nreq = 0
+ do iproc=1,nprocs
+    if (nrecvfrom(iproc) > 0) then
+       nreq = nreq + 1
+       call irecv_mpi(recvvals(nvals*irecvoff(iproc)+1:nvals*(irecvoff(iproc)+nrecvfrom(iproc))), &
+                      iproc-1,itag_remote,ireq(nreq))
+    endif
+ enddo
  do iproc=1,nprocs
     if (nsendto(iproc) > 0) then
        nreq = nreq + 1
-       call MPI_ISEND(sendvals(nvals*isendoff(iproc)+1),nvals*nsendto(iproc),MPI_DEFAULT_REAL, &
-                      iproc-1,itag_remote,MPI_COMM_WORLD,ireq(nreq),ierr)
+       call isend_mpi(sendvals(nvals*isendoff(iproc)+1:nvals*(isendoff(iproc)+nsendto(iproc))), &
+                      iproc-1,itag_remote,ireq(nreq))
     endif
  enddo
- call MPI_WAITALL(nreq,ireq,MPI_STATUSES_IGNORE,ierr)
+ call waitall_mpi(nreq,ireq)
+ !$omp end single
  !--unpack into the remote entries
+ !$omp do schedule(static)
  do k=1,nremote
     EU0(1,npart+k) = recvvals(nvals*(k-1)+1)
     EU0(4,npart+k) = recvvals(nvals*(k-1)+2)
     EU0(5,npart+k) = recvvals(nvals*(k-1)+3)
  enddo
+ !$omp enddo
 #endif
 
 end subroutine exchange_remote_values
@@ -564,30 +575,6 @@ subroutine read_replies(reprecv,irepinoff,iexport,nleafto,ileafoff)
  enddo
 
 end subroutine read_replies
-
-!-----------------------------------------------------------------------
-!+
-!  send nsend(iproc) reals of sendbuf to each task iproc-1 (in task
-!  order), receiving nrecv(iproc) reals from each, starting at
-!  recvbuf(irecvoff(iproc)+1)
-!+
-!-----------------------------------------------------------------------
-subroutine alltoallv_reals(sendbuf,nsend,recvbuf,nrecv,irecvoff_out)
- use mpiutils, only:MPI_DEFAULT_REAL
- real,    intent(in)  :: sendbuf(:)
- integer, intent(in)  :: nsend(:)
- real, allocatable, intent(out) :: recvbuf(:)
- integer, intent(out) :: nrecv(:),irecvoff_out(:)
- integer :: isendoff_l(size(nsend)),ierr
-
- call MPI_ALLTOALL(nsend,1,MPI_INTEGER,nrecv,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
- call set_offsets(nsend,isendoff_l)
- call set_offsets(nrecv,irecvoff_out)
- allocate(recvbuf(max(sum(nrecv),1)))
- call MPI_ALLTOALLV(sendbuf,nsend,isendoff_l,MPI_DEFAULT_REAL,recvbuf,nrecv,irecvoff_out, &
-                    MPI_DEFAULT_REAL,MPI_COMM_WORLD,ierr)
-
-end subroutine alltoallv_reals
 #endif
 
 end module mpiradiation
