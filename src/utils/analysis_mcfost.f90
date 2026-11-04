@@ -86,7 +86,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
          Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters, &
          turn_on_Lacc = mcfost_computes_Lacc, keep_particles = mcfost_keep_part, &
-         use_ISM_heating = ISM_heating, turn_on_dust_subl = mcfost_dust_subl)
+         use_ISM_heating = ISM_heating, turn_on_dust_subl = mcfost_dust_subl, max_particles = maxp)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif
