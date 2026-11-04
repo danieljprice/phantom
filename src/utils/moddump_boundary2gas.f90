@@ -17,6 +17,7 @@ module moddump
 ! :Dependencies: part, boundarypart
 !
  implicit none
+ character(len=*), parameter, public :: moddump_flags = ''
 
 contains
 
@@ -26,12 +27,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npart,npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
  integer                :: i,nconverted
- real                   :: rmin,rmin2,r2,boundary_com(3),xyz_CM(3),vxyz_CM(3)
+ real                   :: rmin,rmin2,r2,xyz_CM(3)
 
  rmin = 0.
  rmin2 = rmin**2
 
- boundary_com = 0.
+ print*,'Converting boundary particles with |r-r_CM| > ',rmin,' to gas'
+
  call set_boundary_particle_velocity(npart,iphase,xyzh,vxyzu,xyz_CM)
 
  nconverted = 0
@@ -46,6 +48,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
  npartoftype(iboundary) = npartoftype(iboundary) - nconverted
  npartoftype(igas) = npartoftype(igas) + nconverted
+
+ print*,'Number of boundary particles converted to gas: ',nconverted
+ print*,'Remaining boundary particles: ',npartoftype(iboundary)
 
 end subroutine modify_dump
 
