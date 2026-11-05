@@ -2091,11 +2091,7 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok,nactivetot,nlivetot)
  integer(kind=8), intent(in)    :: ncells
  logical,         intent(out)   :: ok
  real,            intent(in), optional :: nactivetot,nlivetot  ! active and live particles, all tasks
- integer, allocatable :: nodelist(:)
- integer :: ilevel(0:maxdepth+1)
- integer :: nproot,nlive,nbad,ip,i,j,n,inode,il,level,nlevel,mymum
- real    :: x0(3),totmass_node
- logical :: nodeisactive
+ integer :: nproot,nlive,nbad,ip,i
 
  ok = .false.
  if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic) return
@@ -2152,74 +2148,140 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok,nactivetot,nlivetot)
  if (nbad > 0) return
  ok = .true.
  !
- ! list the nodes level by level, from the root
+ ! recompute the nodes for the new positions, then their sizes from their particles
  !
- allocate(nodelist(ncells))
- nodelist(1) = irootnode
- n = 1
- nlevel = 0
- ilevel(0) = 1
- do while (ilevel(nlevel) <= n)
-    ilevel(nlevel+1) = n + 1
-    do j=ilevel(nlevel),ilevel(nlevel+1)-1
-       il = node(nodelist(j))%leftchild
-       if (il > 0) then
-          nodelist(n+1) = il
-          nodelist(n+2) = node(nodelist(j))%rightchild
-          n = n + 2
-       endif
-    enddo
-    nlevel = nlevel + 1
- enddo
- !
- ! recompute the nodes, from the deepest level up
- !
- !$omp parallel default(none) &
- !$omp shared(nlevel,ilevel,nodelist,node,inoderange,inodeparts,leaf_is_active) &
- !$omp private(level,j,inode,il,n,ip,mymum,x0,totmass_node,nodeisactive)
- do level=nlevel-1,0,-1
-    !$omp do schedule(guided)
-    do j=ilevel(level),ilevel(level+1)-1
-       inode = nodelist(j)
-       il = node(inode)%leftchild
-       if (il == 0) then
-          ! leaf: from its particles
-          n = inoderange(2,inode) - inoderange(1,inode) + 1
-          if (inoderange(1,inode) <= 0 .or. n < 1) cycle
-          mymum = node(inode)%parent
-          call compute_nodes_cofm(n,inode,x0,totmass_node,.false.)
-          call set_nodes_properties(n,inode,x0,totmass_node,mymum,node(inode),level,.false.)
-          node(inode)%leftchild  = 0
-          node(inode)%rightchild = 0
-          node(inode)%mass       = totmass_node
-          if (ind_timesteps) then
-             nodeisactive = .false.
-             do ip=inoderange(1,inode),inoderange(2,inode)
-                if (inodeparts(ip) > 0) then
-                   nodeisactive = .true.
-                   exit
-                endif
-             enddo
-             if (nodeisactive) then
-                leaf_is_active(inode) = 1
-             else
-                leaf_is_active(inode) = -1
-             endif
-          else
-             leaf_is_active(inode) = 1
-          endif
-       else
-          ! parent: from its children
-          call combine_child_nodes(node(il),node(node(inode)%rightchild),node(inode))
-       endif
-    enddo
-    !$omp enddo
- enddo
- !$omp end parallel
+ call revise_nodes(node,nproot,leaf_is_active)
  call set_exact_parent_sizes(node,nproot)
- deallocate(nodelist)
 
 end subroutine revtree
+
+!--------------------------------------------------------------------------------
+!+
+!  recompute every node of the tree from its particles (leaves) or its two
+!  children (parents). The particles are in tree order, so each thread takes
+!  a contiguous range of them and walks down the nodes overlapping it,
+!  computing each leaf whose first particle is in its range and each parent
+!  within its range once its children are done. The few parents straddling
+!  the ranges of several threads are combined afterwards, deepest first
+!+
+!--------------------------------------------------------------------------------
+subroutine revise_nodes(node,nproot,leaf_is_active)
+!$ use omp_lib, only:omp_get_thread_num,omp_get_num_threads,omp_get_max_threads
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: nproot
+ integer,      intent(inout) :: leaf_is_active(:)
+ integer, parameter   :: maxspan = 2*maxdepth+2
+ integer, allocatable :: ispan(:,:),dspan(:,:),nspan(:),list(:)
+ integer :: ia,ib,ithread,nthreads,maxthreads,d,k,t,n,j,ifirst(0:maxdepth+1)
+
+ maxthreads = 1
+!$ maxthreads = omp_get_max_threads()
+ allocate(ispan(maxspan,maxthreads),dspan(maxspan,maxthreads),nspan(maxthreads))
+ nspan = 0
+
+ !$omp parallel default(none) &
+ !$omp shared(node,nproot,leaf_is_active,ispan,dspan,nspan) &
+ !$omp private(ia,ib,ithread,nthreads)
+ ithread  = 0
+ nthreads = 1
+!$ ithread  = omp_get_thread_num()
+!$ nthreads = omp_get_num_threads()
+ ia = int(int(ithread,kind=8)*nproot/nthreads) + 1
+ ib = int(int(ithread+1,kind=8)*nproot/nthreads)
+ if (ia <= ib) call revise_walk(node,irootnode,0,ia,ib,leaf_is_active, &
+                                ispan(:,ithread+1),dspan(:,ithread+1),nspan(ithread+1))
+ !$omp end parallel
+
+ ! the straddling parents, grouped by depth (each may be listed by several threads)
+ ifirst = 0
+ do t = 1,maxthreads
+    do k = 1,nspan(t)
+       ifirst(dspan(k,t)+1) = ifirst(dspan(k,t)+1) + 1
+    enddo
+ enddo
+ do d = 1,maxdepth+1
+    ifirst(d) = ifirst(d) + ifirst(d-1)
+ enddo
+ allocate(list(max(ifirst(maxdepth+1),1)))
+ do t = 1,maxthreads
+    do k = 1,nspan(t)
+       d = dspan(k,t)
+       ifirst(d) = ifirst(d) + 1
+       list(ifirst(d)) = ispan(k,t)
+    enddo
+ enddo
+ ! ifirst(d) is now the last entry of depth d: combine them deepest first, once each
+ do d = maxdepth,0,-1
+    k = 1
+    if (d > 0) k = ifirst(d-1) + 1
+    do j = k,ifirst(d)
+       n = list(j)
+       if (any(list(k:j-1) == n)) cycle
+       call combine_child_nodes(node(node(n)%leftchild),node(node(n)%rightchild),node(n))
+    enddo
+ enddo
+
+end subroutine revise_nodes
+
+!--------------------------------------------------------------------------------
+!+
+!  the walk of revise_nodes below node n, at depth d, over the particles ia to
+!  ib. Parents straddling the range are listed in ispan, with their depth in dspan
+!+
+!--------------------------------------------------------------------------------
+recursive subroutine revise_walk(node,n,d,ia,ib,leaf_is_active,ispan,dspan,nspan)
+ use dim, only:ind_timesteps
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: n,d,ia,ib
+ integer,      intent(inout) :: leaf_is_active(:)
+ integer,      intent(inout) :: ispan(:),dspan(:),nspan
+ integer :: np,ip,mymum
+ real    :: x0(3),totmass_node
+ logical :: nodeisactive
+
+ if (max(ia,inoderange(1,n)) > min(ib,inoderange(2,n))) return
+
+ if (node(n)%leftchild == 0) then
+    ! a leaf, computed by the thread holding its first particle
+    if (inoderange(1,n) < ia) return
+    np = inoderange(2,n) - inoderange(1,n) + 1
+    if (inoderange(1,n) <= 0 .or. np < 1) return
+    mymum = node(n)%parent
+    call compute_nodes_cofm(np,n,x0,totmass_node,.false.)
+    call set_nodes_properties(np,n,x0,totmass_node,mymum,node(n),d,.false.)
+    node(n)%leftchild  = 0
+    node(n)%rightchild = 0
+    node(n)%mass       = totmass_node
+    if (ind_timesteps) then
+       nodeisactive = .false.
+       do ip=inoderange(1,n),inoderange(2,n)
+          if (inodeparts(ip) > 0) then
+             nodeisactive = .true.
+             exit
+          endif
+       enddo
+       if (nodeisactive) then
+          leaf_is_active(n) = 1
+       else
+          leaf_is_active(n) = -1
+       endif
+    else
+       leaf_is_active(n) = 1
+    endif
+    return
+ endif
+
+ call revise_walk(node,node(n)%leftchild,d+1,ia,ib,leaf_is_active,ispan,dspan,nspan)
+ call revise_walk(node,node(n)%rightchild,d+1,ia,ib,leaf_is_active,ispan,dspan,nspan)
+ if (inoderange(1,n) >= ia .and. inoderange(2,n) <= ib) then
+    call combine_child_nodes(node(node(n)%leftchild),node(node(n)%rightchild),node(n))
+ else
+    nspan = nspan + 1
+    ispan(nspan) = n
+    dspan(nspan) = d
+ endif
+
+end subroutine revise_walk
 
 !--------------------------------------------------------------------------------
 !+
