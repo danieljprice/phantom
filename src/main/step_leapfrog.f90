@@ -297,7 +297,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! force evaluations, using dtsph
 !----------------------------------------------------
  call get_timings(t1,tcpu1)
-!$omp parallel do default(none) schedule(guided,1) &
+!$omp parallel do default(none) schedule(static) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype,rho) &
 !$omp shared(pxyzu,ppred) &

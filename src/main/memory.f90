@@ -27,7 +27,7 @@ contains
 subroutine allocate_memory(ntot, part_only,reallocation)
  use io,          only:iprint,warning,nprocs,id,master
  use dim,         only:update_max_sizes,maxp,mpi
- use allocutils,  only:nbytes_allocated,bytes2human
+ use allocutils,  only:nbytes_allocated,bytes2human,set_first_touch
  use part,        only:allocate_part
  use neighkdtree, only:allocate_neigh,leaf_is_active
  use ptmass_tree, only:allocate_ptmasstree
@@ -86,7 +86,10 @@ subroutine allocate_memory(ntot, part_only,reallocation)
  endif
 
  call update_max_sizes(n,ntot)
+ ! particle arrays are first touched by the threads that will use them
+ call set_first_touch(maxp,int(ntot/nprocs))
  call allocate_part
+ call set_first_touch(0,0)
  if (.not. part_only_) then
     call allocate_neigh
     call allocate_ptmasstree
