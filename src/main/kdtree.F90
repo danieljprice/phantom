@@ -2216,77 +2216,109 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok,nactivetot,nlivetot)
     !$omp enddo
  enddo
  !$omp end parallel
- call set_exact_parent_sizes(node,nodelist(1:ilevel(nlevel)-1))
+ call set_exact_parent_sizes(node,nproot)
  deallocate(nodelist)
 
 end subroutine revtree
 
 !--------------------------------------------------------------------------------
 !+
-!  the size of each parent in the list from its particles: the largest
-!  distance from its centre of mass, as set when the tree is built. The
-!  particles of each parent are taken in pieces of at most maxpiece, so
-!  that the nodes near the root, which hold most of the particles, are
-!  shared between the threads
+!  the size of each parent from its particles: the largest distance from
+!  its centre, as set when the tree is built. The particles are in tree
+!  order, so each thread takes a contiguous range of them and walks down
+!  the nodes overlapping it, comparing each particle with all of its
+!  ancestors while it is in cache: every particle is read once, by the
+!  thread whose memory it is in. Only the nodes that straddle the ranges
+!  of several threads, at most a few per level, combine their maxima
 !+
 !--------------------------------------------------------------------------------
-subroutine set_exact_parent_sizes(node,list)
+subroutine set_exact_parent_sizes(node,nproot)
+!$ use omp_lib, only:omp_get_thread_num,omp_get_num_threads
  type(kdnode), intent(inout) :: node(:)
- integer,      intent(in)    :: list(:)
- integer, parameter   :: maxpiece = 4096
- integer, allocatable :: ifirst(:),inode(:),ip1(:)
- real,    allocatable :: r2piece(:)
- integer :: j,n,k,np,npiece,ip
- real    :: dx(3),r2
+ integer,      intent(in)    :: nproot
+ real,    allocatable :: r2span(:)
+ integer :: ia,ib,ithread,nthreads,k,nspan
+ integer :: ispan(2*maxdepth+2)
+ real    :: r2(0:maxdepth),xc(3,0:maxdepth),r2s(2*maxdepth+2)
 
- ! the pieces of each parent: pieces ifirst(j) to ifirst(j+1)-1 for list(j)
- allocate(ifirst(size(list)+1))
- npiece = 0
- do j = 1,size(list)
-    ifirst(j) = npiece + 1
-    n = list(j)
-    if (node(n)%leftchild <= 0) cycle
-    np = inoderange(2,n) - inoderange(1,n) + 1
-    npiece = npiece + (np + maxpiece - 1)/maxpiece
- enddo
- ifirst(size(list)+1) = npiece + 1
- allocate(inode(npiece),ip1(npiece),r2piece(npiece))
- do j = 1,size(list)
-    n = list(j)
-    do k = ifirst(j),ifirst(j+1)-1
-       inode(k) = n
-       ip1(k)   = inoderange(1,n) + (k - ifirst(j))*maxpiece
-    enddo
- enddo
+ ! the furthest particle from each straddling node, over the threads
+ allocate(r2span(size(node)))
 
- ! the furthest particle of each piece from its parent's centre
  !$omp parallel default(none) &
- !$omp shared(npiece,inode,ip1,r2piece,node,inoderange,treecache,list,ifirst) &
- !$omp private(k,n,ip,dx,r2,j)
- !$omp do schedule(dynamic,16)
- do k = 1,npiece
-    n = inode(k)
-    r2 = 0.
-    do ip = ip1(k),min(ip1(k)+maxpiece-1,inoderange(2,n))
-       dx = treecache(1:3,ip) - node(n)%xcen
-       r2 = max(r2,dot_product(dx,dx))
-    enddo
-    r2piece(k) = r2
- enddo
- !$omp enddo
+ !$omp shared(node,nproot,r2span) &
+ !$omp private(ia,ib,ithread,nthreads,k,nspan,ispan,r2,xc,r2s)
+ ithread  = 0
+ nthreads = 1
+!$ ithread  = omp_get_thread_num()
+!$ nthreads = omp_get_num_threads()
+ ia = int(int(ithread,kind=8)*nproot/nthreads) + 1
+ ib = int(int(ithread+1,kind=8)*nproot/nthreads)
+ nspan = 0
+ if (ia <= ib) call exact_size_walk(node,irootnode,0,ia,ib,r2,xc,ispan,r2s,nspan)
 
- ! and of each parent
- !$omp do schedule(static)
- do j = 1,size(list)
-    if (ifirst(j+1) > ifirst(j)) then
-       r2 = maxval(r2piece(ifirst(j):ifirst(j+1)-1))
-       node(list(j))%size = sqrt(r2) + epsilon(r2)
-    endif
+ ! the straddling nodes: set to zero, then the maximum over the threads holding them
+ do k = 1,nspan
+    r2span(ispan(k)) = 0.
  enddo
- !$omp enddo
+ !$omp barrier
+ do k = 1,nspan
+    !$omp atomic
+    r2span(ispan(k)) = max(r2span(ispan(k)),r2s(k))
+ enddo
+ !$omp barrier
+ do k = 1,nspan
+    node(ispan(k))%size = sqrt(r2span(ispan(k))) + epsilon(r2span)
+ enddo
  !$omp end parallel
 
 end subroutine set_exact_parent_sizes
+
+!--------------------------------------------------------------------------------
+!+
+!  the walk of set_exact_parent_sizes below node n, at depth d, over the
+!  particles ia to ib: r2 and xc hold the running maxima and the centres of
+!  the ancestors of n. A parent within the range gets its size here; one
+!  straddling the range is listed in ispan, with its maximum over the range in r2s
+!+
+!--------------------------------------------------------------------------------
+recursive subroutine exact_size_walk(node,n,d,ia,ib,r2,xc,ispan,r2s,nspan)
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: n,d,ia,ib
+ real,         intent(inout) :: r2(0:maxdepth),xc(3,0:maxdepth)
+ integer,      intent(inout) :: ispan(:),nspan
+ real,         intent(inout) :: r2s(:)
+ integer :: ip,k,i1,i2
+ real    :: dx(3)
+
+ i1 = max(ia,inoderange(1,n))
+ i2 = min(ib,inoderange(2,n))
+ if (i1 > i2) return
+
+ if (node(n)%leftchild <= 0) then
+    ! a leaf: each of its particles against every ancestor
+    do ip = i1,i2
+       do k = 0,d-1
+          dx = treecache(1:3,ip) - xc(:,k)
+          r2(k) = max(r2(k),dot_product(dx,dx))
+       enddo
+    enddo
+    return
+ endif
+
+ r2(d) = 0.
+ xc(:,d) = node(n)%xcen
+ call exact_size_walk(node,node(n)%leftchild,d+1,ia,ib,r2,xc,ispan,r2s,nspan)
+ call exact_size_walk(node,node(n)%rightchild,d+1,ia,ib,r2,xc,ispan,r2s,nspan)
+ if (inoderange(1,n) >= ia .and. inoderange(2,n) <= ib) then
+    node(n)%size = sqrt(r2(d)) + epsilon(r2)
+ else
+    ! straddles the range (an ancestor of either end): combined over the threads later
+    nspan = nspan + 1
+    ispan(nspan) = n
+    r2s(nspan) = r2(d)
+ endif
+
+end subroutine exact_size_walk
 
 !--------------------------------------------------------------------------------
 !+
