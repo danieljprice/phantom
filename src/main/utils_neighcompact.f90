@@ -77,20 +77,23 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  real,    intent(in),  optional :: xyzh_extra(:,:)
  integer                    :: icell,nneigh,i,j,k,n,ip,ncompact_private
  integer                    :: icompact_private,icompact,icompactmax,nneigh_trial,ncand
+ integer                    :: npc,nbuf,nmax
  integer, parameter         :: maxcellcache = 10000
  ! cells handed to a thread at a time: one at a time contends for iterations, while
  ! larger chunks load balance poorly. A constant, as some compilers (nvfortran)
  ! mishandle a chunk size held in a variable
  integer, parameter         :: ncellchunk = 16
- integer, save, allocatable :: neighlist(:)
+ ! each thread collects the neighbours of a whole cell in neighlist, with the count and
+ ! index of each of its particles in cellcount and cellpart, then reserves their space at once
+ integer, save, allocatable :: neighlist(:),cellcount(:),cellpart(:)
  real                       :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
  real, save, allocatable    :: xyzcache(:,:)
- !$omp threadprivate(xyzcache,neighlist)
+ !$omp threadprivate(xyzcache,neighlist,cellcount,cellpart)
  logical                    :: growable,extra
 
  if (.not. allocated(neighlist)) then
     !$omp parallel default(none) shared(xyzh)
-    allocate(neighlist(size(xyzh,2)),xyzcache(4,maxcellcache))
+    allocate(neighlist(size(xyzh,2)),xyzcache(4,maxcellcache),cellcount(0),cellpart(0))
     !$omp end parallel
  endif
 
@@ -105,8 +108,8 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxpsph,growable)&
  !$omp shared(extra,icand_start,icand,xyzh_extra,joffset)&
  !$omp private(icell,i,j,k,n,ip,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh,ncand)
-
+ !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh,ncand)&
+ !$omp private(npc,nbuf,nmax)
  over_cells: do icell=1,int(ncells)
 
     !--skip empty cells and inactive cells
@@ -117,25 +120,31 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
     !
     call get_neighbour_list(icell,listneigh,nneigh_trial,xyzh,xyzcache,maxcellcache,getj=.true.)
     !
-    !--a particle can have more neighbours, local plus on other tasks, than
-    !  there are particles on this task, so grow this thread's list if needed
+    !--this thread's lists hold the cell's particles and all their neighbours,
+    !  local plus on other tasks, and are grown as needed
     !
     ncand = 0
     if (extra) ncand = icand_start(icell+1) - icand_start(icell)
-    if (nneigh_trial + ncand > size(neighlist)) then
-       deallocate(neighlist)
-       allocate(neighlist(2*(nneigh_trial + ncand)))
+    if (inoderange(2,icell) - inoderange(1,icell) + 1 > size(cellcount)) then
+       deallocate(cellcount,cellpart)
+       allocate(cellcount(inoderange(2,icell) - inoderange(1,icell) + 1))
+       allocate(cellpart(size(cellcount)))
     endif
+    npc  = 0
+    nbuf = 0
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
        i = abs(inodeparts(ip))  ! the tree stores inactive particles as -i
        if (.not.is_solver_particle(i,xyzh)) cycle over_parts
+       ! room for this particle's neighbours after those of the cell so far
+       nmax = nbuf + nneigh_trial + ncand
+       if (nmax > size(neighlist)) call grow_list(neighlist,nbuf,2*nmax)
 
        xi = xyzh(1,i)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
        hi = xyzh(4,i)
-       nneigh = 0
+       nneigh = nbuf
        hi21 = 1./hi**2
 
        loop_over_neigh: do n = 1,nneigh_trial
@@ -189,27 +198,40 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
           enddo
        endif
 
-       !$omp critical(listcompact)
-       ncompact = ncompact + 1
-       ncompact_private = ncompact
-       icompact_private = icompact
-       icompact = icompact + nneigh
-       !$omp end critical (listcompact)
-       ivar(1,ncompact_private) = nneigh
-       ivar(2,ncompact_private) = icompact_private
-       ivar(3,ncompact_private) = i
-       if (icompact_private+nneigh > icompactmax) then
-          ! out of space: keep counting so the caller can resize
-          if (growable) cycle over_parts
-          call fatal('neighcompact','not enough memory allocated for neighbour list', &
-                     var='icompactmax',ival=icompactmax)
-       endif
-
-       do k = 1, nneigh
-          j = neighlist(k)
-          ijvar(icompact_private + k) = j
-       enddo
+       npc = npc + 1
+       cellcount(npc) = nneigh - nbuf
+       cellpart(npc)  = i
+       nbuf = nneigh
     enddo over_parts
+    if (npc == 0) cycle over_cells
+
+    ! reserve the entries of the whole cell: one update of each counter per cell
+    !$omp atomic capture
+    ncompact_private = ncompact
+    ncompact = ncompact + npc
+    !$omp end atomic
+    !$omp atomic capture
+    icompact_private = icompact
+    icompact = icompact + nbuf
+    !$omp end atomic
+
+    nbuf = 0
+    do k = 1,npc
+       n = ncompact_private + k
+       nneigh = cellcount(k)
+       ivar(1,n) = nneigh
+       ivar(2,n) = icompact_private
+       ivar(3,n) = cellpart(k)
+       if (icompact_private + nneigh > icompactmax) then
+          ! out of space: keep counting so the caller can resize
+          if (.not.growable) call fatal('neighcompact','not enough memory allocated for neighbour list', &
+                                        var='icompactmax',ival=icompactmax)
+       else
+          ijvar(icompact_private+1:icompact_private+nneigh) = neighlist(nbuf+1:nbuf+nneigh)
+       endif
+       icompact_private = icompact_private + nneigh
+       nbuf = nbuf + nneigh
+    enddo
  enddo over_cells
  !$omp end parallel do
 
@@ -217,6 +239,22 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal,n
  if (growable) nedges = icompact
 
 end subroutine get_compacted_neighbour_list
+
+!-----------------------------------------------------------------------
+!+
+!  grow a list to at least n entries, keeping its first nkeep
+!+
+!-----------------------------------------------------------------------
+subroutine grow_list(list,nkeep,n)
+ integer, allocatable, intent(inout) :: list(:)
+ integer,              intent(in)    :: nkeep,n
+ integer, allocatable :: tmp(:)
+
+ allocate(tmp(n))
+ tmp(1:nkeep) = list(1:nkeep)
+ call move_alloc(tmp,list)
+
+end subroutine grow_list
 
 !-----------------------------------------------------------------------
 !+
