@@ -1022,7 +1022,7 @@ subroutine combine_celldens(target_cell,new_cell)
 end subroutine combine_celldens
 
 subroutine combine_cellforce(target_cell,new_cell)
- use mpiforce,  only:cellforce
+ use mpiforce,  only:cellforce,ifonrmaxi
  use dim,       only:maxfsum
 
  type(cellforce), intent(inout) :: target_cell
@@ -1034,8 +1034,14 @@ subroutine combine_cellforce(target_cell,new_cell)
  do k = 1,new_cell%npcell
     i = new_cell%ipos(k)
     do l = 1,maxfsum
-       !$omp atomic
-       target_cell%fsums(l,i) =      target_cell%fsums(l,i) +  new_cell%fsums(l,k)
+       if (l == ifonrmaxi) then
+          ! the largest sink force is a maximum over tasks, not a sum
+          !$omp atomic
+          target_cell%fsums(l,i) = max(target_cell%fsums(l,i), new_cell%fsums(l,k))
+       else
+          !$omp atomic
+          target_cell%fsums(l,i) = target_cell%fsums(l,i) + new_cell%fsums(l,k)
+       endif
     enddo
     !$omp atomic
     target_cell%tsmin(i)     = min( target_cell%tsmin(i),     new_cell%tsmin(k)     )

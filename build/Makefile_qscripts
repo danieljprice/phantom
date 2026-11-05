@@ -339,7 +339,7 @@ qscript:
     else
 	@echo '# openMP alone: spread the memory over all NUMA domains of the node, which is'
 	@echo '# faster when the threads span several of them (numactl --hardware lists them)'
-	@echo 'command -v numactl > /dev/null && NUMACTL="numactl --interleave=all"'
+	@echo 'numactl --interleave=all true > /dev/null 2>&1 && NUMACTL="numactl --interleave=all"'
 	@echo '$$NUMACTL '$(CMD)
     endif
     ifeq ($(PBSRESUBMIT),yes)

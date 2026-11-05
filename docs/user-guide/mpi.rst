@@ -69,7 +69,7 @@ How many tasks and threads?
 
      numactl --interleave=all ./phantom disc.in
 
-  (``make qscript`` adds this when MPI is not used). On OzSTAR's milan nodes this is 10-35% faster
+  (``make qscript`` adds this to bash scripts that do not use MPI or a custom ``CMD``). On OzSTAR's milan nodes this is 10-35% faster
   with 64 threads. Do not use it with MPI, where each task's memory is best kept close to its cores.
 
 The particles are divided between the tasks automatically, balancing the work. Forces and conservation are the same as with openMP alone, to round-off.

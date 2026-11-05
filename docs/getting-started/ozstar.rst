@@ -147,7 +147,7 @@ should produce something like::
    srun --cpus-per-task=16 ./phantom myshock.in >& $outfile
 
 For more than one node, increase NMPI (e.g. NMPI=16 for four nodes) and set MAXMEM to the memory needed per node.
-Without MPI (openMP alone, e.g. NOMP=64 for a whole node), the script runs phantom under
+Without MPI (openMP alone, e.g. NOMP=64 for a whole node), the bash script runs phantom under
 ``numactl --interleave=all``, which spreads the memory over the node's NUMA domains and is
 10-35% faster on the milan nodes.
 

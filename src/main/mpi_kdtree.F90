@@ -269,7 +269,7 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,revised,nptmass,xyzmh_ptmass)
  integer, allocatable :: isinkowner(:)
  integer      :: i,ncross
  logical      :: sinktree
- real(kind=4) :: t1,t2,tcpu1,tcpu2,tg1,tg2,tcpug1,tcpug2
+ real(kind=4) :: t1,t2,tcpu1,tcpu2,tg1,tg2,tcpug1,tcpug2,trev,tcpurev
 
  call get_timings(tg1,tcpug1)
  sinktree = .false.
@@ -297,18 +297,22 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,revised,nptmass,xyzmh_ptmass)
  ! with few active particles, the local trees are revised for the new positions, keeping
  ! the owners, and the top of the global tree is rebuilt from their section roots
  revised = .false.
+ trev = 0.
+ tcpurev = 0.
  if (.not.apr_tree) then
     call get_timings(t1,tcpu1)
     call revtree(node,xyzh,np,leaf_is_active,ncells,revised,nactivetot=ncount(1),nlivetot=ncount(2))
     call get_timings(t2,tcpu2)
-    call increment_timer(itimer_tree_revise,t2-t1,tcpu2-tcpu1)
+    trev = t2-t1
+    tcpurev = tcpu2-tcpu1
+    call increment_timer(itimer_tree_revise,trev,tcpurev)
  endif
  if (revised) then
     call build_section_top()
     call set_exact_top_sizes()
     call get_timings(tg2,tcpug2)
     ! the global time excludes the revision, which has its own timer
-    call increment_timer(itimer_tree_global,(tg2-tg1)-(t2-t1),(tcpug2-tcpug1)-(tcpu2-tcpu1))
+    call increment_timer(itimer_tree_global,(tg2-tg1)-trev,(tcpug2-tcpug1)-tcpurev)
     return
  endif
  allocate(wt(np))
@@ -348,8 +352,8 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,revised,nptmass,xyzmh_ptmass)
  call set_exact_top_sizes()
  call get_timings(tg2,tcpug2)
 
- ! the global time excludes the local tree, which has its own timers
- call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2),(tcpug2-tcpug1)-(tcpu1-tcpu2))
+ ! the global time excludes the local tree and any rejected revision, which have their own timers
+ call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2)-trev,(tcpug2-tcpug1)-(tcpu1-tcpu2)-tcpurev)
 
 end subroutine maketreeglobal
 

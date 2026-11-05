@@ -48,7 +48,7 @@ module forces
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
- use mpiforce,    only:cellforce,stackforce,maxcellleaves
+ use mpiforce,    only:cellforce,stackforce,maxcellleaves,ifonrmaxi
  use neighkdtree, only:leaf_is_active
  use kdtree,      only:inodeparts,inoderange,ih1,im
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
@@ -156,7 +156,6 @@ module forces
        ifskxi         = 13, &
        ifskyi         = 14, &
        ifskzi         = 15, &
-       ifonrmaxi      = 16, &
        ipertouti      = 17, &
  !--dust array indexing
        ifdragxi       = 18, &
@@ -984,7 +983,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use io,          only:fatal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
- real,            intent(in)    :: xpartveci(:)
+ real,            intent(inout) :: xpartveci(:)
  real(kind=8),    intent(in)    :: hi1,hi21,hi41,gradhi,gradsofti
  real,            intent(in)    :: hi,beta
  real,            intent(in)    :: pmassi
@@ -1079,7 +1078,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: du_losi,du_losj,lorentzj,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),dvlos,u0max
  real    :: radPj,fgravxi,fgravyi,fgravzi
- real    :: gradP_cooli=0d0,gradP_coolj=0d0
+ real    :: gradP_cooli,gradP_coolj
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -2113,6 +2112,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
+ ! the timestep minimum over neighbours so far, carried to the next block of neighbours
+ if (ind_timesteps) xpartveci(idti) = dti
+
 end subroutine compute_forces
 
 !----------------------------------------------------------------
@@ -2629,7 +2631,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  logical                         :: ignoreself
 
  integer                         :: i,ip,n1,n2
- real                            :: fsum(maxfsum),vsigmax,tsmin
+ real                            :: fsum(maxfsum),vsigmax,tsmin,fonrmaxi
  integer(kind=1)                 :: ibinneigh
 
  realviscosity    = (irealvisc > 0)
@@ -2718,7 +2720,10 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
           cell%tsmin(ip)     = tsmin
           cell%ibinneigh(ip) = ibinneigh
        else
+          ! sums add over blocks, but the largest sink force is a maximum
+          fonrmaxi           = max(cell%fsums(ifonrmaxi,ip),fsum(ifonrmaxi))
           cell%fsums(:,ip)   = cell%fsums(:,ip) + fsum
+          cell%fsums(ifonrmaxi,ip) = fonrmaxi
           cell%vsigmax(ip)   = max(cell%vsigmax(ip),vsigmax)
           cell%tsmin(ip)     = min(cell%tsmin(ip),tsmin)
           cell%ibinneigh(ip) = max(cell%ibinneigh(ip),ibinneigh)

@@ -38,6 +38,9 @@ module mpiforce
  ! of its particles there (a cell paired with more leaves is sent several times).
  ! They travel only in the message, not in the cell, so the stacks of cells stay small
  integer, parameter, public :: maxcellleaves = 256
+ ! index in fsums of the largest sink force (between ifskzi and ipertouti in force),
+ ! which is combined over neighbour blocks and tasks as a maximum, not a sum
+ integer, parameter, public :: ifonrmaxi = 16
  integer, parameter, public :: maxpack_cellforce = max(9 + maxcellleaves + minpart*(maxxpartveciforce + 4), &
                                                        26 + minpart*(maxfsum + 4))
  ! particle values sent outbound: the metric values at the end of xpartvec only with GR
