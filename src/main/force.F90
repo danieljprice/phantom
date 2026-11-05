@@ -2513,11 +2513,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           if (use_dustfrac) then
              cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
           endif
-          if (use_dust .and. ind_timesteps) then
-             dti = get_dt(dt,ibin_old(i))
-             cell%xpartvec(idti,cell%npcell) = dti
-          endif
-
           if (do_radiation) then
              radRi = get_rad_R(rhoi,rad(iradxi,i),radprop(ifluxx:ifluxz,i),radprop(ikappa,i))
              cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
@@ -2531,6 +2526,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
              cell%xpartvec(iradrbigi,cell%npcell)       = radRi
           endif
 
+       endif
+       ! timestep for implicit drag, on both gas and dust particles
+       if (use_dust .and. ind_timesteps) then
+          dti = get_dt(dt,ibin_old(i))
+          cell%xpartvec(idti,cell%npcell) = dti
        endif
        if (mhd_nonideal) then
           cell%xpartvec(ietaohmi,cell%npcell)        = eta_nimhd(iohm,i)
