@@ -461,7 +461,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
          dust_kappai,dust_cooling,heatingISRi,dust_gas
 
  c_code = get_c_code()
- !$omp do &
+ !$omp do schedule(dynamic,nchunk) &
  !$omp private(n,i,j,k,jh,rhoi,icompact,pmi,dti) &
  !$omp private(dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
  !$omp private(v2i,vi,v2j,vj,dWi,dWj,zetaomegai,zetaomegaj,grkern_tilde) &
