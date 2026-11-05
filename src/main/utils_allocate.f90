@@ -26,9 +26,9 @@ module allocutils
  public :: bytes2human
  public :: set_first_touch
 
- ! arrays whose last dimension is ntouch are first touched by all threads, each
- ! taking the same static range of the first nexpect entries as in the particle loops,
- ! so that each thread's share is placed in its own NUMA domain (0 = off)
+ ! arrays whose last dimension is ntouch have their first nexpect entries first touched
+ ! by all threads, each taking the same static range as in the particle loops, so that
+ ! each thread's share is placed in its own NUMA domain (0 = off)
  integer :: ntouch = 0, nexpect = 0
 
  interface allocate_array
@@ -329,25 +329,23 @@ end subroutine set_first_touch
 
 !-----------------------------------------------------------------------
 !+
-!  zero a newly allocated array x(m,n) with static ranges over its last
-!  dimension, first over the entries expected to be in use, then the rest,
-!  so that its pages are placed where the threads of the particle loops are
+!  zero the entries of a newly allocated array x(m,n) expected to be in
+!  use, x(:,1:nexpect), with static ranges over its last dimension, so
+!  that their pages are placed where the threads of the particle loops
+!  are. The rest are left untouched, so take no memory until they are
+!  used. The array is passed as a flat sequence of its m*n elements
 !+
 !-----------------------------------------------------------------------
 subroutine first_touch_real8(x, m, n)
  integer, intent(in) :: m, n
- real(kind=8), intent(inout) :: x(m, n)
- integer :: i
+ real(kind=8), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
 
  if (n /= ntouch .or. ntouch == 0) return
- !$omp parallel do schedule(static) default(none) shared(x,nexpect) private(i)
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
  do i = 1, nexpect
-    x(:, i) = 0.
- enddo
- !$omp end parallel do
- !$omp parallel do schedule(static) default(none) shared(x,nexpect,n) private(i)
- do i = nexpect+1, n
-    x(:, i) = 0.
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0.
  enddo
  !$omp end parallel do
 
@@ -355,18 +353,14 @@ end subroutine first_touch_real8
 
 subroutine first_touch_real4(x, m, n)
  integer, intent(in) :: m, n
- real(kind=4), intent(inout) :: x(m, n)
- integer :: i
+ real(kind=4), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
 
  if (n /= ntouch .or. ntouch == 0) return
- !$omp parallel do schedule(static) default(none) shared(x,nexpect) private(i)
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
  do i = 1, nexpect
-    x(:, i) = 0.
- enddo
- !$omp end parallel do
- !$omp parallel do schedule(static) default(none) shared(x,nexpect,n) private(i)
- do i = nexpect+1, n
-    x(:, i) = 0.
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0.
  enddo
  !$omp end parallel do
 
@@ -374,18 +368,14 @@ end subroutine first_touch_real4
 
 subroutine first_touch_int8(x, m, n)
  integer, intent(in) :: m, n
- integer(kind=8), intent(inout) :: x(m, n)
- integer :: i
+ integer(kind=8), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
 
  if (n /= ntouch .or. ntouch == 0) return
- !$omp parallel do schedule(static) default(none) shared(x,nexpect) private(i)
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
  do i = 1, nexpect
-    x(:, i) = 0
- enddo
- !$omp end parallel do
- !$omp parallel do schedule(static) default(none) shared(x,nexpect,n) private(i)
- do i = nexpect+1, n
-    x(:, i) = 0
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0
  enddo
  !$omp end parallel do
 
@@ -393,18 +383,14 @@ end subroutine first_touch_int8
 
 subroutine first_touch_int4(x, m, n)
  integer, intent(in) :: m, n
- integer(kind=4), intent(inout) :: x(m, n)
- integer :: i
+ integer(kind=4), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
 
  if (n /= ntouch .or. ntouch == 0) return
- !$omp parallel do schedule(static) default(none) shared(x,nexpect) private(i)
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
  do i = 1, nexpect
-    x(:, i) = 0
- enddo
- !$omp end parallel do
- !$omp parallel do schedule(static) default(none) shared(x,nexpect,n) private(i)
- do i = nexpect+1, n
-    x(:, i) = 0
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0
  enddo
  !$omp end parallel do
 
@@ -412,18 +398,14 @@ end subroutine first_touch_int4
 
 subroutine first_touch_int1(x, m, n)
  integer, intent(in) :: m, n
- integer(kind=1), intent(inout) :: x(m, n)
- integer :: i
+ integer(kind=1), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
 
  if (n /= ntouch .or. ntouch == 0) return
- !$omp parallel do schedule(static) default(none) shared(x,nexpect) private(i)
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
  do i = 1, nexpect
-    x(:, i) = 0
- enddo
- !$omp end parallel do
- !$omp parallel do schedule(static) default(none) shared(x,nexpect,n) private(i)
- do i = nexpect+1, n
-    x(:, i) = 0
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0
  enddo
  !$omp end parallel do
 
