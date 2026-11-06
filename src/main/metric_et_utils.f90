@@ -41,6 +41,8 @@ module metric_et_utils
  ! on a periodic grid of ngrid_evolve nodes per dimension
  logical,            public :: evolve_metric = .false.
  integer,            public :: ngrid_evolve  = 32
+ ! timestep limit from the expansion rate of the evolved metric
+ real,               public :: dtmax_evolve  = huge(1.)
 
  ! routine that advances an evolved metric on the grid to a given time
  abstract interface

@@ -27,8 +27,9 @@ module substepping
 !
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos_HIIR, extern_gr, externalforces, io, io_summary,
-!   krome_interface, metric, metric_tools, mpiutils, neighkdtree, options,
-!   part, ptmass, ptmass_radiation, ptmass_tree, subgroup, timestep, timing
+!   krome_interface, metric, metric_et_utils, metric_tools, mpiutils,
+!   neighkdtree, options, part, ptmass, ptmass_radiation, ptmass_tree,
+!   subgroup, timestep, timing
 !
  implicit none
 
@@ -802,6 +803,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                            apr_level,aprmassoftype,ipert,fgr,igasP,rho
  use cooling_ism,     only:dphot0,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force,dtf_gr_min
+ use metric_et_utils, only:dtmax_evolve
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,         only:apply_damp,idamp,calc_damp
  use externalforces,  only:update_externalforce
@@ -871,6 +873,10 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  if (gr .and. present(metrics) .and. present(metricderivs) .and. .not. do_recompute_gr) then
     dtextforcenew = min(dtextforcenew,C_force*dtf_gr_min)
  endif
+ !
+ ! limit from the expansion rate of a metric evolved by the NR code
+ !
+ if (gr) dtextforcenew = min(dtextforcenew,dtmax_evolve)
 
  !
  ! update time-dependent external forces
@@ -1295,7 +1301,13 @@ subroutine kickdrift_gr(dt,npart,nptmass,nsubsteps,xyzh,vxyzu,pxyzu,dens,metrics
  perrmax = 0.
  xerrmax = 0.
  hdt = 0.5*dt
- call update_metric(timei)
+ !
+ ! advance a time-dependent metric to the end of the substep: the kick uses
+ ! the metric stored at the particles (time timei), while the drift and the
+ ! force at the end of the substep use the metric packed from the updated one,
+ ! so the trapezoidal drift and the closing kick are time-centred
+ !
+ call update_metric(timei + dt)
  !
  ! predictor step for gas particles
  !

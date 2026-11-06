@@ -33,7 +33,7 @@ module nr_api
 
  public :: tmunu_func
  public :: nr_linked,nr_init,nr_evolve_to,nr_get_metric,nr_time,nr_constraints
- public :: nr_formulation,nr_finalise
+ public :: nr_formulation,nr_finalise,nr_dt_expansion
  public :: nr_write_options,nr_read_options
 
  private
@@ -72,9 +72,11 @@ real(nr_dp) function nr_time()
  nr_time = 0.
 end function nr_time
 
-subroutine nr_constraints(cnorm)
+subroutine nr_constraints(cnorm,hnorm)
  real(nr_dp), intent(out) :: cnorm
+ real(nr_dp), intent(out), optional :: hnorm
  cnorm = 0.
+ if (present(hnorm)) hnorm = 0.
 end subroutine nr_constraints
 
 function nr_formulation() result(name)
@@ -84,6 +86,11 @@ end function nr_formulation
 
 subroutine nr_finalise()
 end subroutine nr_finalise
+
+real(nr_dp) function nr_dt_expansion(host_rate)
+ real(nr_dp), intent(in), optional :: host_rate
+ nr_dt_expansion = huge(1.)
+end function nr_dt_expansion
 
 subroutine nr_write_options(iunit)
  integer, intent(in) :: iunit

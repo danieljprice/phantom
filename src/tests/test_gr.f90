@@ -16,10 +16,10 @@ module testgr
 !
 ! :Dependencies: cons2prim, cons2primsolver, deriv, dim, eos,
 !   eos_idealplusrad, extern_gr, externalforces, inverse4x4, io,
-!   mesa_microphysics, metric, metric_tools, mpidomain, mpiutils, options,
-!   part, physcon, ptmass, setorbit, setstar, step_lf_global, substepping,
-!   table_utils, testutils, timestep, timestep_ind, timing, units,
-!   utils_gr, vectorutils
+!   mesa_microphysics, metric, metric_et_utils, metric_tools, mpidomain,
+!   mpiutils, options, part, physcon, ptmass, setorbit, setstar,
+!   step_lf_global, substepping, table_utils, testutils, timestep,
+!   timestep_ind, timing, units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none

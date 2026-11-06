@@ -17,7 +17,8 @@ module metric
 !   - metric_file   : *file from which to read tabulated metric (if present)*
 !   - ngrid_evolve  : *grid nodes per dimension for the evolved metric*
 !
-! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils, nr_api
+! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils,
+!   nr_api
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'

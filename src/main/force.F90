@@ -196,8 +196,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  dustfrac,ddustevol,fext,fxyz_drag,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
 
- use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart
+ use dim,          only:maxvxyzu,mhd,mhd_nonideal,mpi,use_dust,use_apr,use_sinktree,gravity,minpart,gr
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
+ use metric_et_utils, only:dtmax_evolve
  use neighkdtree,  only:get_neighbour_list,get_hmaxcell,get_cell_location,listneigh,&
                         active_leaves,nactive_leaves,ncellchunk,get_leaf_neighbours,&
                         reset_dual_cache
@@ -866,6 +867,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  dtcourant = reduceall_mpi('min',dtcourant)
  dtforce   = reduceall_mpi('min',dtforce)
+ !
+ ! a metric evolved by the NR code also limits the step (as a force timestep),
+ ! so that the conserved density of the particles, which sources the metric,
+ ! is recomputed often enough while the metric changes rapidly
+ !
+ if (gr) dtforce = min(dtforce,dtmax_evolve)
  dtvisc    = reduceall_mpi('min',dtvisc)
  dtmini    = reduce_mpi('min',dtmini)
  dtmaxi    = reduce_mpi('max',dtmaxi)
