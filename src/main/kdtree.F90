@@ -214,16 +214,17 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  if (seeded) call seed_queue_with_sections(npcounter,queue,istack,join,njoin,seeded,ncells)
 
  nqueue = numthreads
+ ! a subtree for each thread, none with much more than a thread's share of the particles
+ ntarget = max(int(1.25*npcounter/nqueue),max(minpart,64))
  ! build the first levels with all threads working on every level (not for the APR
  ! merge tree, whose partition has to leave an even number of particles in each child)
  if (.not.seeded .and. .not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
-    call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+    call build_top_parallel(node,queue,istack,ntarget,leaf_is_active)
  endif
 
  ! then split the largest node in the queue until there is a subtree for each thread
  ! and none has much more than a thread's share of the particles, e.g. a dense core
  ! that build_top_parallel cannot split. The subtrees are then handed out largest first
- ntarget = max(int(1.25*npcounter/nqueue),max(minpart,64))
  over_queue: do while (istack < nqueue .or. maxval(queue(1:max(istack,1))%npnode) > ntarget)
     if (istack + 2 > size(queue)) exit over_queue
     ! if the tree finished while building the queue, then we should just return
@@ -833,18 +834,18 @@ end subroutine combine_join_nodes
 !  maketree to finish, if a level has small nodes or would not fit in the queue.
 !+
 !--------------------------------------------------------------------------------
-subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+subroutine build_top_parallel(node,queue,istack,ntarget,leaf_is_active)
  use part,      only:massoftype,igas,npartoftype
  use dim,       only:maxtypes
  use io,        only:fatal
  type(kdnode),       intent(inout) :: node(:)
  type(kdbuildstack), intent(inout) :: queue(:)
  integer,            intent(inout) :: istack
- integer,            intent(in)    :: nqueue
+ integer,            intent(in)    :: ntarget  ! nodes with more particles are split
  integer,            intent(inout) :: leaf_is_active(:)
  integer, allocatable :: cnode(:),chunkl(:),chunkr(:),cnl(:),coffl(:),coffr(:)
- integer, allocatable :: nodecl(:),nodecr(:),jnl(:),nodeax(:),chunk(:)
- logical, allocatable :: jdegen(:)
+ integer, allocatable :: nodecl(:),nodecr(:),jnl(:),nodeax(:),chunk(:),inew(:)
+ logical, allocatable :: jdegen(:),jsplit(:)
  real,    allocatable :: psum(:,:),phm(:),pr2(:),pbox(:,:),nodecom(:,:),nodecog(:,:),remain(:)
 #ifdef GRAVITY
  real,    allocatable :: pmom(:,:)
@@ -853,7 +854,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  type(kdbuildstack), allocatable :: newq(:)
  real,    allocatable :: tcswap(:,:)
  integer, allocatable :: ipswap(:)
- integer :: kmax,cmax,k,j,c,m,ncj,nchunk,i,i1,n,nl,pl,pr,iax,nnode,il,ir,isplit
+ integer :: kmax,cmax,k,j,c,m,ncj,nchunk,i,i1,n,nl,pl,pr,iax,nnode,il,ir,isplit,nnew
  integer(kind=8) :: ntot
  real    :: pmassi,dfac,fac,sx,sy,sz,sm,hm,r2,dx,dy,dz,xpiv,totmass,x0(3),bl(6),br(6),share
 
@@ -876,7 +877,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  !
  kmax = size(queue)/2
  cmax = numthreads + kmax
- allocate(nodecl(kmax),nodecr(kmax),jnl(kmax),jdegen(kmax))
+ allocate(nodecl(kmax),nodecr(kmax),jnl(kmax),jdegen(kmax),jsplit(kmax),inew(kmax))
  allocate(nodeax(kmax),nodecom(3,kmax),nodecog(3,kmax))
  allocate(chunk(kmax),remain(kmax),newq(2*kmax))
  allocate(cnode(cmax),chunkl(cmax),chunkr(cmax),cnl(cmax),coffl(cmax),coffr(cmax))
@@ -885,23 +886,35 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  allocate(pmom(16,cmax))
 #endif
 
- levels: do while (istack < nqueue)
+ levels: do
     k = istack
+    if (k > kmax) exit levels
     !
-    ! the queue holds one whole level (all nodes have the same level); split them all
-    ! together, or hand over to the serial loop if the next level would not fit in the
-    ! queue, would pass the levels numbered 2n/2n+1, or any node is small
+    ! split together the nodes of the queue with more than the target, if they can be
+    ! split and their children are in the levels numbered 2n/2n+1; the others are carried
+    ! over as they are, so that a few small nodes (e.g. around a dense core) do not stop
+    ! the rest being split by all threads. Stop when no node is split, or the next queue
+    ! would not fit
     !
-    if (k > kmax .or. queue(1)%level >= maxlevel_indexed) exit levels
-    if (any(queue(1:k)%npnode <= max(minpart,64))) exit levels
+    nnew = 0
+    do j = 1,k
+       jsplit(j) = (queue(j)%npnode > ntarget .and. queue(j)%npnode > max(minpart,64) &
+                    .and. queue(j)%level < maxlevel_indexed)
+       inew(j) = nnew + 1
+       nnew = nnew + merge(2,1,jsplit(j))
+    enddo
+    if (nnew == k .or. nnew > size(queue)) exit levels
     !
     ! each node gets its share of the threads as chunks: the share rounded down (at
     ! least one), then the chunks left over go to the nodes that lost most in the
     ! rounding (largest remainder), so a level with no more nodes than threads has
     ! exactly one chunk per thread.  A chunk never crosses a node boundary.
     !
-    ntot = sum(int(queue(1:k)%npnode,kind=8))
+    ntot = sum(int(queue(1:k)%npnode,kind=8),mask=jsplit(1:k))
     do j = 1,k
+       chunk(j)  = 0
+       remain(j) = -1.
+       if (.not.jsplit(j)) cycle   ! no chunks for a node carried over
        !-- first share estimate (how many threads need a node)
        share     = real(numthreads)*real(queue(j)%npnode)/real(ntot)
        chunk(j)  = max(1,int(share)) !-- cap to 1 as a node should at least have a chunk
@@ -939,6 +952,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     !$omp shared(nchunk,k,chunkl,chunkr,cnode,treecache,dfac,psum,nodecl,nodecr) &
     !$omp shared(nodecom,nodecog,nodeax,jnl,jdegen,node,queue,leaf_is_active,inoderange) &
     !$omp shared(pr2,phm,cnl,coffl,coffr,tcbuf,ipbuf,inodeparts,pbox,newq,use_geosplit) &
+    !$omp shared(jsplit,inew) &
 #ifdef GRAVITY
     !$omp shared(pmom) &
     !$omp private(quads,octs) &
@@ -965,6 +979,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     ! ... combined per node, which also fixes the pivot (the centre of mass)
     !$omp do schedule(static)
     do j = 1,k
+       if (.not.jsplit(j)) cycle
        totmass = sum(psum(4,nodecl(j):nodecr(j)))
        if (totmass <= 0.) call fatal('mtree','totmass_node==0',val=totmass)
        nodecom(:,j) = sum(psum(1:3,nodecl(j):nodecr(j)),dim=2)/(totmass*dfac)
@@ -1015,6 +1030,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     ! ... combined per node into the node itself, and each chunk's write positions
     !$omp do schedule(static)
     do j = 1,k
+       if (.not.jsplit(j)) cycle
        nnode = queue(j)%node
        i1 = inoderange(1,nnode)
        n  = queue(j)%npnode
@@ -1080,6 +1096,16 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        enddo
     enddo
     !$omp enddo
+    ! the nodes carried over keep their particles where they are: copy them as they are
+    !$omp do schedule(dynamic,1)
+    do j = 1,k
+       if (jsplit(j)) cycle
+       i1 = inoderange(1,queue(j)%node)
+       n  = queue(j)%npnode
+       tcbuf(:,i1:i1+n-1) = treecache(:,i1:i1+n-1)
+       ipbuf(i1:i1+n-1)   = inodeparts(i1:i1+n-1)
+    enddo
+    !$omp enddo
     ! ... the bounding boxes of the children, from the new order in the buffer
     !$omp do schedule(static,1)
     do c = 1,nchunk
@@ -1100,9 +1126,13 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        pbox(7:12,c) = br
     enddo
     !$omp enddo
-    ! the children, as the next level of the queue
+    ! the children, or the node carried over, as the next queue
     !$omp do schedule(static)
     do j = 1,k
+       if (.not.jsplit(j)) then
+          newq(inew(j)) = queue(j)
+          cycle
+       endif
        nnode = queue(j)%node
        i1 = inoderange(1,nnode)
        n  = queue(j)%npnode
@@ -1119,8 +1149,8 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        bl(4:6) = maxval(pbox(4:6,nodecl(j):nodecr(j)),dim=2)
        br(1:3) = minval(pbox(7:9,nodecl(j):nodecr(j)),dim=2)
        br(4:6) = maxval(pbox(10:12,nodecl(j):nodecr(j)),dim=2)
-       call push_onto_stack(newq(2*j-1),il,nnode,queue(j)%level+1,nl,bl(1:3),bl(4:6))
-       call push_onto_stack(newq(2*j),ir,nnode,queue(j)%level+1,n-nl,br(1:3),br(4:6))
+       call push_onto_stack(newq(inew(j)),il,nnode,queue(j)%level+1,nl,bl(1:3),bl(4:6))
+       call push_onto_stack(newq(inew(j)+1),ir,nnode,queue(j)%level+1,n-nl,br(1:3),br(4:6))
     enddo
     !$omp enddo
     !$omp end parallel
@@ -1133,8 +1163,8 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     call move_alloc(ipbuf,inodeparts)
     call move_alloc(ipswap,ipbuf)
 
-    queue(1:2*k) = newq(1:2*k)
-    istack = 2*k
+    queue(1:nnew) = newq(1:nnew)
+    istack = nnew
  enddo levels
 
 end subroutine build_top_parallel
