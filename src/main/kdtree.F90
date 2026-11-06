@@ -20,7 +20,7 @@ module kdtree
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, io, mpidomain,
-!   mpisections, part, timing
+!   mpisections, mpiutils, part, timing
 !
  use dim,         only:maxp,ncellsmax,minpart,use_apr,use_sinktree,maxptmass,maxpsph,gravity
  use io,          only:nprocs
@@ -47,6 +47,10 @@ module kdtree
  logical, private :: done_init_kdtree = .false.
  logical, private :: already_warned   = .false.
  logical, private :: tree_is_revisable = .false. ! last build was of the particle arrays
+ ! revise rather than rebuild the tree if fewer than this fraction of particles are active,
+ ! until the particles have had about one step each since the tree was built
+ real,    parameter, public :: frac_active_revtree = 0.1
+ real,    private :: nactive_since_build = 0.         ! active particles (all tasks) since the last build
  integer, private :: numthreads
  ! scratch space for the parallel partition in build_top_parallel
  real,    allocatable, private :: tcbuf(:,:)
@@ -166,6 +170,7 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  endif
  ! the tree used to merge particles is not of the particle arrays, so cannot be revised
  tree_is_revisable = .not.apr_tree
+ nactive_since_build = 0.
 
 ! Put root node on top of stack
  ncells = 1
@@ -209,16 +214,17 @@ subroutine maketree(node, xyzh, np, leaf_is_active, ncells, apr_tree, nptmass,xy
  if (seeded) call seed_queue_with_sections(npcounter,queue,istack,join,njoin,seeded,ncells)
 
  nqueue = numthreads
+ ! a subtree for each thread, none with much more than a thread's share of the particles
+ ntarget = max(int(1.25*npcounter/nqueue),max(minpart,64))
  ! build the first levels with all threads working on every level (not for the APR
  ! merge tree, whose partition has to leave an even number of particles in each child)
  if (.not.seeded .and. .not.apr_tree .and. nqueue > 1 .and. npcounter > max(minpart,64)) then
-    call build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+    call build_top_parallel(node,queue,istack,ntarget,leaf_is_active)
  endif
 
  ! then split the largest node in the queue until there is a subtree for each thread
  ! and none has much more than a thread's share of the particles, e.g. a dense core
  ! that build_top_parallel cannot split. The subtrees are then handed out largest first
- ntarget = max(int(1.25*npcounter/nqueue),max(minpart,64))
  over_queue: do while (istack < nqueue .or. maxval(queue(1:max(istack,1))%npnode) > ntarget)
     if (istack + 2 > size(queue)) exit over_queue
     ! if the tree finished while building the queue, then we should just return
@@ -828,18 +834,18 @@ end subroutine combine_join_nodes
 !  maketree to finish, if a level has small nodes or would not fit in the queue.
 !+
 !--------------------------------------------------------------------------------
-subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
+subroutine build_top_parallel(node,queue,istack,ntarget,leaf_is_active)
  use part,      only:massoftype,igas,npartoftype
  use dim,       only:maxtypes
  use io,        only:fatal
  type(kdnode),       intent(inout) :: node(:)
  type(kdbuildstack), intent(inout) :: queue(:)
  integer,            intent(inout) :: istack
- integer,            intent(in)    :: nqueue
+ integer,            intent(in)    :: ntarget  ! nodes with more particles are split
  integer,            intent(inout) :: leaf_is_active(:)
  integer, allocatable :: cnode(:),chunkl(:),chunkr(:),cnl(:),coffl(:),coffr(:)
- integer, allocatable :: nodecl(:),nodecr(:),jnl(:),nodeax(:),chunk(:)
- logical, allocatable :: jdegen(:)
+ integer, allocatable :: nodecl(:),nodecr(:),jnl(:),nodeax(:),chunk(:),inew(:)
+ logical, allocatable :: jdegen(:),jsplit(:)
  real,    allocatable :: psum(:,:),phm(:),pr2(:),pbox(:,:),nodecom(:,:),nodecog(:,:),remain(:)
 #ifdef GRAVITY
  real,    allocatable :: pmom(:,:)
@@ -848,7 +854,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  type(kdbuildstack), allocatable :: newq(:)
  real,    allocatable :: tcswap(:,:)
  integer, allocatable :: ipswap(:)
- integer :: kmax,cmax,k,j,c,m,ncj,nchunk,i,i1,n,nl,pl,pr,iax,nnode,il,ir,isplit
+ integer :: kmax,cmax,k,j,c,m,ncj,nchunk,i,i1,n,nl,pl,pr,iax,nnode,il,ir,isplit,nnew
  integer(kind=8) :: ntot
  real    :: pmassi,dfac,fac,sx,sy,sz,sm,hm,r2,dx,dy,dz,xpiv,totmass,x0(3),bl(6),br(6),share
 
@@ -871,7 +877,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  !
  kmax = size(queue)/2
  cmax = numthreads + kmax
- allocate(nodecl(kmax),nodecr(kmax),jnl(kmax),jdegen(kmax))
+ allocate(nodecl(kmax),nodecr(kmax),jnl(kmax),jdegen(kmax),jsplit(kmax),inew(kmax))
  allocate(nodeax(kmax),nodecom(3,kmax),nodecog(3,kmax))
  allocate(chunk(kmax),remain(kmax),newq(2*kmax))
  allocate(cnode(cmax),chunkl(cmax),chunkr(cmax),cnl(cmax),coffl(cmax),coffr(cmax))
@@ -880,23 +886,35 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
  allocate(pmom(16,cmax))
 #endif
 
- levels: do while (istack < nqueue)
+ levels: do
     k = istack
+    if (k > kmax) exit levels
     !
-    ! the queue holds one whole level (all nodes have the same level); split them all
-    ! together, or hand over to the serial loop if the next level would not fit in the
-    ! queue, would pass the levels numbered 2n/2n+1, or any node is small
+    ! split together the nodes of the queue with more than the target, if they can be
+    ! split and their children are in the levels numbered 2n/2n+1; the others are carried
+    ! over as they are, so that a few small nodes (e.g. around a dense core) do not stop
+    ! the rest being split by all threads. Stop when no node is split, or the next queue
+    ! would not fit
     !
-    if (k > kmax .or. queue(1)%level >= maxlevel_indexed) exit levels
-    if (any(queue(1:k)%npnode <= max(minpart,64))) exit levels
+    nnew = 0
+    do j = 1,k
+       jsplit(j) = (queue(j)%npnode > ntarget .and. queue(j)%npnode > max(minpart,64) &
+                    .and. queue(j)%level < maxlevel_indexed)
+       inew(j) = nnew + 1
+       nnew = nnew + merge(2,1,jsplit(j))
+    enddo
+    if (nnew == k .or. nnew > size(queue)) exit levels
     !
     ! each node gets its share of the threads as chunks: the share rounded down (at
     ! least one), then the chunks left over go to the nodes that lost most in the
     ! rounding (largest remainder), so a level with no more nodes than threads has
     ! exactly one chunk per thread.  A chunk never crosses a node boundary.
     !
-    ntot = sum(int(queue(1:k)%npnode,kind=8))
+    ntot = sum(int(queue(1:k)%npnode,kind=8),mask=jsplit(1:k))
     do j = 1,k
+       chunk(j)  = 0
+       remain(j) = -1.
+       if (.not.jsplit(j)) cycle   ! no chunks for a node carried over
        !-- first share estimate (how many threads need a node)
        share     = real(numthreads)*real(queue(j)%npnode)/real(ntot)
        chunk(j)  = max(1,int(share)) !-- cap to 1 as a node should at least have a chunk
@@ -934,6 +952,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     !$omp shared(nchunk,k,chunkl,chunkr,cnode,treecache,dfac,psum,nodecl,nodecr) &
     !$omp shared(nodecom,nodecog,nodeax,jnl,jdegen,node,queue,leaf_is_active,inoderange) &
     !$omp shared(pr2,phm,cnl,coffl,coffr,tcbuf,ipbuf,inodeparts,pbox,newq,use_geosplit) &
+    !$omp shared(jsplit,inew) &
 #ifdef GRAVITY
     !$omp shared(pmom) &
     !$omp private(quads,octs) &
@@ -960,6 +979,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     ! ... combined per node, which also fixes the pivot (the centre of mass)
     !$omp do schedule(static)
     do j = 1,k
+       if (.not.jsplit(j)) cycle
        totmass = sum(psum(4,nodecl(j):nodecr(j)))
        if (totmass <= 0.) call fatal('mtree','totmass_node==0',val=totmass)
        nodecom(:,j) = sum(psum(1:3,nodecl(j):nodecr(j)),dim=2)/(totmass*dfac)
@@ -1010,6 +1030,7 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     ! ... combined per node into the node itself, and each chunk's write positions
     !$omp do schedule(static)
     do j = 1,k
+       if (.not.jsplit(j)) cycle
        nnode = queue(j)%node
        i1 = inoderange(1,nnode)
        n  = queue(j)%npnode
@@ -1075,6 +1096,16 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        enddo
     enddo
     !$omp enddo
+    ! the nodes carried over keep their particles where they are: copy them as they are
+    !$omp do schedule(dynamic,1)
+    do j = 1,k
+       if (jsplit(j)) cycle
+       i1 = inoderange(1,queue(j)%node)
+       n  = queue(j)%npnode
+       tcbuf(:,i1:i1+n-1) = treecache(:,i1:i1+n-1)
+       ipbuf(i1:i1+n-1)   = inodeparts(i1:i1+n-1)
+    enddo
+    !$omp enddo
     ! ... the bounding boxes of the children, from the new order in the buffer
     !$omp do schedule(static,1)
     do c = 1,nchunk
@@ -1095,9 +1126,13 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        pbox(7:12,c) = br
     enddo
     !$omp enddo
-    ! the children, as the next level of the queue
+    ! the children, or the node carried over, as the next queue
     !$omp do schedule(static)
     do j = 1,k
+       if (.not.jsplit(j)) then
+          newq(inew(j)) = queue(j)
+          cycle
+       endif
        nnode = queue(j)%node
        i1 = inoderange(1,nnode)
        n  = queue(j)%npnode
@@ -1114,8 +1149,8 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
        bl(4:6) = maxval(pbox(4:6,nodecl(j):nodecr(j)),dim=2)
        br(1:3) = minval(pbox(7:9,nodecl(j):nodecr(j)),dim=2)
        br(4:6) = maxval(pbox(10:12,nodecl(j):nodecr(j)),dim=2)
-       call push_onto_stack(newq(2*j-1),il,nnode,queue(j)%level+1,nl,bl(1:3),bl(4:6))
-       call push_onto_stack(newq(2*j),ir,nnode,queue(j)%level+1,n-nl,br(1:3),br(4:6))
+       call push_onto_stack(newq(inew(j)),il,nnode,queue(j)%level+1,nl,bl(1:3),bl(4:6))
+       call push_onto_stack(newq(inew(j)+1),ir,nnode,queue(j)%level+1,n-nl,br(1:3),br(4:6))
     enddo
     !$omp enddo
     !$omp end parallel
@@ -1128,8 +1163,8 @@ subroutine build_top_parallel(node,queue,istack,nqueue,leaf_is_active)
     call move_alloc(ipbuf,inodeparts)
     call move_alloc(ipswap,ipbuf)
 
-    queue(1:2*k) = newq(1:2*k)
-    istack = 2*k
+    queue(1:nnew) = newq(1:nnew)
+    istack = nnew
  enddo levels
 
 end subroutine build_top_parallel
@@ -2061,42 +2096,49 @@ end subroutine special_sort_particles_in_cell
 !
 !  The particles stay in the leaves of the last build. The leaves are
 !  recomputed from their particles, and each parent from its two children,
-!  working up the tree a level at a time: one pass over the particles rather
-!  than one per level. A parent bounds its children rather than its
-!  particles, so the nodes are looser than a rebuilt tree would give, but
-!  every node still bounds its particles: neighbour lists are unchanged,
-!  only longer to find.
+!  working up the tree a level at a time. A parent's size is then set from
+!  its particles, as when built, since the bound from its children would
+!  open the node more often than needed.
 !
-!  Returns ok=.false., and the tree must be rebuilt, if the last build was
-!  not of these particles, or if particles have been added, accreted or
-!  killed since.
+!  Given the numbers of active and live particles (over all MPI tasks), the
+!  tree is only revised on substeps with few active particles, until the
+!  particles have had about one step each since it was built.
+!
+!  Returns ok=.false., and the tree must be rebuilt, if it is not to be
+!  revised, if the last build was not of these particles, or if particles
+!  have been added, accreted or killed since. With more than one MPI task,
+!  every task revises its tree or none does.
 !+
 !--------------------------------------------------------------------------------
-subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
- use dim,  only:ind_timesteps,periodic,mpi
- use part, only:iphase,iactive,isdead_or_accreted,maxphase,igas,massoftype,iamtype
+subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok,nactivetot,nlivetot)
+ use dim,      only:ind_timesteps,periodic,mpi
+ use part,     only:iphase,iactive,isdead_or_accreted,maxphase,igas,massoftype,iamtype
+ use mpiutils, only:reduceall_mpi
  type(kdnode),    intent(inout) :: node(:)
  real,            intent(in)    :: xyzh(:,:)
  integer,         intent(in)    :: np
  integer,         intent(inout) :: leaf_is_active(:)
  integer(kind=8), intent(in)    :: ncells
  logical,         intent(out)   :: ok
- integer, allocatable :: nodelist(:)
- integer :: ilevel(0:maxdepth+1)
- integer :: nproot,nlive,nbad,ip,i,j,n,inode,il,level,nlevel,mymum
- real    :: x0(3),totmass_node
- logical :: nodeisactive
+ real,            intent(in), optional :: nactivetot,nlivetot  ! active and live particles, all tasks
+ integer :: nproot,nlive,nbad,ip,i
 
  ok = .false.
- ! with more than one MPI task the global tree must also be rebuilt (on one task there is none)
- if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic .or. (mpi .and. nprocs > 1)) return
- nproot = inoderange(2,irootnode)
- if (inoderange(1,irootnode) /= 1 .or. nproot < 1) return
+ if (.not.tree_is_revisable .or. use_apr .or. use_sinktree .or. periodic) return
+ if (present(nactivetot) .and. present(nlivetot)) then
+    nactive_since_build = nactive_since_build + nactivetot
+    if (nactivetot >= frac_active_revtree*nlivetot .or. nactive_since_build >= nlivetot) return
+ endif
  !
  ! refresh the particle list: positions, masses and active flags
  !
+ nproot = inoderange(2,irootnode)
  nlive = 0
- nbad  = 0
+ nbad   = 0
+ if (inoderange(1,irootnode) /= 1 .or. nproot < 1) then
+    nproot = 0
+    nbad   = 1
+ endif
  !$omp parallel default(none) &
  !$omp shared(np,nproot,xyzh,inodeparts,treecache,iphase,massoftype,maxphase,maxp) &
  !$omp private(ip,i) &
@@ -2130,76 +2172,245 @@ subroutine revtree(node,xyzh,np,leaf_is_active,ncells,ok)
  enddo
  !$omp enddo
  !$omp end parallel
- if (nbad > 0 .or. nlive /= nproot) return
- !
- ! list the nodes level by level, from the root
- !
- allocate(nodelist(ncells))
- nodelist(1) = irootnode
- n = 1
- nlevel = 0
- ilevel(0) = 1
- do while (ilevel(nlevel) <= n)
-    ilevel(nlevel+1) = n + 1
-    do j=ilevel(nlevel),ilevel(nlevel+1)-1
-       il = node(nodelist(j))%leftchild
-       if (il > 0) then
-          nodelist(n+1) = il
-          nodelist(n+2) = node(nodelist(j))%rightchild
-          n = n + 2
-       endif
-    enddo
-    nlevel = nlevel + 1
- enddo
- !
- ! recompute the nodes, from the deepest level up
- !
- !$omp parallel default(none) &
- !$omp shared(nlevel,ilevel,nodelist,node,inoderange,inodeparts,leaf_is_active) &
- !$omp private(level,j,inode,il,n,ip,mymum,x0,totmass_node,nodeisactive)
- do level=nlevel-1,0,-1
-    !$omp do schedule(guided)
-    do j=ilevel(level),ilevel(level+1)-1
-       inode = nodelist(j)
-       il = node(inode)%leftchild
-       if (il == 0) then
-          ! leaf: from its particles
-          n = inoderange(2,inode) - inoderange(1,inode) + 1
-          if (inoderange(1,inode) <= 0 .or. n < 1) cycle
-          mymum = node(inode)%parent
-          call compute_nodes_cofm(n,inode,x0,totmass_node,.false.)
-          call set_nodes_properties(n,inode,x0,totmass_node,mymum,node(inode),level,.false.)
-          node(inode)%leftchild  = 0
-          node(inode)%rightchild = 0
-          node(inode)%mass       = totmass_node
-          if (ind_timesteps) then
-             nodeisactive = .false.
-             do ip=inoderange(1,inode),inoderange(2,inode)
-                if (inodeparts(ip) > 0) then
-                   nodeisactive = .true.
-                   exit
-                endif
-             enddo
-             if (nodeisactive) then
-                leaf_is_active(inode) = 1
-             else
-                leaf_is_active(inode) = -1
-             endif
-          else
-             leaf_is_active(inode) = 1
-          endif
-       else
-          ! parent: from its children
-          call combine_child_nodes(node(il),node(node(inode)%rightchild),node(inode))
-       endif
-    enddo
-    !$omp enddo
- enddo
- !$omp end parallel
- deallocate(nodelist)
+ if (nlive /= nproot) nbad = nbad + 1
+ ! with more than one MPI task, every task revises its tree or all rebuild theirs
+ if (mpi .and. nprocs > 1) nbad = int(reduceall_mpi('+',nbad))
+ if (nbad > 0) return
  ok = .true.
+ !
+ ! recompute the nodes for the new positions, then their sizes from their particles
+ !
+ call revise_nodes(node,nproot,leaf_is_active)
+ call set_exact_parent_sizes(node,nproot)
 
 end subroutine revtree
+
+!--------------------------------------------------------------------------------
+!+
+!  recompute every node of the tree from its particles (leaves) or its two
+!  children (parents). The particles are in tree order, so each thread takes
+!  a contiguous range of them and walks down the nodes overlapping it,
+!  computing each leaf whose first particle is in its range and each parent
+!  within its range once its children are done. The few parents straddling
+!  the ranges of several threads are combined afterwards, deepest first
+!+
+!--------------------------------------------------------------------------------
+subroutine revise_nodes(node,nproot,leaf_is_active)
+!$ use omp_lib, only:omp_get_thread_num,omp_get_num_threads,omp_get_max_threads
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: nproot
+ integer,      intent(inout) :: leaf_is_active(:)
+ integer, parameter   :: maxspan = 2*maxdepth+2
+ integer, allocatable :: ispan(:,:),dspan(:,:),nspan(:),list(:)
+ integer :: ia,ib,ithread,nthreads,maxthreads,d,k,t,n,j,ifirst(0:maxdepth+1)
+
+ maxthreads = 1
+!$ maxthreads = omp_get_max_threads()
+ allocate(ispan(maxspan,maxthreads),dspan(maxspan,maxthreads),nspan(maxthreads))
+ nspan = 0
+
+ !$omp parallel default(none) &
+ !$omp shared(node,nproot,leaf_is_active,ispan,dspan,nspan) &
+ !$omp private(ia,ib,ithread,nthreads)
+ ithread  = 0
+ nthreads = 1
+!$ ithread  = omp_get_thread_num()
+!$ nthreads = omp_get_num_threads()
+ ia = int(int(ithread,kind=8)*nproot/nthreads) + 1
+ ib = int(int(ithread+1,kind=8)*nproot/nthreads)
+ if (ia <= ib) call revise_walk(node,irootnode,0,ia,ib,leaf_is_active, &
+                                ispan(:,ithread+1),dspan(:,ithread+1),nspan(ithread+1))
+ !$omp end parallel
+
+ ! the straddling parents, grouped by depth (each may be listed by several threads)
+ ifirst = 0
+ do t = 1,maxthreads
+    do k = 1,nspan(t)
+       ifirst(dspan(k,t)+1) = ifirst(dspan(k,t)+1) + 1
+    enddo
+ enddo
+ do d = 1,maxdepth+1
+    ifirst(d) = ifirst(d) + ifirst(d-1)
+ enddo
+ allocate(list(max(ifirst(maxdepth+1),1)))
+ do t = 1,maxthreads
+    do k = 1,nspan(t)
+       d = dspan(k,t)
+       ifirst(d) = ifirst(d) + 1
+       list(ifirst(d)) = ispan(k,t)
+    enddo
+ enddo
+ ! ifirst(d) is now the last entry of depth d: combine them deepest first, once each
+ do d = maxdepth,0,-1
+    k = 1
+    if (d > 0) k = ifirst(d-1) + 1
+    do j = k,ifirst(d)
+       n = list(j)
+       if (any(list(k:j-1) == n)) cycle
+       call combine_child_nodes(node(node(n)%leftchild),node(node(n)%rightchild),node(n))
+    enddo
+ enddo
+
+end subroutine revise_nodes
+
+!--------------------------------------------------------------------------------
+!+
+!  the walk of revise_nodes below node n, at depth d, over the particles ia to
+!  ib. Parents straddling the range are listed in ispan, with their depth in dspan
+!+
+!--------------------------------------------------------------------------------
+recursive subroutine revise_walk(node,n,d,ia,ib,leaf_is_active,ispan,dspan,nspan)
+ use dim, only:ind_timesteps
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: n,d,ia,ib
+ integer,      intent(inout) :: leaf_is_active(:)
+ integer,      intent(inout) :: ispan(:),dspan(:),nspan
+ integer :: np,ip,mymum
+ real    :: x0(3),totmass_node
+ logical :: nodeisactive
+
+ if (max(ia,inoderange(1,n)) > min(ib,inoderange(2,n))) return
+
+ if (node(n)%leftchild == 0) then
+    ! a leaf, computed by the thread holding its first particle
+    if (inoderange(1,n) < ia) return
+    np = inoderange(2,n) - inoderange(1,n) + 1
+    if (inoderange(1,n) <= 0 .or. np < 1) return
+    mymum = node(n)%parent
+    call compute_nodes_cofm(np,n,x0,totmass_node,.false.)
+    call set_nodes_properties(np,n,x0,totmass_node,mymum,node(n),d,.false.)
+    node(n)%leftchild  = 0
+    node(n)%rightchild = 0
+    node(n)%mass       = totmass_node
+    if (ind_timesteps) then
+       nodeisactive = .false.
+       do ip=inoderange(1,n),inoderange(2,n)
+          if (inodeparts(ip) > 0) then
+             nodeisactive = .true.
+             exit
+          endif
+       enddo
+       if (nodeisactive) then
+          leaf_is_active(n) = 1
+       else
+          leaf_is_active(n) = -1
+       endif
+    else
+       leaf_is_active(n) = 1
+    endif
+    return
+ endif
+
+ call revise_walk(node,node(n)%leftchild,d+1,ia,ib,leaf_is_active,ispan,dspan,nspan)
+ call revise_walk(node,node(n)%rightchild,d+1,ia,ib,leaf_is_active,ispan,dspan,nspan)
+ if (inoderange(1,n) >= ia .and. inoderange(2,n) <= ib) then
+    call combine_child_nodes(node(node(n)%leftchild),node(node(n)%rightchild),node(n))
+ else
+    nspan = nspan + 1
+    ispan(nspan) = n
+    dspan(nspan) = d
+ endif
+
+end subroutine revise_walk
+
+!--------------------------------------------------------------------------------
+!+
+!  the size of each parent from its particles: the largest distance from
+!  its centre, as set when the tree is built. The particles are in tree
+!  order, so each thread takes a contiguous range of them and walks down
+!  the nodes overlapping it, comparing each particle with all of its
+!  ancestors while it is in cache: every particle is read once, by the
+!  thread whose memory it is in. Only the nodes that straddle the ranges
+!  of several threads, at most a few per level, combine their maxima
+!+
+!--------------------------------------------------------------------------------
+subroutine set_exact_parent_sizes(node,nproot)
+!$ use omp_lib, only:omp_get_thread_num,omp_get_num_threads
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: nproot
+ real,    allocatable :: r2span(:)
+ integer :: ia,ib,ithread,nthreads,k,nspan
+ integer :: ispan(2*maxdepth+2)
+ real    :: r2(0:maxdepth),xc(3,0:maxdepth),r2s(2*maxdepth+2)
+
+ ! the furthest particle from each straddling node, over the threads
+ allocate(r2span(size(node)))
+
+ !$omp parallel default(none) &
+ !$omp shared(node,nproot,r2span) &
+ !$omp private(ia,ib,ithread,nthreads,k,nspan,ispan,r2,xc,r2s)
+ ithread  = 0
+ nthreads = 1
+!$ ithread  = omp_get_thread_num()
+!$ nthreads = omp_get_num_threads()
+ ia = int(int(ithread,kind=8)*nproot/nthreads) + 1
+ ib = int(int(ithread+1,kind=8)*nproot/nthreads)
+ nspan = 0
+ if (ia <= ib) call exact_size_walk(node,irootnode,0,ia,ib,r2,xc,ispan,r2s,nspan)
+
+ ! the straddling nodes: set to zero, then the maximum over the threads holding them
+ do k = 1,nspan
+    r2span(ispan(k)) = 0.
+ enddo
+ !$omp barrier
+ do k = 1,nspan
+    !$omp atomic
+    r2span(ispan(k)) = max(r2span(ispan(k)),r2s(k))
+ enddo
+ !$omp barrier
+ do k = 1,nspan
+    node(ispan(k))%size = sqrt(r2span(ispan(k))) + epsilon(r2span)
+ enddo
+ !$omp end parallel
+
+end subroutine set_exact_parent_sizes
+
+!--------------------------------------------------------------------------------
+!+
+!  the walk of set_exact_parent_sizes below node n, at depth d, over the
+!  particles ia to ib: r2 and xc hold the running maxima and the centres of
+!  the ancestors of n. A parent within the range gets its size here; one
+!  straddling the range is listed in ispan, with its maximum over the range in r2s
+!+
+!--------------------------------------------------------------------------------
+recursive subroutine exact_size_walk(node,n,d,ia,ib,r2,xc,ispan,r2s,nspan)
+ type(kdnode), intent(inout) :: node(:)
+ integer,      intent(in)    :: n,d,ia,ib
+ real,         intent(inout) :: r2(0:maxdepth),xc(3,0:maxdepth)
+ integer,      intent(inout) :: ispan(:),nspan
+ real,         intent(inout) :: r2s(:)
+ integer :: ip,k,i1,i2
+ real    :: dx(3)
+
+ i1 = max(ia,inoderange(1,n))
+ i2 = min(ib,inoderange(2,n))
+ if (i1 > i2) return
+
+ if (node(n)%leftchild <= 0) then
+    ! a leaf: each of its particles against every ancestor
+    do ip = i1,i2
+       do k = 0,d-1
+          dx = treecache(1:3,ip) - xc(:,k)
+          r2(k) = max(r2(k),dot_product(dx,dx))
+       enddo
+    enddo
+    return
+ endif
+
+ r2(d) = 0.
+ xc(:,d) = node(n)%xcen
+ call exact_size_walk(node,node(n)%leftchild,d+1,ia,ib,r2,xc,ispan,r2s,nspan)
+ call exact_size_walk(node,node(n)%rightchild,d+1,ia,ib,r2,xc,ispan,r2s,nspan)
+ if (inoderange(1,n) >= ia .and. inoderange(2,n) <= ib) then
+    node(n)%size = sqrt(r2(d)) + epsilon(r2)
+ else
+    ! straddles the range (an ancestor of either end): combined over the threads later
+    nspan = nspan + 1
+    ispan(nspan) = n
+    r2s(nspan) = r2(d)
+ endif
+
+end subroutine exact_size_walk
 
 !--------------------------------------------------------------------------------
 !+

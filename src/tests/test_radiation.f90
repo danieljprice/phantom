@@ -255,69 +255,69 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  nmass = 1
  if (use_apr) nmass = 2
  do imass=1,nmass
- label = ''
- if (imass == 2) label = ' (APR, unequal masses)'
- if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'//trim(label)
+    label = ''
+    if (imass == 2) label = ' (APR, unequal masses)'
+    if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'//trim(label)
 
- implicit_radiation = .false.
- iverbose = 0
- call init_part()
- tolh_old = tolh
- tolh = 1.e-8
- dtmax = 5.e-22
- !--set up once, so that both passes see the same particles
- call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
- if (imass == 2) then
-    do i=1,npart
-       if (mod(i,2)==0) apr_level(i) = 2
-    enddo
- endif
-
- ! set some non-zero velocities
- do i=1,npart
-    vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
-    vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
-    vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
- enddo
- do itry = 1,2
-    if (itry == 2) implicit_radiation = .true.
-    call get_derivs_global()
-    if (itry==1) then
-       call get_derivs_global()  ! twice to get density on neighbours correct
-
-       !--allocate and copy flux, and the particle IDs
-       allocate(flux_explicit(3,npart),iorig_explicit(npart))
-       flux_explicit  = radprop(ifluxx:ifluxz,1:npart)
-       iorig_explicit = iorig(1:npart)
-    else
-       radprop = 0.  ! also sets the time of the last update to zero
-       call do_radiation_implicit(1.e-24,1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+    implicit_radiation = .false.
+    iverbose = 0
+    call init_part()
+    tolh_old = tolh
+    tolh = 1.e-8
+    dtmax = 5.e-22
+    !--set up once, so that both passes see the same particles
+    call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
+    if (imass == 2) then
+       do i=1,npart
+          if (mod(i,2)==0) apr_level(i) = 2
+       enddo
     endif
- enddo
 
- ! now check that things match, matching the particles by their IDs
- ! since the particles may have been reordered in between
- tol_e = 1.e-15
- nerr_e = 0
- errmax_e = 0.
- ! (every MPI task makes the same checks, since the checks combine results across tasks)
- call checkval(npart,size(iorig_explicit),0,nerr_e(4),'number of particles')
- n = min(npart,size(iorig_explicit))
- allocate(inow(npart),iexpl(size(iorig_explicit)),flux_implicit(3,n))
- call indexx(npart,iorig,inow)
- call indexx(size(iorig_explicit),iorig_explicit,iexpl)
- call checkval(n,iorig(inow(1:n)),iorig_explicit(iexpl(1:n)),0_8,nerr_e(5),'same particle IDs')
- flux_explicit = flux_explicit(:,iexpl)
- flux_implicit = radprop(ifluxx:ifluxz,inow(1:n))
- do j=1,3
-    call checkval(n,flux_implicit(j,:),flux_explicit(j,1:n),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
- enddo
- call update_test_scores(ntests,nerr_e,npass)
- deallocate(flux_explicit,iorig_explicit,flux_implicit,inow,iexpl)
+    ! set some non-zero velocities
+    do i=1,npart
+       vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
+       vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
+       vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
+    enddo
+    do itry = 1,2
+       if (itry == 2) implicit_radiation = .true.
+       call get_derivs_global()
+       if (itry==1) then
+          call get_derivs_global()  ! twice to get density on neighbours correct
 
- vxyzu(1:3,:) = 0.  ! zero velocities again
- tolh = tolh_old
- if (use_apr) apr_level(1:npart) = 1
+          !--allocate and copy flux, and the particle IDs
+          allocate(flux_explicit(3,npart),iorig_explicit(npart))
+          flux_explicit  = radprop(ifluxx:ifluxz,1:npart)
+          iorig_explicit = iorig(1:npart)
+       else
+          radprop = 0.  ! also sets the time of the last update to zero
+          call do_radiation_implicit(1.e-24,1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+       endif
+    enddo
+
+    ! now check that things match, matching the particles by their IDs
+    ! since the particles may have been reordered in between
+    tol_e = 1.e-15
+    nerr_e = 0
+    errmax_e = 0.
+    ! (every MPI task makes the same checks, since the checks combine results across tasks)
+    call checkval(npart,size(iorig_explicit),0,nerr_e(4),'number of particles')
+    n = min(npart,size(iorig_explicit))
+    allocate(inow(npart),iexpl(size(iorig_explicit)),flux_implicit(3,n))
+    call indexx(npart,iorig,inow)
+    call indexx(size(iorig_explicit),iorig_explicit,iexpl)
+    call checkval(n,iorig(inow(1:n)),iorig_explicit(iexpl(1:n)),0_8,nerr_e(5),'same particle IDs')
+    flux_explicit = flux_explicit(:,iexpl)
+    flux_implicit = radprop(ifluxx:ifluxz,inow(1:n))
+    do j=1,3
+       call checkval(n,flux_implicit(j,:),flux_explicit(j,1:n),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
+    enddo
+    call update_test_scores(ntests,nerr_e,npass)
+    deallocate(flux_explicit,iorig_explicit,flux_implicit,inow,iexpl)
+
+    vxyzu(1:3,:) = 0.  ! zero velocities again
+    tolh = tolh_old
+    if (use_apr) apr_level(1:npart) = 1
  enddo
 
 end subroutine test_implicit_matches_explicit

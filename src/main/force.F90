@@ -48,7 +48,7 @@ module forces
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
- use mpiforce,    only:cellforce,stackforce,maxcellleaves
+ use mpiforce,    only:cellforce,stackforce,maxcellleaves,ifonrmaxi
  use neighkdtree, only:leaf_is_active
  use kdtree,      only:inodeparts,inoderange,ih1,im
  use part,        only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_entropy_s
@@ -156,7 +156,6 @@ module forces
        ifskxi         = 13, &
        ifskyi         = 14, &
        ifskzi         = 15, &
-       ifonrmaxi      = 16, &
        ipertouti      = 17, &
  !--dust array indexing
        ifdragxi       = 18, &
@@ -180,7 +179,11 @@ module forces
        idviz          = 31 + 5*(maxdustsmall-1), &
        idensgasi      = 32 + 5*(maxdustsmall-1), &
        icsi           = 33 + 5*(maxdustsmall-1), &
-       idradi         = 34 + 5*(maxdustsmall-1)
+       idradi         = 34 + 5*(maxdustsmall-1), &
+ !--pressure gradient for the radiative cooling approximation (icooling=9)
+       igradpxi       = 35 + 5*(maxdustsmall-1), &
+       igradpyi       = 36 + 5*(maxdustsmall-1), &
+       igradpzi       = 37 + 5*(maxdustsmall-1)
 
  private
 
@@ -283,9 +286,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
- real    :: dtmaxi,minglobdt
+ real    :: dtmaxi,minglobdt,dtred(9)
 #else
  integer :: nbinmaxnew,ncheckbin
+ integer(kind=8) :: ndtsum(8)
  integer :: ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd
  integer :: ndtvisc,ndtohm,ndthall,ndtambi,ndtdust,ndtrad,ndtclean
  real    :: dtitmp,dtrat,dtmaxi
@@ -763,18 +767,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     endif
  endif
 
-#ifdef IND_TIMESTEPS
- ! check for nbinmaxnew = 0, can happen if all particles
- ! are dead/inactive, e.g. after sink creation or if all
- ! have moved to a higher ibin; the following step on the
- ! higher ibin will yeild non-zero and modify nbinmax
- ! appropriately. With MPI this must be a global check, otherwise
- ! a task with no active particles would stop nbinmax decreasing
- if (reduceall_mpi('+',ncheckbin)==0) then
-    nbinmaxnew    = nbinmax
- endif
-#endif
-
 #ifdef GRAVITY
  if (reduceall_mpi('max',ipart_rhomax) > 0) then
     call reduceloc_mpi('max',rhomax,id_rhomax)
@@ -808,15 +800,26 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 
 #ifdef IND_TIMESTEPS
- nbinmax    = int(reduceall_mpi('max',nbinmaxnew),kind=1)
- ndtforce   = int(reduce_mpi('+',ndtforce))
- ndtforceng = int(reduce_mpi('+',ndtforceng))
- ndtcool    = int(reduce_mpi('+',ndtcool))
- ndtdrag    = int(reduce_mpi('+',ndtdrag))
- ndtdragd   = int(reduce_mpi('+',ndtdragd))
- ndtdust    = int(reduce_mpi('+',ndtdust))
- ndtrad     = int(reduce_mpi('+',ndtrad))
- ndtclean   = int(reduce_mpi('+',ndtclean))
+ ! check for nbinmaxnew = 0, can happen if all particles
+ ! are dead/inactive, e.g. after sink creation or if all
+ ! have moved to a higher ibin; the following step on the
+ ! higher ibin will yeild non-zero and modify nbinmax
+ ! appropriately. With MPI this must be a global check, otherwise
+ ! a task with no active particles would stop nbinmax decreasing:
+ ! such a task offers -1, so nbinmax is kept only if no task set a bin
+ if (ncheckbin == 0) nbinmaxnew = -1
+ nbinmaxnew = int(reduceall_mpi('max',nbinmaxnew))
+ if (nbinmaxnew >= 0) nbinmax = int(nbinmaxnew,kind=1)
+ ! the particles each constraint set the timestep of, summed over tasks in one reduction
+ ndtsum = reduce_mpi('+',[ndtforce,ndtforceng,ndtcool,ndtdrag,ndtdragd,ndtdust,ndtrad,ndtclean])
+ ndtforce   = int(ndtsum(1))
+ ndtforceng = int(ndtsum(2))
+ ndtcool    = int(ndtsum(3))
+ ndtdrag    = int(ndtsum(4))
+ ndtdragd   = int(ndtsum(5))
+ ndtdust    = int(ndtsum(6))
+ ndtrad     = int(ndtsum(7))
+ ndtclean   = int(ndtsum(8))
 
  !  Print warning statements, if required
  if (iverbose >= 1 .and. id==master) then
@@ -864,20 +867,22 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (ndtclean   > 0)  call summary_variable('dt',iosumdtB  ,ndtclean  ,dtcleanfacmean/real(ndtclean)  ,dtcleanfacmax)
 #else
 
- dtcourant = reduceall_mpi('min',dtcourant)
- dtforce   = reduceall_mpi('min',dtforce)
- dtvisc    = reduceall_mpi('min',dtvisc)
- dtmini    = reduce_mpi('min',dtmini)
- dtmaxi    = reduce_mpi('max',dtmaxi)
+ ! the timestep constraints over all tasks, in one reduction (the largest as minus the smallest)
+ dtred = reduceall_mpi('min',[dtcourant,dtforce,dtvisc,dtmini,-dtmaxi,dtohm,dthall,dtambi,dtrad])
+ dtcourant = dtred(1)
+ dtforce   = dtred(2)
+ dtvisc    = dtred(3)
+ dtmini    = dtred(4)
+ dtmaxi    = -dtred(5)
 
  if (iverbose >= 2 .and. id==master) write(iprint,*) 'dtmin = ',C_Cour*dtmini, ' dtmax = ',C_cour*dtmaxi, &
     ' dtmax/dtmin = ',dtmaxi/(dtmini + epsilon(0.)),'dtcour/dtf = ',(C_cour*dtcourant)/(C_force*dtforce + epsilon(0.))
  if ( dtforce < dtcourant ) call summary_variable('dt',iosumdtf,0,0.0)
  if ( dtvisc  < dtcourant ) call summary_variable('dt',iosumdtv,0,0.0)
  if ( mhd_nonideal ) then
-    dtohm    = reduceall_mpi('min',dtohm )
-    dthall   = reduceall_mpi('min',dthall)
-    dtambi   = reduceall_mpi('min',dtambi)
+    dtohm    = dtred(6)
+    dthall   = dtred(7)
+    dtambi   = dtred(8)
     if ( dthall < dtcourant ) call summary_variable('dt',iosumdth,0,0.0)
     if ( dtohm  < dtcourant ) call summary_variable('dt',iosumdto,0,0.0)
     if ( dtambi < dtcourant ) call summary_variable('dt',iosumdta,0,0.0)
@@ -909,7 +914,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 
  if (do_radiation) then
-    dtrad = reduceall_mpi('min',dtrad)
+    dtrad = dtred(9)
     if (dtrad < dtcourant) then
        call summary_variable('dt',iosumdtr,0,0.0)
        if (iverbose >= 1 .and. id==master) &
@@ -950,7 +955,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rho,dvdx,aprmassoftype,shortsinktree
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,use_var_comp,icooling
- use eos_stamatellos, only:gradP_cool,getopac_opdep
+ use eos_stamatellos, only:getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:use_regnbody
@@ -978,7 +983,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use io,          only:fatal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
- real,            intent(in)    :: xpartveci(:)
+ real,            intent(inout) :: xpartveci(:)
  real(kind=8),    intent(in)    :: hi1,hi21,hi41,gradhi,gradsofti
  real,            intent(in)    :: hi,beta
  real,            intent(in)    :: pmassi
@@ -1073,7 +1078,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: du_losi,du_losj,lorentzj,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),dvlos,u0max
  real    :: radPj,fgravxi,fgravyi,fgravzi
- real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
+ real    :: gradP_cooli,gradP_coolj
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1239,10 +1244,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravyi = 0.
  fgravzi = 0.
  if (icooling == 9) then
-    if (ignoreself) gradP_cool(i) = 0.   ! only on the owner of particle i
-    gradpx = 0.
-    gradpy = 0.
-    gradpz = 0.
     gradP_cooli=0.
     gradP_coolj=0.
  endif
@@ -1772,9 +1773,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 
           if (icooling == 9) then
-             gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
-             gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
-             gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
+             fsum(igradpxi) = fsum(igradpxi) + runix*(gradP_cooli + gradP_coolj)
+             fsum(igradpyi) = fsum(igradpyi) + runiy*(gradP_cooli + gradP_coolj)
+             fsum(igradpzi) = fsum(igradpzi) + runiz*(gradP_cooli + gradP_coolj)
           endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
@@ -2111,7 +2112,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
- if (icooling == 9 .and. ignoreself) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
+ ! the timestep minimum over neighbours so far, carried to the next block of neighbours
+ if (ind_timesteps) xpartveci(idti) = dti
 
 end subroutine compute_forces
 
@@ -2511,11 +2513,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           if (use_dustfrac) then
              cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
           endif
-          if (use_dust .and. ind_timesteps) then
-             dti = get_dt(dt,ibin_old(i))
-             cell%xpartvec(idti,cell%npcell) = dti
-          endif
-
           if (do_radiation) then
              radRi = get_rad_R(rhoi,rad(iradxi,i),radprop(ifluxx:ifluxz,i),radprop(ikappa,i))
              cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
@@ -2529,6 +2526,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
              cell%xpartvec(iradrbigi,cell%npcell)       = radRi
           endif
 
+       endif
+       ! timestep for implicit drag, on both gas and dust particles
+       if (use_dust .and. ind_timesteps) then
+          dti = get_dt(dt,ibin_old(i))
+          cell%xpartvec(idti,cell%npcell) = dti
        endif
        if (mhd_nonideal) then
           cell%xpartvec(ietaohmi,cell%npcell)        = eta_nimhd(iohm,i)
@@ -2578,6 +2580,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use io,              only:error,id,master
  use dim,             only:maxvxyzu,use_apr,use_sinktree
  use options,         only:implicit_radiation
+ use neighkdtree,     only:nneighblock
  use part,            only:get_partinfo,iamgas,mhd,igas,isink,maxphase,massoftype,aprmassoftype
  use viscosity,       only:irealvisc,bulkvisc
  use eos,             only:iresistive_heating
@@ -2627,88 +2630,107 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  logical                         :: useresistiveheat
  logical                         :: ignoreself
 
- integer                         :: i,ip
+ integer                         :: i,ip,n1,n2
+ real                            :: fsum(maxfsum),vsigmax,tsmin,fonrmaxi
+ integer(kind=1)                 :: ibinneigh
 
  realviscosity    = (irealvisc > 0)
  useresistiveheat = (iresistive_heating > 0)
 
- over_parts: do ip = 1,cell%npcell
+ over_blocks: do n1 = 1,max(nneigh,1),nneighblock
+    n2 = min(n1+nneighblock-1,nneigh)
+    over_parts: do ip = 1,cell%npcell
 
-    if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
-       if (iamtypei == isink) then
-          iamsinki = .true.
+       if (maxphase==maxp) then
+          call get_partinfo(cell%iphase(ip),iactivei,iamgasi,iamdusti,iamtypei)
+          if (iamtypei == isink) then
+             iamsinki = .true.
+          else
+             iamsinki = .false.
+          endif
        else
+          iactivei = .true.
+          iamtypei = igas
+          iamdusti = .false.
+          iamgasi  = .true.
           iamsinki = .false.
        endif
-    else
-       iactivei = .true.
-       iamtypei = igas
-       iamdusti = .false.
-       iamgasi  = .true.
-       iamsinki = .false.
-    endif
 
-    if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles case where first particle in cell is inactive
-       cycle over_parts     ! also boundary particles are inactive
-    endif
-
-    if (use_apr) then
-       pmassi = aprmassoftype(iamtypei,cell%apr(ip))
-    elseif (iamtypei == isink .and. use_sinktree) then
-       pmassi = cell%xpartvec(imsinki,ip)
-    else
-       pmassi = massoftype(iamtypei)
-    endif
-
-    hi    = cell%xpartvec(ihi,ip)
-    hi1   = 1./hi
-
-    if (iamsinki) then
-       if (hi == 0.) hi1 = 0
-       gradhi = 0.
-       gradsofti = 0.
-    endif
-    !--sink indices are the same on every task (used to flag sink pairs in shortsinktree);
-    !  gas indices are only known on the owner (used to exclude self and store gradP)
-    if (iamsinki) then
-       i = cell%arr_index(ip)
-    elseif (cell%owner /= id) then
-       i = 0
-    else
-       i = inodeparts(cell%arr_index(ip))
-    endif
-    if (.not.iamsinki) then
-       if (cell%xpartvec(igradhi1,ip) > 0.) then
-          gradhi = cell%xpartvec(igradhi1,ip)
-       else
-          call error('force','stored gradh is zero, resetting to 1')
-          gradhi = 1.
+       if (.not.iactivei .and. .not. (do_radiation .and. implicit_radiation)) then ! handles case where first particle in cell is inactive
+          cycle over_parts     ! also boundary particles are inactive
        endif
-#ifdef GRAVITY
-       gradsofti = cell%xpartvec(igradhi2,ip)
-#endif
-    endif
 
-    hi21  = hi1*hi1
-    hi31  = hi1*hi21
-    hi41  = hi21*hi21
-    !
-    !--loop over current particle's neighbours (includes self)
-    !
-    ignoreself = (cell%owner == id)
-    call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,cell%apr(ip))
+       elseif (iamtypei == isink .and. use_sinktree) then
+          pmassi = cell%xpartvec(imsinki,ip)
+       else
+          pmassi = massoftype(iamtypei)
+       endif
+
+       hi    = cell%xpartvec(ihi,ip)
+       hi1   = 1./hi
+
+       if (iamsinki) then
+          if (hi == 0.) hi1 = 0
+          gradhi = 0.
+          gradsofti = 0.
+       endif
+       !--sink indices are the same on every task (used to flag sink pairs in shortsinktree);
+       !  gas indices are only known on the owner (used to exclude self)
+       if (iamsinki) then
+          i = cell%arr_index(ip)
+       elseif (cell%owner /= id) then
+          i = 0
+       else
+          i = inodeparts(cell%arr_index(ip))
+       endif
+       if (.not.iamsinki) then
+          if (cell%xpartvec(igradhi1,ip) > 0.) then
+             gradhi = cell%xpartvec(igradhi1,ip)
+          else
+             call error('force','stored gradh is zero, resetting to 1')
+             gradhi = 1.
+          endif
+#ifdef GRAVITY
+          gradsofti = cell%xpartvec(igradhi2,ip)
+#endif
+       endif
+
+       hi21  = hi1*hi1
+       hi31  = hi1*hi21
+       hi41  = hi21*hi21
+       !
+       !--loop over current particle's neighbours (includes self)
+       !
+       ignoreself = (cell%owner == id)
+       call compute_forces(i,iamgasi,iamdusti,cell%xpartvec(:,ip),hi,hi1,hi21,hi41,gradhi,gradsofti, &
                          beta, &
-                         pmassi,listneigh,nneigh,xyzcache,cell%fsums(:,ip),cell%vsigmax(ip), &
-                         .true.,realviscosity,useresistiveheat, &
+                         pmassi,listneigh(n1:n2),n2-n1+1,xyzcache,fsum,vsigmax, &
+                         (n1==1),realviscosity,useresistiveheat, &
                          xyzh,vxyzu,Bevol,cell%iphase(ip),iphase,massoftype, &
                          divcurlB,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,fxyz_drag,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
-                         cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
+                         cell%ndrag,cell%nstokes,cell%nsuper,tsmin,ibinnow_m1,ibin_wake,ibinneigh, &
                          ignoreself,rad,radprop,dens,metrics,apr_level,dt)
+       if (n1 == 1) then
+          cell%fsums(:,ip)   = fsum
+          cell%vsigmax(ip)   = vsigmax
+          cell%tsmin(ip)     = tsmin
+          cell%ibinneigh(ip) = ibinneigh
+       else
+          ! sums add over blocks, but the largest sink force is a maximum
+          fonrmaxi           = max(cell%fsums(ifonrmaxi,ip),fsum(ifonrmaxi))
+          cell%fsums(:,ip)   = cell%fsums(:,ip) + fsum
+          cell%fsums(ifonrmaxi,ip) = fonrmaxi
+          cell%vsigmax(ip)   = max(cell%vsigmax(ip),vsigmax)
+          cell%tsmin(ip)     = min(cell%tsmin(ip),tsmin)
+          cell%ibinneigh(ip) = max(cell%ibinneigh(ip),ibinneigh)
+       endif
 
- enddo over_parts
+    enddo over_parts
+ enddo over_blocks
 
 end subroutine compute_cell
 
@@ -2765,7 +2787,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
- use eos_stamatellos,only:duSPH
+ use eos_stamatellos,only:duSPH,gradP_cool
  integer,         intent(in)    :: icall
  type(cellforce), intent(inout) :: cell
  real,            intent(inout) :: fxyzu(:,:)
@@ -2870,6 +2892,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     fsum(:)       = cell%fsums(:,ip)
     xpartveci(:)  = cell%xpartvec(:,ip)
+    if (icooling == 9 .and. .not.iamsinki) gradP_cool(i) = sqrt(fsum(igradpxi)**2 + fsum(igradpyi)**2 + fsum(igradpzi)**2)
     if (ind_timesteps) ibin_neighi   = cell%ibinneigh(ip)
 
     dtc     = dtmax

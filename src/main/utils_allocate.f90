@@ -24,6 +24,12 @@ module allocutils
  public :: allocate_array
  real, public :: nbytes_allocated = 0.0
  public :: bytes2human
+ public :: set_first_touch
+
+ ! arrays whose last dimension is ntouch have their first nexpect entries first touched
+ ! by all threads, each taking the same static range as in the particle loops, so that
+ ! each thread's share is placed in its own NUMA domain (0 = off)
+ integer :: ntouch = 0, nexpect = 0
 
  interface allocate_array
   module procedure &
@@ -62,6 +68,7 @@ subroutine allocate_array_real8_1d(name, x, n1)
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1/),kind=8), 'real(8)')
+ call first_touch_real8(x, 1, n1)
 
 end subroutine allocate_array_real8_1d
 
@@ -74,6 +81,7 @@ subroutine allocate_array_real8_2d(name, x, n1, n2)
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2/),kind=8), 'real(8)')
+ call first_touch_real8(x, n1, n2)
 
 end subroutine allocate_array_real8_2d
 
@@ -86,6 +94,7 @@ subroutine allocate_array_real8_3d(name, x, n1, n2, n3)
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'real(8)')
+ call first_touch_real8(x, n1*n2, n3)
 
 end subroutine allocate_array_real8_3d
 
@@ -98,6 +107,7 @@ subroutine allocate_array_real8_4d(name, x, n1, n2, n3, n4)
  allocate(x(n1, n2, n3, n4), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2, n3, n4/),kind=8), 'real(8)')
+ call first_touch_real8(x, n1*n2*n3, n4)
 
 end subroutine allocate_array_real8_4d
 
@@ -110,6 +120,7 @@ subroutine allocate_array_real4_1d(name, x, n1)
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1/),kind=8), 'real(4)')
+ call first_touch_real4(x, 1, n1)
 
 end subroutine allocate_array_real4_1d
 
@@ -122,6 +133,7 @@ subroutine allocate_array_real4_2d(name, x, n1, n2)
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2/),kind=8), 'real(4)')
+ call first_touch_real4(x, n1, n2)
 
 end subroutine allocate_array_real4_2d
 
@@ -134,6 +146,7 @@ subroutine allocate_array_real4_3d(name, x, n1, n2, n3)
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'real(4)')
+ call first_touch_real4(x, n1*n2, n3)
 
 end subroutine allocate_array_real4_3d
 
@@ -146,6 +159,7 @@ subroutine allocate_array_real4_4d(name, x, n1, n2, n3, n4)
  allocate(x(n1, n2, n3, n4), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2, n3, n4/),kind=8), 'real(4)')
+ call first_touch_real4(x, n1*n2*n3, n4)
 
 end subroutine allocate_array_real4_4d
 
@@ -158,6 +172,7 @@ subroutine allocate_array_integer8_1d(name, x, n1)
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1/),kind=8), 'integer(8)')
+ call first_touch_int8(x, 1, n1)
 end subroutine allocate_array_integer8_1d
 
 subroutine allocate_array_integer4_1d(name, x, n1)
@@ -169,6 +184,7 @@ subroutine allocate_array_integer4_1d(name, x, n1)
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1/),kind=8), 'integer(4)')
+ call first_touch_int4(x, 1, n1)
 
 end subroutine allocate_array_integer4_1d
 
@@ -193,6 +209,7 @@ subroutine allocate_array_integer4_2d(name, x, n1, n2)
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2/),kind=8), 'integer(4)')
+ call first_touch_int4(x, n1, n2)
 
 end subroutine allocate_array_integer4_2d
 
@@ -205,6 +222,7 @@ subroutine allocate_array_integer4_3d(name, x, n1, n2, n3)
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'integer(4)')
+ call first_touch_int4(x, n1*n2, n3)
 
 end subroutine allocate_array_integer4_3d
 
@@ -217,6 +235,7 @@ subroutine allocate_array_integer1_1d(name, x, n1)
  allocate(x(n1), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1/),kind=8), 'integer(1)')
+ call first_touch_int1(x, 1, n1)
 
 end subroutine allocate_array_integer1_1d
 
@@ -229,6 +248,7 @@ subroutine allocate_array_integer1_2d(name, x, n1, n2)
  allocate(x(n1, n2), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2/),kind=8), 'integer(1)')
+ call first_touch_int1(x, n1, n2)
 
 end subroutine allocate_array_integer1_2d
 
@@ -241,6 +261,7 @@ subroutine allocate_array_integer1_3d(name, x, n1, n2, n3)
  allocate(x(n1, n2, n3), stat = allocstat)
  call check_allocate(name, allocstat)
  call print_allocation_stats(name, int((/n1, n2, n3/),kind=8), 'integer(1)')
+ call first_touch_int1(x, n1*n2, n3)
 
 end subroutine allocate_array_integer1_3d
 
@@ -291,6 +312,104 @@ subroutine allocate_array_logical(name, x, n1)
  call print_allocation_stats(name, int((/n1/),kind=8), 'integer(4)')
 
 end subroutine allocate_array_logical
+
+!-----------------------------------------------------------------------
+!+
+!  set (or with n = 0, unset) the size of the last dimension of the arrays
+!  to first touch, and the number of entries expected to be in use
+!+
+!-----------------------------------------------------------------------
+subroutine set_first_touch(n, nexpected)
+ integer, intent(in) :: n, nexpected
+
+ ntouch  = n
+ nexpect = min(nexpected, n)
+
+end subroutine set_first_touch
+
+!-----------------------------------------------------------------------
+!+
+!  zero the entries of a newly allocated array x(m,n) expected to be in
+!  use, x(:,1:nexpect), with static ranges over its last dimension, so
+!  that their pages are placed where the threads of the particle loops
+!  are. The rest are left untouched, so take no memory until they are
+!  used. The array is passed as a flat sequence of its m*n elements
+!+
+!-----------------------------------------------------------------------
+subroutine first_touch_real8(x, m, n)
+ integer, intent(in) :: m, n
+ real(kind=8), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
+
+ if (n /= ntouch .or. ntouch == 0) return
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
+ do i = 1, nexpect
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0.
+ enddo
+ !$omp end parallel do
+
+end subroutine first_touch_real8
+
+subroutine first_touch_real4(x, m, n)
+ integer, intent(in) :: m, n
+ real(kind=4), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
+
+ if (n /= ntouch .or. ntouch == 0) return
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
+ do i = 1, nexpect
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0.
+ enddo
+ !$omp end parallel do
+
+end subroutine first_touch_real4
+
+subroutine first_touch_int8(x, m, n)
+ integer, intent(in) :: m, n
+ integer(kind=8), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
+
+ if (n /= ntouch .or. ntouch == 0) return
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
+ do i = 1, nexpect
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0
+ enddo
+ !$omp end parallel do
+
+end subroutine first_touch_int8
+
+subroutine first_touch_int4(x, m, n)
+ integer, intent(in) :: m, n
+ integer(kind=4), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
+
+ if (n /= ntouch .or. ntouch == 0) return
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
+ do i = 1, nexpect
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0
+ enddo
+ !$omp end parallel do
+
+end subroutine first_touch_int4
+
+subroutine first_touch_int1(x, m, n)
+ integer, intent(in) :: m, n
+ integer(kind=1), intent(inout) :: x(*)
+ integer(kind=8) :: i,i1
+
+ if (n /= ntouch .or. ntouch == 0) return
+ !$omp parallel do schedule(static) default(none) shared(x,m,nexpect) private(i,i1)
+ do i = 1, nexpect
+    i1 = (i - 1)*m
+    x(i1+1:i1+m) = 0
+ enddo
+ !$omp end parallel do
+
+end subroutine first_touch_int1
 
 subroutine check_allocate(name, allocstat)
  character(len=*), intent(in) :: name

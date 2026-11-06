@@ -20,8 +20,8 @@ module initial
 !   energies, eos, evwrite, extern_gr, externalforces, fileutils, forcing,
 !   growth, growth_coala, inject, io, io_control, io_summary,
 !   krome_interface, metric, metric_et_utils, metric_tools, mf_write,
-!   mpibalance, mpidomain, mpimemory, mpiutils, nicil, nicil_sup,
-!   omputils, options, part, partinject, porosity, ptmass, radiation_utils,
+!   mpibalance, mpidomain, mpimemory, mpiutils, nicil, nicil_sup, omputils,
+!   options, part, partinject, porosity, ptmass, radiation_utils,
 !   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
 !   timing, units, utils_subgroup, writeheader
 !

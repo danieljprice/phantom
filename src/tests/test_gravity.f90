@@ -10,7 +10,7 @@ module testgravity
 !
 ! :References: None
 !
-! :Owner: Yann Bernard
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

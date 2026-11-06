@@ -10,7 +10,7 @@ module testmpi
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -143,7 +143,7 @@ subroutine test_packed_pool(ntests,npass)
  do k=1,2
     ! k=1: in serial; k=2: from many threads, so each cell must appear exactly once
     call reset_stacks
-    !$omp parallel do default(none) shared(force_pool,k) private(i,cell,buf,nbuf) schedule(dynamic,1) if(k==2)
+    !$omp parallel do default(none) shared(force_pool,k) private(i,cell,buf,nbuf) schedule(dynamic,1) if (k==2)
     do i=1,ncells
        ! cells with different numbers of particles, so packed cells differ in length
        cell%npcell = 1 + mod(i,minpart)
