@@ -53,7 +53,7 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use metric,           only:metric_type
- use metric_et_utils,  only:read_tabulated_metric,gridinit
+ use metric_et_utils,  only:read_tabulated_metric,gridinit,metric_file
  integer :: ierr
 
 !
@@ -89,7 +89,7 @@ subroutine initialise()
 !--initialise metric if tabulated
 !
  if (gr .and. metric_type=='et') then
-    call read_tabulated_metric('tabuled_metric.dat',ierr)
+    call read_tabulated_metric(metric_file,ierr)
     if (ierr == 0) gridinit = .true.
  endif
 

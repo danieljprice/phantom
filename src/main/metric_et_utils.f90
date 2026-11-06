@@ -7,6 +7,11 @@
 module metric_et_utils
 !
 ! Utilities for handling tabulated metrics from the Einstein Toolkit
+! (or from a numerical relativity code), and for interpolating the metric
+! and its spatial derivatives from the grid to arbitrary positions
+!
+! The grid is vertex-centred: node (i,j,k) is at gridorigin + (i-1,j-1,k-1)*dxgrid.
+! For a periodic grid, node gridsize+1 is identified with node 1.
 !
 ! :References: Magnall et al. (2023), Phys. Rev. D 108, 103534
 !
@@ -14,24 +19,29 @@ module metric_et_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: table_utils
 !
  implicit none
 
- real, allocatable :: gcovgrid(:,:,:,:,:)
- real, allocatable :: gcongrid(:,:,:,:,:)
- real, allocatable :: sqrtggrid(:,:,:)
- real, allocatable :: metricderivsgrid(:,:,:,:,:,:)
- real              :: dxgrid(3), gridorigin(3)
- integer           :: gridsize(3)
- logical           :: gridinit = .false.
+ real, allocatable, public :: gcovgrid(:,:,:,:,:)
+ real, allocatable, public :: gcongrid(:,:,:,:,:)
+ real, allocatable, public :: sqrtggrid(:,:,:)
+ real, allocatable, public :: metricderivsgrid(:,:,:,:,:,:)
+ real,              public :: dxgrid(3), gridorigin(3)
+ integer,           public :: gridsize(3)
+ logical,           public :: gridinit = .false.
 
  ! Declaration of grid limits and dimensions
- integer, public :: nx,ny,nz
- real, parameter :: xmin = -10.0, xmax = 10.0
- real, parameter :: ymin = -10.0, ymax = 10.0
- real, parameter :: zmin = -10.0, zmax = 10.0
- real, parameter :: mass = 1.0  ! Mass of the central object
+ integer,           public :: nx,ny,nz
+
+ logical,            public :: periodic_grid = .false.
+ character(len=120), public :: metric_file   = 'tabulated_metric.dat'
+
+ public :: allocate_grid,initialize_grid,print_metric_grid
+ public :: write_tabulated_metric,read_tabulated_metric
+ public :: interpolate_gcov,interpolate_gcov_derivs
+
+ private
 
 contains
 
@@ -47,18 +57,14 @@ subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
  nx = nxin
  ny = nyin
  nz = nzin
- gridsize(1) = nx
- gridsize(2) = ny
- gridsize(3) = nz
+ gridsize = (/nx,ny,nz/)
+ dxgrid   = (/dx,dy,dz/)
+ gridorigin = (/originx,originy,originz/)
 
- dxgrid(1) = dx
- dxgrid(2) = dy
- dxgrid(3) = dz
-
- gridorigin(1) = originx
- gridorigin(2) = originy
- gridorigin(3) = originz
-
+ if (allocated(gcovgrid)) deallocate(gcovgrid)
+ if (allocated(gcongrid)) deallocate(gcongrid)
+ if (allocated(sqrtggrid)) deallocate(sqrtggrid)
+ if (allocated(metricderivsgrid)) deallocate(metricderivsgrid)
  allocate(gcovgrid(0:3,0:3,nx,ny,nz))
  allocate(gcongrid(0:3,0:3,nx,ny,nz))
  allocate(sqrtggrid(nx,ny,nz))
@@ -74,26 +80,19 @@ end subroutine allocate_grid
 
 !---------------------------------------------------------------
 !+
-!  initialise a metric grid with a uniform grid
-!  (currently size is hardwired but just for testing...)
+!  initialise a uniform, non-periodic grid with n(1:3) nodes
+!  spanning xmin(1:3) to xmax(1:3) inclusive
 !+
 !---------------------------------------------------------------
-subroutine initialize_grid()
- ! Local variable declarations
- real :: dx, dy, dz, x0(3)
-
- nx = 100
- ny = 100
- nz = 100
+subroutine initialize_grid(n,xmin,xmax)
+ integer, intent(in) :: n(3)
+ real,    intent(in) :: xmin(3),xmax(3)
+ real :: dx(3)
 
  ! Calculate the step size in each direction
- dx = (xmax - xmin) / (nx - 1)
- dy = (ymax - ymin) / (ny - 1)
- dz = (zmax - zmin) / (nz - 1)
-
- x0 = [0.,0.,0.]
- call allocate_grid(nx,ny,nz,dx,dy,dz,x0(1),x0(2),x0(3))
-
+ dx = (xmax - xmin)/(n - 1)
+ call allocate_grid(n(1),n(2),n(3),dx(1),dx(2),dx(3),xmin(1),xmin(2),xmin(3))
+ periodic_grid = .false.
  gridinit = .true.
 
 end subroutine initialize_grid
@@ -116,13 +115,13 @@ end subroutine print_metric_grid
 !  write tabulated metric to file
 !+
 !---------------------------------------------------------------
-subroutine write_tabulated_metric(metric_file, ierr)
- character(len=*), intent(in)  :: metric_file
+subroutine write_tabulated_metric(filename, ierr)
+ character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer :: iunit
 
  ! Open the file for writing
- open(newunit=iunit,file=metric_file,status='replace',form='unformatted',action='write',iostat=ierr)
+ open(newunit=iunit,file=filename,status='replace',form='unformatted',action='write',iostat=ierr)
  if (ierr /= 0) then
     ierr = 1
     return
@@ -152,13 +151,13 @@ end subroutine write_tabulated_metric
 !  read tabulated metric from file
 !+
 !---------------------------------------------------------------
-subroutine read_tabulated_metric(metric_file, ierr)
- character(len=*), intent(in)  :: metric_file
+subroutine read_tabulated_metric(filename, ierr)
+ character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer :: iunit
 
  ! Open the file for reading
- open(newunit=iunit,file=metric_file,status='old',form='unformatted',action='read',iostat=ierr)
+ open(newunit=iunit,file=filename,status='old',form='unformatted',action='read',iostat=ierr)
  if (ierr /= 0) return
 
  ! Read the dimensions of the grid
@@ -168,11 +167,7 @@ subroutine read_tabulated_metric(metric_file, ierr)
  read(iunit) gridorigin
  read(iunit) dxgrid
 
- nx = gridsize(1)
- ny = gridsize(2)
- nz = gridsize(3)
-
- call allocate_grid(nx,ny,nz,&
+ call allocate_grid(gridsize(1),gridsize(2),gridsize(3),&
         dxgrid(1),dxgrid(2),dxgrid(3),&
         gridorigin(1),gridorigin(2),gridorigin(3))
 
@@ -189,5 +184,39 @@ subroutine read_tabulated_metric(metric_file, ierr)
  ierr = 0
 
 end subroutine read_tabulated_metric
+
+!-----------------------------------------------------------------------
+!+
+!  interpolate the covariant metric to a given position, using tricubic
+!  Hermite interpolation of the metric and its tabulated first derivatives
+!+
+!-----------------------------------------------------------------------
+pure subroutine interpolate_gcov(position,gcov)
+ use table_utils, only:interp3d_hermite
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3)
+
+ call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,gridorigin,dxgrid,&
+                       periodic_grid,position,gcov)
+
+end subroutine interpolate_gcov
+
+!-----------------------------------------------------------------------
+!+
+!  spatial derivatives of the covariant metric, dgcov(:,:,i) = d g_munu / dx^i,
+!  at a given position: the exact derivatives of the Hermite interpolant,
+!  so that they are consistent with the metric from interpolate_gcov
+!+
+!-----------------------------------------------------------------------
+pure subroutine interpolate_gcov_derivs(position,dgcov)
+ use table_utils, only:interp3d_hermite
+ real, intent(in)  :: position(3)
+ real, intent(out) :: dgcov(0:3,0:3,3)
+ real :: gcov(0:3,0:3)
+
+ call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,gridorigin,dxgrid,&
+                       periodic_grid,position,gcov,dgcov)
+
+end subroutine interpolate_gcov_derivs
 
 end module metric_et_utils

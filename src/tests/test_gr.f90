@@ -61,16 +61,21 @@ end subroutine test_gr
 !+
 !-----------------------------------------------------------------------
 subroutine test_precession(ntests,npass)
- use metric_tools, only:imetric,imet_kerr,imet_schwarzschild,imet_rn
- use metric,       only:a,charge
+ use metric_tools,    only:imetric,imet_kerr,imet_schwarzschild,imet_rn,imet_et
+ use metric,          only:a,charge
+ use metric_et_utils, only:gridinit
  integer, intent(inout) :: ntests,npass
- integer :: nerr(6),norbits,nstepsperorbit,itest
- real    :: dt,period,x0,vy0,tmax,angtol,postol
- real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
+ integer :: nerr(7),norbits,nstepsperorbit,itest
+ real    :: dt,period,x0,vy0,tmax,angtol,entol,postol
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3),energy0,energy
+ logical :: tabulated
 
  write(*,'(/,a)') '--> testing substep_gr (precession)'
- if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild .and. imetric /= imet_rn) then
-    write(*,'(/,a)') '   Skipping test! Metric is not Kerr, Schwarzschild or RN.'
+ tabulated = .false.
+ if (imetric == imet_et) call load_metric_table('metric_precession.tab',tabulated)
+ if (imetric /= imet_kerr .and. imetric /= imet_schwarzschild .and. imetric /= imet_rn &
+     .and. .not.tabulated) then
+    write(*,'(/,a)') '   Skipping test! Metric is not Kerr, Schwarzschild, RN or tabulated.'
     return
  endif
 
@@ -84,20 +89,31 @@ subroutine test_precession(ntests,npass)
  nstepsperorbit = 1000
  dt             = 0.239 !period/nstepsperorbit
 
+ if (tabulated) then
+    ! errors set by the resolution of the tabulated metric (dx=1, see load_metric_table)
+    angtol = 1.65e-15
+    entol  = 6.2e-9
+    postol = 2.35e-4
+ else
+    angtol = 1.08e-15
+    entol  = 5.14e-9
+    postol = 1.4e-5
+ endif
+
  do itest=1,2
     xyz  = (/x0,0. ,0./)
     vxyz = (/0.,vy0,0./)
-    call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
+    call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,energy0,energy,use_sink=(itest==2))
 
-    angtol = 1.08e-15
-    postol = 1.4e-5
     call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
     call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
     call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
+    call checkval(energy,energy0,entol,nerr(7),'error in energy')
     call checkval(xyz(1), 77.606726748045929,postol,nerr(4),'error in final x position')
     call checkval(xyz(2),-45.576259888019351,postol,nerr(5),'error in final y position')
     call checkval(xyz(3),0.0                ,postol,nerr(6),'error in final z position')
  enddo
+ if (tabulated) gridinit = .false.
 
  call update_test_scores(ntests,nerr,npass)
 
@@ -109,20 +125,24 @@ end subroutine test_precession
 !+
 !-----------------------------------------------------------------------
 subroutine test_inccirc(ntests,npass)
- use physcon,      only:pi
- use metric_tools, only:imetric,imet_kerr
- use metric,       only:a
+ use physcon,         only:pi
+ use metric_tools,    only:imetric,imet_kerr,imet_et
+ use metric,          only:a
+ use metric_et_utils, only:gridinit
  integer, intent(inout) :: ntests,npass
- integer :: nerr(6),norbits,nstepsperorbit,itest
- real    :: dt,period,tmax
- real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
- real :: m,omega,phi,q,r,rdot,rho2,theta,thetadot,vx,vy,vz,x1,y1,z1
- real :: R2,rfinal
+ integer :: nerr(5),norbits,nstepsperorbit,itest
+ real    :: dt,period,tmax,angtol,entol,rtol
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3),energy0,energy
+ real    :: m,omega,phi,q,r,rdot,rho2,theta,thetadot,vx,vy,vz,x1,y1,z1
+ real    :: R2,rfinal
+ logical :: tabulated
 
  write(*,'(/,a)') '--> testing substep_gr (inclined circular orbit)'
 
- if (imetric /= imet_kerr) then
-    write(*,'(/,a)') '   Skipping test! Metric is not Kerr.'
+ tabulated = .false.
+ if (imetric == imet_et) call load_metric_table('metric_inccirc.tab',tabulated)
+ if (imetric /= imet_kerr .and. .not.tabulated) then
+    write(*,'(/,a)') '   Skipping test! Metric is not Kerr or tabulated.'
     return
  endif
 
@@ -151,20 +171,33 @@ subroutine test_inccirc(ntests,npass)
  nstepsperorbit = 1000
  dt             = 0.239 !period/nstepsperorbit
 
+ if (tabulated) then
+    ! errors set by the resolution of the tabulated metric (dx=0.5, see load_metric_table)
+    angtol = 5.15e-10
+    entol  = 1.77e-6
+    rtol   = 1.21e-5
+ else
+    angtol = 6.e-10
+    entol  = 1.77e-6
+    rtol   = 5.08e-6
+ endif
+
  do itest=1,2
     xyz  = (/x1,y1,z1/)
     vxyz = (/vx,vy,vz/)
-    call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
+    call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,energy0,energy,use_sink=(itest==2))
 
     R2     = dot_product(xyz,xyz)
     rfinal = sqrt(0.5*(R2-a**2) + 0.5*sqrt((R2-a**2)**2 + 4.*a**2*xyz(3)**2))
 
     nerr = 0
-    call checkval(angmom(1),angmom0(1),6.e-10,nerr(1),'error in angmomx')
-    call checkval(angmom(2),angmom0(2),6.e-10,nerr(2),'error in angmomy')
-    call checkval(angmom(3),angmom0(3),6.e-10,nerr(3),'error in angmomz')
-    call checkval(rfinal   ,r         ,5.08e-6,nerr(4),'error in final r position')
+    call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
+    call checkval(angmom(2),angmom0(2),angtol,nerr(2),'error in angmomy')
+    call checkval(angmom(3),angmom0(3),angtol,nerr(3),'error in angmomz')
+    call checkval(energy   ,energy0   ,entol ,nerr(5),'error in energy')
+    call checkval(rfinal   ,r         ,rtol  ,nerr(4),'error in final r position')
  enddo
+ if (tabulated) gridinit = .false.
 
  call update_test_scores(ntests,nerr,npass)
 
@@ -176,7 +209,7 @@ end subroutine test_inccirc
 !   and the substep_gr routine
 !+
 !-----------------------------------------------------------------------
-subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
+subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,energy0,energy,use_sink)
  use io,             only:iverbose,id,master
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type,&
                           xyzmh_ptmass,vxyz_ptmass,pxyzu_ptmass,metrics_ptmass,&
@@ -192,7 +225,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
  use ptmass,         only:use_fourthorder,set_integration_precision
  real,    intent(in)    :: tmax,dt
  real,    intent(inout) :: xyz(3), vxyz(3)
- real,    intent(out)   :: angmom0(3),angmom(3)
+ real,    intent(out)   :: angmom0(3),angmom(3),energy0,energy
  logical, intent(in)    :: use_sink
  integer :: nsteps,ntypes,npart
  real    :: time,dtextforce,massi,blah
@@ -254,12 +287,14 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
     call prim2consall(nptmass,xyzmh_ptmass,metrics_ptmass,vxyz_ptmass,pxyzu_ptmass,use_sink=.true.)
     call get_grforce_all(nptmass,xyzmh_ptmass,metrics_ptmass,metricderivs_ptmass,vxyz_ptmass,fxyz_ptmass,dtextforce,use_sink=.true.)
     call calculate_angmom(xyzmh_ptmass(1:3,1),metrics_ptmass(:,:,:,1),xyzmh_ptmass(4,1),vxyz_ptmass(1:3,1),angmom0)
+    call calculate_energy(metrics_ptmass(:,:,:,1),vxyz_ptmass(1:3,1),energy0)
  else
     if (id==master) print*,'   using gas'
     call init_metric(npart,xyzh,metrics,metricderivs)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,fext,dtextforce,dens=dens)
     call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom0)
+    call calculate_energy(metrics(:,:,:,1),vxyzu(1:3,1),energy0)
  endif
 
  nsteps = 0
@@ -277,10 +312,12 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink)
 
  if (use_sink) then
     call calculate_angmom(xyzmh_ptmass(1:3,1),metrics_ptmass(:,:,:,1),xyzmh_ptmass(4,1),vxyz_ptmass(1:3,1),angmom)
+    call calculate_energy(metrics_ptmass(:,:,:,1),vxyz_ptmass(1:3,1),energy)
     xyz(:)  = xyzmh_ptmass(1:3,1)
     vxyz(:) = vxyz_ptmass(1:3,1)
  else
     call calculate_angmom(xyzh(1:3,1),metrics(:,:,:,1),massi,vxyzu(1:3,1),angmom)
+    call calculate_energy(metrics(:,:,:,1),vxyzu(1:3,1),energy)
     xyz(:)  = xyzh(1:3,1)
     vxyz(:) = vxyzu(1:3,1)
  endif
@@ -309,6 +346,52 @@ subroutine calculate_angmom(xyzi,metrici,massi,vxyzi,angmomi)
  angmomi=angmomi*massi
 
 end subroutine calculate_angmom
+
+!-----------------------------------------------------------------------
+!+
+!   compute the specific energy E = -u_t of a geodesic, conserved
+!   in a stationary metric
+!+
+!-----------------------------------------------------------------------
+subroutine calculate_energy(metrici,vxyzi,energy)
+ use metric_tools, only:unpack_metric
+ use utils_gr,     only:get_u0
+ real, intent(in)  :: metrici(:,:,:),vxyzi(3)
+ real, intent(out) :: energy
+ real    :: gcov(0:3,0:3),u0
+ integer :: ierr
+
+ call unpack_metric(metrici,gcov=gcov)
+ call get_u0(gcov,vxyzi,u0,ierr)
+ energy = -u0*(gcov(0,0) + dot_product(gcov(0,1:3),vxyzi))
+
+end subroutine calculate_energy
+
+!-----------------------------------------------------------------------
+!+
+!   read a tabulated metric for the orbit tests, if the file exists.
+!   The tables are written by the tabulate_metric utility, compiled with
+!   METRIC=kerr, at the resolutions assumed by the test tolerances:
+!
+!     tabulate_metric metric_precession.tab 193 193 5 -96 96 -96 96 -2 2 0.
+!     tabulate_metric metric_inccirc.tab 49 49 49 -12 12 -12 12 -12 12 1.
+!+
+!-----------------------------------------------------------------------
+subroutine load_metric_table(filename,loaded)
+ use metric_et_utils, only:read_tabulated_metric
+ character(len=*), intent(in)  :: filename
+ logical,          intent(out) :: loaded
+ integer :: ierr
+
+ call read_tabulated_metric(filename,ierr)
+ loaded = (ierr == 0)
+ if (loaded) then
+    write(*,'(a)') '   using tabulated metric from '//trim(filename)
+ else
+    write(*,'(a)') '   could not read '//trim(filename)//' (generate it with tabulate_metric)'
+ endif
+
+end subroutine load_metric_table
 
 !-----------------------------------------------------------------------
 !+
@@ -693,7 +776,7 @@ subroutine test_rn_charged(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: nerr(6),itest,iq
  real    :: dt,period,tmax,r0,v0,mass_val,charge_val
- real    :: angmom(3),angmom0(3),xyz(3),vxyz(3)
+ real    :: angmom(3),angmom0(3),xyz(3),vxyz(3),energy0,energy
  real    :: charges_to_test(4)
  real, parameter :: postol = 1.e-5, angtol = 1.e-10
 
@@ -727,7 +810,7 @@ subroutine test_rn_charged(ntests,npass)
     do itest=1,2
        xyz  = (/r0, 0., 0./)
        vxyz = (/0., v0, 0./)
-       call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,use_sink=(itest==2))
+       call integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom,energy0,energy,use_sink=(itest==2))
 
        nerr = 0
        call checkval(angmom(1),angmom0(1),angtol,nerr(1),'error in angmomx')
@@ -1045,7 +1128,7 @@ subroutine test_tde_entropy(ntests,npass)
  use externalforces, only:initialise_externalforces
  use extern_gr,      only:get_grforce_all
  use cons2prim,      only:prim2consall
- use metric_tools,   only:init_metric
+ use metric_tools,   only:init_metric,imetric,imet_minkowski,imet_et
  use deriv,          only:get_derivs_global,get_density_global
  use step_lf_global, only:init_step,step
  use timestep,       only:dtmax,dtcourant,dtforce
@@ -1058,6 +1141,10 @@ subroutine test_tde_entropy(ntests,npass)
  real    :: t,tmax,dt,dtnew,dtextforce,rhozero,alphapeak,alphasum
 
  if (id==master) write(*,'(/,a)') '--> testing entropy does not decrease in a tidal disruption'
+ if (imetric == imet_minkowski .or. imetric == imet_et) then
+    if (id==master) write(*,'(/,a)') '   Skipping test! Metric has no black hole.'
+    return
+ endif
  iverbose = 0
 
  ! polytropic star, with no relaxation since the test only needs tidal distortion

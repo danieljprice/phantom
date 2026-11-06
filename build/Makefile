@@ -1313,7 +1313,8 @@ cleancombinedustdumps:
 #----------------------------------------------------
 # these are the sources for the tabulate_metric tility
 .PHONY: tabulate_metric
-SRCTAB= io.F90 utils_infiles.f90 metric_${METRIC}.f90 metric_et_utils.f90 tabulate_metric.f90 #metric_tools.F90
+SRCTAB= config.F90 io.F90 utils_infiles.f90 utils_dumpfiles.f90 utils_tables.f90 inverse4x4.f90 metric_et_utils.f90 \
+        metric_${METRIC}.f90 metric_tools.f90 tabulate_metric.f90
 OBJTAB1= $(SRCTAB:.F90=.o)
 OBJTAB= $(OBJTAB1:.f90=.o)
 

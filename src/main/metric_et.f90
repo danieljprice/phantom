@@ -12,9 +12,10 @@ module metric
 !
 ! :Owner: Spencer Magnall
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - metric_file : *file from which to read tabulated metric (if present)*
 !
-! :Dependencies: dump_utils, infile_utils, metric_et_utils, table_utils
+! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
@@ -34,40 +35,36 @@ contains
 !+
 !----------------------------------------------------------------
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
- use metric_et_utils, only:gridinit
+ use metric_et_utils, only:gridinit,interpolate_gcov
+ use inverse4x4,      only:inv4x4
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
- integer :: ierr
+ real :: gconi(0:3,0:3),det
 
  ! The subroutine that computes the metric tensor for a given position
  ! In this case it is interpolated from the global grid values
- ! Perform trilinear interpolation
- if ( .not. gridinit) then
-    ierr = 1
+ if (.not.gridinit) then
     ! This is required for phantomsetup
     ! As no grid information has been passed to phantom from ET
     ! So interpolation cannot be performed
-    if (ierr /= 0) then
-       gcov = 0.
-       gcov(0,0) = -1.
-       gcov(1,1) = 1.
-       gcov(2,2) = 1.
-       gcov(3,3) = 1.
-       if (present(gcon)) then
-          gcon      = 0.
-          gcon(0,0) = -1.
-          gcon(1,1) = 1.
-          gcon(2,2) = 1.
-          gcon(3,3) = 1.
-       endif
-       if (present(sqrtg)) sqrtg   = -1.
-    endif
- elseif (present(gcon) .and. present(sqrtg)) then
-    call interpolate_metric(position,gcov,gcon,sqrtg)
+    gcov = 0.
+    gcov(0,0) = -1.
+    gcov(1,1) = 1.
+    gcov(2,2) = 1.
+    gcov(3,3) = 1.
+    if (present(gcon)) gcon = gcov
+    if (present(sqrtg)) sqrtg = 1.
  else
-    call interpolate_metric(position,gcov)
+    call interpolate_gcov(position,gcov)
+    ! inverse and determinant are computed from the interpolated metric,
+    ! so that they are consistent with it
+    if (present(gcon) .or. present(sqrtg)) then
+       call inv4x4(gcov,gconi,det)
+       if (present(gcon)) gcon = gconi
+       if (present(sqrtg)) sqrtg = sqrt(abs(det))
+    endif
  endif
 
 end subroutine get_metric_cartesian
@@ -113,24 +110,19 @@ end subroutine get_metric_spherical
 !+
 !-----------------------------------------------------------------------
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- use metric_et_utils, only:gridinit
+ use metric_et_utils, only:gridinit,interpolate_gcov_derivs
  real, intent(in)  :: position(3)
  real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
- integer :: ierr
+ real :: dgcov(0:3,0:3,3)
 
- if (.not. gridinit) then
-    ierr  = 1
-    if (ierr /= 0) then
-       dgcovdx = 0.
-       dgcovdy = 0.
-       dgcovdz = 0.
-    else
-       !    gridinit = .true.
-       call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
-    endif
+ if (.not.gridinit) then
+    dgcov = 0.
  else
-    call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
+    call interpolate_gcov_derivs(position,dgcov)
  endif
+ dgcovdx = dgcov(:,:,1)
+ dgcovdy = dgcov(:,:,2)
+ dgcovdz = dgcov(:,:,3)
 
 end subroutine metric_cartesian_derivatives
 
@@ -239,11 +231,12 @@ end subroutine read_headeropts_metric
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_metric(iunit)
- !use infile_utils, only:write_inopt
+ use infile_utils,    only:write_inopt
+ use metric_et_utils, only:metric_file
  integer, intent(in) :: iunit
 
- !write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
- !call write_inopt(metric_file,'metric_file','file from which to read tabulated metric (blank if used with einsteintk)',iunit)
+ write(iunit,"(/,a)") '# options relating to the '//trim(metric_type)//' metric'
+ call write_inopt(metric_file,'metric_file','file from which to read tabulated metric (if present)',iunit)
 
 end subroutine write_options_metric
 
@@ -253,240 +246,14 @@ end subroutine write_options_metric
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_metric(db,nerr)
- use infile_utils, only:inopts,read_inopt
+ use infile_utils,    only:inopts,read_inopt
+ use metric_et_utils, only:metric_file
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
- !call read_inopt(metric_file,'metric_file',db,errcount=nerr)
+ call read_inopt(metric_file,'metric_file',db,errcount=nerr)
 
 end subroutine read_options_metric
-
-!-----------------------------------------------------------------------
-!+
-! Interpolates value from grid to position
-!+
-!-----------------------------------------------------------------------
-pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
- ! linear and cubic interpolators should be moved to their own subroutine
- ! away from eos_shen
- use table_utils,     only:linear_interpolator_one_d
- use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
- real, intent(in)  :: position(3)
- real, intent(out) :: gcov(0:3,0:3)
- real, intent(out), optional :: gcon(0:3,0:3), sqrtg
- integer :: xlower,ylower,zlower!,xupper,yupper,zupper
- real    :: xlowerpos,ylowerpos,zlowerpos
- real :: xd,yd,zd
- real :: interptmp(7)
- integer :: i,j
-
- ! If the issue is that the metric vals are undefined on
- ! Setup since we have not recieved anything about the metric
- ! from ET during phantomsetup
- ! Then simply set gcov and gcon to 0
- ! as these values will be overwritten during the run anyway
- ! Get neighbours
- call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
-
- xlowerpos = gridorigin(1) + (xlower-1)*dxgrid(1)
- ylowerpos = gridorigin(2) + (ylower-1)*dxgrid(2)
- zlowerpos = gridorigin(3) + (zlower-1)*dxgrid(3)
-
- xd = (position(1) - xlowerpos)/(dxgrid(1))
- yd = (position(2) - ylowerpos)/(dxgrid(2))
- zd = (position(3) - zlowerpos)/(dxgrid(3))
-
- interptmp = 0.
- ! All the interpolation should go into an interface, then you should just call trilinear_interp
- ! interpolate for gcov
- do i=0, 3
-    do j=0, 3
-       ! Interpolate along x
-       call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower,zlower), &
-                gcovgrid(i,j,xlower+1,ylower,zlower),xd,interptmp(1))
-       call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower,zlower+1), &
-                gcovgrid(i,j,xlower+1,ylower,zlower+1),xd,interptmp(2))
-       call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower+1,zlower), &
-                gcovgrid(i,j,xlower+1,ylower+1,zlower),xd,interptmp(3))
-       call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower+1,zlower+1), &
-                gcovgrid(i,j,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-       ! Interpolate along y
-       call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-       call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-       ! Interpolate along z
-       call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
-       gcov(i,j) = interptmp(7)
-    enddo
- enddo
-
- if (present(gcon)) then
-    ! interpolate for gcon
-    do i=0, 3
-       do j=0, 3
-          ! Interpolate along x
-          call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower,zlower), &
-                gcongrid(i,j,xlower+1,ylower,zlower),xd,interptmp(1))
-          call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower,zlower+1), &
-                gcongrid(i,j,xlower+1,ylower,zlower+1),xd,interptmp(2))
-          call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower+1,zlower), &
-                gcongrid(i,j,xlower+1,ylower+1,zlower),xd,interptmp(3))
-          call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower+1,zlower+1), &
-                gcongrid(i,j,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-          ! Interpolate along y
-          call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-          call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-          ! Interpolate along z
-          call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
-          gcon(i,j) = interptmp(7)
-       enddo
-    enddo
- endif
-
- if (present(sqrtg)) then
-    ! Interpolate for sqrtg
-    ! Interpolate along x
-    call linear_interpolator_one_d(sqrtggrid(xlower,ylower,zlower), &
-                sqrtggrid(xlower+1,ylower,zlower),xd,interptmp(1))
-    call linear_interpolator_one_d(sqrtggrid(xlower,ylower,zlower+1), &
-                sqrtggrid(xlower+1,ylower,zlower+1),xd,interptmp(2))
-    call linear_interpolator_one_d(sqrtggrid(xlower,ylower+1,zlower), &
-                sqrtggrid(xlower+1,ylower+1,zlower),xd,interptmp(3))
-    call linear_interpolator_one_d(sqrtggrid(xlower,ylower+1,zlower+1), &
-                sqrtggrid(xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-    ! Interpolate along y
-    call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-    call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-    ! Interpolate along z
-    call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
-    sqrtg = interptmp(7)
- endif
-
-end subroutine interpolate_metric
-
-!-----------------------------------------------------------------------
-!+
-! Interpolates derivatives of the metric from the grid to the position
-!+
-!-----------------------------------------------------------------------
-pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
- use table_utils,     only:linear_interpolator_one_d
- use metric_et_utils, only:metricderivsgrid, dxgrid,gridorigin
- real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
- real, intent(in)  :: position(3)
- integer :: xlower,ylower,zlower!,xupper,yupper,zupper
- real :: xd,yd,zd,xlowerpos, ylowerpos,zlowerpos
- real :: interptmp(7)
- integer :: i,j
-
- call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
-
- xlowerpos = gridorigin(1) + (xlower-1)*dxgrid(1)
- ylowerpos = gridorigin(2) + (ylower-1)*dxgrid(2)
- zlowerpos = gridorigin(3) + (zlower-1)*dxgrid(3)
-
- xd = (position(1) - xlowerpos)/(dxgrid(1))
- yd = (position(2) - ylowerpos)/(dxgrid(2))
- zd = (position(3) - zlowerpos)/(dxgrid(3))
-
- interptmp = 0.
-
- ! Interpolate for dx
- do i=0, 3
-    do j=0, 3
-       ! Interpolate along x
-       call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower,zlower), &
-                metricderivsgrid(i,j,1,xlower+1,ylower,zlower),xd,interptmp(1))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower,zlower+1), &
-                metricderivsgrid(i,j,1,xlower+1,ylower,zlower+1),xd,interptmp(2))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower+1,zlower), &
-                metricderivsgrid(i,j,1,xlower+1,ylower+1,zlower),xd,interptmp(3))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower+1,zlower+1), &
-                metricderivsgrid(i,j,1,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-       ! Interpolate along y
-       call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-       call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-       ! Interpolate along z
-       call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
-       dgcovdx(i,j) = interptmp(7)
-    enddo
- enddo
- ! Interpolate for dy
- do i=0, 3
-    do j=0, 3
-       ! Interpolate along x
-       call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower,zlower), &
-                metricderivsgrid(i,j,2,xlower+1,ylower,zlower),xd,interptmp(1))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower,zlower+1), &
-                metricderivsgrid(i,j,2,xlower+1,ylower,zlower+1),xd,interptmp(2))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower+1,zlower), &
-                metricderivsgrid(i,j,2,xlower+1,ylower+1,zlower),xd,interptmp(3))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower+1,zlower+1), &
-                metricderivsgrid(i,j,2,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-       ! Interpolate along y
-       call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-       call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-       ! Interpolate along z
-       call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
-       dgcovdy(i,j) = interptmp(7)
-    enddo
- enddo
-
- ! Interpolate for dz
- do i=0, 3
-    do j=0, 3
-       ! Interpolate along x
-       call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower,zlower), &
-                metricderivsgrid(i,j,3,xlower+1,ylower,zlower),xd,interptmp(1))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower,zlower+1), &
-                metricderivsgrid(i,j,3,xlower+1,ylower,zlower+1),xd,interptmp(2))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower+1,zlower), &
-                metricderivsgrid(i,j,3,xlower+1,ylower+1,zlower),xd,interptmp(3))
-       call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower+1,zlower+1), &
-                metricderivsgrid(i,j,3,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-       ! Interpolate along y
-       call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-       call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-       ! Interpolate along z
-       call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
-       dgcovdz(i,j) = interptmp(7)
-    enddo
- enddo
-
-end subroutine interpolate_metric_derivs
-
-!-----------------------------------------------------------------------
-!+
-!  Utility routine to get the lower grid neighbours of a position
-!+
-!-----------------------------------------------------------------------
-pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
- use metric_et_utils, only:gridorigin
- real,    intent(in)  :: position(3)
- real,    intent(in)  :: dx(3)
- integer, intent(out) :: xlower,ylower,zlower
-
- ! Get the lower grid neighbours of the position
- ! If this is broken change from floor to int
- ! How are we handling the edge case of a particle being
- ! in exactly the same position as the grid?
- ! Hopefully having different grid sizes in each direction
- ! Doesn't break the lininterp
- xlower = floor((position(1)-gridorigin(1))/dx(1))
- ylower = floor((position(2)-gridorigin(2))/dx(2))
- zlower = floor((position(3)-gridorigin(3))/dx(3))
-
- ! +1 because fortran
- xlower = xlower + 1
- ylower = ylower + 1
- zlower = zlower + 1
-
-end subroutine get_grid_neighbours
 
 end module metric
 

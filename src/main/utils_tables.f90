@@ -20,7 +20,7 @@ module table_utils
 
  public :: yinterp, linspace, logspace, diff, flip_array, interpolator
  public :: find_nearest_index, interp_1d, linear_interpolator_one_d, interpolate_1d
- public :: differentiate
+ public :: differentiate, interp3d_hermite
 
  private
 
@@ -325,5 +325,214 @@ subroutine differentiate(y,x,dydx)
  ! enddo
 
 end subroutine differentiate
+
+!-----------------------------------------------------------------------
+!+
+!  Tricubic Hermite interpolation of nc fields tabulated on a uniform,
+!  vertex-centred 3D grid (node (i,j,k) at x0 + (i-1,j-1,k-1)*dx), given
+!  the values f and their first derivatives df at the nodes. Mixed
+!  derivatives are taken by centred differences of df.
+!
+!  The interpolant is C1 and exact for polynomials up to cubic order;
+!  values converge at 4th order and gradients at 3rd order. The returned
+!  gradient is the exact derivative of the interpolant, so a force
+!  computed from it is consistent with the interpolated field (this is
+!  what gives energy conservation for geodesics in a tabulated metric).
+!
+!  For a periodic grid, node n+1 is identified with node 1; otherwise
+!  positions outside the grid are extrapolated from the edge cell and
+!  one-sided differences are used at the edges.
+!+
+!-----------------------------------------------------------------------
+pure subroutine interp3d_hermite(nc,n,f,df,x0,dx,periodic,x,val,grad)
+ integer, intent(in)  :: nc,n(3)
+ real,    intent(in)  :: f(nc,n(1),n(2),n(3)),df(nc,3,n(1),n(2),n(3))
+ real,    intent(in)  :: x0(3),dx(3),x(3)
+ logical, intent(in)  :: periodic
+ real,    intent(out) :: val(nc)
+ real,    intent(out), optional :: grad(nc,3)
+ real    :: t(3),h(0:1,0:1,3),dh(0:1,0:1,3),d(nc)
+ integer :: i0(3),ijk(3),cx,cy,cz,a,b,c,idim
+
+ call cell_index_3d(x,x0,dx,n,periodic,i0,t)
+ do idim=1,3
+    call hermite_basis(t(idim),h(:,:,idim),dh(:,:,idim))
+ enddo
+
+ val = 0.
+ if (present(grad)) grad = 0.
+ do cz=0,1
+    do cy=0,1
+       do cx=0,1
+          ijk(1) = grid_index(i0(1)+cx,n(1),periodic)
+          ijk(2) = grid_index(i0(2)+cy,n(2),periodic)
+          ijk(3) = grid_index(i0(3)+cz,n(3),periodic)
+          do c=0,1
+             do b=0,1
+                do a=0,1
+                   call hermite_nodal_data_3d(nc,n,f,df,dx,periodic,a,b,c,ijk,d)
+                   ! convert derivatives to units of the grid spacing
+                   d = dx(1)**a * dx(2)**b * dx(3)**c * d
+                   val = val + h(a,cx,1)*h(b,cy,2)*h(c,cz,3)*d
+                   if (present(grad)) then
+                      grad(:,1) = grad(:,1) + dh(a,cx,1)*h(b,cy,2)*h(c,cz,3)*d
+                      grad(:,2) = grad(:,2) + h(a,cx,1)*dh(b,cy,2)*h(c,cz,3)*d
+                      grad(:,3) = grad(:,3) + h(a,cx,1)*h(b,cy,2)*dh(c,cz,3)*d
+                   endif
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+ enddo
+ if (present(grad)) then
+    do idim=1,3
+       grad(:,idim) = grad(:,idim)/dx(idim)
+    enddo
+ endif
+
+end subroutine interp3d_hermite
+
+!-----------------------------------------------------------------------
+!+
+!  lower node index i0 of the grid cell containing x, and the fractional
+!  position t within the cell (for a non-periodic grid the edge cell is
+!  used for positions outside the grid)
+!+
+!-----------------------------------------------------------------------
+pure subroutine cell_index_3d(x,x0,dx,n,periodic,i0,t)
+ real,    intent(in)  :: x(3),x0(3),dx(3)
+ integer, intent(in)  :: n(3)
+ logical, intent(in)  :: periodic
+ integer, intent(out) :: i0(3)
+ real,    intent(out) :: t(3)
+ real    :: s
+ integer :: idim
+
+ do idim=1,3
+    s = (x(idim) - x0(idim))/dx(idim)
+    i0(idim) = floor(s) + 1
+    if (.not.periodic) i0(idim) = min(max(i0(idim),1),max(n(idim)-1,1))
+    t(idim) = s - (i0(idim) - 1)
+ enddo
+
+end subroutine cell_index_3d
+
+!-----------------------------------------------------------------------
+!+
+!  map a node index onto the grid: wrap if periodic, clamp otherwise
+!+
+!-----------------------------------------------------------------------
+pure integer function grid_index(i,n,periodic)
+ integer, intent(in) :: i,n
+ logical, intent(in) :: periodic
+
+ if (periodic) then
+    grid_index = modulo(i-1,n) + 1
+ else
+    grid_index = min(max(i,1),n)
+ endif
+
+end function grid_index
+
+!-----------------------------------------------------------------------
+!+
+!  neighbouring nodes im, ip used for a centred difference at node i, and
+!  their separation in units of the grid spacing (one-sided differences
+!  at the edges of a non-periodic grid)
+!+
+!-----------------------------------------------------------------------
+pure subroutine fd_neighbours(i,n,periodic,im,ip,nsep)
+ integer, intent(in)  :: i,n
+ logical, intent(in)  :: periodic
+ integer, intent(out) :: im,ip,nsep
+
+ if (periodic) then
+    im = grid_index(i-1,n,periodic)
+    ip = grid_index(i+1,n,periodic)
+    nsep = 2
+ else
+    im = max(i-1,1)
+    ip = min(i+1,n)
+    nsep = ip - im
+ endif
+
+end subroutine fd_neighbours
+
+!-----------------------------------------------------------------------
+!+
+!  1D cubic Hermite basis functions h(a,c) and dh/dt on t in [0,1], where
+!  c=0,1 is the end of the interval and a=0 multiplies the value, a=1 the
+!  derivative (in units of the interval length)
+!+
+!-----------------------------------------------------------------------
+pure subroutine hermite_basis(t,h,dh)
+ real, intent(in)  :: t
+ real, intent(out) :: h(0:1,0:1),dh(0:1,0:1)
+ real :: t2,t3
+
+ t2 = t*t
+ t3 = t2*t
+ h(0,0) = 2.*t3 - 3.*t2 + 1.
+ h(1,0) = t3 - 2.*t2 + t
+ h(0,1) = -2.*t3 + 3.*t2
+ h(1,1) = t3 - t2
+ dh(0,0) = 6.*t2 - 6.*t
+ dh(1,0) = 3.*t2 - 4.*t + 1.
+ dh(0,1) = -6.*t2 + 6.*t
+ dh(1,1) = 3.*t2 - 2.*t
+
+end subroutine hermite_basis
+
+!-----------------------------------------------------------------------
+!+
+!  nodal data for the tricubic Hermite interpolant at node ijk: the
+!  derivative d^(a+b+c) f / dx^a dy^b dz^c for a,b,c in {0,1}. First
+!  derivatives come from df; mixed derivatives are centred differences
+!  of df in the remaining directions
+!+
+!-----------------------------------------------------------------------
+pure subroutine hermite_nodal_data_3d(nc,n,f,df,dx,periodic,a,b,c,ijk,d)
+ integer, intent(in)  :: nc,n(3),a,b,c,ijk(3)
+ real,    intent(in)  :: f(nc,n(1),n(2),n(3)),df(nc,3,n(1),n(2),n(3)),dx(3)
+ logical, intent(in)  :: periodic
+ real,    intent(out) :: d(nc)
+ integer :: idir,i,j,k,jm,jp,km,kp,nsepj,nsepk
+
+ i = ijk(1)
+ j = ijk(2)
+ k = ijk(3)
+ if (a+b+c == 0) then
+    d = f(:,i,j,k)
+    return
+ endif
+ ! direction of the tabulated first derivative to start from
+ if (a==1) then
+    idir = 1
+ elseif (b==1) then
+    idir = 2
+ else
+    idir = 3
+ endif
+
+ if (a==1 .and. b==1 .and. c==1) then
+    ! d^3 f/dxdydz = d^2 (df/dx)/dydz
+    call fd_neighbours(j,n(2),periodic,jm,jp,nsepj)
+    call fd_neighbours(k,n(3),periodic,km,kp,nsepk)
+    d = (df(:,1,i,jp,kp) - df(:,1,i,jp,km) - df(:,1,i,jm,kp) + df(:,1,i,jm,km)) &
+        /(nsepj*dx(2)*nsepk*dx(3))
+ elseif (idir==1 .and. b==1) then
+    ! d^2 f/dxdy = d(df/dx)/dy
+    call fd_neighbours(j,n(2),periodic,jm,jp,nsepj)
+    d = (df(:,1,i,jp,k) - df(:,1,i,jm,k))/(nsepj*dx(2))
+ elseif (idir < 3 .and. c==1) then
+    ! d^2 f/dxdz or d^2 f/dydz = d(df/dx or df/dy)/dz
+    call fd_neighbours(k,n(3),periodic,km,kp,nsepk)
+    d = (df(:,idir,i,j,kp) - df(:,idir,i,j,km))/(nsepk*dx(3))
+ else
+    d = df(:,idir,i,j,k)
+ endif
+
+end subroutine hermite_nodal_data_3d
 
 end module table_utils
