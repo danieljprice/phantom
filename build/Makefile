@@ -473,7 +473,19 @@ else
     SRCMETRIC= metric_minkowski.f90
 endif
 
-SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
+#
+# numerical relativity library (libnr) evolving the metric, else a stub of its interface
+#
+ifeq ($(NR), yes)
+    NRDIR ?= $(HOME)/nr
+    FFLAGS += -I$(NRDIR)/lib
+    LDFLAGS += -L$(NRDIR)/lib -lnr
+    SRCNRAPI=
+else
+    SRCNRAPI= nr_api_none.f90
+endif
+
+SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCNRAPI) $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
 #
@@ -522,7 +534,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 geometry.f90 \
          ptmass.F90 force.F90 deriv.f90 ${SRCAPR} readwrite_infile.f90 energies.f90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.f90 writeheader.f90 ${SRCAN} \
          mf_write.f90 egg.f90 evolve_utils.F90 utils_pcg.f90 divb_projection.f90 evolve.f90 utils_linalg.f90 \
-         checksetup.f90 initial.F90
+         checksetup.f90 extern_nr.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
 ifeq ($(GR),yes)
@@ -1314,7 +1326,7 @@ cleancombinedustdumps:
 # these are the sources for the tabulate_metric tility
 .PHONY: tabulate_metric
 SRCTAB= config.F90 io.F90 utils_infiles.f90 utils_dumpfiles.f90 utils_tables.f90 inverse4x4.f90 metric_et_utils.f90 \
-        metric_${METRIC}.f90 metric_tools.f90 tabulate_metric.f90
+        $(SRCNRAPI) metric_${METRIC}.f90 metric_tools.f90 tabulate_metric.f90
 OBJTAB1= $(SRCTAB:.F90=.o)
 OBJTAB= $(OBJTAB1:.f90=.o)
 
@@ -1322,7 +1334,7 @@ tabulate_metric: checksys $(OBJTAB)
 	@echo ""
 	@echo "tabulate_metric: Because grids are great"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTAB)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTAB) $(LDFLAGS)
 
 cleantabulatemetric:
 	rm -f $(BINDIR)/tabulate_metric

@@ -15,15 +15,17 @@ module checkconserved
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
+! :Dependencies: boundary_dyn, dim, eos, externalforces, io, metric_tools,
+!   options, part
 !
- use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts
+ use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts,gr
  use eos,            only:eos_conserves_energy
  use options,        only:use_dustfrac,iexternalforce
  use part,           only:iboundary,npartoftype,ndustsmall,massoftype,igas
  use boundary_dyn,   only:dynamic_bdy
  use externalforces, only:iext_corot_binary
  use io,             only:id,master,iverbose,warning,error,fatal
+ use metric_tools,   only:metric_is_time_dependent
  implicit none
  real, public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
  real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes),mtot_in
@@ -49,6 +51,12 @@ subroutine init_conservation_checks()
  ! as long as all heating terms are included
  !
  should_conserve_energy = eos_conserves_energy()
+ !
+ ! energy is not conserved in a time-dependent spacetime (e.g. FLRW)
+ !
+ if (gr) then
+    if (metric_is_time_dependent()) should_conserve_energy = .false.
+ endif
  !
  ! code should conserve momentum unless boundary particles are employed
  !

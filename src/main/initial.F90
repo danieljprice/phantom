@@ -53,7 +53,7 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use metric,           only:metric_type
- use metric_et_utils,  only:read_tabulated_metric,gridinit,metric_file
+ use metric_et_utils,  only:read_tabulated_metric,gridinit,metric_file,evolve_metric
  integer :: ierr
 
 !
@@ -88,7 +88,7 @@ subroutine initialise()
 !
 !--initialise metric if tabulated
 !
- if (gr .and. metric_type=='et') then
+ if (gr .and. metric_type=='et' .and. .not.evolve_metric) then
     call read_tabulated_metric(metric_file,ierr)
     if (ierr == 0) gridinit = .true.
  endif
@@ -470,7 +470,9 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
  use externalforces, only:initialise_externalforces,externalforce,&
                           externalforce_vdependent,update_externalforce
  use extern_gr,      only:get_grforce_all
- use metric_tools,   only:imet_minkowski,imetric,init_metric
+ use metric_tools,   only:imet_minkowski,imet_et,imetric,init_metric
+ use metric_et_utils,only:evolve_metric
+ use extern_nr,      only:init_extern_nr
  use mpiutils,       only:reduceall_mpi
  use options,        only:iexternalforce
  use timestep,       only:C_force
@@ -489,6 +491,11 @@ subroutine initialise_external_forces_and_gr(time,dtextforce,ierr)
     call get_density_global(2,zero_fxyzu=.true.)
     call init_metric(npart,xyzh,metrics,metricderivs,time=time)
     call prim2consall(npart,xyzh,metrics,vxyzu,pxyzu,dens=dens)
+    if (imetric==imet_et .and. evolve_metric) then
+       ! metric evolved by the NR code, from initial data set by the particles
+       call init_extern_nr(time)
+       call init_metric(npart,xyzh,metrics,metricderivs,time=time)
+    endif
     if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
        call initialise_externalforces(iexternalforce,ierr)
        if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')

@@ -13,9 +13,11 @@ module metric
 ! :Owner: Spencer Magnall
 !
 ! :Runtime parameters:
-!   - metric_file : *file from which to read tabulated metric (if present)*
+!   - evolve_metric : *evolve the metric with the NR code (else read metric_file)*
+!   - metric_file   : *file from which to read tabulated metric (if present)*
+!   - ngrid_evolve  : *grid nodes per dimension for the evolved metric*
 !
-! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils
+! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils, nr_api
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'
@@ -179,7 +181,11 @@ end subroutine cartesian2spherical
 !+
 !-------------------------------------------------------------------------------
 subroutine update_metric(time)
+ use metric_et_utils, only:advance_metric
  real, intent(in) :: time
+
+ ! advance the metric if it is evolved by a numerical relativity code
+ if (associated(advance_metric)) call advance_metric(time)
 
 end subroutine update_metric
 
@@ -232,11 +238,17 @@ end subroutine read_headeropts_metric
 !-----------------------------------------------------------------------
 subroutine write_options_metric(iunit)
  use infile_utils,    only:write_inopt
- use metric_et_utils, only:metric_file
+ use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve
+ use nr_api,          only:nr_linked,nr_write_options
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options relating to the '//trim(metric_type)//' metric'
  call write_inopt(metric_file,'metric_file','file from which to read tabulated metric (if present)',iunit)
+ if (nr_linked()) then
+    call write_inopt(evolve_metric,'evolve_metric','evolve the metric with the NR code (else read metric_file)',iunit)
+    call write_inopt(ngrid_evolve,'ngrid_evolve','grid nodes per dimension for the evolved metric',iunit)
+    call nr_write_options(iunit)
+ endif
 
 end subroutine write_options_metric
 
@@ -247,11 +259,17 @@ end subroutine write_options_metric
 !-----------------------------------------------------------------------
 subroutine read_options_metric(db,nerr)
  use infile_utils,    only:inopts,read_inopt
- use metric_et_utils, only:metric_file
+ use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve
+ use nr_api,          only:nr_linked,nr_read_options
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
 
  call read_inopt(metric_file,'metric_file',db,errcount=nerr)
+ if (nr_linked()) then
+    call read_inopt(evolve_metric,'evolve_metric',db,errcount=nerr)
+    call read_inopt(ngrid_evolve,'ngrid_evolve',db,min=5,errcount=nerr)
+    call nr_read_options(db,nerr)
+ endif
 
 end subroutine read_options_metric
 

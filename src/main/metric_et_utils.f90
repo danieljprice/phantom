@@ -37,6 +37,19 @@ module metric_et_utils
  logical,            public :: periodic_grid = .false.
  character(len=120), public :: metric_file   = 'tabulated_metric.dat'
 
+ ! metric evolved by the numerical relativity code (see extern_nr),
+ ! on a periodic grid of ngrid_evolve nodes per dimension
+ logical,            public :: evolve_metric = .false.
+ integer,            public :: ngrid_evolve  = 32
+
+ ! routine that advances an evolved metric on the grid to a given time
+ abstract interface
+  subroutine advance_metric_func(time)
+   real, intent(in) :: time
+  end subroutine advance_metric_func
+ end interface
+ procedure(advance_metric_func), pointer, public :: advance_metric => null()
+
  public :: allocate_grid,initialize_grid,print_metric_grid
  public :: write_tabulated_metric,read_tabulated_metric
  public :: interpolate_gcov,interpolate_gcov_derivs
