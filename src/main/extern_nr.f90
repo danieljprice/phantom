@@ -306,7 +306,7 @@ end subroutine extrapolate_particles
 !+
 !-----------------------------------------------------------------------
 subroutine deposit_tmunu(npart,xyzh,tmunus,tmunu,rhostar)
- use part,             only:rho,massoftype,igas,isdead_or_accreted
+ use part,             only:rho,massoftype,igas,isdead_or_accreted,iphase,iamtype,maxphase,maxp
  use metric_et_utils,  only:gridsize,dxgrid,gridorigin
  use interpolations3D, only:interpolate3D_vecexact
  integer,     intent(in)  :: npart
@@ -317,21 +317,28 @@ subroutine deposit_tmunu(npart,xyzh,tmunus,tmunu,rhostar)
  integer, parameter :: ndat = 17
  real, allocatable :: dat(:,:),weights(:),datsmooth(:,:,:,:)
  integer, allocatable :: itype(:)
- integer :: i,mu,nu,nalive
- real :: cfac
+ integer :: i,mu,nu,itypei
+ real :: cfac,mtot,pmassi
 
  allocate(dat(npart,ndat),weights(npart),itype(npart))
  allocate(datsmooth(ndat,gridsize(1),gridsize(2),gridsize(3)))
- nalive = 0
+ mtot = 0.
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,tmunus,rho,massoftype,iphase,dat,weights,itype,maxphase,maxp) &
+ !$omp private(i,mu,nu,itypei,pmassi) &
+ !$omp reduction(+:mtot)
  do i=1,npart
     if (isdead_or_accreted(xyzh(4,i))) then
        itype(i) = -1
        weights(i) = 0.
        dat(i,:) = 0.
     else
-       nalive = nalive + 1
-       itype(i) = igas
-       weights(i) = massoftype(igas)/(rho(i)*xyzh(4,i)**3)
+       itypei = igas
+       if (maxphase==maxp) itypei = iamtype(iphase(i))
+       pmassi = massoftype(itypei)
+       mtot = mtot + pmassi
+       itype(i) = itypei
+       weights(i) = pmassi/(rho(i)*xyzh(4,i)**3)
        do nu=0,3
           do mu=0,3
              dat(i,1 + mu + 4*nu) = tmunus(mu+1,nu+1,i)
@@ -340,6 +347,7 @@ subroutine deposit_tmunu(npart,xyzh,tmunus,tmunu,rhostar)
        dat(i,ndat) = rho(i)
     endif
  enddo
+ !$omp end parallel do
 
  ! pixel i of the interpolation is at xmin + i*dx, so shifting the origin
  ! by one cell puts pixel i on grid node i
@@ -348,7 +356,7 @@ subroutine deposit_tmunu(npart,xyzh,tmunus,tmunu,rhostar)
                              gridsize(1),gridsize(2),gridsize(3),dxgrid(1),dxgrid(2),dxgrid(3),&
                              .true.,.true.,.true.,.true.)
 
- cfac = nalive*massoftype(igas)/(sum(datsmooth(ndat,:,:,:))*product(dxgrid))
+ cfac = mtot/(sum(datsmooth(ndat,:,:,:))*product(dxgrid))
  do nu=0,3
     do mu=0,3
        tmunu(mu,nu,:,:,:) = cfac*datsmooth(1 + mu + 4*nu,:,:,:)

@@ -6,10 +6,10 @@
 !--------------------------------------------------------------------------!
 module utils_dft
 !
-! Discrete Fourier transforms on small uniform periodic grids, and a
-! spectral solver for the periodic Helmholtz (or Poisson) equation.
-! The transforms are direct (slow) DFTs, cost O(n^4) on an n^3 grid, so
-! are intended for small grids (e.g. setting up initial data)
+! Discrete Fourier transforms on uniform periodic grids, and a spectral
+! solver for the periodic Helmholtz (or Poisson) equation. Lines whose
+! length is a power of two use a radix-2 fast Fourier transform, costing
+! O(n^3 log n) on an n^3 grid; other lengths fall back to a direct DFT
 !
 ! :References: None
 !
@@ -17,9 +17,12 @@ module utils_dft
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon
+! :Dependencies: None
 !
  implicit none
+
+ ! pi to full precision (physcon:pi is truncated at 11 digits)
+ real, parameter :: pi = acos(-1.)
 
  public :: solve_helmholtz_periodic,dft_3d,dft_1d,wavenumber
 
@@ -45,6 +48,7 @@ subroutine solve_helmholtz_periodic(f,dx,c,phi)
  allocate(fk(n(1),n(2),n(3)))
  fk = cmplx(f,0.,kind=kind(f))
  call dft_3d(fk,-1)
+ !$omp parallel do default(none) shared(n,dx,c,fk) private(i,j,k,k2,denom)
  do k=1,n(3)
     do j=1,n(2)
        do i=1,n(1)
@@ -58,6 +62,7 @@ subroutine solve_helmholtz_periodic(f,dx,c,phi)
        enddo
     enddo
  enddo
+ !$omp end parallel do
  call dft_3d(fk,1)
  phi = real(fk)/product(n)
 
@@ -69,7 +74,6 @@ end subroutine solve_helmholtz_periodic
 !+
 !-----------------------------------------------------------------------
 pure real function wavenumber(i,n,dx)
- use physcon, only:pi
  integer, intent(in) :: i,n
  real,    intent(in) :: dx
  integer :: m
@@ -83,40 +87,77 @@ end function wavenumber
 !-----------------------------------------------------------------------
 !+
 !  unnormalised discrete Fourier transform along each dimension of a 3D
-!  array, with exponent sign isign*2 pi i jk/n (slow DFT, for small grids)
+!  array, with exponent sign isign*2 pi i jk/n. Lines are copied to a
+!  contiguous buffer and transformed in parallel
 !+
 !-----------------------------------------------------------------------
 subroutine dft_3d(a,isign)
  complex, intent(inout) :: a(:,:,:)
  integer, intent(in)    :: isign
+ complex, allocatable :: line(:)
  integer :: i,j,k,n(3)
 
  n = shape(a)
+ !$omp parallel default(none) shared(a,n,isign) private(i,j,k,line)
+ allocate(line(maxval(n)))
+ !$omp do collapse(2)
  do k=1,n(3)
     do j=1,n(2)
-       call dft_1d(a(:,j,k),isign)
+       line(1:n(1)) = a(:,j,k)
+       call dft_1d(line(1:n(1)),isign)
+       a(:,j,k) = line(1:n(1))
     enddo
  enddo
+ !$omp end do
+ !$omp do collapse(2)
  do k=1,n(3)
     do i=1,n(1)
-       call dft_1d(a(i,:,k),isign)
+       line(1:n(2)) = a(i,:,k)
+       call dft_1d(line(1:n(2)),isign)
+       a(i,:,k) = line(1:n(2))
     enddo
  enddo
+ !$omp end do
+ !$omp do collapse(2)
  do j=1,n(2)
     do i=1,n(1)
-       call dft_1d(a(i,j,:),isign)
+       line(1:n(3)) = a(i,j,:)
+       call dft_1d(line(1:n(3)),isign)
+       a(i,j,:) = line(1:n(3))
     enddo
  enddo
+ !$omp end do
+ deallocate(line)
+ !$omp end parallel
 
 end subroutine dft_3d
 
 !-----------------------------------------------------------------------
 !+
-!  unnormalised discrete Fourier transform of one line
+!  unnormalised discrete Fourier transform of one line, by FFT if the
+!  length is a power of two, otherwise directly
 !+
 !-----------------------------------------------------------------------
 subroutine dft_1d(x,isign)
- use physcon, only:pi
+ complex, intent(inout) :: x(:)
+ integer, intent(in)    :: isign
+ integer :: n
+
+ n = size(x)
+ if (n > 1 .and. iand(n,n-1) == 0) then
+    call fft_radix2(x,isign)
+ else
+    call dft_direct(x,isign)
+ endif
+
+end subroutine dft_1d
+
+!-----------------------------------------------------------------------
+!+
+!  direct (O(n^2)) discrete Fourier transform of one line
+!+
+!-----------------------------------------------------------------------
+subroutine dft_direct(x,isign)
  complex, intent(inout) :: x(:)
  integer, intent(in)    :: isign
  complex :: y(size(x))
@@ -131,6 +172,53 @@ subroutine dft_1d(x,isign)
  enddo
  x = y
 
-end subroutine dft_1d
+end subroutine dft_direct
+
+!-----------------------------------------------------------------------
+!+
+!  in-place iterative radix-2 Cooley-Tukey FFT of a line whose length
+!  is a power of two: bit-reversal permutation, then butterflies of
+!  doubling length. Twiddle factors are evaluated directly (not by
+!  recurrence) to keep round-off at the level of a single exp
+!+
+!-----------------------------------------------------------------------
+subroutine fft_radix2(x,isign)
+ complex, intent(inout) :: x(:)
+ integer, intent(in)    :: isign
+ complex :: w,t
+ integer :: n,i,j,m,len,half,k
+
+ n = size(x)
+ ! bit-reversal permutation
+ j = 1
+ do i=1,n
+    if (i < j) then
+       t = x(j)
+       x(j) = x(i)
+       x(i) = t
+    endif
+    m = n/2
+    do while (m >= 1 .and. j > m)
+       j = j - m
+       m = m/2
+    enddo
+    j = j + m
+ enddo
+ ! butterflies
+ len = 2
+ do while (len <= n)
+    half = len/2
+    do k=0,half-1
+       w = exp(cmplx(0.,isign*2.*pi*k/real(len),kind=kind(x)))
+       do i=1,n,len
+          t = w*x(i+k+half)
+          x(i+k+half) = x(i+k) - t
+          x(i+k) = x(i+k) + t
+       enddo
+    enddo
+    len = 2*len
+ enddo
+
+end subroutine fft_radix2
 
 end module utils_dft
