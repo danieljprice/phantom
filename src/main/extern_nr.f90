@@ -168,7 +168,7 @@ end subroutine advance_nr_metric
 !-----------------------------------------------------------------------
 subroutine load_nr_metric()
  use nr_api,          only:nr_get_metric,nr_dt_expansion
- use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,metricderivsgrid,gridinit,dtmax_evolve
+ use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,metricderivsgrid,set_grid_ready,dtmax_evolve
  use part,            only:npart,divcurlv,xyzh,isdead_or_accreted
  real :: divvmax
  integer :: i
@@ -188,7 +188,7 @@ subroutine load_nr_metric()
  gcongrid  = real(gcon_nr)
  sqrtggrid = real(sqrtg_nr)
  metricderivsgrid = real(dgcov_nr)
- gridinit = .true.
+ call set_grid_ready()
 
 end subroutine load_nr_metric
 
@@ -224,7 +224,7 @@ end subroutine get_tmunu_grid
 !-----------------------------------------------------------------------
 subroutine get_tmunu_rhostar_grid(t,gcov,metricderivs,tmunu,rhostar)
  use part,            only:npart,xyzh,pxyzu,vxyzu,fext,dens,rho,divcurlv
- use metric_et_utils, only:gcovgrid,metricderivsgrid,gridinit
+ use metric_et_utils, only:gcovgrid,metricderivsgrid,set_grid_ready
  use metric_tools,    only:init_metric
  use cons2prim,       only:cons2primall
  use extern_gr,       only:get_tmunu_all
@@ -245,7 +245,7 @@ subroutine get_tmunu_rhostar_grid(t,gcov,metricderivs,tmunu,rhostar)
  ! metric at the particles, interpolated from the grid
  gcovgrid = real(gcov)
  metricderivsgrid = real(metricderivs)
- gridinit = .true.
+ call set_grid_ready()
  vxyzu_nr = vxyzu(:,1:npart)
  dens_nr  = dens(1:npart)
  call init_metric(npart,xyzh_nr,metrics_nr,metricderivs_nr)

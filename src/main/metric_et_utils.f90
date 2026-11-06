@@ -27,6 +27,8 @@ module metric_et_utils
  real, allocatable, public :: gcongrid(:,:,:,:,:)
  real, allocatable, public :: sqrtggrid(:,:,:)
  real, allocatable, public :: metricderivsgrid(:,:,:,:,:,:)
+ ! mixed spatial derivatives (xy, xz, yz, xyz) for Hermite interpolation
+ real, allocatable          :: metriccrossgrid(:,:,:,:,:,:)
  real,              public :: dxgrid(3), gridorigin(3)
  integer,           public :: gridsize(3)
  logical,           public :: gridinit = .false.
@@ -53,7 +55,7 @@ module metric_et_utils
  procedure(advance_metric_func), pointer, public :: advance_metric => null()
 
  public :: allocate_grid,initialize_grid,print_metric_grid
- public :: write_tabulated_metric,read_tabulated_metric
+ public :: write_tabulated_metric,read_tabulated_metric,set_grid_ready
  public :: interpolate_gcov,interpolate_gcov_derivs
 
  private
@@ -80,6 +82,7 @@ subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
  if (allocated(gcongrid)) deallocate(gcongrid)
  if (allocated(sqrtggrid)) deallocate(sqrtggrid)
  if (allocated(metricderivsgrid)) deallocate(metricderivsgrid)
+ if (allocated(metriccrossgrid)) deallocate(metriccrossgrid)
  allocate(gcovgrid(0:3,0:3,nx,ny,nz))
  allocate(gcongrid(0:3,0:3,nx,ny,nz))
  allocate(sqrtggrid(nx,ny,nz))
@@ -90,8 +93,24 @@ subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
  ! the metric and we will need an additional array
  ! for time derivs
  allocate(metricderivsgrid(0:3,0:3,3,nx,ny,nz))
+ allocate(metriccrossgrid(0:3,0:3,4,nx,ny,nz))
 
 end subroutine allocate_grid
+
+!---------------------------------------------------------------
+!+
+!  mark the grid as ready for interpolation once gcovgrid and
+!  metricderivsgrid hold the metric, computing the mixed
+!  derivatives used by the Hermite interpolation
+!+
+!---------------------------------------------------------------
+subroutine set_grid_ready()
+ use table_utils, only:hermite_cross_derivs_3d
+
+ call hermite_cross_derivs_3d(16,gridsize,metricderivsgrid,dxgrid,periodic_grid,metriccrossgrid)
+ gridinit = .true.
+
+end subroutine set_grid_ready
 
 !---------------------------------------------------------------
 !+
@@ -192,7 +211,7 @@ subroutine read_tabulated_metric(filename, ierr)
  read(iunit) sqrtggrid
  read(iunit) metricderivsgrid
 
- gridinit = .true.
+ call set_grid_ready()
 
  ! Close the file
  close(iunit)
@@ -211,7 +230,7 @@ pure subroutine interpolate_gcov(position,gcov)
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
 
- call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,gridorigin,dxgrid,&
+ call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,metriccrossgrid,gridorigin,dxgrid,&
                        periodic_grid,position,gcov)
 
 end subroutine interpolate_gcov
@@ -229,7 +248,7 @@ pure subroutine interpolate_gcov_derivs(position,dgcov)
  real, intent(out) :: dgcov(0:3,0:3,3)
  real :: gcov(0:3,0:3)
 
- call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,gridorigin,dxgrid,&
+ call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,metriccrossgrid,gridorigin,dxgrid,&
                        periodic_grid,position,gcov,dgcov)
 
 end subroutine interpolate_gcov_derivs
