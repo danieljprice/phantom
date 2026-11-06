@@ -90,7 +90,8 @@ subroutine init_extern_nr(time)
  n = ngrid_evolve
  dx = [dxbound,dybound,dzbound]/n
  origin = [xmin,ymin,zmin]
- call allocate_grid(n(1),n(2),n(3),dx(1),dx(2),dx(3),origin(1),origin(2),origin(3))
+ call allocate_grid(n(1),n(2),n(3),real(dx(1)),real(dx(2)),real(dx(3)),&
+                    real(origin(1)),real(origin(2)),real(origin(3)))
  periodic_grid = .true.
  allocate(gcov_nr(0:3,0:3,n(1),n(2),n(3)),gcon_nr(0:3,0:3,n(1),n(2),n(3)),sqrtg_nr(n(1),n(2),n(3)))
  allocate(dgcov_nr(0:3,0:3,3,n(1),n(2),n(3)),tmunu(0:3,0:3,n(1),n(2),n(3)))
