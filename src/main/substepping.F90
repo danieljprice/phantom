@@ -239,18 +239,19 @@ end subroutine substep_gr
 !+
 !----------------------------------------------------------------
 subroutine substep_sph(dt,npart,xyzh,vxyzu)
- use part, only:isdead_or_accreted
+ use part,         only:isdead_or_accreted,iamtype,iamboundary,iphase
+ use boundarypart, only:drift_boundary_core
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:)
- real,    intent(in)    :: vxyzu(:,:)
+ real,    intent(inout) :: vxyzu(:,:)
  integer :: i
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,vxyzu,dt) &
+ !$omp shared(npart,xyzh,vxyzu,dt,iphase) &
  !$omp private(i)
  do i=1,npart
-    if (.not.isdead_or_accreted(xyzh(4,i))) then
+    if ((.not.isdead_or_accreted(xyzh(4,i))) .and. (.not.iamboundary(iamtype(iphase(i))))) then
        !
        ! main position update
        !
@@ -260,6 +261,8 @@ subroutine substep_sph(dt,npart,xyzh,vxyzu)
     endif
  enddo
  !$omp end parallel do
+
+ call drift_boundary_core(dt,npart,iphase,xyzh,vxyzu)
 
 end subroutine substep_sph
 
@@ -529,7 +532,6 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,
  !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       ! boundary particles (rigid core) are kicked too: fext is the core-averaged acceleration
        pxyzu(1,i) = pxyzu(1,i) + dkdt*fext(1,i)
        pxyzu(2,i) = pxyzu(2,i) + dkdt*fext(2,i)
        pxyzu(3,i) = pxyzu(3,i) + dkdt*fext(3,i)
@@ -548,7 +550,8 @@ end subroutine kick
 subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,gtgrad, &
                      n_group,n_ingroup,group_info,bin_info)
- use part,     only:isdead_or_accreted
+ use part,         only:isdead_or_accreted,iamboundary,iamtype,iphase
+ use boundarypart, only:drift_boundary_core
  real,    intent(in)    :: dki,cki,dt
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
@@ -573,20 +576,23 @@ subroutine kickdrift(dki,cki,dt,time_par,npart,nptmass,ntypes,xyzh,vxyzu,fext, &
  dkdt = dki*dt
  ckdt = cki*dt
  !$omp parallel do default(none) &
- !$omp shared(npart,fext,xyzh,vxyzu,dkdt,ckdt) &
+ !$omp shared(npart,fext,xyzh,vxyzu,dkdt,ckdt,iphase) &
  !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       ! boundary particles (rigid core) are kicked too: fext is the core-averaged acceleration
        vxyzu(1,i) = vxyzu(1,i) + dkdt*fext(1,i)
        vxyzu(2,i) = vxyzu(2,i) + dkdt*fext(2,i)
        vxyzu(3,i) = vxyzu(3,i) + dkdt*fext(3,i)
-       xyzh(1,i) = xyzh(1,i) + ckdt*vxyzu(1,i)
-       xyzh(2,i) = xyzh(2,i) + ckdt*vxyzu(2,i)
-       xyzh(3,i) = xyzh(3,i) + ckdt*vxyzu(3,i)
+       if (.not. iamboundary(iamtype(iphase(i)))) then   ! core is drifted rigidly below
+          xyzh(1,i) = xyzh(1,i) + ckdt*vxyzu(1,i)
+          xyzh(2,i) = xyzh(2,i) + ckdt*vxyzu(2,i)
+          xyzh(3,i) = xyzh(3,i) + ckdt*vxyzu(3,i)
+       endif
     endif
  enddo
  !$omp end parallel do
+
+ call drift_boundary_core(ckdt,npart,iphase,xyzh,vxyzu)
 
 end subroutine kickdrift
 

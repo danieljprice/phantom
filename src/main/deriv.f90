@@ -241,7 +241,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif
  !
- ! boundary particles (rigid core): replace forces with the mean core acceleration
+ ! boundary particles (rigid core): replace forces with rigid-body accelerations
  !
  call get_boundary_particle_forces(npart,iphase,xyzh(1:3,:),fxyzu,dBevol,drad,ddustprop,ddustevol)
 !
