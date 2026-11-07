@@ -1398,6 +1398,7 @@ end subroutine propagate_fnode_to_node
 !
 ! OUTPUT:
 !   fxi,fyi,fzi : gravitational force at the new position
+!   poti        : gravitational potential at the new position
 !+
 !----------------------------------------------------------------
 pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
@@ -1437,10 +1438,18 @@ pure subroutine expand_fgrav_in_taylor_series(fnode,dx,dy,dz,fxi,fyi,fzi,poti)
  fzi = fzi   + dx*(dfxz + 0.5*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz)) &
              + dy*(dfyz + 0.5*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)) &
              + dz*(dfzz + 0.5*(dx*d2fxzz + dy*d2fyzz + dz*d2fzzz))
- ! Minus sign here as we are shifted of 1 in the (-1)^k compared to force
- poti = poti - dx*(fnode(1) + 0.5*(dx*dfxx + dy*dfxy + dz*dfxz)) &
-             - dy*(fnode(2) + 0.5*(dx*dfxy + dy*dfyy + dz*dfyz)) &
-             - dz*(fnode(3) + 0.5*(dx*dfxz + dy*dfyz + dz*dfzz))
+ ! Minus sign here as we are shifted of 1 in the (-1)^k compared to force.
+ ! The potential includes the third order term, as in propagate_fnode_to_node,
+ ! so that it is one order beyond the force, as it should be
+ poti = poti - dx*(fnode(1) + 0.5*(dx*(dfxx + (1./3.)*(dx*d2fxxx + dy*d2fxxy + dz*d2fxxz)) + &
+                                   dy*(dfxy + (1./3.)*(dx*d2fxxy + dy*d2fxyy + dz*d2fxyz)) + &
+                                   dz*(dfxz + (1./3.)*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz)))) &
+             - dy*(fnode(2) + 0.5*(dx*(dfxy + (1./3.)*(dx*d2fxxy + dy*d2fxyy + dz*d2fxyz)) + &
+                                   dy*(dfyy + (1./3.)*(dx*d2fxyy + dy*d2fyyy + dz*d2fyyz)) + &
+                                   dz*(dfyz + (1./3.)*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)))) &
+             - dz*(fnode(3) + 0.5*(dx*(dfxz + (1./3.)*(dx*d2fxxz + dy*d2fxyz + dz*d2fxzz)) + &
+                                   dy*(dfyz + (1./3.)*(dx*d2fxyz + dy*d2fyyz + dz*d2fyzz)) + &
+                                   dz*(dfzz + (1./3.)*(dx*d2fxzz + dy*d2fyzz + dz*d2fzzz))))
 
 end subroutine expand_fgrav_in_taylor_series
 

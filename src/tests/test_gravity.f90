@@ -110,6 +110,7 @@ subroutine test_taylorseries(ntests,npass)
  real :: xposjd(3,3)
  real :: fnode(20),quads(6)
  real :: dr,dr2,phi,phiexact,pmassi,totmass
+ real :: errf(2),errphi(2)
 
  if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about current node'
  totmass = 5.
@@ -137,7 +138,30 @@ subroutine test_taylorseries(ntests,npass)
  call checkval(f0(1),fexact(1),3.e-4,nfailed(1),'fx taylor series about f0')
  call checkval(f0(2),fexact(2),1.1e-4,nfailed(2),'fy taylor series about f0')
  call checkval(f0(3),fexact(3),9.e-5,nfailed(3),'fz taylor series about f0')
- call checkval(phi,phiexact,8.e-4,nfailed(4),'phi taylor series about f0')
+ call checkval(phi,phiexact,4.2e-7 + 10.*epsilon(0.),nfailed(4),'phi taylor series about f0')
+ !
+ !--order of the expansion: halving the offset should reduce the error
+ !  in the force by 2^3 and the error in the potential by 2^4
+ !
+ errf(1) = sqrt(dot_product(f0 - fexact,f0 - fexact))
+ errphi(1) = abs(phi - phiexact)
+ xposi = x0 + 0.5*(xposi - x0)
+ call get_dx_dr(xposi,xposj,dx,dr)
+ fexact = -totmass*dr**3*dx
+ phiexact = -totmass*dr
+ dx = xposi - x0
+ call expand_fgrav_in_taylor_series(fnode,dx(1),dx(2),dx(3),f0(1),f0(2),f0(3),phi)
+ f0 = -f0
+ phi = -phi
+ errf(2) = sqrt(dot_product(f0 - fexact,f0 - fexact))
+ errphi(2) = abs(phi - phiexact)
+ call checkval(log(errf(1)/errf(2))/log(2.),3.,0.05,nfailed(5),'order of force taylor series')
+ ! the error of the potential at the smaller offset is below the round-off of single precision
+ if (errphi(2) > 1.e3*epsilon(0.)*abs(phiexact)) then
+    call checkval(log(errphi(1)/errphi(2))/log(2.),4.,0.05,nfailed(6),'order of phi taylor series')
+ elseif (id==master) then
+    write(*,"(a)") ' skipping order of phi taylor series: not resolved at this precision'
+ endif
  call update_test_scores(ntests,nfailed,npass)
 
  if (id==master) write(*,"(/,a)") '--> testing taylor series expansion about distant node'
@@ -226,7 +250,7 @@ subroutine test_taylorseries(ntests,npass)
  call checkval(f0(1),fexact(1),1.3e-4,nfailed(1),'fx taylor series about f0')
  call checkval(f0(2),fexact(2),1.4e-4,nfailed(2),'fy taylor series about f0')
  call checkval(f0(3),fexact(3),3.2e-4,nfailed(3),'fz taylor series about f0')
- call checkval(phi,phiexact,9.7e-4,nfailed(4),'phi taylor series about f0')
+ call checkval(phi,phiexact,8.5e-6,nfailed(4),'phi taylor series about f0')
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_taylorseries
