@@ -6,35 +6,51 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup routine for realistic cosmological initial conditions based
-! on the Zeldovich approximation.
-! Requries velocity files generated from a powerspectrum.
+! Cosmological initial conditions for an Einstein-de Sitter universe
+! from a matter power spectrum (or a single sine mode): the linear
+! growing mode in longitudinal gauge (Macpherson et al. 2019), realised
+! by particles moved from a cubic lattice with Zel'dovich displacements
+! so that they reproduce the conserved density rho*, and given the
+! linear-theory velocities.
 !
-! :References: None
+! The box is 1 code unit across, with comoving length box_Mpc (Mpc/h);
+! c = G = 1 and the initial scale factor is 1, so the initial Hubble
+! rate is H = (H0 L/c) sqrt(1 + z_init) and the conformal time 2/H.
+! Particles are dark matter by default (collisionless, on geodesics).
 !
-! :Owner: Spencer Magnall
+! :References:
+!   Macpherson, Price & Lasky (2019), Phys. Rev. D 99, 063522
+!
+! :Owner: Not Committed Yet
 !
 ! :Runtime parameters:
-!   - cs0                 : *initial sound speed in code units*
-!   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
-!   - nx                  : *number of particles in x direction*
-!   - radiation_dominated : *Radiation dominated universe (yes/no)*
-!   - rhozero             : *initial density in code units*
+!   - box_Mpc      : *comoving box length in Mpc/h*
+!   - h_hubble     : *h for the Eisenstein-Hu spectrum (pk_file = none)*
+!   - itype        : *particle type (1=gas, 5=dark matter)*
+!   - lambda_min   : *remove modes shorter than this (Mpc/h, 0=none)*
+!   - nref         : *grid for the random field (0=nx; same nref and seed give the same field)*
+!   - nx           : *number of particles in each direction*
+!   - perturbation : *pspec (power spectrum) or single (sine mode in x)*
+!   - phi_ampl     : *amplitude of phi for the single mode*
+!   - pk_file      : *power spectrum file (k [h/Mpc], P [(Mpc/h)^3]), or none*
+!   - seed         : *random seed*
+!   - sigma8       : *sigma8 for the Eisenstein-Hu spectrum*
+!   - z_init       : *initial redshift*
 !
-! :Dependencies: boundary, dim, eos_shen, infile_utils, io, mpidomain,
-!   part, physcon, setunits, setup_params, stretchmap, unifdis, units,
-!   utils_gr
+! :Dependencies: boundary, dim, infile_utils, io, part, set_grf, setunits,
+!   setup_params, utils_dft, utils_gr
 !
- use dim,          only:use_dust,gr
  use setup_params, only:rhozero
- use physcon,      only:radconst
  implicit none
  public :: setpart
 
- integer           :: npartx,ilattice
- real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,ampl,phaseoffset
- character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
- real              :: perturb_wavelength
+ integer            :: npartx,itype,iseed,nref
+ real               :: box_mpc,z_init,lambda_min,phi_ampl,sigma8,h_hubble
+ character(len=120) :: pk_file
+ character(len=20)  :: perturbation
+
+ ! speed of light in km/s, for H0 L/c with H0 = 100 h km/s/Mpc
+ real, parameter :: c_kms = 299792.458
 
  private
 
@@ -42,21 +58,16 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  setup for uniform particle distributions
+!  setup for cosmological initial conditions
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,gr
+ use dim,          only:maxvxyzu
+ use io,           only:master,fatal
+ use boundary,     only:set_boundary,dxbound
+ use part,         only:idarkmatter
+ use set_grf,      only:zeldovich_displacement
  use setup_params, only:npart_total
- use io,           only:master
- use unifdis,      only:set_unifdis,rho_func!,mass_func
- use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary,cross_boundary
- use part,         only:periodic
- use physcon,      only:years,pc,solarm
- use units,        only:set_units
- use mpidomain,    only:i_belong
- use stretchmap,   only:set_density_profile
- use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
  use infile_utils, only:get_options
  integer,          intent(in)    :: id
  integer,          intent(inout) :: npart
@@ -68,179 +79,203 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
  real,             intent(out)   :: vxyzu(:,:)
- character(len=40) :: lattice,pspec_filename1,pspec_filename2,pspec_filename3
- real    :: totmass,deltax,pi
- integer :: i,ierr,ncross
- logical :: isperiodic(3)
- real    :: length, c1,c3
- real    :: hub
- real    :: last_scattering_temp
- real    :: scale_factor,gradphi(3),vxyz(3),dxgrid,gridorigin
- integer :: nghost, gridres, gridsize
- real, allocatable :: vxgrid(:,:,:),vygrid(:,:,:),vzgrid(:,:,:)
- !
- !--general parameters
- !
- perturb_wavelength = 0.
- time = 0.
- if (maxvxyzu < 4) then
-    gamma = 1.
- else
-    ! 4/3 for radiation dominated case
-    ! irrelevant for
-    gamma = 4./3.
- endif
- ! Redefinition of pi to fix numerical error
- pi = 4.*atan(1.)
- !
- ! default units
- !
- mass_unit = 'solarm'
- dist_unit = 'mpc'
- !
- ! set boundaries to default values
- !
- xmini = xmin; xmaxi = xmax
- ymini = ymin; ymaxi = ymax
- zmini = zmin; zmaxi = zmax
- !
- ! set default values for input parameters
- !
- npartx   = 64
- length = 0.
- ilattice = 1
- perturb  = '"no"'
- perturb_direction = '"none"'
- radiation_dominated = '"no"'
- ampl = 0.
+ real, allocatable :: phi(:,:,:),delta(:,:,:),vel(:,:,:,:),rhostar(:,:,:),psi(:,:,:,:)
+ complex, allocatable :: phik(:,:,:)
+ real    :: hub,dx,meanrho
+ integer :: n,ierr
 
- ! Ideally this should read the values of the box length
- ! and initial Hubble parameter from the par file.
- ! Then it should be set using the Friedmann equation:
- !!!!!! rhozero = (3H^2)/(8*pi*a*a)
-
- hub = 10.553495658357338
- rhozero = 3. * hub**2 / (8. * pi)
- phaseoffset = 0.
-
- ! Set some default values for the grid
- nghost = 6
- gridres = 64
-
- gridsize = nghost + gridres
- gridorigin = 0.
- xmax = 1.
- dxgrid = xmax/gridres
- gridorigin = gridorigin-3*dxgrid
-
- isperiodic = .true.
- ncross = 0
-
- ! Approx Temp of the CMB in Kelvins
- last_scattering_temp = 3000
- last_scattering_temp = (rhozero/radconst)**(1./4.)*0.99999
-
- ! Define some parameters for Linear pertubations
- ! We assume ainit = 1, but this may not always be the case
- c1 = 1./(4.*PI*rhozero)
- !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
- c3 = - sqrt(1./(6.*PI*rhozero))
-
- if (gr) then
-    ! 0 Because dust?
-    cs0 = 0.
- else
-    cs0 = 1.
- endif
- !
- ! get setup parameters from file or interactive setup
- !
- call get_options(trim(fileprefix)//'.setup',id==master,ierr,&
-                  read_setupfile,write_setupfile)
+ ! defaults: the Macpherson et al. (2019) 1 Gpc/h box at z = 1000
+ npartx       = 32
+ itype        = idarkmatter
+ box_mpc      = 1000.
+ z_init       = 1000.
+ perturbation = 'pspec'
+ pk_file      = 'EdS_matterpower_synchronous_z1000.dat'
+ iseed        = -12345
+ nref         = 0
+ lambda_min   = 0.
+ phi_ampl     = 1.e-6
+ sigma8       = 0.8
+ h_hubble     = 0.45
+ call get_options(trim(fileprefix)//'.setup',id==master,ierr,read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
- call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
+ ! unit box, initial Hubble rate and density from the Friedmann equation
+ call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
+ n   = npartx
+ dx  = dxbound/n
+ hub = 100.*box_mpc/c_kms*sqrt(1. + z_init)/dxbound
+ rhozero = 3.*hub**2/(8.*acos(-1.))
+ time = 2./hub
+ if (id==master) print "(a,es12.5,a,es12.5,a,es12.5)",' initial H = ',hub,' rho = ',rhozero,' eta = ',time
 
- allocate(vxgrid(gridsize,gridsize,gridsize))
- allocate(vygrid(gridsize,gridsize,gridsize))
- allocate(vzgrid(gridsize,gridsize,gridsize))
- !
- ! setup particles
- !
- npart = 0
- npart_total = 0
- length = xmaxi - xmini
- deltax = length/npartx
-!
-! general parameters
-!
-! time should be read in from the par file
- time   = 0.18951066686763596 ! z~1000
- rhozero = 3. * hub**2 / (8. * pi)
- lattice = 'cubic'
+ ! linear growing mode on the n^3 grid of lattice sites
+ allocate(phik(n,n,n),phi(n,n,n),delta(n,n,n),vel(3,n,n,n),rhostar(n,n,n),psi(3,n,n,n))
+ call get_phi_k(n,dx,hub,phik,ierr)
+ if (ierr /= 0) call fatal('setup','could not read power spectrum from '//trim(pk_file))
+ call get_linear_fields(n,dx,hub,phik,phi,delta,vel,rhostar)
+ meanrho = sum(rhostar)/size(rhostar)
+ if (id==master) print "(a,3(es10.3,1x))",' max |phi|, rms delta, rms delta* = ',maxval(abs(phi)),&
+                       sqrt(sum(delta**2)/size(delta)),sqrt(sum((rhostar/meanrho-1.)**2)/size(rhostar))
 
- call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-      npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
-
+ ! particles displaced from the lattice so that they trace rho*
+ call zeldovich_displacement(n,dx,rhostar/meanrho - 1.,psi)
+ call place_particles(n,dx,psi,vel,rhostar/meanrho,hfact,xyzh,vxyzu)
+ npart = n**3
+ npart_total = npart
+ call set_types(npart,itype)
  npartoftype(:) = 0
- npartoftype(1) = npart
- print*,' npart = ',npart,npart_total
+ npartoftype(itype) = npart
+ massoftype(:) = 0.
+ massoftype(itype) = rhozero*meanrho*dxbound**3/npart
+ if (id==master) print "(a,i0,a,es12.5)",' npart = ',npart,' particle mass = ',massoftype(itype)
 
- totmass = rhozero*dxbound*dybound*dzbound
- massoftype(1) = totmass/npart_total
- if (id==master) print*,' particle mass = ',massoftype(1)
- if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
-
- if (maxvxyzu < 4 .or. gamma <= 1.) then
-    polyk = cs0**2
- else
-    polyk = 0.
- endif
-
- pspec_filename1 = 'init_vel1_64.dat'
- pspec_filename2 = 'init_vel2_64.dat'
- pspec_filename3 = 'init_vel3_64.dat'
-
- ! Check if files exist otherwise skip and return flat space
- if (.not. check_files(pspec_filename1,pspec_filename2,pspec_filename3)) then
-    print*, "Velocity files not found..."
-    print*, "Setting up flat space!"
-    return
- endif
-
- call read_veldata(vxgrid,pspec_filename1,gridsize)
- call read_veldata(vygrid,pspec_filename2,gridsize)
- call read_veldata(vzgrid,pspec_filename3,gridsize)
-
- do i=1,npart
-    ! Assign new particle possition + particle velocities here using the Zeldovich approximation:
-    ! Valid for Omega = 1
-    ! x = q - a grad phi (1), where q is the non perturbed lattice point position
-    ! v = -aH grad phi (2)
-    ! Get x velocity at particle position
-    call interpolate_val(xyzh(1:3,i),vxgrid,gridsize,gridorigin,dxgrid,vxyz(1))
-    ! Get y velocity at particle position
-    call interpolate_val(xyzh(1:3,i),vygrid,gridsize,gridorigin,dxgrid,vxyz(2))
-    ! Get z velocity at particle position
-    call interpolate_val(xyzh(1:3,i),vzgrid,gridsize,gridorigin,dxgrid,vxyz(3))
-
-    vxyzu(1:3,i)  = vxyz
-    ! solve eqn (2) for grad phi
-    ! This is probally not constant??
-    scale_factor = 1.
-    gradphi = -vxyz/(scale_factor*hub)
-    ! Set particle pos
-    xyzh(1:3,i) = xyzh(1:3,i) - scale_factor*gradphi
-    ! Apply periodic boundary conditions to particle position
-    call cross_boundary(isperiodic,xyzh(1:3,i),ncross)
- enddo
+ ! pressureless matter
+ polyk = 0.
+ gamma = 1.
+ if (maxvxyzu >= 4) gamma = 4./3.
 
 end subroutine setpart
 
+!----------------------------------------------------------------
+!+
+!  Fourier transform of the growing-mode potential phi, either from
+!  the power spectrum or for a single sine mode along x
+!+
+!----------------------------------------------------------------
+subroutine get_phi_k(n,dx,hub,phik,ierr)
+ use set_grf,   only:read_power_spectrum,pk_eisenstein_hu,white_noise_k,delta_sync_k,phi_k_from_delta_sync
+ use utils_dft, only:dft_3d
+ use boundary,  only:xmin,dxbound
+ integer, intent(in)  :: n
+ real,    intent(in)  :: dx,hub
+ complex, intent(out) :: phik(n,n,n)
+ integer, intent(out) :: ierr
+ real, allocatable    :: ktab(:),pktab(:)
+ complex, allocatable :: wk(:,:,:),deltak(:,:,:)
+ integer :: i,nk
+
+ ierr = 0
+ select case(trim(perturbation))
+ case('single')
+    do i=1,n
+       phik(i,:,:) = phi_ampl*sin(2.*acos(-1.)*(xmin + (i - 0.5)*dx)/dxbound)
+    enddo
+    call dft_3d(phik,-1)
+ case default
+    if (trim(pk_file)=='none') then
+       ! tabulate the Eisenstein-Hu fit for an Einstein-de Sitter universe
+       nk = 1000
+       allocate(ktab(nk),pktab(nk))
+       do i=1,nk
+          ktab(i) = 10.**(-5. + 8.*(i-1)/real(nk-1))
+          pktab(i) = pk_eisenstein_hu(ktab(i),z_init,h_hubble,1.,0.05,0.96,sigma8)
+       enddo
+    else
+       call read_power_spectrum(pk_file,ktab,pktab,ierr)
+       if (ierr /= 0) return
+    endif
+    allocate(wk(n,n,n),deltak(n,n,n))
+    if (nref > 0 .and. nref <= n) then
+       call white_noise_k(n,nref,iseed,wk)
+    else
+       call white_noise_k(n,n,iseed,wk)
+    endif
+    call delta_sync_k(n,box_mpc,wk,ktab,pktab,lambda_min,deltak)
+    call phi_k_from_delta_sync(n,dx,hub,deltak,phik)
+ end select
+
+end subroutine get_phi_k
+
+!----------------------------------------------------------------
+!+
+!  real-space potential, density contrast and velocity, and the
+!  conserved density rho* = rho u^0 sqrt(-g) in units of rhozero,
+!  in the perturbed metric ds^2 = -(1+2phi)dt^2 + (1-2phi)dx^2
+!+
+!----------------------------------------------------------------
+subroutine get_linear_fields(n,dx,hub,phik,phi,delta,vel,rhostar)
+ use set_grf,  only:linear_fields_from_phi_k
+ use utils_gr, only:perturb_metric,get_u0,get_sqrtg
+ integer, intent(in)  :: n
+ real,    intent(in)  :: dx,hub
+ complex, intent(in)  :: phik(n,n,n)
+ real,    intent(out) :: phi(n,n,n),delta(n,n,n),vel(3,n,n,n),rhostar(n,n,n)
+ real    :: gcov(0:3,0:3),sqrtg,u0
+ integer :: i,j,k,ierr
+
+ call linear_fields_from_phi_k(n,dx,hub,phik,phi,delta,vel)
+ !$omp parallel do default(none) shared(n,phi,delta,vel,rhostar) &
+ !$omp private(i,j,k,gcov,sqrtg,u0,ierr)
+ do k=1,n
+    do j=1,n
+       do i=1,n
+          call perturb_metric(phi(i,j,k),gcov)
+          call get_sqrtg(gcov,sqrtg)
+          ! coordinate velocity from the Eulerian velocity, v = alpha V
+          vel(:,i,j,k) = vel(:,i,j,k)*sqrt(-gcov(0,0))
+          call get_u0(gcov,vel(:,i,j,k),u0,ierr)
+          rhostar(i,j,k) = (1. + delta(i,j,k))*u0*sqrtg
+       enddo
+    enddo
+ enddo
+ !$omp end parallel do
+
+end subroutine get_linear_fields
+
+!----------------------------------------------------------------
+!+
+!  particles at the lattice sites (cell centres of the grid) moved by
+!  psi, wrapped into the periodic box, with velocity vel and smoothing
+!  length set from the local conserved density rhos (in mean units)
+!+
+!----------------------------------------------------------------
+subroutine place_particles(n,dx,psi,vel,rhos,hfact,xyzh,vxyzu)
+ use boundary, only:xmin,ymin,zmin,dxbound,dybound,dzbound
+ integer, intent(in)  :: n
+ real,    intent(in)  :: dx,psi(3,n,n,n),vel(3,n,n,n),rhos(n,n,n),hfact
+ real,    intent(out) :: xyzh(:,:),vxyzu(:,:)
+ integer :: i,j,k,ip
+
+ !$omp parallel do default(none) shared(n,dx,psi,vel,rhos,hfact,xyzh,vxyzu) &
+ !$omp shared(xmin,ymin,zmin,dxbound,dybound,dzbound) private(i,j,k,ip)
+ do k=1,n
+    do j=1,n
+       do i=1,n
+          ip = i + n*(j-1) + n*n*(k-1)
+          xyzh(1,ip) = xmin + modulo((i-0.5)*dx + psi(1,i,j,k),dxbound)
+          xyzh(2,ip) = ymin + modulo((j-0.5)*dx + psi(2,i,j,k),dybound)
+          xyzh(3,ip) = zmin + modulo((k-0.5)*dx + psi(3,i,j,k),dzbound)
+          xyzh(4,ip) = hfact*dx/rhos(i,j,k)**(1./3.)
+          vxyzu(1:3,ip) = vel(:,i,j,k)
+          if (size(vxyzu,1) >= 4) vxyzu(4,ip) = 0.
+       enddo
+    enddo
+ enddo
+ !$omp end parallel do
+
+end subroutine place_particles
+
+!----------------------------------------------------------------
+!+
+!  set the type of all particles
+!+
+!----------------------------------------------------------------
+subroutine set_types(npart,itypei)
+ use part, only:set_particle_type
+ integer, intent(in) :: npart,itypei
+ integer :: i
+
+ do i=1,npart
+    call set_particle_type(i,itypei)
+ enddo
+
+end subroutine set_types
+
 !------------------------------------------------------------------------
-!
-! write setup file
-!
+!+
+!  write setup file
+!+
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
@@ -250,48 +285,35 @@ subroutine write_setupfile(filename)
 
  print "(/,a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for uniform setup routine'
- !
- ! units
- !
- call write_options_units(iunit,gr)
- !
- ! boundaries
- !
- write(iunit,"(/,a)") '# boundaries'
- call write_inopt(xmini,'CoordBase::xmin','xmin boundary',iunit)
- call write_inopt(xmaxi,'CoordBase::xmax','xmax boundary',iunit)
- call write_inopt(ymini,'CoordBase::ymin','ymin boundary',iunit)
- call write_inopt(ymaxi,'CoordBase::ymax','ymax boundary',iunit)
- call write_inopt(zmini,'CoordBase::zmin','zmin boundary',iunit)
- call write_inopt(zmaxi,'CoordBase::zmax','zmax boundary',iunit)
- !
- ! other parameters
- !
- write(iunit,"(/,a)") '# setup'
- call write_inopt(npartx,'nx','number of particles in x direction',iunit)
- call write_inopt(rhozero,'rhozero','initial density in code units',iunit)
- call write_inopt(cs0,'cs0','initial sound speed in code units',iunit)
- call write_inopt(perturb,'FLRWSolver::FLRW_perturb','Pertrubations of FLRW?',iunit)
- call write_inopt(ampl,'FLRWSolver::phi_amplitude','Pertubation amplitude',iunit)
- call write_inopt(phaseoffset,'FLRWSolver::phi_phase_offset','Pertubation phase offset',iunit)
- call write_inopt(perturb_direction, 'FLRWSolver::FLRW_perturb_direction','Pertubation direction',iunit)
- call write_inopt(radiation_dominated, 'radiation_dominated','Radiation dominated universe (yes/no)',iunit)
- call write_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength','Perturbation wavelength',iunit)
- call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
+ write(iunit,"(a)") '# input file for cosmological initial conditions'
+ call write_options_units(iunit,.true.)
+ write(iunit,"(/,a)") '# resolution and particles'
+ call write_inopt(npartx,'nx','number of particles in each direction',iunit)
+ call write_inopt(itype,'itype','particle type (1=gas, 5=dark matter)',iunit)
+ write(iunit,"(/,a)") '# cosmology'
+ call write_inopt(box_mpc,'box_Mpc','comoving box length in Mpc/h',iunit)
+ call write_inopt(z_init,'z_init','initial redshift',iunit)
+ write(iunit,"(/,a)") '# perturbations'
+ call write_inopt(perturbation,'perturbation','pspec (power spectrum) or single (sine mode in x)',iunit)
+ call write_inopt(pk_file,'pk_file','power spectrum file (k [h/Mpc], P [(Mpc/h)^3]), or none',iunit)
+ call write_inopt(iseed,'seed','random seed',iunit)
+ call write_inopt(nref,'nref','grid for the random field (0=nx; same nref and seed give the same field)',iunit)
+ call write_inopt(lambda_min,'lambda_min','remove modes shorter than this (Mpc/h, 0=none)',iunit)
+ call write_inopt(sigma8,'sigma8','sigma8 for the Eisenstein-Hu spectrum',iunit)
+ call write_inopt(h_hubble,'h_hubble','h for the Eisenstein-Hu spectrum (pk_file = none)',iunit)
+ call write_inopt(phi_ampl,'phi_ampl','amplitude of phi for the single mode',iunit)
  close(iunit)
 
 end subroutine write_setupfile
 
 !------------------------------------------------------------------------
-!
-! read setup file
-!
+!+
+!  read setup file
+!+
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use setunits,     only:read_options_and_set_units
- use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -302,149 +324,25 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- !
- ! units
- !
- call read_options_and_set_units(db,nerr,gr)
- !
- ! boundaries
- !
- call read_inopt(xmini,'CoordBase::xmin',db,errcount=nerr)
- call read_inopt(xmaxi,'CoordBase::xmax',db,min=xmini,errcount=nerr)
- call read_inopt(ymini,'CoordBase::ymin',db,errcount=nerr)
- call read_inopt(ymaxi,'CoordBase::ymax',db,min=ymini,errcount=nerr)
- call read_inopt(zmini,'CoordBase::zmin',db,errcount=nerr)
- call read_inopt(zmaxi,'CoordBase::zmax',db,min=zmini,errcount=nerr)
- !
- ! other parameters
- !
+ call read_options_and_set_units(db,nerr,.true.)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
- call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
- call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
-
- call read_inopt(perturb_direction,'FLRWSolver::FLRW_perturb_direction',db,errcount=nerr)
- call read_inopt(ampl, 'FLRWSolver::phi_amplitude',db,errcount=nerr)
- call read_inopt(phaseoffset,'FLRWSolver::phi_phase_offset',db,errcount=nerr)
- call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
- ! TODO Work out why this doesn't read in correctly
- call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
- call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
- call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
+ call read_inopt(itype,'itype',db,min=1,errcount=nerr)
+ call read_inopt(box_mpc,'box_Mpc',db,min=0.,errcount=nerr)
+ call read_inopt(z_init,'z_init',db,min=0.,errcount=nerr)
+ call read_inopt(perturbation,'perturbation',db,errcount=nerr)
+ call read_inopt(pk_file,'pk_file',db,errcount=nerr)
+ call read_inopt(iseed,'seed',db,errcount=nerr)
+ call read_inopt(nref,'nref',db,min=0,errcount=nerr)
+ call read_inopt(lambda_min,'lambda_min',db,min=0.,errcount=nerr)
+ call read_inopt(sigma8,'sigma8',db,min=0.,errcount=nerr)
+ call read_inopt(h_hubble,'h_hubble',db,min=0.,errcount=nerr)
+ call read_inopt(phi_ampl,'phi_ampl',db,errcount=nerr)
  call close_db(db)
-
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
 
 end subroutine read_setupfile
-
-subroutine read_veldata(velarray,vfile,gridsize)
- integer,           intent(in)  :: gridsize
- character(len=20), intent(in)  :: vfile
- real,              intent(out) :: velarray(:,:,:)
- integer :: i,j,k,iu
-
- open(newunit=iu,file=vfile,status='old')
- do k=1,gridsize
-    do j=1,gridsize
-       read(iu,*) (velarray(i,j,k), i=1, gridsize)
-    enddo
- enddo
- close(iu)
- print*, "Finished reading ", vfile
-
-end subroutine read_veldata
-
-subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
- ! Subroutine to interpolate quanities to particle positions given a cube
- ! Note we have assumed that the grid will always be cubic!!!!
- use eos_shen, only:linear_interpolator_one_d
- real,    intent(in)    :: valgrid(:,:,:)
- real,    intent(inout) :: position(3)
- real,    intent(inout) :: dxgrid,gridorigin
- integer, intent(in)    :: gridsize
- real,    intent(out)   :: val
- integer :: xupper,yupper,zupper,xlower,ylower,zlower
- real    :: xlowerpos,ylowerpos,zlowerpos!,xupperpos,yupperpos,zupperpos
- real    :: interptmp(7)
- real    :: xd,yd,zd
-
- call get_grid_neighbours(position,gridorigin,dxgrid,xlower,ylower,zlower)
-
- print*,"Neighbours: ", xlower,ylower,zlower
- print*,"Position: ", position
- ! This is not true as upper neighbours on the boundary will be on the side
- ! take a mod of grid size
- xupper = mod(xlower + 1, gridsize)
- yupper = mod(ylower + 1, gridsize)
- zupper = mod(zlower + 1, gridsize)
- ! xupper - xlower should always just be dx provided we are using a uniform grid
- ! xd = (position(1) - xlower)/(xupper - xlower)
- ! yd = (position(2) - ylower)/(yupper - ylower)
- ! zd = (position(3) - zlower)/(zupper - zlower)
- xlowerpos = gridorigin + (xlower-1)*dxgrid
- ylowerpos = gridorigin + (ylower-1)*dxgrid
- zlowerpos = gridorigin + (zlower-1)*dxgrid
-
- xd = (position(1) - xlowerpos)/(dxgrid)
- yd = (position(2) - ylowerpos)/(dxgrid)
- zd = (position(3) - zlowerpos)/(dxgrid)
-
- interptmp = 0.
-
- call linear_interpolator_one_d(valgrid(xlower,ylower,zlower), &
-                valgrid(xlower+1,ylower,zlower),xd,interptmp(1))
- call linear_interpolator_one_d(valgrid(xlower,ylower,zlower+1), &
-                valgrid(xlower+1,ylower,zlower+1),xd,interptmp(2))
- call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower), &
-                valgrid(xlower+1,ylower+1,zlower),xd,interptmp(3))
- call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower+1), &
-                valgrid(xlower+1,ylower+1,zlower+1),xd,interptmp(4))
- ! Interpolate along y
- call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
- call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
- ! Interpolate along z
- call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-
- val = interptmp(7)
-
-end subroutine interpolate_val
-
-subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
- ! TODO IDEALLY THIS SHOULDN'T BE HERE AND SHOULD BE IN A UTILS MODULE
- ! WITH THE VERSION USED IN METRIC_ET
- real,    intent(in)  :: position(3), gridorigin
- real,    intent(in)  :: dx
- integer, intent(out) :: xlower,ylower,zlower
-
- ! Get the lower grid neighbours of the position
- ! If this is broken change from floor to int
- ! How are we handling the edge case of a particle being
- ! in exactly the same position as the grid?
- ! Hopefully having different grid sizes in each direction
- ! Doesn't break the lininterp
- xlower = floor((position(1)-gridorigin)/dx)
- ylower = floor((position(2)-gridorigin)/dx)
- zlower = floor((position(3)-gridorigin)/dx)
-
- ! +1 because fortran
- xlower = xlower + 1
- ylower = ylower + 1
- zlower = zlower + 1
-
-end subroutine get_grid_neighbours
-
-logical function check_files(file1,file2,file3)
- character(len=*), intent(in) :: file1,file2,file3
- logical :: file1_exist, file2_exist, file3_exist
-
- inquire(file=file1,exist=file1_exist)
- inquire(file=file2,exist=file2_exist)
- inquire(file=file3,exist=file3_exist)
-
- check_files = file1_exist .and. file2_exist .and. file3_exist
-
-end function check_files
 
 end module setup

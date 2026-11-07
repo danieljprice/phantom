@@ -33,7 +33,7 @@ module nr_api
 
  public :: tmunu_func
  public :: nr_linked,nr_init,nr_evolve_to,nr_get_metric,nr_time,nr_constraints
- public :: nr_formulation,nr_finalise,nr_dt_expansion
+ public :: nr_formulation,nr_finalise,nr_dt_expansion,nr_solve_constraints
  public :: nr_write_options,nr_read_options
 
  private
@@ -68,15 +68,33 @@ subroutine nr_get_metric(gcov,gcon,sqrtg,metricderivs)
  metricderivs = 0.
 end subroutine nr_get_metric
 
+subroutine nr_solve_constraints(n,origin,dx,dens,mom,alpha,g3,kij,kmean,niter,hrel,mrel,ierr,t,get_tmunu)
+ integer,     intent(in)  :: n(3)
+ real(nr_dp), intent(in)  :: origin(3),dx(3),dens(:,:,:),mom(:,:,:,:)
+ real(nr_dp), intent(out) :: alpha(:,:,:),g3(:,:,:,:,:),kij(:,:,:,:,:),kmean,hrel,mrel
+ integer,     intent(out) :: niter,ierr
+ real(nr_dp), intent(in), optional :: t
+ procedure(tmunu_func), optional   :: get_tmunu
+ alpha = 0.
+ g3 = 0.
+ kij = 0.
+ kmean = 0.
+ hrel = 0.
+ mrel = 0.
+ niter = 0
+ ierr = 1
+end subroutine nr_solve_constraints
+
 real(nr_dp) function nr_time()
  nr_time = 0.
 end function nr_time
 
-subroutine nr_constraints(cnorm,hnorm)
+subroutine nr_constraints(cnorm,hnorm,mnorm)
  real(nr_dp), intent(out) :: cnorm
- real(nr_dp), intent(out), optional :: hnorm
+ real(nr_dp), intent(out), optional :: hnorm,mnorm
  cnorm = 0.
  if (present(hnorm)) hnorm = 0.
+ if (present(mnorm)) mnorm = 0.
 end subroutine nr_constraints
 
 function nr_formulation() result(name)

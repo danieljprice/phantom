@@ -1194,7 +1194,7 @@ ifeq ($(SETUP), flrwpspec)
     GR=yes
     KNOWN_SETUP=yes
     METRIC=et
-    SETUPFILE= setup_flrwpspec.f90
+    SETUPFILE= set_grf.f90 setup_flrwpspec.f90
     PERIODIC=yes
 endif
 

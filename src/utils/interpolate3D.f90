@@ -14,14 +14,19 @@ module interpolations3D
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: einsteintk_utils, kernel
+! :Dependencies: einsteintk_utils, kernel, kernel_integrals
 !
  use einsteintk_utils,  only:exact_rendering
  use kernel,            only:radkern2,radkern,cnormk,wkern
+ use kernel_integrals,  only:maxpieces,maxdeg,maxpow
  implicit none
  integer, parameter :: doub_prec = kind(0.d0)
  real :: cnormk3D = cnormk
- public :: interpolate3D,interpolate3D_vecexact
+ ! coefficient tables for the exact integrals over cells (set_exact_tables)
+ logical :: tables_set = .false.
+ integer :: npieces_int = 0, nmax_int = 0
+ real(doub_prec) :: qb_int(maxpieces) = 0., a3_int(-1:maxpow,maxpieces+1) = 0.
+ public :: interpolate3D,interpolate3D_vecexact,interpolate3D_nodes
 
 contains
  !--------------------------------------------------------------------------
@@ -95,6 +100,7 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
  radkernel = radkern
  radkernel2 = radkern2
 
+ if (exact_rendering) call set_exact_tables()
  if (exact_rendering) then
     print "(1x,a)",'interpolating to 3D grid (exact/Petkova+2018 on subgrid) ...'
  elseif (normalise) then
@@ -430,6 +436,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  radkernel = radkern
  radkernel2 = radkern2
 
+ if (exact_rendering) call set_exact_tables()
  if (exact_rendering) then
     print "(1x,a)",'interpolating to 3D grid (exact/Petkova+2018 on subgrid) ...'
  elseif (normalise) then
@@ -728,6 +735,139 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
 
 end subroutine interpolate3D_vecexact
 
+!--------------------------------------------------------------------------
+!+
+!  interpolate vector data from particles to the nodes of a uniform
+!  periodic grid (node (i,j,k) at xmin + (i-1,j-1,k-1)*dx), by sampling
+!  the kernel at the nodes,
+!
+!     datsmooth(:,node) = sum_b weight_b dat_b W(r_node - r_b, h_b)
+!
+!  with weight = m/(rho h^3). If zero_moment is set, the kernel is
+!  B W(q) (1 - A q^2) with A, B chosen so that it is normalised and its
+!  second moment vanishes: the smoothing then changes a Fourier mode by
+!  O((kh)^4) rather than O((kh)^2).
+!
+!  The smoothing length used is max(h, hmin). A kernel sampled at the
+!  nodes only conserves each particle's contribution if it spans a few
+!  nodes (the error in the sum of the sampled kernel is < 1e-2 for
+!  h >= dx, but up to O(1) for h = 0.6 dx), so if exact is set, particles
+!  whose smoothing length is still below the grid spacing contribute
+!  instead the exact integral of the kernel over each cell centred on a
+!  node, divided by the cell volume
+!+
+!--------------------------------------------------------------------------
+subroutine interpolate3D_nodes(xyzh,weight,dat,ilendat,itype,npart,xmin,dx,n,zero_moment,hmin,exact,datsmooth)
+ use kernel,           only:kernelname
+ use kernel_integrals, only:maxpieces,maxdeg,maxpow,get_kernel_pieces,zero_moment_pieces,&
+                            set_kernel_integral_coeffs,cell_integral_3d
+ integer, intent(in)  :: ilendat,npart,n(3),itype(npart)
+ real,    intent(in)  :: xyzh(:,:),weight(npart),dat(npart,ilendat),xmin(3),dx(3),hmin
+ logical, intent(in)  :: zero_moment,exact
+ real,    intent(out) :: datsmooth(ilendat,n(1),n(2),n(3))
+ real    :: a,b,hi,hi1,q2,wi,dr(3),xnode(3),wfac,radi
+ real(kind=doub_prec) :: qb(maxpieces),wpoly(0:maxdeg,maxpieces),g2(-1:maxpow,maxpieces+1)
+ real(kind=doub_prec) :: a3(-1:maxpow,maxpieces+1),cnorm2,cnorm3,aint,vint
+ integer :: i,ip,jp,kp,ii,jj,kk,lo(3),hi_idx(3),c,npieces,nmax,ierr
+ logical :: use_exact,exacti
+
+ a = 0.
+ b = 1.
+ if (zero_moment) call zero_moment_constants(a,b)
+ ! coefficient tables for the exact integrals of the same kernel over cells
+ use_exact = exact
+ nmax = 0
+ if (use_exact) then
+    call get_kernel_pieces(kernelname,npieces,qb,wpoly,ierr)
+    if (ierr /= 0) then
+       use_exact = .false.
+    else
+       if (zero_moment) call zero_moment_pieces(npieces,qb,wpoly,aint)
+       call set_kernel_integral_coeffs(npieces,qb,wpoly,nmax,g2,a3,cnorm2,cnorm3)
+    endif
+ endif
+ datsmooth = 0.
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,weight,dat,ilendat,itype,xmin,dx,n,a,b,hmin,datsmooth) &
+ !$omp shared(use_exact,npieces,nmax,qb,a3) &
+ !$omp private(i,ip,jp,kp,ii,jj,kk,lo,hi_idx,hi,hi1,q2,wi,dr,xnode,c,wfac,radi,exacti,vint) &
+ !$omp schedule(guided)
+ do i=1,npart
+    if (itype(i) < 0 .or. weight(i) < tiny(0.)) cycle
+    hi = max(xyzh(4,i),hmin)
+    exacti = use_exact .and. hi < minval(dx)
+    if (exacti) then
+       ! cell integrals: weight = m/(rho h^3), so m/rho over the cell volume
+       wfac = weight(i)*xyzh(4,i)**3/product(dx)
+       radi = radkern*hi + 0.5*maxval(dx)
+    else
+       ! the weight holds 1/h^3 for the particle's own h
+       wfac = weight(i)*(xyzh(4,i)/hi)**3*cnormk*b
+       radi = radkern*hi
+    endif
+    hi1 = 1./hi
+    ! range of nodes whose cells or points the kernel reaches (may extend
+    ! over the periodic boundary)
+    lo     = ceiling((xyzh(1:3,i) - radi - xmin)/dx) + 1
+    hi_idx = floor((xyzh(1:3,i) + radi - xmin)/dx) + 1
+    do kp=lo(3),hi_idx(3)
+       kk = modulo(kp-1,n(3)) + 1
+       xnode(3) = xmin(3) + (kp-1)*dx(3)
+       do jp=lo(2),hi_idx(2)
+          jj = modulo(jp-1,n(2)) + 1
+          xnode(2) = xmin(2) + (jp-1)*dx(2)
+          do ip=lo(1),hi_idx(1)
+             ii = modulo(ip-1,n(1)) + 1
+             xnode(1) = xmin(1) + (ip-1)*dx(1)
+             if (exacti) then
+                vint = cell_integral_3d(real(xyzh(1:3,i),doub_prec),real(xnode,doub_prec),&
+                                        real(dx,doub_prec),real(hi,doub_prec),npieces,nmax,qb,a3)
+                wi = wfac*real(vint)
+             else
+                dr = xnode - xyzh(1:3,i)
+                q2 = dot_product(dr,dr)*hi1*hi1
+                if (q2 >= radkern2) cycle
+                wi = wfac*wkern(q2,sqrt(q2))*(1. - a*q2)
+             endif
+             do c=1,ilendat
+                !$omp atomic
+                datsmooth(c,ii,jj,kk) = datsmooth(c,ii,jj,kk) + wi*dat(i,c)
+             enddo
+          enddo
+       enddo
+    enddo
+ enddo
+ !$omp end parallel do
+
+end subroutine interpolate3D_nodes
+
+!--------------------------------------------------------------------------
+!+
+!  constants A, B of the zero-second-moment kernel B W(q)(1 - A q^2) for
+!  the kernel in use: A = <q^2>/<q^4> and B = 1/(1 - A <q^2>), with the
+!  moments <q^p> = 4 pi cnormk int q^(p+2) W(q) dq (midpoint rule)
+!+
+!--------------------------------------------------------------------------
+subroutine zero_moment_constants(a,b)
+ real, intent(out) :: a,b
+ integer, parameter :: nq = 20000
+ real    :: dq,q,w,m2,m4
+ integer :: i
+
+ dq = radkern/nq
+ m2 = 0.
+ m4 = 0.
+ do i=1,nq
+    q = (i - 0.5)*dq
+    w = 4.*acos(-1.)*cnormk*wkern(q*q,q)*q**2*dq
+    m2 = m2 + w*q**2
+    m4 = m4 + w*q**4
+ enddo
+ a = m2/m4
+ b = 1./(1. - a*m2)
+
+end subroutine zero_moment_constants
+
  !------------------------------------------------------------
  ! interface to kernel routine to avoid problems with openMP
  !-----------------------------------------------------------
@@ -740,203 +880,83 @@ real function wkernel(q2)
 
 end function wkernel
 
- !------------------------------------------------------------
- ! 3D functions to evaluate exact overlap of kernel with wall boundaries
- ! see Petkova, Laibe & Bonnell (2018), J. Comp. Phys
- !------------------------------------------------------------
+!------------------------------------------------------------
+!+
+!  coefficient tables for the exact integrals of the kernel in use
+!  over cell walls (set once, before any parallel region)
+!+
+!------------------------------------------------------------
+subroutine set_exact_tables()
+ use kernel,           only:kernelname
+ use kernel_integrals, only:get_kernel_pieces,set_kernel_integral_coeffs
+ real(doub_prec) :: wpoly(0:maxdeg,maxpieces),g2(-1:maxpow,maxpieces+1),cnorm2,cnorm3
+ integer :: ierr
+
+ if (tables_set) return
+ call get_kernel_pieces(kernelname,npieces_int,qb_int,wpoly,ierr)
+ if (ierr /= 0) then
+    print "(a)",' ERROR: exact interpolation not available for kernel '//trim(kernelname)
+    npieces_int = 0
+ else
+    call set_kernel_integral_coeffs(npieces_int,qb_int,wpoly,nmax_int,g2,a3_int,cnorm2,cnorm3)
+ endif
+ tables_set = .true.
+
+end subroutine set_exact_tables
+
+!------------------------------------------------------------
+!+
+!  exact integral of the kernel over a cell wall, the sum of the
+!  contributions from its four sides (Petkova, Laibe & Bonnell 2018,
+!  generalised to any kernel as in splash): r0 is the signed distance
+!  from the particle to the wall plane, (xp,yp) the particle and (xc,yc)
+!  the wall centre in the plane of the wall
+!+
+!------------------------------------------------------------
 real function wallint(r0, xp, yp, xc, yc, pixwidthx, pixwidthy, hi)
  real, intent(in) :: r0, xp, yp, xc, yc, pixwidthx, pixwidthy, hi
- real(doub_prec) :: R_0, d1, d2, dx, dy, h
+ real :: dx, dy
 
- wallint = 0.0
  dx = xc - xp
  dy = yc - yp
- h = hi
-
- !
- ! Contributions from each of the 4 sides of a cell wall
- !
- R_0 = 0.5*pixwidthy + dy
- d1 = 0.5*pixwidthx - dx
- d2 = 0.5*pixwidthx + dx
- wallint = wallint + pint3D(r0, R_0, d1, d2, h)
-
- R_0 = 0.5*pixwidthy - dy
- d1 = 0.5*pixwidthx + dx
- d2 = 0.5*pixwidthx - dx
- wallint = wallint + pint3D(r0, R_0, d1, d2, h)
-
- R_0 = 0.5*pixwidthx + dx
- d1 = 0.5*pixwidthy + dy
- d2 = 0.5*pixwidthy - dy
- wallint = wallint + pint3D(r0, R_0, d1, d2, h)
-
- R_0 = 0.5*pixwidthx - dx
- d1 = 0.5*pixwidthy - dy
- d2 = 0.5*pixwidthy + dy
- wallint = wallint + pint3D(r0, R_0, d1, d2, h)
+ wallint = pint3D(r0, 0.5*pixwidthy + dy, 0.5*pixwidthx - dx, 0.5*pixwidthx + dx, hi) &
+         + pint3D(r0, 0.5*pixwidthy - dy, 0.5*pixwidthx + dx, 0.5*pixwidthx - dx, hi) &
+         + pint3D(r0, 0.5*pixwidthx + dx, 0.5*pixwidthy + dy, 0.5*pixwidthy - dy, hi) &
+         + pint3D(r0, 0.5*pixwidthx - dx, 0.5*pixwidthy - dy, 0.5*pixwidthy + dy, hi)
 
 end function wallint
 
-real function pint3D(r0, R_0, d1, d2, hi)
+!------------------------------------------------------------
+!+
+!  contribution from one side of a cell wall: r0 is the distance to the
+!  wall plane, R_0 the distance in the plane to the side and d1, d2 the
+!  distances along the side to each vertex
+!+
+!------------------------------------------------------------
+real function pint3D(r0, R_0, d1, d2, h)
+ use kernel_integrals, only:edge_int_3d
+ real, intent(in) :: r0, R_0, d1, d2, h
+ real(doub_prec) :: hi1, int1, int2
 
- real(doub_prec), intent(in) :: R_0, d1, d2, hi
- real,            intent(in) :: r0
- real(doub_prec) :: ar0, aR_0
- real(doub_prec) :: int1, int2
- !integer :: fflag = 0
-
- if (abs(r0) < tiny(0.)) then
-    pint3D = 0.d0
+ if (abs(r0) < tiny(0.) .or. npieces_int == 0) then
+    pint3D = 0.
     return
  endif
-
- if (r0  >  0.d0) then
-    pint3D = 1.d0
-    ar0 = r0
+ pint3D = sign(1.,r0)*sign(1.,R_0)
+ hi1 = 1.d0/h
+ call edge_int_3d(abs(d1)*hi1,abs(d2)*hi1,abs(R_0)*hi1,abs(r0)*hi1,npieces_int,nmax_int,qb_int,a3_int,int1,int2)
+ int1 = max(int1,0.d0)
+ int2 = max(int2,0.d0)
+ ! combine the two vertex integrals depending on where the foot of the side lies
+ if (d1*d2 >= 0.) then
+    pint3D = pint3D*real(int1 + int2)
+ elseif (abs(d1) < abs(d2)) then
+    pint3D = pint3D*real(max(int2 - int1,0.d0))
  else
-    pint3D = -1.d0
-    ar0 = -r0
- endif
-
- if (R_0  >  0.d0) then
-    aR_0 = R_0
- else
-    pint3D = -pint3D
-    aR_0 = -R_0
- endif
-
- int1 = full_integral_3D(d1, ar0, aR_0, hi)
- int2 = full_integral_3D(d2, ar0, aR_0, hi)
-
- if (int1 < 0.d0) int1 = 0.d0
- if (int2 < 0.d0) int2 = 0.d0
-
- if (d1*d2  >=  0) then
-    pint3D = pint3D*(int1 + int2)
-    if (int1 + int2 < 0.d0) print*, 'Error: int1 + int2 < 0'
- elseif (abs(d1)  <  abs(d2)) then
-    pint3D = pint3D*(int2 - int1)
-    if (int2 - int1 < 0.d0) print*, 'Error: int2 - int1 < 0: ', int1, int2, '(', d1, d2,')'
- else
-    pint3D = pint3D*(int1 - int2)
-    if (int1 - int2 < 0.d0) print*, 'Error: int1 - int2 < 0: ', int1, int2, '(', d1, d2,')'
+    pint3D = pint3D*real(max(int1 - int2,0.d0))
  endif
 
 end function pint3D
-
-real(doub_prec) function full_integral_3D(d, r0, R_0, h)
-
- real(doub_prec), intent(in) :: d, r0, R_0, h
- real(doub_prec) :: B1, B2, B3, a, h2
- real(doub_prec), parameter :: pi = 4.*atan(1.)
- real(doub_prec) :: tanphi, phi, a2, cosp, r0h, r03, r0h2, r0h3, r0h_2, r0h_3
- real(doub_prec) :: r2, R_, linedist2, cosphi
- real(doub_prec) :: I0, I1, I_2, I_3, I_4, I_5
- real(doub_prec) :: D2, D3
-
- r0h = r0/h
- tanphi = abs(d)/R_0
- phi = atan(tanphi)
-
- if (abs(r0h) < tiny(0.) .or. abs(R_0/h) < tiny(0.) .or. abs(phi) < tiny(0.)) then
-    full_integral_3D = 0.0
-    return
- endif
-
- h2 = h*h
- r03 = r0*r0*r0
- r0h2 = r0h*r0h
- r0h3 = r0h2*r0h
- r0h_2 = 1./r0h2
- r0h_3 = 1./r0h3
-
- ! Avoid Compiler warnings
- B1 = 0.
- B2 = 0.
-
- if (r0 >= 2.0*h) then
-    B3 = 0.25*h2*h
- elseif (r0 > h) then
-    B3 = 0.25*r03 *(-4./3. + (r0h) - 0.3*r0h2 + 1./30.*r0h3 - 1./15. *r0h_3+ 8./5.*r0h_2)
-    B2 = 0.25*r03 *(-4./3. + (r0h) - 0.3*r0h2 + 1./30.*r0h3 - 1./15. *r0h_3)
- else
-    B3 = 0.25*r03 *(-2./3. + 0.3*r0h2 - 0.1*r0h3 + 7./5.*r0h_2)
-    B2 = 0.25*r03 *(-2./3. + 0.3*r0h2 - 0.1*r0h3 - 1./5.*r0h_2)
-    B1 = 0.25*r03 *(-2./3. + 0.3*r0h2 - 0.1*r0h3)
- endif
-
- a = R_0/r0
- a2 = a*a
-
- linedist2 = (r0*r0 + R_0*R_0)
- cosphi = cos(phi)
- R_ = R_0/cosphi
- r2 = (r0*r0 + R_*R_)
-
- D2 = 0.0
- D3 = 0.0
-
- if (linedist2 < h2) then
-    !////// phi1 business /////
-    cosp = R_0/sqrt(h2-r0*r0)
-    call get_I_terms(cosp,a2,a,I0,I1,I_2,I_3,I_4,I_5)
-
-    D2 = -1./6.*I_2 + 0.25*(r0h) *I_3 - 0.15*r0h2 *I_4 + 1./30.*r0h3 *I_5 - 1./60. *r0h_3 *I1 + (B1-B2)/r03 *I0
- endif
- if (linedist2 < 4.*h2) then
-    !////// phi2 business /////
-    cosp = R_0/sqrt(4.0*h2-r0*r0)
-    call get_I_terms(cosp,a2,a,I0,I1,I_2,I_3,I_4,I_5)
-
-    D3 = 1./3.*I_2 - 0.25*(r0h) *I_3 + 3./40.*r0h2 *I_4 - 1./120.*r0h3 *I_5 + 4./15. *r0h_3 *I1 + (B2-B3)/r03 *I0 + D2
- endif
-
- !//////////////////////////////
- call get_I_terms(cosphi,a2,a,I0,I1,I_2,I_3,I_4,I_5,phi=phi,tanphi=tanphi)
-
- if (r2 < h2) then
-    full_integral_3D = r0h3/pi  * (1./6. *I_2 - 3./40.*r0h2 *I_4 + 1./40.*r0h3 *I_5 + B1/r03 *I0)
- elseif (r2 < 4.*h2) then
-    full_integral_3D=  r0h3/pi  * (0.25 * (4./3. *I_2 - (r0/h) *I_3 + 0.3*r0h2 *I_4 - &
-    &   1./30.*r0h3 *I_5 + 1./15. *r0h_3 *I1) + B2/r03 *I0 + D2)
- else
-    full_integral_3D = r0h3/pi  * (-0.25*r0h_3 *I1 + B3/r03 *I0 + D3)
- endif
-
-end function full_integral_3D
-
-subroutine get_I_terms(cosp,a2,a,I0,I1,I_2,I_3,I_4,I_5,phi,tanphi)
- real(doub_prec), intent(in)  :: cosp,a2,a
- real(doub_prec), intent(out) :: I0,I1,I_2,I_3,I_4,I_5
- real(doub_prec), intent(in), optional :: phi,tanphi
- real(doub_prec) :: cosp2,p,tanp,u2,u,logs,I_1,mu2_1,fac
-
- cosp2 = cosp*cosp
- if (present(phi)) then
-    p = phi
-    tanp = tanphi
- else
-    p = acos(cosp)
-    tanp = sqrt(1.-cosp2)/cosp ! tan(p)
- endif
-
- mu2_1 = 1. / (1. + cosp2/a2)
- I0  = p
- I_2 = p +    a2 * tanp
- I_4 = p + 2.*a2 * tanp + 1./3.*a2*a2 * tanp*(2. + 1./cosp2)
-
- u2 = (1.-cosp2)*mu2_1
- u = sqrt(u2)
- logs = log((1.+u)/(1.-u))
- I1 = atan2(u,a)
-
- fac = 1./(1.-u2)
- I_1 = 0.5*a*logs + I1
- I_3 = I_1 + a*0.25*(1.+a2)*(2.*u*fac + logs)
- I_5 = I_3 + a*(1.+a2)*(1.+a2)/16. *( (10.*u - 6.*u*u2)*fac*fac + 3.*logs)
-
-end subroutine get_I_terms
 
  !------------------------------------------------------------
  ! function to return a soft maximum for 1/x with no bias

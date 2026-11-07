@@ -43,8 +43,9 @@ module extern_nr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cons2prim, extern_gr, interpolations3D, io,
-!   metric_et_utils, metric_tools, nr_api, part, physcon, utils_dft
+! :Dependencies: boundary, cons2prim, einsteintk_utils, extern_gr,
+!   interpolations3D, io, metric_et_utils, metric_tools, nr_api, part,
+!   physcon, timestep, utils_dft
 !
  use nr_api, only:nr_dp
  implicit none
@@ -76,12 +77,10 @@ subroutine init_extern_nr(time)
  use io,              only:fatal,iprint,id,master,fileprefix
  use nr_api,          only:nr_linked,nr_init,nr_formulation
  use boundary,        only:xmin,ymin,zmin,dxbound,dybound,dzbound
- use metric_et_utils, only:allocate_grid,ngrid_evolve,periodic_grid,advance_metric
- use physcon,         only:pi
- use utils_dft,       only:solve_helmholtz_periodic
+ use metric_et_utils, only:allocate_grid,ngrid_evolve,periodic_grid,advance_metric,nr_solve_init
  real, intent(in) :: time
  integer :: n(3),i,ierr
- real(nr_dp) :: dx(3),origin(3),rhobar,hubble
+ real(nr_dp) :: dx(3),origin(3),hubble
  real(nr_dp), allocatable :: alpha(:,:,:),beta(:,:,:,:),g3(:,:,:,:,:),kij(:,:,:,:,:),tmunu(:,:,:,:,:)
  real(nr_dp), allocatable :: rhostar(:,:,:)
  real, allocatable :: phi(:,:,:)
@@ -99,7 +98,7 @@ subroutine init_extern_nr(time)
  allocate(g3(3,3,n(1),n(2),n(3)),kij(3,3,n(1),n(2),n(3)))
  allocate(rhostar(n(1),n(2),n(3)),phi(n(1),n(2),n(3)))
 
- ! energy density and conserved density on the flat slice
+ ! T_munu and the conserved density deposited on the flat slice
  gcov_nr = 0.
  gcov_nr(0,0,:,:,:) = -1.
  do i=1,3
@@ -107,21 +106,16 @@ subroutine init_extern_nr(time)
  enddo
  dgcov_nr = 0.
  call get_tmunu_rhostar_grid(real(time,kind=nr_dp),gcov_nr,dgcov_nr,tmunu,rhostar)
- hubble = sqrt(8.*pi*sum(tmunu(0,0,:,:,:))/size(rhostar)/3.)
- rhobar = sum(rhostar)/size(rhostar)
 
- ! metric perturbation from the linearised Hamiltonian constraint
- call solve_helmholtz_periodic(real(4.*pi*(rhostar - rhobar)),real(dx),real(3.*hubble**2 + 12.*pi*rhobar),phi)
-
- ! longitudinal-gauge initial slice
+ if (nr_solve_init) then
+    call solved_initial_slice(time,n,origin,dx,tmunu,rhostar,g3,kij,hubble)
+ else
+    call linear_initial_slice(dx,tmunu,rhostar,g3,kij,hubble)
+ endif
+ ! lapse of the longitudinal gauge, alpha^2 = 1 + 2 phi with gamma_xx = 1 - 2 phi
+ phi = real(0.5*(1. - g3(1,1,:,:,:)))
  alpha = sqrt(1. + 2.*phi)
  beta  = 0.
- g3    = 0.
- kij   = 0.
- do i=1,3
-    g3(i,i,:,:,:)  = 1. - 2.*phi
-    kij(i,i,:,:,:) = -hubble*(1. - 2.*phi)/alpha
- enddo
 
  call nr_init(n,origin,dx,real(time,kind=nr_dp),alpha,beta,g3,kij,get_tmunu_grid,ierr)
  if (ierr /= 0) call fatal('extern_nr','could not initialise the NR evolution')
@@ -134,12 +128,77 @@ subroutine init_extern_nr(time)
     write(iprint,"(a,es12.5,a,es10.3)") ' initial conformal Hubble rate = ',hubble,&
                                         ', max |phi| = ',maxval(abs(phi))
     open(newunit=iunit_nr,file=trim(fileprefix)//'_nr.ev',status='replace',form='formatted')
-    write(iunit_nr,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") 1,'time',2,'nsteps',3,'a',4,'alpha',&
-          5,'rho',6,'rho_E',7,'constraints',8,'phi amp',9,'delta amp',10,'ham L1',11,'rho max'
+    write(iunit_nr,"('#',15(1x,'[',i2.2,1x,a11,']',2x))") 1,'time',2,'nsteps',3,'a',4,'alpha',&
+          5,'rho',6,'rho_E',7,'constraints',8,'phi amp',9,'delta amp',10,'ham L1',11,'rho max',&
+          12,'mom L1',13,'8 pi |S|',14,'rms delta*',15,'min rho*'
  endif
  call write_nr_ev(real(time,kind=nr_dp),0)
 
 end subroutine init_extern_nr
+
+!-----------------------------------------------------------------------
+!+
+!  initial slice satisfying the full (discrete) Einstein constraints for
+!  the deposited particles: the conserved density D = rho* and momentum
+!  density D u_i = -T_0i on the flat slice do not depend on the metric,
+!  and the NR code solves for a conformally flat metric on the slice of
+!  the longitudinal gauge (uniform alpha K, alpha^2 gamma_xx = 1). The
+!  matter source in each iteration is T_munu deposited from the particles
+!  in the trial metric, as the evolution will compute it
+!+
+!-----------------------------------------------------------------------
+subroutine solved_initial_slice(time,n,origin,dx,tmunu,rhostar,g3,kij,hubble)
+ use io,     only:fatal,iprint,id,master
+ use nr_api, only:nr_solve_constraints
+ real,        intent(in)  :: time
+ integer,     intent(in)  :: n(3)
+ real(nr_dp), intent(in)  :: origin(3),dx(3),tmunu(0:,0:,:,:,:),rhostar(:,:,:)
+ real(nr_dp), intent(out) :: g3(:,:,:,:,:),kij(:,:,:,:,:),hubble
+ real(nr_dp), allocatable :: mom(:,:,:,:),alpha(:,:,:)
+ real(nr_dp) :: kmean,hrel,mrel
+ integer :: i,niter,ierr
+
+ allocate(mom(3,n(1),n(2),n(3)),alpha(n(1),n(2),n(3)))
+ do i=1,3
+    mom(i,:,:,:) = -tmunu(0,i,:,:,:)
+ enddo
+ call nr_solve_constraints(n,origin,dx,rhostar,mom,alpha,g3,kij,kmean,niter,hrel,mrel,ierr,&
+                           real(time,kind=nr_dp),get_tmunu_grid)
+ if (id==master) write(iprint,"(a,i0,a,es10.3,a,es10.3)") ' initial data: constraints solved in ',niter,&
+    ' iterations, H/16 pi E = ',hrel,', |M|/8 pi |P| = ',mrel
+ if (ierr /= 0) call fatal('extern_nr','constraint solve for the initial data did not converge')
+ hubble = -kmean/3.
+
+end subroutine solved_initial_slice
+
+!-----------------------------------------------------------------------
+!+
+!  initial slice of the linearised longitudinal gauge: the potential phi
+!  from the linearised Hamiltonian constraint for the deposited rho*,
+!  (del^2 - 3H^2 - 12 pi rho*) phi = 4 pi (rho* - <rho*>)
+!+
+!-----------------------------------------------------------------------
+subroutine linear_initial_slice(dx,tmunu,rhostar,g3,kij,hubble)
+ use physcon,   only:pi
+ use utils_dft, only:solve_helmholtz_periodic
+ real(nr_dp), intent(in)  :: dx(3),tmunu(0:,0:,:,:,:),rhostar(:,:,:)
+ real(nr_dp), intent(out) :: g3(:,:,:,:,:),kij(:,:,:,:,:),hubble
+ real, allocatable :: phi(:,:,:)
+ real(nr_dp) :: rhobar
+ integer :: i
+
+ hubble = sqrt(8.*pi*sum(tmunu(0,0,:,:,:))/size(rhostar)/3.)
+ rhobar = sum(rhostar)/size(rhostar)
+ allocate(phi,mold=real(rhostar))
+ call solve_helmholtz_periodic(real(4.*pi*(rhostar - rhobar)),real(dx),real(3.*hubble**2 + 12.*pi*rhobar),phi)
+ g3  = 0.
+ kij = 0.
+ do i=1,3
+    g3(i,i,:,:,:)  = 1. - 2.*phi
+    kij(i,i,:,:,:) = -hubble*(1. - 2.*phi)/sqrt(1. + 2.*phi)
+ enddo
+
+end subroutine linear_initial_slice
 
 !-----------------------------------------------------------------------
 !+
@@ -307,8 +366,9 @@ end subroutine extrapolate_particles
 !-----------------------------------------------------------------------
 subroutine deposit_tmunu(npart,xyzh,tmunus,tmunu,rhostar)
  use part,             only:rho,massoftype,igas,isdead_or_accreted,iphase,iamtype,maxphase,maxp
- use metric_et_utils,  only:gridsize,dxgrid,gridorigin
- use interpolations3D, only:interpolate3D_vecexact
+ use metric_et_utils,  only:gridsize,dxgrid,gridorigin,nr_deposit,nr_deposit_hmin
+ use interpolations3D, only:interpolate3D_vecexact,interpolate3D_nodes
+ use einsteintk_utils, only:set_rendering
  integer,     intent(in)  :: npart
  real,        intent(in)  :: xyzh(:,:)
  real,        intent(in)  :: tmunus(:,:,:)
@@ -349,12 +409,22 @@ subroutine deposit_tmunu(npart,xyzh,tmunus,tmunu,rhostar)
  enddo
  !$omp end parallel do
 
- ! pixel i of the interpolation is at xmin + i*dx, so shifting the origin
- ! by one cell puts pixel i on grid node i
- call interpolate3D_vecexact(xyzh,weights,dat,ndat,itype,npart,gridorigin(1)-dxgrid(1),&
-                             gridorigin(2)-dxgrid(2),gridorigin(3)-dxgrid(3),datsmooth,&
-                             gridsize(1),gridsize(2),gridsize(3),dxgrid(1),dxgrid(2),dxgrid(3),&
-                             .true.,.true.,.true.,.true.)
+ if (nr_deposit == 1 .or. nr_deposit == 2) then
+    ! kernel sampled at the nodes, optionally with zero second moment, with
+    ! h >= nr_deposit_hmin dx, or integrated exactly over the cells if the
+    ! smoothing length is still below a grid spacing
+    call interpolate3D_nodes(xyzh,weights,dat,ndat,itype,npart,gridorigin,dxgrid,gridsize,&
+                             nr_deposit==2,nr_deposit_hmin*maxval(dxgrid),.true.,datsmooth)
+ else
+    ! normalised SPH interpolation, with the kernel integrated exactly over
+    ! the cells if nr_deposit = 3. Pixel i of the interpolation is at
+    ! xmin + i*dx, so shifting the origin by one cell puts pixel i on node i
+    call set_rendering(nr_deposit == 3)
+    call interpolate3D_vecexact(xyzh,weights,dat,ndat,itype,npart,gridorigin(1)-dxgrid(1),&
+                                gridorigin(2)-dxgrid(2),gridorigin(3)-dxgrid(3),datsmooth,&
+                                gridsize(1),gridsize(2),gridsize(3),dxgrid(1),dxgrid(2),dxgrid(3),&
+                                .true.,.true.,.true.,.true.)
+ endif
 
  cfac = mtot/(sum(datsmooth(ndat,:,:,:))*product(dxgrid))
  do nu=0,3
@@ -398,18 +468,20 @@ end subroutine allocate_work
 !+
 !-----------------------------------------------------------------------
 subroutine write_nr_ev(t,nsteps)
- use io,     only:id,master
- use nr_api, only:nr_constraints
+ use physcon, only:pi
+ use io,      only:id,master
+ use nr_api,  only:nr_constraints
  real(nr_dp), intent(in) :: t
  integer,     intent(in) :: nsteps
- real(nr_dp) :: cnorm,hnorm,abar,alphabar,rhoE,alpha,rhobar,phimin,phimax,phi
+ real(nr_dp) :: cnorm,hnorm,mnorm,abar,alphabar,rhoE,alpha,rhobar,phimin,phimax,phi,smag
  integer :: i,j,k,mu,nu,nnodes
 
  ! constraints with the source for the current metric (sets tmunu_last and dens_nr)
- call nr_constraints(cnorm,hnorm)
+ call nr_constraints(cnorm,hnorm,mnorm)
  abar = 0.
  alphabar = 0.
  rhoE = 0.
+ smag = 0.
  nnodes = size(sqrtg_nr)
  do k=1,size(sqrtg_nr,3)
     do j=1,size(sqrtg_nr,2)
@@ -423,6 +495,8 @@ subroutine write_nr_ev(t,nsteps)
                 rhoE = rhoE + alpha**2*gcon_nr(mu,0,i,j,k)*gcon_nr(nu,0,i,j,k)*tmunu_last(mu,nu,i,j,k)
              enddo
           enddo
+          ! |S_i| with S_i = -n^mu T_mu i = alpha g^(mu 0) T_mu i
+          smag = smag + alpha*sqrt(sum(matmul(gcon_nr(:,0,i,j,k),tmunu_last(:,1:3,i,j,k))**2))
        enddo
     enddo
  enddo
@@ -441,9 +515,11 @@ subroutine write_nr_ev(t,nsteps)
  enddo
  rhobar = sum(dens_nr)/size(dens_nr)
  if (id==master) then
-    write(iunit_nr,"(es18.10,1x,i10,9(1x,es18.10))") t,nsteps,abar,alphabar/nnodes,&
+    write(iunit_nr,"(es18.10,1x,i10,13(1x,es18.10))") t,nsteps,abar,alphabar/nnodes,&
                     rhobar,rhoE/nnodes,cnorm,0.5*(phimax - phimin),&
-                    0.5*(maxval(dens_nr) - minval(dens_nr))/rhobar,hnorm,maxval(dens_nr)
+                    0.5*(maxval(dens_nr) - minval(dens_nr))/rhobar,hnorm,maxval(dens_nr),&
+                    mnorm,8.*pi*smag/nnodes,sqrt(sum((dens_nr/rhobar - 1.)**2)/size(dens_nr)),&
+                    minval(dens_nr)/rhobar
     flush(iunit_nr)
  endif
 

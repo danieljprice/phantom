@@ -10,12 +10,15 @@ module metric
 !
 ! :References: None
 !
-! :Owner: Spencer Magnall
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - evolve_metric : *evolve the metric with the NR code (else read metric_file)*
-!   - metric_file   : *file from which to read tabulated metric (if present)*
-!   - ngrid_evolve  : *grid nodes per dimension for the evolved metric*
+!   - evolve_metric   : *evolve the metric with the NR code (else read metric_file)*
+!   - metric_file     : *file from which to read tabulated metric (if present)*
+!   - ngrid_evolve    : *grid nodes per dimension for the evolved metric*
+!   - nr_deposit      : *T_munu deposit (0=SPH, 1=SPH at nodes, 2=zero moment, 3=SPH exact)*
+!   - nr_deposit_hmin : *minimum h for the deposit at the nodes (grid spacings)*
+!   - nr_solve_init   : *solve the full constraints for the initial data (else linear)*
 !
 ! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils,
 !   nr_api
@@ -239,7 +242,7 @@ end subroutine read_headeropts_metric
 !-----------------------------------------------------------------------
 subroutine write_options_metric(iunit)
  use infile_utils,    only:write_inopt
- use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve
+ use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve,nr_solve_init,nr_deposit,nr_deposit_hmin
  use nr_api,          only:nr_linked,nr_write_options
  integer, intent(in) :: iunit
 
@@ -248,6 +251,9 @@ subroutine write_options_metric(iunit)
  if (nr_linked()) then
     call write_inopt(evolve_metric,'evolve_metric','evolve the metric with the NR code (else read metric_file)',iunit)
     call write_inopt(ngrid_evolve,'ngrid_evolve','grid nodes per dimension for the evolved metric',iunit)
+    call write_inopt(nr_solve_init,'nr_solve_init','solve the full constraints for the initial data (else linear)',iunit)
+    call write_inopt(nr_deposit,'nr_deposit','T_munu deposit (0=SPH, 1=SPH at nodes, 2=zero moment, 3=SPH exact)',iunit)
+    call write_inopt(nr_deposit_hmin,'nr_deposit_hmin','minimum h for the deposit at the nodes (grid spacings)',iunit)
     call nr_write_options(iunit)
  endif
 
@@ -260,7 +266,7 @@ end subroutine write_options_metric
 !-----------------------------------------------------------------------
 subroutine read_options_metric(db,nerr)
  use infile_utils,    only:inopts,read_inopt
- use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve
+ use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve,nr_solve_init,nr_deposit,nr_deposit_hmin
  use nr_api,          only:nr_linked,nr_read_options
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
@@ -269,6 +275,9 @@ subroutine read_options_metric(db,nerr)
  if (nr_linked()) then
     call read_inopt(evolve_metric,'evolve_metric',db,errcount=nerr)
     call read_inopt(ngrid_evolve,'ngrid_evolve',db,min=5,errcount=nerr)
+    call read_inopt(nr_solve_init,'nr_solve_init',db,errcount=nerr)
+    call read_inopt(nr_deposit,'nr_deposit',db,min=0,max=3,errcount=nerr)
+    call read_inopt(nr_deposit_hmin,'nr_deposit_hmin',db,min=0.,errcount=nerr)
     call nr_read_options(db,nerr)
  endif
 

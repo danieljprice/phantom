@@ -43,6 +43,18 @@ module metric_et_utils
  ! on a periodic grid of ngrid_evolve nodes per dimension
  logical,            public :: evolve_metric = .false.
  integer,            public :: ngrid_evolve  = 32
+ ! solve the full Einstein constraints for the initial particle data
+ ! (else use the linearised longitudinal-gauge slice)
+ logical,            public :: nr_solve_init = .true.
+ ! deposit of T_munu from the particles to the grid: 0 = normalised SPH
+ ! interpolation at the nodes, 1 = SPH kernel sampled at the nodes,
+ ! 2 = zero-second-moment kernel sampled at the nodes (smoothing error
+ ! O((kh)^4)), 3 = normalised SPH kernel integrated exactly over the cells
+ integer,            public :: nr_deposit = 2
+ ! minimum smoothing length for the deposit at the nodes, in grid spacings
+ ! (below 1, particles with h below the grid spacing have their kernel
+ ! integrated exactly over the cells, which is accurate but slow)
+ real,               public :: nr_deposit_hmin = 1.
  ! timestep limit from the expansion rate of the evolved metric
  real,               public :: dtmax_evolve  = huge(1.)
 

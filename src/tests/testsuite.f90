@@ -16,8 +16,8 @@ module test
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, io, io_summary, memory, mpiutils, options, testapr,
-!   testcoala, testcooling, testcorotate, testdamping, testderivs,
-!   testdivbproj, testdust, testeos, testexternf, testgeometry,
+!   testcoala, testcooling, testcorotate, testcosmology, testdamping,
+!   testderivs, testdivbproj, testdust, testeos, testexternf, testgeometry,
 !   testgnewton, testgr, testgravity, testgrowth, testindtstep, testinfile,
 !   testiorig, testkdtree, testkernel, testlinalg, testlum, testmpi,
 !   testneigh, testnimhd, testorbits, testpart, testpoly, testptmass,
@@ -72,6 +72,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testlum,      only:test_lum
  use testmpi,      only:test_mpi
  use testlinalg,   only:test_linalg
+ use testcosmology, only:test_cosmology
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
  use dim,          only:do_radiation,use_apr,gr,mpi,use_sinktree,maxp_requested,gravity
@@ -83,7 +84,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
- logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg,dodivb,doinfile
+ logical :: doiorig,doapr,dounits,dolum,dosinktree,doorbits,dolinalg,dodivb,doinfile,docosmo
  real(kind=4) :: twall1,tcpu1,twall2,tcpu2
 
  call summary_initialise
@@ -144,6 +145,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dosinktree  = .false.
  doorbits    = .false.
  dolinalg    = .false.
+ docosmo     = .false.
  dodivb      = .false.
 
  if (index(string,'deriv')     /= 0) doderivs    = .true.
@@ -238,6 +240,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dosinktree = .true.
  case('linalg')
     dolinalg = .true.
+ case('cosmology','fft','grf')
+    docosmo = .true.
  case('divb')
     dodivb = .true.
  case default
@@ -457,6 +461,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dolinalg.or.testall) then
     call test_linalg(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of the FFT and cosmological initial conditions
+!
+ if (docosmo.or.testall) then
+    call test_cosmology(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

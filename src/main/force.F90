@@ -40,11 +40,11 @@ module forces
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
-!   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
-!   mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils, neighkdtree,
-!   nicil, options, part, physcon, ptmass, ptmass_heating, radiation_utils,
-!   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
-!   viscosity
+!   eos_stamatellos, growth, io, io_summary, kdtree, kernel,
+!   metric_et_utils, metric_tools, mpiderivs, mpiforce, mpikdtree,
+!   mpimemory, mpiutils, neighkdtree, nicil, options, part, physcon,
+!   ptmass, ptmass_heating, radiation_utils, shock_capturing, timestep,
+!   timestep_ind, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
@@ -1065,7 +1065,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: jcbcbi(3),jcbi(3)
  real    :: alphai,grainmassi,graindensi,filfaci
  logical :: usej
- integer :: iamtypei
+ integer :: iamtypei,nneigh_loop
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
@@ -1164,6 +1164,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fsum(:) = 0.
  vsigmax = 0.
  pmassonrhoi = pmassi*rho1i
+ nneigh_loop = nneigh
 
  ! default settings for active/phase if iphase not used
  iactivej = .true.
@@ -1254,7 +1255,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     gradP_coolj=0.
  endif
 
- loop_over_neighbours2: do n = 1,nneigh
+ ! collisionless particles (neither gas nor dust) feel no pairwise forces
+ ! without self-gravity, and only need their neighbours for the timestep
+ ! bins of individual timestepping
+ if (.not.(iamgasi .or. iamdusti .or. gravity .or. ind_timesteps)) nneigh_loop = 0
+
+ loop_over_neighbours2: do n = 1,nneigh_loop
 
     j = abs(listneigh(n))
     if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours2

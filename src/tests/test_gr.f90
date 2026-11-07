@@ -14,12 +14,12 @@ module testgr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, cons2primsolver, deriv, dim, eos,
-!   eos_idealplusrad, extern_gr, externalforces, inverse4x4, io,
-!   mesa_microphysics, metric, metric_et_utils, metric_tools, mpidomain,
-!   mpiutils, options, part, physcon, ptmass, setorbit, setstar,
-!   step_lf_global, substepping, table_utils, testutils, timestep,
-!   timestep_ind, timing, units, utils_gr, vectorutils
+! :Dependencies: cons2prim, cons2primsolver, deriv, dim, einsteintk_utils,
+!   eos, eos_idealplusrad, extern_gr, externalforces, interpolations3D,
+!   inverse4x4, io, kernel, mesa_microphysics, metric, metric_et_utils,
+!   metric_tools, mpidomain, mpiutils, options, part, physcon, ptmass,
+!   setorbit, setstar, step_lf_global, substepping, table_utils, testutils,
+!   timestep, timestep_ind, timing, units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -51,6 +51,7 @@ subroutine test_gr(ntests,npass)
  call test_entropy_step(ntests,npass)
  call test_tde_entropy(ntests,npass)
  call test_mesa_forward_backward(ntests,npass)
+ call test_deposit_nodes(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- GR TESTS COMPLETE'
 
 end subroutine test_gr
@@ -60,6 +61,89 @@ end subroutine test_gr
 !   Test of orbital precession in the Kerr/Schwarzschild/RN metric
 !+
 !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  deposit of particle data to grid nodes (as used for T_munu with the
+!  NR metric): a sine mode carried by a lattice of particles is smoothed
+!  by O((kh)^2) with the SPH kernel and O((kh)^4) with the kernel of zero
+!  second moment, and a uniform field is reproduced. A particle with a
+!  smoothing length below the grid spacing deposits its mass exactly
+!  (integrating the kernel over the cells)
+!+
+!-----------------------------------------------------------------------
+subroutine test_deposit_nodes(ntests,npass)
+ use io,               only:id,master
+ use interpolations3D, only:interpolate3D_nodes,interpolate3D_vecexact
+ use einsteintk_utils, only:set_rendering
+ use kernel,           only:kernelname
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: np = 16, ng = 16, npart = np**3
+ real    :: xyzh(4,npart),weight(npart),dat(npart,2),datsmooth(2,ng,ng,ng)
+ real    :: dxp,dxg,ampl(2),xnode,sumsin,sumcos
+ integer :: itype(npart),i,j,k,ip,nfail(5),izero
+ real    :: xyzh1(4,1),weight1(1),dat1(1,1),dat1smooth(1,ng,ng,ng)
+ integer :: itype1(1)
+ real, parameter :: hfac = 1.2, pi = acos(-1.)
+
+ if (id==master) write(*,"(/,a)") '--> checking deposit of particle data to grid nodes'
+ dxp = 1./np
+ dxg = 1./ng
+ ip = 0
+ do k=1,np
+    do j=1,np
+       do i=1,np
+          ip = ip + 1
+          xyzh(1:3,ip) = ((/i,j,k/) - 0.5)*dxp - 0.5
+          xyzh(4,ip) = hfac*dxp
+          ! uniform field, and a sine mode with 2 wavelengths across the box (kh = 0.94)
+          dat(ip,1) = 1.
+          dat(ip,2) = sin(4.*pi*(xyzh(1,ip) + 0.5))
+       enddo
+    enddo
+ enddo
+ weight = dxp**3/xyzh(4,:)**3
+ itype = 1
+ do izero=0,1
+    call interpolate3D_nodes(xyzh,weight,dat,2,itype,npart,(/-0.5,-0.5,-0.5/),(/dxg,dxg,dxg/),&
+                             (/ng,ng,ng/),izero==1,dxg,.true.,datsmooth)
+    sumsin = 0.
+    sumcos = 0.
+    do i=1,ng
+       xnode = (i-1)*dxg
+       sumsin = sumsin + sum(datsmooth(2,i,:,:))*sin(4.*pi*xnode)
+       sumcos = sumcos + sum(datsmooth(2,i,:,:))*cos(4.*pi*xnode)
+    enddo
+    ! amplitude of the mode on the grid, relative to that of the particles
+    ampl(izero+1) = 2.*sqrt(sumsin**2 + sumcos**2)/ng**3
+    if (izero==1) call checkval(maxval(abs(datsmooth(1,:,:,:) - 1.)),0.,5.2e-3,nfail(1),'zero-moment deposit of uniform field')
+ enddo
+ if (id==master) print "(a,2(1x,f10.6))",' amplitude of deposited mode (SPH, zero moment): ',ampl
+ nfail(2:3) = 0
+ if (trim(kernelname)=='M_4 cubic') then
+    call checkval(ampl(1),0.8795,6.e-5,nfail(2),'smoothing of mode by SPH kernel')
+    call checkval(ampl(2),1.,1.9e-3,nfail(3),'smoothing of mode by zero-moment kernel')
+ endif
+ ! single particle with h = 0.4 dx at an arbitrary position: the total
+ ! deposited is m/rho
+ xyzh1(:,1) = (/0.1234,-0.271,0.3333,0.4*dxg/)
+ weight1 = 1./xyzh1(4,1)**3
+ dat1 = 1.
+ itype1 = 1
+ call interpolate3D_nodes(xyzh1,weight1,dat1,1,itype1,1,(/-0.5,-0.5,-0.5/),(/dxg,dxg,dxg/),&
+                          (/ng,ng,ng/),.true.,0.,.true.,dat1smooth)
+ call checkval(sum(dat1smooth)*dxg**3,1.,3.5e-14,nfail(4),'exact deposit for h < dx conserves mass')
+ ! the same for the pixel-integrated SPH kernel (any kernel), with h = 0.3 dx
+ xyzh1(4,1) = 0.3*dxg
+ weight1 = 1./xyzh1(4,1)**3
+ call set_rendering(.true.)
+ call interpolate3D_vecexact(xyzh1,weight1,dat1,1,itype1,1,-0.5,-0.5,-0.5,dat1smooth,ng,ng,ng,&
+                             dxg,dxg,dxg,.false.,.true.,.true.,.true.)
+ call set_rendering(.false.)
+ call checkval(sum(dat1smooth)*dxg**3,1.,4.e-15,nfail(5),'pixel-integrated SPH deposit conserves mass')
+ call update_test_scores(ntests,nfail,npass)
+
+end subroutine test_deposit_nodes
+
 subroutine test_precession(ntests,npass)
  use metric_tools,    only:imetric,imet_kerr,imet_schwarzschild,imet_rn,imet_et
  use metric,          only:a,charge

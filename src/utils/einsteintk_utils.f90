@@ -23,7 +23,8 @@ module einsteintk_utils
  real, allocatable :: pxgrid(:,:,:,:)
  real, allocatable :: entropygrid(:,:,:)
  real              :: boundsize(3)
- logical           :: exact_rendering
+ ! integrate the kernel exactly over the cells when interpolating to the grid
+ logical           :: exact_rendering = .false.
  character(len=128)  :: logfilestor,evfilestor,dumpfilestor,infilestor
 contains
 subroutine init_etgrid(nx,ny,nz,dx,dy,dz,originx,originy,originz)
