@@ -34,6 +34,9 @@ module nr_api
  public :: tmunu_func
  public :: nr_linked,nr_init,nr_evolve_to,nr_get_metric,nr_time,nr_constraints
  public :: nr_formulation,nr_finalise,nr_dt_expansion,nr_solve_constraints
+ public :: nr_set_dust_source
+ public :: nr_regrid,nr_nblocks,nr_blocksize,nr_get_block,nr_get_block_metric,nr_set_refine_sphere
+ public :: nr_maxlevel,nr_find_block
  public :: nr_write_options,nr_read_options
 
  private
@@ -84,6 +87,61 @@ subroutine nr_solve_constraints(n,origin,dx,dens,mom,alpha,g3,kij,kmean,niter,hr
  niter = 0
  ierr = 1
 end subroutine nr_solve_constraints
+
+subroutine nr_set_dust_source(t0,dens0,mom0,t1,dens1,mom1,id)
+ real(nr_dp), intent(in) :: t0,t1,dens0(:,:,:),mom0(:,:,:,:),dens1(:,:,:),mom1(:,:,:,:)
+ integer, intent(in), optional :: id
+end subroutine nr_set_dust_source
+
+subroutine nr_regrid(changed,xpt,rpt,lpt)
+ logical, intent(out) :: changed
+ real(nr_dp), intent(in), optional :: xpt(:,:),rpt(:)
+ integer, intent(in), optional :: lpt(:)
+ changed = .false.
+end subroutine nr_regrid
+
+integer function nr_nblocks()
+ nr_nblocks = 0
+end function nr_nblocks
+
+integer function nr_blocksize()
+ nr_blocksize = 0
+end function nr_blocksize
+
+integer function nr_maxlevel()
+ nr_maxlevel = 0
+end function nr_maxlevel
+
+integer function nr_find_block(level,c)
+ integer, intent(in) :: level,c(3)
+ nr_find_block = -1
+end function nr_find_block
+
+subroutine nr_get_block(id,level,origin,dx,parent,child)
+ integer,     intent(in)  :: id
+ integer,     intent(out) :: level,parent,child(8)
+ real(nr_dp), intent(out) :: origin(3),dx(3)
+ level = 0
+ parent = 0
+ child = -1
+ origin = 0.
+ dx = 0.
+end subroutine nr_get_block
+
+subroutine nr_get_block_metric(id,gcov,gcon,sqrtg,metricderivs)
+ integer,     intent(in)  :: id
+ real(nr_dp), intent(out) :: gcov(0:,0:,:,:,:),gcon(0:,0:,:,:,:),sqrtg(:,:,:)
+ real(nr_dp), intent(out) :: metricderivs(0:,0:,:,:,:,:)
+ gcov = 0.
+ gcon = 0.
+ sqrtg = 0.
+ metricderivs = 0.
+end subroutine nr_get_block_metric
+
+subroutine nr_set_refine_sphere(i,x,r,level)
+ integer,     intent(in) :: i,level
+ real(nr_dp), intent(in) :: x(3),r
+end subroutine nr_set_refine_sphere
 
 real(nr_dp) function nr_time()
  nr_time = 0.

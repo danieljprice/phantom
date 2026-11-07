@@ -18,7 +18,10 @@ module metric
 !   - ngrid_evolve    : *grid nodes per dimension for the evolved metric*
 !   - nr_deposit      : *T_munu deposit (0=SPH, 1=SPH at nodes, 2=zero moment, 3=SPH exact)*
 !   - nr_deposit_hmin : *minimum h for the deposit at the nodes (grid spacings)*
+!   - nr_dust_source  : *deposit rho*, rho* u_i once per advance (pressureless matter only)*
+!   - nr_refine_h     : *refine the NR grid where h < nr_refine_h dx (with amr_maxlevel > 0)*
 !   - nr_solve_init   : *solve the full constraints for the initial data (else linear)*
+!   - redshift_init   : *redshift at which the scale factor is 1 (cosmology, <0 = none)*
 !
 ! :Dependencies: dump_utils, infile_utils, inverse4x4, metric_et_utils,
 !   nr_api
@@ -212,12 +215,20 @@ end subroutine accrete_particles_metric
 !+
 !-----------------------------------------------------------------------
 subroutine write_headeropts_metric(hdr,time,accradius,ierr)
- use dump_utils, only:dump_h
+ use dump_utils,      only:dump_h,add_to_rheader
+ use metric_et_utils, only:evolve_metric,proper_time,scale_factor,redshift_init
  type(dump_h), intent(inout) :: hdr
  real,         intent(in)    :: time,accradius
  integer,      intent(out)   :: ierr
 
  ierr = 0
+ ! for an evolved metric, the proper time (age) and mean scale factor of the
+ ! grid, and the redshift if the run is cosmological
+ if (evolve_metric .and. proper_time >= 0.) then
+    call add_to_rheader(proper_time,'proper_time',hdr,ierr)
+    call add_to_rheader(scale_factor,'scale_factor',hdr,ierr)
+    if (redshift_init >= 0.) call add_to_rheader((1. + redshift_init)/scale_factor - 1.,'redshift',hdr,ierr)
+ endif
 
 end subroutine write_headeropts_metric
 
@@ -227,11 +238,16 @@ end subroutine write_headeropts_metric
 !+
 !-----------------------------------------------------------------------
 subroutine read_headeropts_metric(hdr,ierr)
- use dump_utils, only:dump_h
+ use dump_utils,      only:dump_h,extract
+ use metric_et_utils, only:proper_time
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
+ integer :: ierrs
 
  ierr  = 0
+ ! proper time of an evolved metric, so that it continues on restart
+ call extract('proper_time',proper_time,hdr,ierrs)
+ if (ierrs /= 0) proper_time = -1.
 
 end subroutine read_headeropts_metric
 
@@ -242,7 +258,8 @@ end subroutine read_headeropts_metric
 !-----------------------------------------------------------------------
 subroutine write_options_metric(iunit)
  use infile_utils,    only:write_inopt
- use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve,nr_solve_init,nr_deposit,nr_deposit_hmin
+ use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve,nr_solve_init,nr_deposit,nr_deposit_hmin,&
+                            redshift_init,nr_dust_source,nr_refine_h
  use nr_api,          only:nr_linked,nr_write_options
  integer, intent(in) :: iunit
 
@@ -254,6 +271,9 @@ subroutine write_options_metric(iunit)
     call write_inopt(nr_solve_init,'nr_solve_init','solve the full constraints for the initial data (else linear)',iunit)
     call write_inopt(nr_deposit,'nr_deposit','T_munu deposit (0=SPH, 1=SPH at nodes, 2=zero moment, 3=SPH exact)',iunit)
     call write_inopt(nr_deposit_hmin,'nr_deposit_hmin','minimum h for the deposit at the nodes (grid spacings)',iunit)
+    call write_inopt(redshift_init,'redshift_init','redshift at which the scale factor is 1 (cosmology, <0 = none)',iunit)
+    call write_inopt(nr_dust_source,'nr_dust_source','deposit rho*, rho* u_i once per advance (pressureless matter only)',iunit)
+    call write_inopt(nr_refine_h,'nr_refine_h','refine the NR grid where h < nr_refine_h dx (with amr_maxlevel > 0)',iunit)
     call nr_write_options(iunit)
  endif
 
@@ -266,7 +286,8 @@ end subroutine write_options_metric
 !-----------------------------------------------------------------------
 subroutine read_options_metric(db,nerr)
  use infile_utils,    only:inopts,read_inopt
- use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve,nr_solve_init,nr_deposit,nr_deposit_hmin
+ use metric_et_utils, only:metric_file,evolve_metric,ngrid_evolve,nr_solve_init,nr_deposit,nr_deposit_hmin,&
+                            redshift_init,nr_dust_source,nr_refine_h
  use nr_api,          only:nr_linked,nr_read_options
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
@@ -278,6 +299,9 @@ subroutine read_options_metric(db,nerr)
     call read_inopt(nr_solve_init,'nr_solve_init',db,errcount=nerr)
     call read_inopt(nr_deposit,'nr_deposit',db,min=0,max=3,errcount=nerr)
     call read_inopt(nr_deposit_hmin,'nr_deposit_hmin',db,min=0.,errcount=nerr)
+    call read_inopt(redshift_init,'redshift_init',db,errcount=nerr)
+    call read_inopt(nr_dust_source,'nr_dust_source',db,errcount=nerr)
+    call read_inopt(nr_refine_h,'nr_refine_h',db,min=0.,default=1.,errcount=nerr)
     call nr_read_options(db,nerr)
  endif
 

@@ -755,9 +755,14 @@ end subroutine interpolate3D_vecexact
 !  whose smoothing length is still below the grid spacing contribute
 !  instead the exact integral of the kernel over each cell centred on a
 !  node, divided by the cell volume
+!
+!  The grid may also be a block of n nodes inside a periodic grid of
+!  nperiod nodes (e.g. a refined block of an adaptive mesh): contributions
+!  wrap with period nperiod and only the block's nodes are kept
 !+
 !--------------------------------------------------------------------------
-subroutine interpolate3D_nodes(xyzh,weight,dat,ilendat,itype,npart,xmin,dx,n,zero_moment,hmin,exact,datsmooth)
+subroutine interpolate3D_nodes(xyzh,weight,dat,ilendat,itype,npart,xmin,dx,n,zero_moment,hmin,exact,datsmooth,&
+                               nperiod)
  use kernel,           only:kernelname
  use kernel_integrals, only:maxpieces,maxdeg,maxpow,get_kernel_pieces,zero_moment_pieces,&
                             set_kernel_integral_coeffs,cell_integral_3d
@@ -765,10 +770,11 @@ subroutine interpolate3D_nodes(xyzh,weight,dat,ilendat,itype,npart,xmin,dx,n,zer
  real,    intent(in)  :: xyzh(:,:),weight(npart),dat(npart,ilendat),xmin(3),dx(3),hmin
  logical, intent(in)  :: zero_moment,exact
  real,    intent(out) :: datsmooth(ilendat,n(1),n(2),n(3))
+ integer, intent(in), optional :: nperiod(3)
  real    :: a,b,hi,hi1,q2,wi,dr(3),xnode(3),wfac,radi
  real(kind=doub_prec) :: qb(maxpieces),wpoly(0:maxdeg,maxpieces),g2(-1:maxpow,maxpieces+1)
  real(kind=doub_prec) :: a3(-1:maxpow,maxpieces+1),cnorm2,cnorm3,aint,vint
- integer :: i,ip,jp,kp,ii,jj,kk,lo(3),hi_idx(3),c,npieces,nmax,ierr
+ integer :: i,ip,jp,kp,ii,jj,kk,lo(3),hi_idx(3),c,npieces,nmax,ierr,np(3)
  logical :: use_exact,exacti
 
  a = 0.
@@ -786,9 +792,11 @@ subroutine interpolate3D_nodes(xyzh,weight,dat,ilendat,itype,npart,xmin,dx,n,zer
        call set_kernel_integral_coeffs(npieces,qb,wpoly,nmax,g2,a3,cnorm2,cnorm3)
     endif
  endif
+ np = n
+ if (present(nperiod)) np = nperiod
  datsmooth = 0.
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,weight,dat,ilendat,itype,xmin,dx,n,a,b,hmin,datsmooth) &
+ !$omp shared(npart,xyzh,weight,dat,ilendat,itype,xmin,dx,n,np,a,b,hmin,datsmooth) &
  !$omp shared(use_exact,npieces,nmax,qb,a3) &
  !$omp private(i,ip,jp,kp,ii,jj,kk,lo,hi_idx,hi,hi1,q2,wi,dr,xnode,c,wfac,radi,exacti,vint) &
  !$omp schedule(guided)
@@ -811,13 +819,16 @@ subroutine interpolate3D_nodes(xyzh,weight,dat,ilendat,itype,npart,xmin,dx,n,zer
     lo     = ceiling((xyzh(1:3,i) - radi - xmin)/dx) + 1
     hi_idx = floor((xyzh(1:3,i) + radi - xmin)/dx) + 1
     do kp=lo(3),hi_idx(3)
-       kk = modulo(kp-1,n(3)) + 1
+       kk = modulo(kp-1,np(3)) + 1
+       if (kk > n(3)) cycle
        xnode(3) = xmin(3) + (kp-1)*dx(3)
        do jp=lo(2),hi_idx(2)
-          jj = modulo(jp-1,n(2)) + 1
+          jj = modulo(jp-1,np(2)) + 1
+          if (jj > n(2)) cycle
           xnode(2) = xmin(2) + (jp-1)*dx(2)
           do ip=lo(1),hi_idx(1)
-             ii = modulo(ip-1,n(1)) + 1
+             ii = modulo(ip-1,np(1)) + 1
+             if (ii > n(1)) cycle
              xnode(1) = xmin(1) + (ip-1)*dx(1)
              if (exacti) then
                 vint = cell_integral_3d(real(xyzh(1:3,i),doub_prec),real(xnode,doub_prec),&

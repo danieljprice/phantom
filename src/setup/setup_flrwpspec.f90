@@ -15,7 +15,9 @@ module setup
 !
 ! The box is 1 code unit across, with comoving length box_Mpc (Mpc/h);
 ! c = G = 1 and the initial scale factor is 1, so the initial Hubble
-! rate is H = (H0 L/c) sqrt(1 + z_init) and the conformal time 2/H.
+! rate is H = (H0 L/c) sqrt(1 + z_init) and the conformal time 2/H. The
+! unit of length is the physical size of the box at z_init,
+! L/(h (1 + z_init)) Mpc, and the unit of time is that length over c.
 ! Particles are dark matter by default (collisionless, on geodesics).
 !
 ! :References:
@@ -25,7 +27,7 @@ module setup
 !
 ! :Runtime parameters:
 !   - box_Mpc      : *comoving box length in Mpc/h*
-!   - h_hubble     : *h for the Eisenstein-Hu spectrum (pk_file = none)*
+!   - h_hubble     : *h, for the physical units and the Eisenstein-Hu spectrum*
 !   - itype        : *particle type (1=gas, 5=dark matter)*
 !   - lambda_min   : *remove modes shorter than this (Mpc/h, 0=none)*
 !   - nref         : *grid for the random field (0=nx; same nref and seed give the same field)*
@@ -69,6 +71,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use set_grf,      only:zeldovich_displacement
  use setup_params, only:npart_total
  use infile_utils, only:get_options
+ use units,        only:set_units
+ use physcon,      only:mpc
+ use metric_et_utils, only:redshift_init
  integer,          intent(in)    :: id
  integer,          intent(inout) :: npart
  integer,          intent(out)   :: npartoftype(:)
@@ -99,6 +104,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  h_hubble     = 0.45
  call get_options(trim(fileprefix)//'.setup',id==master,ierr,read_setupfile,write_setupfile)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
+
+ ! c = G = 1, with the unit of length the physical box size at z_init
+ call set_units(dist=box_mpc/h_hubble*mpc/(1.+z_init),c=1.d0,G=1.d0)
+ ! so that the run reports the redshift (written to the .in file)
+ redshift_init = z_init
 
  ! unit box, initial Hubble rate and density from the Friedmann equation
  call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
@@ -279,14 +289,12 @@ end subroutine set_types
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
 
  print "(/,a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for cosmological initial conditions'
- call write_options_units(iunit,.true.)
  write(iunit,"(/,a)") '# resolution and particles'
  call write_inopt(npartx,'nx','number of particles in each direction',iunit)
  call write_inopt(itype,'itype','particle type (1=gas, 5=dark matter)',iunit)
@@ -300,7 +308,7 @@ subroutine write_setupfile(filename)
  call write_inopt(nref,'nref','grid for the random field (0=nx; same nref and seed give the same field)',iunit)
  call write_inopt(lambda_min,'lambda_min','remove modes shorter than this (Mpc/h, 0=none)',iunit)
  call write_inopt(sigma8,'sigma8','sigma8 for the Eisenstein-Hu spectrum',iunit)
- call write_inopt(h_hubble,'h_hubble','h for the Eisenstein-Hu spectrum (pk_file = none)',iunit)
+ call write_inopt(h_hubble,'h_hubble','h, for the physical units and the Eisenstein-Hu spectrum',iunit)
  call write_inopt(phi_ampl,'phi_ampl','amplitude of phi for the single mode',iunit)
  close(iunit)
 
@@ -313,7 +321,6 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -324,7 +331,6 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_options_and_set_units(db,nerr,.true.)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(itype,'itype',db,min=1,errcount=nerr)
  call read_inopt(box_mpc,'box_Mpc',db,min=0.,errcount=nerr)

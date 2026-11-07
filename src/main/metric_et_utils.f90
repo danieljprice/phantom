@@ -13,6 +13,12 @@ module metric_et_utils
 ! The grid is vertex-centred: node (i,j,k) is at gridorigin + (i-1,j-1,k-1)*dxgrid.
 ! For a periodic grid, node gridsize+1 is identified with node 1.
 !
+! An evolved metric may also have refined blocks (an adaptive mesh, see
+! extern_nr): an octree of blocks of nb^3 nodes, each refining an octant of
+! its parent by a factor 2. The metric at a point is then interpolated from
+! the finest block containing it, which holds the metric on its (nb+2)^3
+! nodes from one node below its first node to one beyond its last.
+!
 ! :References: Magnall et al. (2023), Phys. Rev. D 108, 103534
 !
 ! :Owner: Daniel Price
@@ -55,8 +61,34 @@ module metric_et_utils
  ! (below 1, particles with h below the grid spacing have their kernel
  ! integrated exactly over the cells, which is accurate but slow)
  real,               public :: nr_deposit_hmin = 1.
+ ! pressureless matter: deposit the coordinate densities rho* and rho* u_i
+ ! twice per advance, from which the NR code computes T_munu at each stage,
+ ! instead of processing the particles at every stage
+ logical,            public :: nr_dust_source = .true.
  ! timestep limit from the expansion rate of the evolved metric
  real,               public :: dtmax_evolve  = huge(1.)
+ ! cosmology with an evolved metric: redshift at which the scale factor is 1
+ ! (< 0 if not a cosmological run), and the proper time (age) and mean scale
+ ! factor of the grid, written to the dump header (proper time < 0 if unset)
+ real,               public :: redshift_init = -1.
+ real,               public :: proper_time   = -1.
+ real,               public :: scale_factor  = 1.
+
+ ! refined blocks: level, first node x0, spacing, children in the octants
+ ! (x,y,z) -> 1 + ix + 2 iy + 4 iz (-1 = none), and the metric on the nodes
+ type, public :: metric_block
+  integer :: level = 0
+  integer :: child(8) = -1
+  real    :: x0(3) = 0., dx(3) = 0.
+  real, allocatable :: gcov(:,:,:,:,:),derivs(:,:,:,:,:,:),cross(:,:,:,:,:,:)
+ end type metric_block
+ type(metric_block), allocatable, public :: mblocks(:)
+ integer, public :: nmblocks = 0, mblocksize = 0
+ ! level-1 block at each level-1 block position (-1 = none)
+ integer, allocatable :: map1(:,:,:)
+ ! refinement of the evolved metric: particles need a grid spacing below
+ ! their smoothing length divided by nr_refine_h
+ real,               public :: nr_refine_h = 1.
 
  ! routine that advances an evolved metric on the grid to a given time
  abstract interface
@@ -69,6 +101,7 @@ module metric_et_utils
  public :: allocate_grid,initialize_grid,print_metric_grid
  public :: write_tabulated_metric,read_tabulated_metric,set_grid_ready
  public :: interpolate_gcov,interpolate_gcov_derivs
+ public :: allocate_blocks,set_block_ready,find_block
 
  private
 
@@ -231,6 +264,127 @@ subroutine read_tabulated_metric(filename, ierr)
 
 end subroutine read_tabulated_metric
 
+!---------------------------------------------------------------
+!+
+!  allocate nblocks refined blocks of nb^3 nodes (none if nblocks = 0)
+!+
+!---------------------------------------------------------------
+subroutine allocate_blocks(nblocks,nb)
+ integer, intent(in) :: nblocks,nb
+ integer :: i,m
+
+ if (allocated(mblocks)) deallocate(mblocks)
+ if (allocated(map1)) deallocate(map1)
+ nmblocks = nblocks
+ mblocksize = nb
+ if (nblocks <= 0) return
+ m = nb + 2
+ allocate(mblocks(nblocks))
+ do i=1,nblocks
+    allocate(mblocks(i)%gcov(0:3,0:3,m,m,m),mblocks(i)%derivs(0:3,0:3,3,m,m,m))
+    allocate(mblocks(i)%cross(0:3,0:3,4,m,m,m))
+ enddo
+ allocate(map1(0:2*gridsize(1)/nb-1,0:2*gridsize(2)/nb-1,0:2*gridsize(3)/nb-1))
+ map1 = -1
+
+end subroutine allocate_blocks
+
+!---------------------------------------------------------------
+!+
+!  mark block id ready for interpolation once its level, position,
+!  children, metric and metric derivatives are set: compute the mixed
+!  derivatives and enter a level-1 block into the lookup table
+!+
+!---------------------------------------------------------------
+subroutine set_block_ready(id)
+ use table_utils, only:hermite_cross_derivs_3d
+ integer, intent(in) :: id
+ integer :: c(3),m(3)
+
+ m = mblocksize + 2
+ call hermite_cross_derivs_3d(16,m,mblocks(id)%derivs,mblocks(id)%dx,.false.,mblocks(id)%cross)
+ if (mblocks(id)%level == 1) then
+    c = nint((mblocks(id)%x0 - gridorigin)/(mblocksize*mblocks(id)%dx))
+    map1(c(1),c(2),c(3)) = id
+ endif
+
+end subroutine set_block_ready
+
+!-----------------------------------------------------------------------
+!+
+!  finest refined block containing a position (0 if none, i.e. the
+!  position is only covered by the root grid)
+!+
+!-----------------------------------------------------------------------
+pure integer function find_block(position) result(id)
+ real, intent(in) :: position(3)
+ real    :: rel(3),size1(3)
+ integer :: c(3),cid,oct(3)
+
+ id = 0
+ if (nmblocks <= 0) return
+ size1 = 0.5*mblocksize*dxgrid
+ c = floor((position - gridorigin)/size1)
+ if (periodic_grid) then
+    c = modulo(c,2*gridsize/mblocksize)
+ elseif (any(c < 0 .or. c >= 2*gridsize/mblocksize)) then
+    return
+ endif
+ cid = map1(c(1),c(2),c(3))
+ do while (cid > 0)
+    id = cid
+    rel = block_offset(position,id)
+    oct = 0
+    where (rel >= 0.5*mblocksize*mblocks(id)%dx) oct = 1
+    cid = mblocks(id)%child(1 + oct(1) + 2*oct(2) + 4*oct(3))
+ enddo
+
+end function find_block
+
+!-----------------------------------------------------------------------
+!+
+!  position relative to the first node of block id (wrapped into the
+!  periodic box)
+!+
+!-----------------------------------------------------------------------
+pure function block_offset(position,id) result(rel)
+ real,    intent(in) :: position(3)
+ integer, intent(in) :: id
+ real :: rel(3)
+
+ rel = position - mblocks(id)%x0
+ if (periodic_grid) rel = modulo(rel,gridsize*dxgrid)
+
+end function block_offset
+
+!-----------------------------------------------------------------------
+!+
+!  tricubic Hermite interpolation of the metric (and optionally of its
+!  derivatives) at a position, from the finest block containing it or
+!  else from the root grid
+!+
+!-----------------------------------------------------------------------
+pure subroutine interpolate_metric_at(position,gcov,dgcov)
+ use table_utils, only:interp3d_hermite
+ real, intent(in)  :: position(3)
+ real, intent(out) :: gcov(0:3,0:3)
+ real, intent(out), optional :: dgcov(0:3,0:3,3)
+ integer :: id,m(3)
+
+ id = find_block(position)
+ if (id > 0) then
+    m = mblocksize + 2
+    associate(b => mblocks(id))
+       call interp3d_hermite(16,m,b%gcov,b%derivs,b%cross,b%x0 - b%dx,b%dx,.false.,&
+                             b%x0 + block_offset(position,id),gcov,dgcov)
+    end associate
+ else
+    call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,metriccrossgrid,gridorigin,dxgrid,&
+                          periodic_grid,position,gcov,dgcov)
+ endif
+
+end subroutine interpolate_metric_at
+
 !-----------------------------------------------------------------------
 !+
 !  interpolate the covariant metric to a given position, using tricubic
@@ -238,12 +392,10 @@ end subroutine read_tabulated_metric
 !+
 !-----------------------------------------------------------------------
 pure subroutine interpolate_gcov(position,gcov)
- use table_utils, only:interp3d_hermite
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
 
- call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,metriccrossgrid,gridorigin,dxgrid,&
-                       periodic_grid,position,gcov)
+ call interpolate_metric_at(position,gcov)
 
 end subroutine interpolate_gcov
 
@@ -255,13 +407,11 @@ end subroutine interpolate_gcov
 !+
 !-----------------------------------------------------------------------
 pure subroutine interpolate_gcov_derivs(position,dgcov)
- use table_utils, only:interp3d_hermite
  real, intent(in)  :: position(3)
  real, intent(out) :: dgcov(0:3,0:3,3)
  real :: gcov(0:3,0:3)
 
- call interp3d_hermite(16,gridsize,gcovgrid,metricderivsgrid,metriccrossgrid,gridorigin,dxgrid,&
-                       periodic_grid,position,gcov,dgcov)
+ call interpolate_metric_at(position,gcov,dgcov)
 
 end subroutine interpolate_gcov_derivs
 
