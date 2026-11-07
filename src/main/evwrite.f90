@@ -47,14 +47,15 @@ module evwrite
  use externalforces, only:iext_binary,was_accreted
  use energies,       only:inumev,iquantities,ev_data
  use energies,       only:ndead,npartall
- use energies,       only:gas_only,track_mass
+ use energies,       only:gas_only,track_mass,track_core_omega
  use energies,       only:iev_sum,iev_max,iev_min,iev_ave
  use energies,       only:iev_time,iev_ekin,iev_etherm,iev_emag,iev_epot,iev_etot,iev_totmom,iev_com,&
                           iev_angmom,iev_rho,iev_dt,iev_dtx,iev_entrop,iev_rmsmach,iev_vrms,iev_rhop,iev_alpha,&
                           iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,iev_errE,iev_errU,iev_radits,&
                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                          iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws,iev_mass,iev_bdy
+                          iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws,iev_mass,iev_bdy,&
+                          iev_omegacore
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -221,6 +222,13 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,iev_gws(6),'hp_{60}','0',i,j)
     call fill_ev_tag(ev_fmt,iev_gws(7),'hx_{90}','0',i,j)
     call fill_ev_tag(ev_fmt,iev_gws(8),'hp_{90}','0',i,j)
+ endif
+ track_core_omega = (npartoftypetot(iboundary) > 0)
+ if (track_core_omega) then
+    call fill_ev_tag(ev_fmt,iev_omegacore(1),'omegacore_x','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_omegacore(2),'omegacore_y','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_omegacore(3),'omegacore_z','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_omegacore(4),'omegacore',  '0',i,j)
  endif
  if (dynamic_bdy) then
     call fill_ev_tag(ev_fmt,iev_bdy(1,1),'min_x','0',i,j)
