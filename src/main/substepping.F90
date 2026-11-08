@@ -803,7 +803,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use subgroup,        only:subgroup_search
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
- use boundarypart,    only:get_boundary_particle_forces
+ use boundarypart,    only:get_boundary_particle_forces,calculate_boundary_core_CM
  integer,         intent(in)    :: npart,nsubsteps,ntypes
  integer,         intent(inout) :: force_count,nptmass
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
@@ -830,7 +830,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real                 :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
  real                 :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real                 :: fonrmaxi,phii,dtphi2i
- real                 :: dkdt,extrapfac
+ real                 :: dkdt,extrapfac,xcore(3),fcore(3)
  real                 :: densi,uui,pri,vxyz(3),fext_gr(3),xyz(3)
  logical              :: extrap,last,do_recompute_gr,do_skip_metric_update
 
@@ -846,6 +846,13 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
  force_count   = force_count + 1
  extrapfac     = (1./24.)*dt**2
+ !
+ ! boundary particles (rigid core) are extrapolated with the mean linear
+ ! acceleration only, excluding the rotational contribution as the latter
+ ! does not conserve angular momentum
+ !
+ fcore = 0.
+ if (extrap) call calculate_boundary_core_CM(npart,iphase,xyzh(1:3,:),fext(1:3,:),xcore,fcore)
  dkdt          = dki*dt
  itype         = igas
  pmassi        = massoftype(igas)
@@ -956,7 +963,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype,dens,rho) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
  !$omp shared(divcurlv,dphot0,nucleation,extrap) &
- !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
+ !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old,fcore) &
  !$omp shared(isink_radiation,itau_alloc,tau,bin_info) &
  !$omp shared(metrics,metricderivs,metrics_ptmass,metricderivs_ptmass,C_force) &
  !$omp shared(fgr,do_recompute_gr) &
@@ -983,7 +990,11 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        fextx = 0.
        fexty = 0.
        fextz = 0.
-       if (extrap) then
+       if (extrap .and. iamboundary(itype)) then
+          xi = xyzh(1,i) + extrapfac*fcore(1)
+          yi = xyzh(2,i) + extrapfac*fcore(2)
+          zi = xyzh(3,i) + extrapfac*fcore(3)
+       elseif (extrap) then
           xi = xyzh(1,i) + extrapfac*fext(1,i)
           yi = xyzh(2,i) + extrapfac*fext(2,i)
           zi = xyzh(3,i) + extrapfac*fext(3,i)
