@@ -23,18 +23,18 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,         only:iamtype,iamboundary,iphase,igas,iboundary,set_particle_type
- use boundarypart, only:set_boundary_particle_velocity
+ use boundarypart, only:calculate_boundary_core_CM
  integer, intent(inout) :: npart,npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
  integer                :: i,nconverted
- real                   :: rmin,rmin2,r2,xyz_CM(3)
+ real                   :: rmin,rmin2,r2,xyz_CM(3),vxyz_CM(3)
 
  rmin = 0.
  rmin2 = rmin**2
 
  print*,'Converting boundary particles with |r-r_CM| > ',rmin,' to gas'
 
- call set_boundary_particle_velocity(npart,iphase,xyzh,vxyzu,xyz_CM)
+ call calculate_boundary_core_CM(npart,iphase,xyzh,vxyzu,xyz_CM,vxyz_CM)
 
  nconverted = 0
  do i=1,npart
