@@ -42,7 +42,7 @@ module energies
                                iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),iev_errE,iev_errU,iev_radits,&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
                                iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8),&
-                               iev_mass,iev_bdy(3,2),iev_omegacore(4)
+                               iev_mass,iev_bdy(3,2),iev_omegacore(4),iev_ecore
  integer,         public    :: iev_erad
  real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -91,6 +91,7 @@ subroutine compute_energies(t)
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn,eta_constant
  use boundary_dyn,   only:dynamic_bdy,find_dynamic_boundaries
  use boundarypart,   only:calculate_boundary_core_omega
+ use checkconserved, only:ecore_lost
  use kernel,         only:radkern
  use timestep,       only:dtmax
  use part,           only:metrics,metrics_ptmass
@@ -855,6 +856,7 @@ subroutine compute_energies(t)
     call calculate_boundary_core_omega(npart,iphase,xyzh(1:3,:),vxyzu(1:3,:),omega_core)
     ev_data(iev_sum,iev_omegacore(1:3)) = omega_core
     ev_data(iev_sum,iev_omegacore(4))   = sqrt(dot_product(omega_core,omega_core))
+    ev_data(iev_sum,iev_ecore)          = ecore_lost
  endif
 
  if (dynamic_bdy) then

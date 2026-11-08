@@ -263,7 +263,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
                           idust,grainsize,graindens,ndusttypes
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in,ecore_lost
  use setup_params,   only:rhozero
  use timestep,       only:C_cour,C_force
  use dynamic_dtmax,  only:dtmax_user,idtmax_n_next,idtmax_frac_next
@@ -364,6 +364,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     endif
     call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
     call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
+    call add_to_rheader(ecore_lost,'ecore_lost',hdr,ierr)
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
@@ -402,7 +403,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
                           maxtypes,grainsize,graindens,ndusttypes
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in,ecore_lost
  use setup_params,   only:rhozero
  use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
@@ -539,6 +540,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('totmom_in',  totmom_in,  hdr,ierrs(4))
  call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(6))
  call extract('mtot_in',    mtot_in,    hdr,ierrs(5))
+ call extract('ecore_lost', ecore_lost, hdr,ierrs(7))
+ if (ierrs(7) /= 0) ecore_lost = 0.
  if (any(ierrs(1:4) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0

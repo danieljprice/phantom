@@ -27,6 +27,7 @@ module checkconserved
  implicit none
  real, public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
  real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes),mtot_in
+ real, public :: ecore_lost = 0. ! thermal energy discarded by the rigid boundary-particle core
 
  public :: init_conservation_checks, check_conservation_errors
 

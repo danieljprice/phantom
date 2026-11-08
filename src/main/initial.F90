@@ -805,7 +805,7 @@ end subroutine get_energies_and_init_ev_files
 subroutine init_conservation_checks()
  use dim,            only:use_dust
  use io,             only:id,master,iprint,iverbose,warning
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in,ecore_lost
  use energies,       only:etot,angtot,totmom,mdust,mtot
  use fileutils,      only:make_tags_unique
  use part,           only:ndusttypes
@@ -822,6 +822,7 @@ subroutine init_conservation_checks()
     totmom_in = totmom
     mdust_in  = mdust
     mtot_in   = mtot
+    ecore_lost = 0.
     if (id==master .and. iverbose >= 1) then
        write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
     endif

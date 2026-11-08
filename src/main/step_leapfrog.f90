@@ -134,6 +134,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr,substep_sph_gr,substep_sph
  use ptmass,         only:ptmass_kick
+ use boundarypart,   only:core_dudt
+ use checkconserved, only:ecore_lost
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -147,7 +149,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real               :: v2mean,hdti
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
- real               :: dti,time_now
+ real               :: dti,time_now,core_dudt_old
  logical, parameter :: allow_waking = .true.
  integer, parameter :: maxits = 30
  real,    parameter :: omegamin = 0.1  ! minimum damping factor in the velocity iterations
@@ -159,6 +161,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
+ core_dudt_old = core_dudt
 ! determine twas for each ibin
  if (ind_timesteps) then
     time_now = timei + dtsph
@@ -777,6 +780,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  nvfloorc  = int(reduceall_mpi('+', nvfloorc))
 
  if (dynamic_bdy) call update_xyzminmax(dtsph)
+ ecore_lost = ecore_lost + hdtsph*(core_dudt_old + core_dudt)
 
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )

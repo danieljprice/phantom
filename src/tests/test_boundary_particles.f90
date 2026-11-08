@@ -75,7 +75,8 @@ end subroutine test_boundary
 !   - the core stays rigid: velocities are those of a rigid body
 !     (v = v_cm + omega x r) and pairwise distances are preserved.
 !   - total linear and angular momentum are conserved
-!   - total energy is approximately conserved
+!   - total energy is conserved once the thermal energy discarded by
+!     freezing u in the core (ecore_lost) is added back
 !+
 !-----------------------------------------------------------------------
 subroutine test_core_star_sink_orbit(ntests,npass)
@@ -100,6 +101,7 @@ subroutine test_core_star_sink_orbit(ntests,npass)
  use timestep,       only:dtmax,tolv
  use energies,       only:compute_energies,etot
  use boundarypart,   only:get_boundary_particle_forces,calculate_boundary_core_CM
+ use checkconserved, only:ecore_lost
  integer, intent(inout) :: ntests,npass
  integer :: i,istep,nsteps,nfailed(6),ncore,nalive
  integer(kind=8) :: nptot
@@ -212,6 +214,7 @@ subroutine test_core_star_sink_orbit(ntests,npass)
  call get_momenta(mom0,angmom0)
  call compute_energies(t)
  etot0  = etot
+ ecore_lost = 0.   ! accumulated by step
  pscale = mstar*sqrt(dot_product(vstar,vstar))   ! orbital momentum of the star
  lscale = sqrt(dot_product(angmom0,angmom0))
  call calculate_boundary_core_CM(npart,iphase,xyzh(1:3,:),vxyzu(1:3,:),xcore,vcore)
@@ -253,7 +256,7 @@ subroutine test_core_star_sink_orbit(ntests,npass)
  call checkval(dxmax/rcore,0.,tol_xrigid,nfailed(3),'core pairwise distances preserved')
  call checkval(sqrt(dot_product(mom - mom0,mom - mom0))/pscale,0.,1.e-12,nfailed(4),'linear momentum')
  call checkval(sqrt(dot_product(angmom - angmom0,angmom - angmom0))/lscale,0.,tol_angmom,nfailed(5),'angular momentum')
- call checkval(etot,etot0,1.e-2,nfailed(6),'total energy')
+ call checkval(etot + ecore_lost,etot0,1.e-5,nfailed(6),'total energy (incl. core energy lost)')
  call update_test_scores(ntests,nfailed,npass)
 
  nfailed(:) = 0

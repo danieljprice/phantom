@@ -22,6 +22,12 @@ module boundarypart
            calculate_boundary_core_CM,calculate_boundary_core_omega,&
            drift_boundary_core
 
+ !
+ ! sum of m du/dt over the core from the last call with du/dt present,
+ ! i.e. the rate at which thermal energy is discarded by freezing u
+ !
+ real, public :: core_dudt = 0.
+
  private
 
 contains
@@ -38,8 +44,8 @@ contains
 !+
 !---------------------------------------------------------------
 subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddustprop,ddustevol)
- use part,   only:iamboundary,iamtype,iradxi
- use dim,    only:mhd,do_radiation,use_dust,use_dustgrowth
+ use part,   only:iamboundary,iamtype,iradxi,massoftype,iboundary
+ use dim,    only:mhd,do_radiation,use_dust,use_dustgrowth,maxvxyzu
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  integer(kind=1), intent(in) :: iphase(:)
@@ -49,23 +55,28 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
  integer             :: nboundary,i,ierr
  real, dimension(3)  :: avg_lin_accel,avg_torque,xyz_core_CM,torquei,ri
  real, dimension(3)  :: alpha,alpha_x_r
- real                :: inertia(3,3),inertia_inv(3,3)
+ real                :: inertia(3,3),inertia_inv(3,3),dudt_sum
+ logical             :: has_dudt
 
+ has_dudt = (maxvxyzu >= 4 .and. size(fxyzu,1) >= 4)
  nboundary = 0
  avg_lin_accel = 0.
  xyz_core_CM = 0.
+ dudt_sum = 0.
  !$omp parallel do default(none) &
- !$omp shared(npart,iphase,fxyzu,xyz) &
+ !$omp shared(npart,iphase,fxyzu,xyz,has_dudt) &
  !$omp private(i) &
- !$omp reduction(+:avg_lin_accel,nboundary,xyz_core_CM)
+ !$omp reduction(+:avg_lin_accel,nboundary,xyz_core_CM,dudt_sum)
  do i=1,npart
     if (iamboundary(iamtype(iphase(i)))) then
        nboundary = nboundary + 1
        avg_lin_accel = avg_lin_accel + fxyzu(1:3,i)
        xyz_core_CM = xyz_core_CM + xyz(1:3,i)
+       if (has_dudt) dudt_sum = dudt_sum + fxyzu(4,i)
     endif
  enddo
  !$omp end parallel do
+ if (has_dudt) core_dudt = massoftype(iboundary)*dudt_sum
 
  if (nboundary > 0) then
     xyz_core_CM = xyz_core_CM / real(nboundary)
