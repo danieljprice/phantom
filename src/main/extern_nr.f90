@@ -466,7 +466,7 @@ end subroutine get_tmunu_grid
 !+
 !-----------------------------------------------------------------------
 subroutine get_tmunu_rhostar_grid(t,gcov,metricderivs,tmunu,rhostar)
- use part,            only:npart,xyzh,pxyzu,vxyzu,fext,dens,rho,divcurlv
+ use part,            only:npart,xyzh,pxyzu,vxyzu,fext,dens,rho,divcurlv,eos_vars
  use metric_et_utils, only:gcovgrid,metricderivsgrid,set_grid_ready
  use metric_tools,    only:init_metric
  use cons2prim,       only:cons2primall
@@ -491,6 +491,8 @@ subroutine get_tmunu_rhostar_grid(t,gcov,metricderivs,tmunu,rhostar)
  call set_grid_ready()
  vxyzu_nr = vxyzu(:,1:npart)
  dens_nr  = dens(1:npart)
+ ! cons2prim takes gamma (and other inputs) from eos_vars
+ eos_vars_nr = eos_vars(:,1:npart)
  call init_metric(npart,xyzh_nr,metrics_nr,metricderivs_nr)
 
  ! primitive variables and T_munu on the particles
