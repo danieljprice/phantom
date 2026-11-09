@@ -17,7 +17,7 @@ module checkconserved
 !
 ! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
- use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts
+ use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts,driving,gr
  use eos,            only:eos_conserves_energy
  use options,        only:use_dustfrac,iexternalforce
  use part,           only:iboundary,npartoftype,ndustsmall,massoftype,igas
@@ -50,7 +50,8 @@ subroutine init_conservation_checks()
  !
  should_conserve_energy = eos_conserves_energy()
  !
- ! code should conserve momentum unless boundary particles are employed
+ ! code should conserve momentum unless boundary particles are employed,
+ ! or momentum is put in from outside (external forces, turbulent driving)
  !
  if (iexternalforce/=0) then
     should_conserve_momentum = .false.
@@ -59,7 +60,7 @@ subroutine init_conservation_checks()
  endif
  !
  ! code should conserve angular momentum as long as no boundaries (fixed or periodic)
- ! and as long as there are no non-radial forces (iexternalforce > 1)
+ ! and as long as there are no non-radial forces (iexternalforce > 1) or driving
  !
  should_conserve_angmom = (npartoftype(iboundary)==0 .and. .not.periodic &
                           .and. iexternalforce <= 1)
@@ -70,7 +71,7 @@ subroutine init_conservation_checks()
  !
  ! Each injection routine will need to bookeep conserved quantities, but until then...
  !
- if (inject_parts .or. dynamic_bdy .or. use_apr) then
+ if (inject_parts .or. dynamic_bdy .or. use_apr .or. driving) then
     should_conserve_energy   = .false.
     should_conserve_momentum = .false.
     should_conserve_angmom   = .false.
@@ -88,14 +89,17 @@ end subroutine init_conservation_checks
 !  and stop if it is too large
 !+
 !----------------------------------------------------------------
-subroutine check_conservation_error(val,ref,tol,label,decrease)
+subroutine check_conservation_error(val,ref,tol,label,decrease,scale)
  real,             intent(in) :: val,ref,tol
  character(len=*), intent(in) :: label
  logical,          intent(in), optional :: decrease
- real :: err
+ real,             intent(in), optional :: scale  ! natural size of the quantity
+ real :: err,refscale
 
- if (abs(ref) > 1.e-3) then
-    err = (val - ref)/abs(ref)
+ refscale = abs(ref)
+ if (present(scale)) refscale = max(refscale,scale)
+ if (refscale > 1.e-3) then
+    err = (val - ref)/refscale
  else
     err = (val - ref)
  endif
@@ -124,12 +128,18 @@ end subroutine check_conservation_error
 !  and stop if it is too large
 !+
 !----------------------------------------------------------------
-subroutine check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
- real,            intent(in) :: totmom,angtot,etot,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
+subroutine check_conservation_errors(totmom,angtot,etot,ekin,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0)
+ real,            intent(in) :: totmom,angtot,etot,ekin,mdust(:),mtot,hdivBonB_ave,hdivBonB_max
  integer(kind=8), intent(in) :: np_e_eq_0,np_cs_eq_0
  integer :: j
+ real    :: momscale
 
- if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
+ ! momentum error relative to M*v_rms, not to the initial momentum alone. scale not used in GR
+ momscale = 0
+ if (.not.gr) momscale = sqrt(2.*mtot*max(ekin,0.))
+ if (should_conserve_momentum) then
+    call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum',scale=momscale)
+ endif
  if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
  if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
  if (should_conserve_dustmass) then

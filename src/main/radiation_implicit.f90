@@ -44,8 +44,8 @@ module radiation_implicit
  logical, parameter :: use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.
 
- real, public :: rad_errorE,rad_errorU
- integer, public :: its_global
+ real, public :: rad_errorE = 0., rad_errorU = 0.
+ integer, public :: its_global = 0
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
