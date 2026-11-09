@@ -411,7 +411,8 @@ module part
 !  number of dust species, plus the dust arrays and the chemical abundances
 !
  integer, parameter :: ipartbufsize = 142 + 6*maxdustsmall + 2*maxdusttypes &
-                                    + max(nabundances,krome_nmols)
+                                    + max(nabundances,krome_nmols) &
+                                    + 3 + 1 + n_nden_phantom  ! Bxyz, divBsymm, nden_nimhd
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -1828,6 +1829,9 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,Bpred(:,i),nbuf)
        if (maxmhdan==maxp) call fill_buffer(xtemp,dBevol(:,i),nbuf)
        if (maxmhdni==maxp) call fill_buffer(xtemp,eta_nimhd(:,i),nbuf)
+       call fill_buffer(xtemp,Bxyz(:,i),nbuf)
+       if (maxmhdan==maxp) call fill_buffer(xtemp,divBsymm(i),nbuf)
+       if (maxmhdni==maxp) call fill_buffer(xtemp,nden_nimhd(:,i),nbuf)
     endif
     if (do_radiation) then
        call fill_buffer(xtemp,rad(:,i),nbuf)
@@ -1933,6 +1937,9 @@ subroutine unfill_buffer(ipart,xbuf)
     Bpred(:,ipart)      = real(unfill_buf(xbuf,j,maxBevol),kind=kind(Bevol))
     if (maxmhdan==maxp) dBevol(:,ipart) = real(unfill_buf(xbuf,j,size(dBevol,1)),kind=kind(dBevol))
     if (maxmhdni==maxp) eta_nimhd(:,ipart) = unfill_buf(xbuf,j,size(eta_nimhd,1))
+    Bxyz(:,ipart) = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
+    if (maxmhdan==maxp) divBsymm(ipart) = real(unfill_buf(xbuf,j),kind=kind(divBsymm))
+    if (maxmhdni==maxp) nden_nimhd(:,ipart) = unfill_buf(xbuf,j,size(nden_nimhd,1))
  endif
  if (do_radiation) then
     rad(:,ipart)     = real(unfill_buf(xbuf,j,maxirad))
