@@ -20,6 +20,10 @@ module setup
 ! L/(h (1 + z_init)) Mpc, and the unit of time is that length over c.
 ! Particles are dark matter by default (collisionless, on geodesics).
 !
+! A tabulated spectrum at redshift pk_redshift (in the synchronous gauge,
+! e.g. from CAMB or CLASS) is scaled to z_init with the Einstein-de Sitter
+! growth of the synchronous density contrast, delta_s ~ a on all scales.
+!
 ! :References:
 !   Macpherson, Price & Lasky (2019), Phys. Rev. D 99, 063522
 !
@@ -35,6 +39,7 @@ module setup
 !   - perturbation : *pspec (power spectrum) or single (sine mode in x)*
 !   - phi_ampl     : *amplitude of phi for the single mode*
 !   - pk_file      : *power spectrum file (k [h/Mpc], P [(Mpc/h)^3]), or none*
+!   - pk_redshift  : *redshift of the tabulated power spectrum*
 !   - seed         : *random seed*
 !   - sigma8       : *sigma8 for the Eisenstein-Hu spectrum*
 !   - z_init       : *initial redshift*
@@ -47,7 +52,7 @@ module setup
  public :: setpart
 
  integer            :: npartx,itype,iseed,nref
- real               :: box_mpc,z_init,lambda_min,phi_ampl,sigma8,h_hubble
+ real               :: box_mpc,z_init,lambda_min,phi_ampl,sigma8,h_hubble,pk_redshift
  character(len=120) :: pk_file
  character(len=20)  :: perturbation
 
@@ -89,13 +94,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: hub,dx,meanrho
  integer :: n,ierr
 
- ! defaults: the Macpherson et al. (2019) 1 Gpc/h box at z = 1000
+ ! defaults: the Macpherson et al. (2019) 1 Gpc/h box and spectrum (tabulated
+ ! at z = 1000), started at z = 50 as in N-body simulations, so that the
+ ! physical density contrast is well above the discreteness of the deposit
  npartx       = 32
  itype        = idarkmatter
  box_mpc      = 1000.
- z_init       = 1000.
+ z_init       = 50.
  perturbation = 'pspec'
  pk_file      = 'EdS_matterpower_synchronous_z1000.dat'
+ pk_redshift  = 1000.
  iseed        = -12345
  nref         = 0
  lambda_min   = 0.
@@ -184,6 +192,10 @@ subroutine get_phi_k(n,dx,hub,phik,ierr)
     else
        call read_power_spectrum(pk_file,ktab,pktab,ierr)
        if (ierr /= 0) return
+       ! the synchronous (comoving) density contrast of the growing mode
+       ! grows as a on all scales in an Einstein-de Sitter universe, so the
+       ! tabulated spectrum is scaled from its redshift to z_init
+       pktab = pktab*((1. + pk_redshift)/(1. + z_init))**2
     endif
     allocate(wk(n,n,n),deltak(n,n,n))
     if (nref > 0 .and. nref <= n) then
@@ -304,6 +316,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# perturbations'
  call write_inopt(perturbation,'perturbation','pspec (power spectrum) or single (sine mode in x)',iunit)
  call write_inopt(pk_file,'pk_file','power spectrum file (k [h/Mpc], P [(Mpc/h)^3]), or none',iunit)
+ call write_inopt(pk_redshift,'pk_redshift','redshift of the tabulated power spectrum',iunit)
  call write_inopt(iseed,'seed','random seed',iunit)
  call write_inopt(nref,'nref','grid for the random field (0=nx; same nref and seed give the same field)',iunit)
  call write_inopt(lambda_min,'lambda_min','remove modes shorter than this (Mpc/h, 0=none)',iunit)
@@ -337,6 +350,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(z_init,'z_init',db,min=0.,errcount=nerr)
  call read_inopt(perturbation,'perturbation',db,errcount=nerr)
  call read_inopt(pk_file,'pk_file',db,errcount=nerr)
+ call read_inopt(pk_redshift,'pk_redshift',db,min=0.,default=1000.,errcount=nerr)
  call read_inopt(iseed,'seed',db,errcount=nerr)
  call read_inopt(nref,'nref',db,min=0,errcount=nerr)
  call read_inopt(lambda_min,'lambda_min',db,min=0.,errcount=nerr)

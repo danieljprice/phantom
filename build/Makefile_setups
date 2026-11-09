@@ -1187,6 +1187,7 @@ ifeq ($(SETUP), flrw)
     METRIC=et
     SETUPFILE= setup_flrw.f90
     PERIODIC=yes
+    KERNEL=quintic
 endif
 
 ifeq ($(SETUP), flrwpspec)
@@ -1196,6 +1197,7 @@ ifeq ($(SETUP), flrwpspec)
     METRIC=et
     SETUPFILE= set_grf.f90 setup_flrwpspec.f90
     PERIODIC=yes
+    KERNEL=quintic
 endif
 
 ifeq ($(SETUP), default)

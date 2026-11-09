@@ -147,9 +147,10 @@ real(nr_dp) function nr_time()
  nr_time = 0.
 end function nr_time
 
-subroutine nr_constraints(cnorm,hnorm,mnorm)
+subroutine nr_constraints(cnorm,hnorm,mnorm,fields)
  real(nr_dp), intent(out) :: cnorm
  real(nr_dp), intent(out), optional :: hnorm,mnorm
+ real(nr_dp), intent(inout), optional :: fields(:,:,:,:)
  cnorm = 0.
  if (present(hnorm)) hnorm = 0.
  if (present(mnorm)) mnorm = 0.

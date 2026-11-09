@@ -10,7 +10,8 @@ module extern_nr
 ! relativity code (libnr, through nr_api), with METRIC=et and NR=yes.
 !
 ! The metric lives on the periodic, vertex-centred grid of metric_et_utils,
-! with ngrid_evolve nodes per dimension spanning the particle domain. The NR
+! with ngrid_evolve nodes across x and the same spacing in y and z (so a
+! cube for a cubic domain, or a slab, e.g. for plane-wave tests). The NR
 ! code advances it whenever Phantom updates the metric to a later time
 ! (metric_et:update_metric). At every Runge-Kutta stage the NR code asks for
 ! the stress-energy tensor for the metric of that stage: the metric is
@@ -98,7 +99,8 @@ subroutine init_extern_nr(time)
  real, allocatable :: phi(:,:,:)
 
  if (.not.nr_linked()) call fatal('extern_nr','evolve_metric = T requires Phantom compiled with NR=yes')
- n = ngrid_evolve
+ ! ngrid_evolve nodes across x, and as close as possible to the same spacing in y and z
+ n = max(nint(ngrid_evolve*[dxbound,dybound,dzbound]/dxbound),1)
  dx = [dxbound,dybound,dzbound]/n
  origin = [xmin,ymin,zmin]
  call allocate_grid(n(1),n(2),n(3),real(dx(1)),real(dx(2)),real(dx(3)),&
@@ -159,15 +161,15 @@ subroutine init_extern_nr(time)
  scale_factor = real(amean)
 
  if (id==master) then
-    write(iprint,"(a,a,a,i4,a)") ' evolving the metric with NR (',trim(nr_formulation()),') on a ',&
-                                 ngrid_evolve,'^3 periodic grid'
+    write(iprint,"(a,a,a,2(i0,'x'),i0,a)") ' evolving the metric with NR (',trim(nr_formulation()),&
+                                 ') on a ',n,' periodic grid'
     write(iprint,"(a,es12.5,a,es10.3)") ' initial conformal Hubble rate = ',hubble,&
                                         ', max |phi| = ',maxval(abs(phi))
     open(newunit=iunit_nr,file=trim(fileprefix)//'_nr.ev',status='replace',form='formatted')
-    write(iunit_nr,"('#',18(1x,'[',i2.2,1x,a11,']',2x))") 1,'time',2,'nsteps',3,'a',4,'alpha',&
+    write(iunit_nr,"('#',21(1x,'[',i2.2,1x,a11,']',2x))") 1,'time',2,'nsteps',3,'a',4,'alpha',&
           5,'rho',6,'rho_E',7,'constraints',8,'phi amp',9,'delta amp',10,'ham L1',11,'rho max',&
           12,'mom L1',13,'8 pi |S|',14,'rms delta*',15,'min rho*',16,'proper time',17,'redshift',&
-          18,'nblocks'
+          18,'nblocks',19,'max |H|/16pi',20,'H dense',21,'H rest'
  endif
  call write_nr_ev(real(time,kind=nr_dp),0)
 
@@ -857,7 +859,11 @@ end subroutine allocate_work
 !  rho_E = n^mu n^nu T_munu, L2 norm of the constraints, amplitude of the
 !  metric perturbation phi (from det(gamma)^(1/3) = a^2 (1 - 2 phi)),
 !  amplitude of the density contrast of the particles, L1 norm of the
-!  Hamiltonian constraint and maximum rest-mass density to the _nr.ev file
+!  Hamiltonian constraint and maximum rest-mass density to the _nr.ev file.
+!  Columns 19-21 locate the Hamiltonian constraint violation (on the root
+!  grid): max |H| relative to 16 pi times the mean energy density, and
+!  <|H|>/(16 pi <rho_E>) over the nodes with rho_E > 2 <rho_E> (dense
+!  structure, e.g. caustics) and over the others
 !+
 !-----------------------------------------------------------------------
 subroutine write_nr_ev(t,nsteps)
@@ -868,7 +874,8 @@ subroutine write_nr_ev(t,nsteps)
  real(nr_dp), intent(in) :: t
  integer,     intent(in) :: nsteps
  real(nr_dp) :: cnorm,hnorm,mnorm,abar,alphabar,rhoE,alpha,rhobar,phimin,phimax,phi,smag,z
- real(nr_dp), allocatable :: tmunu(:,:,:,:,:)
+ real(nr_dp), allocatable :: tmunu(:,:,:,:,:),fields(:,:,:,:),rhonode(:,:,:)
+ real(nr_dp) :: hmax,hdense,hrest
  integer :: i,j,k,mu,nu,nnodes
 
  ! constraints with the source for the current metric (sets tmunu_last and
@@ -878,7 +885,10 @@ subroutine write_nr_ev(t,nsteps)
     allocate(tmunu,mold=tmunu_last)
     call get_tmunu_grid(t,gcov_nr,dgcov_nr,tmunu)
  endif
- call nr_constraints(cnorm,hnorm,mnorm)
+ allocate(fields(16,size(sqrtg_nr,1),size(sqrtg_nr,2),size(sqrtg_nr,3)))
+ allocate(rhonode,mold=sqrtg_nr)
+ fields = 0.
+ call nr_constraints(cnorm,hnorm,mnorm,fields)
  call grid_means(alphabar,abar)
  rhoE = 0.
  smag = 0.
@@ -888,11 +898,13 @@ subroutine write_nr_ev(t,nsteps)
        do i=1,size(sqrtg_nr,1)
           ! n^mu = -alpha g^(mu 0)
           alpha = 1./sqrt(-gcon_nr(0,0,i,j,k))
+          rhonode(i,j,k) = 0.
           do nu=0,3
              do mu=0,3
-                rhoE = rhoE + alpha**2*gcon_nr(mu,0,i,j,k)*gcon_nr(nu,0,i,j,k)*tmunu_last(mu,nu,i,j,k)
+                rhonode(i,j,k) = rhonode(i,j,k) + alpha**2*gcon_nr(mu,0,i,j,k)*gcon_nr(nu,0,i,j,k)*tmunu_last(mu,nu,i,j,k)
              enddo
           enddo
+          rhoE = rhoE + rhonode(i,j,k)
           ! |S_i| with S_i = -n^mu T_mu i = alpha g^(mu 0) T_mu i
           smag = smag + alpha*sqrt(sum(matmul(gcon_nr(:,0,i,j,k),tmunu_last(:,1:3,i,j,k))**2))
        enddo
@@ -910,18 +922,44 @@ subroutine write_nr_ev(t,nsteps)
        enddo
     enddo
  enddo
+ call locate_constraints(fields(1,:,:,:),rhonode,hmax,hdense,hrest)
  rhobar = sum(dens_nr)/size(dens_nr)
  z = -1.
  if (redshift_init >= 0.) z = (1. + redshift_init)/abar - 1.
  if (id==master) then
-    write(iunit_nr,"(es18.10,1x,i10,15(1x,es18.10),1x,i10)") t,nsteps,abar,alphabar,&
+    write(iunit_nr,"(es18.10,1x,i10,15(1x,es18.10),1x,i10,3(1x,es18.10))") t,nsteps,abar,alphabar,&
                     rhobar,rhoE/nnodes,cnorm,0.5*(phimax - phimin),&
                     0.5*(maxval(dens_nr) - minval(dens_nr))/rhobar,hnorm,maxval(dens_nr),&
                     mnorm,8.*pi*smag/nnodes,sqrt(sum((dens_nr/rhobar - 1.)**2)/size(dens_nr)),&
-                    minval(dens_nr)/rhobar,proper_time,z,nr_nblocks()
+                    minval(dens_nr)/rhobar,proper_time,z,nr_nblocks(),hmax,hdense,hrest
     flush(iunit_nr)
  endif
 
 end subroutine write_nr_ev
+
+!-----------------------------------------------------------------------
+!+
+!  where the Hamiltonian constraint ham is violated, relative to the
+!  energy density rho on the same nodes: max |H|/(16 pi <rho>), and
+!  <|H|>/(16 pi <rho>) over the nodes with rho > 2 <rho> and over the rest
+!  (zero for an empty set)
+!+
+!-----------------------------------------------------------------------
+subroutine locate_constraints(ham,rho,hmax,hdense,hrest)
+ use physcon, only:pi
+ real(nr_dp), intent(in)  :: ham(:,:,:),rho(:,:,:)
+ real(nr_dp), intent(out) :: hmax,hdense,hrest
+ real(nr_dp) :: rhomean
+ logical, allocatable :: dense(:,:,:)
+
+ rhomean = sum(rho)/size(rho)
+ dense = rho > 2.*rhomean
+ hmax = maxval(abs(ham))/(16.*pi*rhomean)
+ hdense = 0.
+ hrest = 0.
+ if (any(dense)) hdense = sum(abs(ham),mask=dense)/(16.*pi*sum(rho,mask=dense))
+ if (.not.all(dense)) hrest = sum(abs(ham),mask=.not.dense)/(16.*pi*sum(rho,mask=.not.dense))
+
+end subroutine locate_constraints
 
 end module extern_nr

@@ -18,6 +18,7 @@ module setup
 !   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
 !   - nx                  : *number of particles in x direction*
 !   - radiation_dominated : *Radiation dominated universe (yes/no)*
+!   - itype               : *particle type (1=gas, 5=dark matter)*
 !   - rhozero             : *initial density in code units*
 !
 ! :Dependencies: boundary, dim, infile_utils, io, mpidomain, part, physcon,
@@ -29,7 +30,7 @@ module setup
  implicit none
  public :: setpart
 
- integer           :: npartx,ilattice
+ integer           :: npartx,ilattice,itype
  real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
@@ -50,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:periodic
+ use part,         only:periodic,igas,set_particle_type
  use physcon,      only:years,pc,solarm,pi
  use units,        only:set_units
  use mpidomain,    only:i_belong
@@ -105,6 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  npartx   = 64
  ilattice = 1
+ itype    = igas
  perturb  = '"no"'
  perturb_direction = '"none"'
  radiation_dominated = '"no"'
@@ -212,13 +214,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                      npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
  end select
 
+ ! gas, or collisionless (e.g. dark matter) particles on geodesics
+ do i=1,npart
+    call set_particle_type(i,itype)
+ enddo
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(itype) = npart
  print*,' npart = ',npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype(1) = totmass/npart_total
- if (id==master) print*,' particle mass = ',massoftype(1)
+ massoftype(:) = 0.
+ massoftype(itype) = totmass/npart_total
+ if (id==master) print*,' particle mass = ',massoftype(itype)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
  if (maxvxyzu < 4 .or. gamma <= 1.) then
@@ -421,6 +428,7 @@ subroutine write_setupfile(filename)
  call write_inopt(radiation_dominated, 'radiation_dominated','Radiation dominated universe (yes/no)',iunit)
  call write_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength','Perturbation wavelength',iunit)
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
+ call write_inopt(itype,'itype','particle type (1=gas, 5=dark matter)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -432,6 +440,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use part,         only:igas
  use setunits,     only:read_options_and_set_units
  use io,           only:error
  character(len=*), intent(in)  :: filename
@@ -468,6 +477,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(ampl, 'FLRWSolver::phi_amplitude',db,errcount=nerr)
  call read_inopt(phaseoffset,'FLRWSolver::phi_phase_offset',db,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
+ call read_inopt(itype,'itype',db,min=1,default=igas,errcount=nerr)
  ! TODO Work out why this doesn't read in correctly
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
