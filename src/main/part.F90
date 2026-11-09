@@ -292,6 +292,12 @@ module part
 !
  real, allocatable :: T_gas_cool(:)
 !
+!--per-particle state of the Stamatellos cooling (icooling=9), allocated by init_coolra
+!
+ real, allocatable :: ttherm_store(:),ueqi_store(:),tau_store(:),du_store(:)
+ real, allocatable :: gradP_cool(:) ! gradP_cool=gradP/rho
+ real, allocatable :: duSPH(:)
+!
 !--radiation hydro, evolved quantities (which have time derivatives)
 !
  real, allocatable  :: rad(:,:)
@@ -412,7 +418,8 @@ module part
 !
  integer, parameter :: ipartbufsize = 142 + 6*maxdustsmall + 2*maxdusttypes &
                                     + max(nabundances,krome_nmols) &
-                                    + 3 + 1 + n_nden_phantom  ! Bxyz, divBsymm, nden_nimhd
+                                    + 3 + 1 + n_nden_phantom & ! Bxyz, divBsymm, nden_nimhd
+                                    + 6  ! Stamatellos cooling stores
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
  integer         :: npart
@@ -1425,6 +1432,7 @@ subroutine copy_particle(src,dst,new_part)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
  if (itau_alloc == 1) tau(dst) = tau(src)
  if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
+ call copy_stamatellos_stores(src,dst)
 
  if (new_part) then
     iorig(dst) = new_iorig() ! we are creating a new particle; give it a new ID
@@ -1535,6 +1543,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (use_krome) then
     T_gas_cool(dst)       = T_gas_cool(src)
  endif
+ call copy_stamatellos_stores(src,dst)
  ibelong(dst) = ibelong(src)
  if (use_apr) then
     apr_level(dst)      = apr_level(src)
@@ -1658,6 +1667,25 @@ subroutine combine_two_particles(keep,discard)
  call kill_particle(discard,npartoftype)
 
 end subroutine combine_two_particles
+
+!------------------------------------------------------------------
+!+
+!  copy per-particle state of Stamatellos cooling (allocated with icooling=9)
+!+
+!------------------------------------------------------------------
+subroutine copy_stamatellos_stores(src,dst)
+ integer, intent(in) :: src,dst
+
+ if (allocated(ttherm_store)) then
+    ttherm_store(dst) = ttherm_store(src)
+    ueqi_store(dst)   = ueqi_store(src)
+    tau_store(dst)    = tau_store(src)
+    du_store(dst)     = du_store(src)
+    gradP_cool(dst)   = gradP_cool(src)
+    duSPH(dst)        = duSPH(src)
+ endif
+
+end subroutine copy_stamatellos_stores
 
 !------------------------------------------------------------------
 !+
@@ -1868,6 +1896,15 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
     if (use_krome) call fill_buffer(xtemp, T_gas_cool(i),nbuf)
+    if (allocated(ttherm_store)) then
+       !--per-particle state of the Stamatellos cooling (icooling=9)
+       call fill_buffer(xtemp, ttherm_store(i),nbuf)
+       call fill_buffer(xtemp, ueqi_store(i),nbuf)
+       call fill_buffer(xtemp, tau_store(i),nbuf)
+       call fill_buffer(xtemp, du_store(i),nbuf)
+       call fill_buffer(xtemp, gradP_cool(i),nbuf)
+       call fill_buffer(xtemp, duSPH(i),nbuf)
+    endif
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
@@ -1976,6 +2013,14 @@ subroutine unfill_buffer(ipart,xbuf)
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
  if (use_krome) T_gas_cool(ipart) = unfill_buf(xbuf,j)
+ if (allocated(ttherm_store)) then
+    ttherm_store(ipart) = unfill_buf(xbuf,j)
+    ueqi_store(ipart)   = unfill_buf(xbuf,j)
+    tau_store(ipart)    = unfill_buf(xbuf,j)
+    du_store(ipart)     = unfill_buf(xbuf,j)
+    gradP_cool(ipart)   = unfill_buf(xbuf,j)
+    duSPH(ipart)        = unfill_buf(xbuf,j)
+ endif
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
