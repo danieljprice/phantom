@@ -1596,14 +1596,6 @@ subroutine combine_two_particles(keep,discard)
        eta_nimhd(:,keep)  = 0.5*(eta_nimhd(:,keep) + eta_nimhd(:,discard))
     endif
  endif
- if (allocated(ttherm_store)) then
-    ttherm_store(keep) = factor*(ttherm_store(keep) + ttherm_store(discard))
-    ueqi_store(keep)   = factor*(ueqi_store(keep)   + ueqi_store(discard))
-    tau_store(keep)    = factor*(tau_store(keep)    + tau_store(discard))
-    du_store(keep)     = factor*(du_store(keep)     + du_store(discard))
-    gradP_cool(keep)   = factor*(gradP_cool(keep)   + gradP_cool(discard))
-    duSPH(keep)        = factor*(duSPH(keep)        + duSPH(discard))
- endif
  if (do_radiation) then
     rad(:,keep) = 0.5*(rad(:,keep) + rad(:,discard))
     radpred(:,keep) = 0.5*(radpred(:,keep) + radpred(:,discard))
