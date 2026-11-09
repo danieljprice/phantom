@@ -113,7 +113,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  select case(analysis_to_perform)
  case(1) !sink separation
-    call separation_vs_time(time)
+    call separation_vs_time(time,xyzh,vxyzu)
  case(2) !bound and unbound quantities
     call bound_mass(time,npart,particlemass,xyzh,vxyzu)
  case(3) !Energies and bound mass
@@ -292,15 +292,30 @@ end subroutine Sort
 !  Separation vs. time
 !+
 !----------------------------------------------------------------
-subroutine separation_vs_time(time)
- real, intent(in) :: time
+subroutine separation_vs_time(time,xyzh,vxyzu)
+ use part,         only:npart,iphase
+ use boundarypart, only:calculate_boundary_core_CM
+ real, intent(in) :: time,xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
  real, allocatable              :: sink_separation(:,:)
  integer                        :: i,ncols
- ncols = 4*(nptmass-1)
- allocate(columns(ncols),sink_separation(4,max(1,nptmass-1)))
+ real, dimension(3)             :: xcm,vcm
+
+ if (nptmass <= 1) then
+    ncols = 4
+    allocate(columns(ncols),sink_separation(4,1))
+    call calculate_boundary_core_CM(npart,iphase,xyzh,vxyzu,xcm,vcm)
+    call separation_vector(xyzmh_ptmass(1:3,1),xcm,sink_separation(1:4,1))
+
+    write(columns(1), '(A11)') '    x sep. '
+    write(columns(2), '(A11)') '    y sep. '
+    write(columns(3), '(A11)') '    z sep. '
+    write(columns(4), '(A11)') '      sep. '
+ endif
 
  do i=1,(nptmass-1)
+    ncols = 4*(nptmass-1)
+    allocate(columns(ncols),sink_separation(4,max(1,nptmass-1)))
     call separation_vector(xyzmh_ptmass(1:3,1),xyzmh_ptmass(1:3,i+1),sink_separation(1:4,i))
 
     write(columns((i*4)-3), '(A11,I1)') '    x sep. ', i
