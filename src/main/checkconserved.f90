@@ -53,7 +53,7 @@ subroutine init_conservation_checks()
  ! code should conserve momentum unless boundary particles are employed,
  ! or momentum is put in from outside (external forces, turbulent driving)
  !
- if (iexternalforce/=0 .or. driving) then
+ if (iexternalforce/=0) then
     should_conserve_momentum = .false.
  else
     should_conserve_momentum = (npartoftype(iboundary)==0)
@@ -63,7 +63,7 @@ subroutine init_conservation_checks()
  ! and as long as there are no non-radial forces (iexternalforce > 1) or driving
  !
  should_conserve_angmom = (npartoftype(iboundary)==0 .and. .not.periodic &
-                          .and. iexternalforce <= 1 .and. .not.driving)
+                          .and. iexternalforce <= 1)
  !
  ! should always conserve dust mass
  !
@@ -71,7 +71,7 @@ subroutine init_conservation_checks()
  !
  ! Each injection routine will need to bookeep conserved quantities, but until then...
  !
- if (inject_parts .or. dynamic_bdy .or. use_apr) then
+ if (inject_parts .or. dynamic_bdy .or. use_apr .or. driving) then
     should_conserve_energy   = .false.
     should_conserve_momentum = .false.
     should_conserve_angmom   = .false.
