@@ -196,6 +196,29 @@ subroutine update_metric(time)
 
 end subroutine update_metric
 
+!-------------------------------------------------------------------------------
+!+
+!  orbital frequency used to limit the timestep (none for a tabulated metric)
+!+
+!-------------------------------------------------------------------------------
+pure real function get_orbital_frequency(x) result(omega)
+ real, intent(in) :: x(3)
+
+ omega = 0.
+
+end function get_orbital_frequency
+
+!-------------------------------------------------------------------------------
+!+
+!  separation of a binary black hole (zero: not known for a tabulated metric)
+!+
+!-------------------------------------------------------------------------------
+pure real function get_binary_separation() result(sep)
+
+ sep = 0.
+
+end function get_binary_separation
+
 !-----------------------------------------------------------------------
 !+
 !  Check if a particle should be accreted by the black hole

@@ -8,6 +8,14 @@ module metric
 !
 ! Superposed Kerr-Schild metric for a binary black hole system
 !
+! The black holes follow a tabulated (e.g. post-Newtonian) trajectory.
+! Optionally the binary is first held on a circular orbit for a time
+! t_relax, matching the first entry of the trajectory, so that a disc can
+! relax before the inspiral starts. Once the separation falls below
+! sep_merge the pair is replaced by a single, non-moving Kerr-Schild remnant
+! at the centre of mass, with mass (1 - eps_gw)*(mass1 + mass2) and
+! dimensionless spin a_final aligned with the orbital angular momentum.
+!
 ! :References:
 !   Combi & Ressler (2024) arXiv:2403.13308
 !   Original file from: https://zenodo.org/records/10841021
@@ -22,8 +30,12 @@ module metric
 !   - a2x             : *spin in x dir for black hole 2*
 !   - a2y             : *spin in y dir for black hole 2*
 !   - a2z             : *spin in z dir for black hole 2*
+!   - a_final         : *dimensionless spin of the merger remnant*
+!   - eps_gw          : *fraction of the total mass radiated in gravitational waves*
 !   - mass1           : *mass of black hole 1*
 !   - mass2           : *mass of black hole 2*
+!   - sep_merge       : *separation below which the binary is replaced by the remnant*
+!   - t_relax         : *time on a circular orbit before the trajectory starts*
 !   - trajectory_file : *file containing binary black hole trajectory*
 !
 ! :Dependencies: datafiles, dump_utils, infile_utils, inverse4x4, io
@@ -33,8 +45,10 @@ module metric
  integer,          parameter :: imetric = 5
 
  ! extern void SuperposedBbh(const double *xx, double gcov[][NDIM], const double *traj_array)
- integer, parameter :: nparams = 12
- real, public :: metric_params(nparams)
+ ! metric_params holds the current state of the black holes:
+ ! x1(3),x2(3),v1(3),v2(3),m1,m2,spin1(3),spin2(3) (spins as Kerr parameters a = J/m)
+ integer, parameter :: nparams = 20
+ real, public :: metric_params(nparams) = 0.
 
  ! parameters from the original SuperposedBbh.c file, could in principle be user options
  real, parameter :: tiny_param = 1e-40
@@ -53,6 +67,15 @@ module metric
  character(len=128), public :: trajectory_file = 'cbwaves.txt'
  logical, private :: metric_initialised = .false.
 
+ ! merger and relaxation options (defaults for an equal-mass, non-spinning merger)
+ real, public :: t_relax   = 0.
+ real, public :: sep_merge = 4.
+ real, public :: eps_gw    = 0.048
+ real, public :: a_final   = 0.686
+ real, private :: t_merge = huge(1.)        ! trajectory time at which the remnant forms
+ real, private :: x_merge(3) = 0.           ! centre of mass at merger
+ real, private :: lhat_merge(3) = [0.,0.,1.] ! orbital angular momentum direction at merger
+
  ! in-memory cache of the black hole trajectory, read once from file. Caching is
  ! essential because update_metric is called at every geodesic sub-step (see
  ! kickdrift_gr), so re-reading the file each time would be prohibitively slow.
@@ -70,31 +93,169 @@ subroutine update_metric(time)
  use io,        only:id,master,fatal
  use datafiles, only:find_phantom_datafile
  real, intent(in) :: time
- real :: x1(3),x2(3),v1(3),v2(3)
+ real :: x1(3),x2(3),v1(3),v2(3),ttraj,mrem
  integer :: ierr
-
- ! defaults for a single black hole at the origin, for testing
- x1 = [0.,0.,0.]
- x2 = [10000000.,0.,0.]
- v1 = [0.,0.,0.]
- v2 = [0.,0.,0.]
- !print*,' updating metric at time ',time
 
  if (.not.metric_initialised) then
     metric_initialised = .true.
     trajectory_file = find_phantom_datafile(trajectory_file,'binarybh')
     if (id==master) print "(a)",' Reading black hole trajectory from '//trim(trajectory_file)
+    call load_trajectory(ierr)
+    if (ierr /= 0) call fatal('metric_binarybh','failed to read binary black hole trajectory from '//trim(trajectory_file))
+    call find_merger(mass1,mass2,sep_merge,t_merge,x_merge,lhat_merge)
+    if (id==master .and. t_merge < huge(t_merge)) print "(a,f10.2,a,f6.3,a,f6.3)", &
+       ' Binary merges at t = ',t_merge + t_relax,' into remnant of mass ',(1. - eps_gw)*(mass1 + mass2),&
+       ' and spin ',a_final
  endif
- call get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
- if (ierr /= 0) call fatal('metric_binarybh','failed to read binary black hole trajectory from '//trim(trajectory_file))
- !if (id==master) print*,' time = ',time,' binary separation = ',sqrt(dot_product(x1 - x2,x1 - x2))
 
- metric_params(1:3) = x1
- metric_params(4:6) = x2
- metric_params(7:9) = v1
- metric_params(10:12) = v2
+ ! time along the tabulated trajectory, which starts after the relaxation phase
+ ttraj = time - t_relax
+
+ if (ttraj >= t_merge) then
+    ! single remnant at rest at the centre of mass, the second hole is switched off
+    mrem = (1. - eps_gw)*(mass1 + mass2)
+    call set_params(x_merge,[1.e7,0.,0.],[0.,0.,0.],[0.,0.,0.],mrem,0.,a_final*mrem*lhat_merge,[0.,0.,0.])
+ else
+    if (ttraj <= traj(0,1)) then
+       call get_circular_orbit(ttraj,mass1,mass2,traj(:,1),x1,x2,v1,v2)
+    else
+       call get_trajectory_from_file(ttraj,x1,x2,v1,v2,ierr)
+       if (ierr /= 0) call fatal('metric_binarybh','time beyond range of '//trim(trajectory_file))
+    endif
+    call set_params(x1,x2,v1,v2,mass1,mass2,[a1x,a1y,a1z],[a2x,a2y,a2z])
+ endif
 
 end subroutine update_metric
+
+!-------------------------------------------------------------------------------
+!+
+!  store the current state of the black holes in metric_params
+!+
+!-------------------------------------------------------------------------------
+subroutine set_params(x1,x2,v1,v2,m1,m2,spin1,spin2)
+ real, intent(in) :: x1(3),x2(3),v1(3),v2(3),m1,m2,spin1(3),spin2(3)
+
+ metric_params(1:3)   = x1
+ metric_params(4:6)   = x2
+ metric_params(7:9)   = v1
+ metric_params(10:12) = v2
+ metric_params(13)    = m1
+ metric_params(14)    = m2
+ metric_params(15:17) = spin1
+ metric_params(18:20) = spin2
+
+end subroutine set_params
+
+!-------------------------------------------------------------------------------
+!+
+!  Find the first trajectory entry at which the separation falls below
+!  sep_merge, returning the time, the centre of mass and the direction of
+!  the orbital angular momentum there. Post-Newtonian trajectories become
+!  unphysical (superluminal) shortly after this point.
+!+
+!-------------------------------------------------------------------------------
+subroutine find_merger(m1,m2,sep_merge,t_merge,x_merge,lhat_merge)
+ real, intent(in)    :: m1,m2,sep_merge
+ real, intent(out)   :: t_merge,x_merge(3)
+ real, intent(inout) :: lhat_merge(3)
+ real    :: lvec(3)
+ integer :: k
+
+ t_merge = huge(t_merge)
+ x_merge = 0.
+ do k=1,ntraj
+    if (norm2(traj(1:3,k) - traj(4:6,k)) < sep_merge) then
+       t_merge = traj(0,k)
+       x_merge = (m1*traj(1:3,k) + m2*traj(4:6,k))/(m1 + m2)
+       lvec = cross(traj(1:3,k) - traj(4:6,k),traj(7:9,k) - traj(10:12,k))
+       if (norm2(lvec) > 0.) lhat_merge = lvec/norm2(lvec)
+       return
+    endif
+ enddo
+
+end subroutine find_merger
+
+!-------------------------------------------------------------------------------
+!+
+!  Circular orbit that matches the first trajectory entry (traj0) at time
+!  traj0(0), with the angular velocity of that entry. Used for times before
+!  the start of the tabulated trajectory, e.g. to relax a disc around the binary.
+!+
+!-------------------------------------------------------------------------------
+pure subroutine get_circular_orbit(t,m1,m2,traj0,x1,x2,v1,v2)
+ real, intent(in)  :: t,m1,m2,traj0(0:12)
+ real, intent(out) :: x1(3),x2(3),v1(3),v2(3)
+ real :: com(3),sep(3),omega(3),khat(3),theta
+
+ com   = (m1*traj0(1:3) + m2*traj0(4:6))/(m1 + m2)
+ sep   = traj0(1:3) - traj0(4:6)
+ omega = cross(sep,traj0(7:9) - traj0(10:12))/dot_product(sep,sep)
+ khat  = omega/(norm2(omega) + tiny(theta))
+ theta = norm2(omega)*(t - traj0(0))
+
+ x1 = com + rotate(traj0(1:3) - com,khat,theta)
+ x2 = com + rotate(traj0(4:6) - com,khat,theta)
+ v1 = cross(omega,x1 - com)
+ v2 = cross(omega,x2 - com)
+
+end subroutine get_circular_orbit
+
+!-------------------------------------------------------------------------------
+!+
+!  rotate vector v by angle theta about the unit vector k (Rodrigues formula)
+!+
+!-------------------------------------------------------------------------------
+pure function rotate(v,k,theta) result(vrot)
+ real, intent(in) :: v(3),k(3),theta
+ real :: vrot(3)
+
+ vrot = v*cos(theta) + cross(k,v)*sin(theta) + k*dot_product(k,v)*(1. - cos(theta))
+
+end function rotate
+
+!-------------------------------------------------------------------------------
+!+
+!  cross product of two 3-vectors
+!+
+!-------------------------------------------------------------------------------
+pure function cross(u,w) result(c)
+ real, intent(in) :: u(3),w(3)
+ real :: c(3)
+
+ c = [u(2)*w(3) - u(3)*w(2), u(3)*w(1) - u(1)*w(3), u(1)*w(2) - u(2)*w(1)]
+
+end function cross
+
+!-------------------------------------------------------------------------------
+!+
+!  Keplerian orbital frequency about the nearest (in the dynamical sense)
+!  black hole, used to limit the timestep of particles close to either hole
+!+
+!-------------------------------------------------------------------------------
+pure real function get_orbital_frequency(x) result(omega)
+ real, intent(in) :: x(3)
+ real :: r1,r2
+
+ r1 = norm2(x - metric_params(1:3))
+ r2 = norm2(x - metric_params(4:6))
+ omega = max(sqrt(metric_params(13)/(r1**3 + tiny(r1))),sqrt(metric_params(14)/(r2**3 + tiny(r2))))
+
+end function get_orbital_frequency
+
+!-------------------------------------------------------------------------------
+!+
+!  current separation of the binary (zero once the remnant has formed)
+!+
+!-------------------------------------------------------------------------------
+pure real function get_binary_separation() result(sep)
+
+ if (metric_params(14) > 0.) then
+    sep = norm2(metric_params(1:3) - metric_params(4:6))
+ else
+    sep = 0.
+ endif
+
+end function get_binary_separation
 
 !----------------------------------------------------------------
 !+
@@ -115,11 +276,10 @@ subroutine get_trajectory_from_file(time,x1,x2,v1,v2,ierr)
  x2 = 0.
  v1 = 0.
  v2 = 0.
-
- ! load the trajectory into memory on first use
- if (ntraj == 0) call load_trajectory(ierr)
- if (ierr == 0 .and. ntraj == 0) ierr = 1
- if (ierr /= 0) return
+ if (ntraj == 0) then
+    ierr = 1
+    return
+ endif
 
  ! before the start of the table: clamp to the first entry
  if (time <= traj(0,1)) then
@@ -233,7 +393,16 @@ pure subroutine get_metric_cartesian(xx,gcov,gcon,sqrtg)
  real :: oo25, oo26, oo27, oo28, oo29, oo30, oo31, oo32, oo33, oo34, oo35, oo36, oo37
  real :: rbh1, rbh2, rbh1_Cutoff, rbh2_Cutoff, sum, term1, term2, term3, term4
  real :: v1, v2, x0bh1, x0bh2, x1bh1, x1bh2, x2bh1, x2bh2, x3bh1, x3bh2
+ real :: a1x, a1y, a1z, a2x, a2y, a2z
  integer :: i, j, m, n
+
+ ! current masses and spins (these change at merger)
+ a1x = metric_params(15)
+ a1y = metric_params(16)
+ a1z = metric_params(17)
+ a2x = metric_params(18)
+ a2y = metric_params(19)
+ a2z = metric_params(20)
 
  ! code below is translated from the original SuperposedBBH.c file
 
@@ -259,10 +428,10 @@ pure subroutine get_metric_cartesian(xx,gcov,gcon,sqrtg)
  v2 = sqrt( v2x * v2x + v2y * v2y + v2z * v2z )
  v1 = sqrt( v1x * v1x + v1y * v1y + v1z * v1z )
 
- m1_t = mass1
- m2_t = mass2
- a1_t = a     !sqrt(a1x*a1x + a1y*a1y + a1z*a1z + tiny_param)
- a2_t = a_bh2 !sqrt(a2x*a2x + a2y*a2y + a2z*a2z + tiny_param)
+ m1_t = metric_params(13)
+ m2_t = metric_params(14)
+ a1_t = sqrt(a1x*a1x + a1y*a1y + a1z*a1z + tiny_param)
+ a2_t = sqrt(a2x*a2x + a2y*a2y + a2z*a2z + tiny_param)
 
  ! Load coordinates
  oo1 = v1 * v1
@@ -581,13 +750,17 @@ end subroutine get_metric_cartesian
 pure subroutine metric_cartesian_derivatives(xx,dgcovdx,dgcovdy,dgcovdz)
  real, intent(in)  :: xx(3)
  real, intent(out) :: dgcovdx(0:3,0:3),dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
- real, parameter :: eps = 1.e-10
- real, parameter :: two_eps = 2.*eps
  real :: gcov1(0:3,0:3), gcov2(0:3,0:3)
+ real :: eps, two_eps
 
  dgcovdx = 0.
  dgcovdy = 0.
  dgcovdz = 0.
+
+ ! step scaled with the distance from the origin, so that round-off in x + eps
+ ! does not dominate the derivative far from the holes
+ eps = 1.e-5*(1. + norm2(xx))
+ two_eps = 2.*eps
 
  ! metric has no time dependence centred differencing: (f(x+h)-f(x-h))/(2h)
  ! x direction
@@ -651,18 +824,14 @@ end subroutine metric_spherical_derivatives
 subroutine accrete_particles_metric(xi,yi,zi,mi,ti,accradius1,accreted)
  real,    intent(in)  :: xi,yi,zi,mi,ti,accradius1
  logical, intent(out) :: accreted
- real :: r1,r2,x1(3),x2(3)
+ real :: r1,r2,m1,m2
 
- x1 = metric_params(1:3)
- x2 = metric_params(4:6)
-
- r1 = ((xi-x1(1))**2 + (yi-x1(2))**2 + (zi-x1(3))**2)/mass1**2
- r2 = ((xi-x2(1))**2 + (yi-x2(2))**2 + (zi-x2(3))**2)/mass2**2
- if (r1 < accradius1**2 .or. r2 < accradius1**2) then
-    accreted = .true.
- else
-    accreted = .false.
- endif
+ ! accretion radius is in units of the current mass of each hole
+ m1 = metric_params(13)
+ m2 = metric_params(14)
+ r1 = norm2([xi,yi,zi] - metric_params(1:3))
+ r2 = norm2([xi,yi,zi] - metric_params(4:6))
+ accreted = (r1 < accradius1*m1) .or. (r2 < accradius1*m2)
 
 end subroutine accrete_particles_metric
 
@@ -682,11 +851,11 @@ subroutine write_headeropts_metric(hdr,time,accradius,ierr)
 
  ierr = 0
  rheader(1:3) = metric_params(1:3)
- rheader(4) = mass1
- rheader(5) = accradius*mass1
+ rheader(4) = metric_params(13)
+ rheader(5) = accradius*metric_params(13)
  rheader(6:8) = metric_params(4:6)
- rheader(9) = mass2
- rheader(10) = accradius*mass2
+ rheader(9) = metric_params(14)
+ rheader(10) = accradius*metric_params(14)
  rheader(11:13) = metric_params(7:9)
  rheader(14:16) = metric_params(10:12)
 
@@ -742,6 +911,10 @@ subroutine write_options_metric(iunit)
  call write_inopt(mass1,'mass1','mass of black hole 1',iunit)
  call write_inopt(mass2,'mass2','mass of black hole 2',iunit)
  call write_inopt(trajectory_file,'trajectory_file','file containing binary black hole trajectory',iunit)
+ call write_inopt(t_relax,'t_relax','time on a circular orbit before the trajectory starts',iunit)
+ call write_inopt(sep_merge,'sep_merge','separation below which the binary is replaced by the remnant',iunit)
+ call write_inopt(eps_gw,'eps_gw','fraction of the total mass radiated in gravitational waves',iunit)
+ call write_inopt(a_final,'a_final','dimensionless spin of the merger remnant',iunit)
 
 end subroutine write_options_metric
 
@@ -765,6 +938,10 @@ subroutine read_options_metric(db,nerr)
  call read_inopt(mass1,'mass1',db,errcount=nerr,min=0.,max=1.e12)
  call read_inopt(mass2,'mass2',db,errcount=nerr,min=0.,max=1.e12)
  call read_inopt(trajectory_file,'trajectory_file',db,errcount=nerr)
+ call read_inopt(t_relax,'t_relax',db,errcount=nerr,min=0.,default=t_relax)
+ call read_inopt(sep_merge,'sep_merge',db,errcount=nerr,min=0.,default=sep_merge)
+ call read_inopt(eps_gw,'eps_gw',db,errcount=nerr,min=0.,max=1.,default=eps_gw)
+ call read_inopt(a_final,'a_final',db,errcount=nerr,min=-1.,max=1.,default=a_final)
 
  a = sqrt(a1x**2 + a1y**2 + a1z**2 + tiny_param)
  a_bh2 = sqrt(a2x**2 + a2y**2 + a2z**2 + tiny_param)

@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,      only:i_belong
  use setup_params,   only:rhozero
  use infile_utils,   only:get_options,infile_exists
- use metric,         only:update_metric
+ use metric,         only:update_metric,get_binary_separation
  integer,          intent(in)    :: id
  integer,          intent(out)   :: npart
  integer,          intent(out)   :: npartoftype(:)
@@ -88,7 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: ierr,nptmass_in,i
  integer(kind=8) :: npart_total
  logical :: write_profile
- real    :: cs2
+ real    :: cs2,binary_sep
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
 
  time            = 0.
@@ -127,6 +127,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(G=1.d0,c=1.d0,mass=mhole*solarm) ! Set central mass to M=1 in code units
 
  call update_metric(0.)
+ !
+ ! circumbinary disc around a binary black hole: mhole is the total mass,
+ ! the inner edge is at about twice the binary separation, and the accretion
+ ! radius is in units of the mass of each hole
+ !
+ binary_sep = get_binary_separation()
+ if (binary_sep > 0.) then
+    r_in   = 2.*binary_sep
+    r_ref  = r_in
+    r_out  = 4.*r_in
+    spin   = 0.
+    theta  = 0.
+    mdisc  = 0.01
+    accrad = 3.
+    np     = 10000
+ endif
 
  ! stars
  nstars = 0
@@ -145,6 +161,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 
  accradius1 = accrad
+
+ ! the spin of each hole is set in the metric options, not here
+ if (binary_sep > 0. .and. abs(spin) > 0.) then
+    if (id==master) print "(a)",' WARNING: ignoring spin for binary black hole, set spins in the .in file'
+    spin = 0.
+ endif
 
  !-- Set gamma from the option read from .setup file
  gamma = gamma_ad

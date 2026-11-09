@@ -451,6 +451,30 @@ subroutine update_metric(time)
 
 end subroutine update_metric
 
+!-------------------------------------------------------------------------------
+!+
+!  Keplerian orbital frequency about the central mass, used to limit
+!  the timestep of particles orbiting close to the black hole
+!+
+!-------------------------------------------------------------------------------
+pure real function get_orbital_frequency(x) result(omega)
+ real, intent(in) :: x(3)
+
+ omega = sqrt(mass1/(norm2(x)**3 + tiny(omega)))
+
+end function get_orbital_frequency
+
+!-------------------------------------------------------------------------------
+!+
+!  separation of a binary black hole (zero: single black hole)
+!+
+!-------------------------------------------------------------------------------
+pure real function get_binary_separation() result(sep)
+
+ sep = 0.
+
+end function get_binary_separation
+
 !-----------------------------------------------------------------------
 !+
 !  Check if a particle should be accreted by the black hole
