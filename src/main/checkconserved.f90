@@ -17,7 +17,7 @@ module checkconserved
 !
 ! :Dependencies: boundary_dyn, dim, eos, externalforces, io, options, part
 !
- use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts,driving
+ use dim,            only:maxdusttypes,use_apr,mhd,periodic,inject_parts,driving,gr
  use eos,            only:eos_conserves_energy
  use options,        only:use_dustfrac,iexternalforce
  use part,           only:iboundary,npartoftype,ndustsmall,massoftype,igas
@@ -60,10 +60,10 @@ subroutine init_conservation_checks()
  endif
  !
  ! code should conserve angular momentum as long as no boundaries (fixed or periodic)
- ! and as long as there are no non-radial forces (iexternalforce > 1)
+ ! and as long as there are no non-radial forces (iexternalforce > 1) or driving
  !
  should_conserve_angmom = (npartoftype(iboundary)==0 .and. .not.periodic &
-                          .and. iexternalforce <= 1)
+                          .and. iexternalforce <= 1 .and. .not.driving)
  !
  ! should always conserve dust mass
  !
@@ -134,11 +134,12 @@ subroutine check_conservation_errors(totmom,angtot,etot,ekin,mdust,mtot,hdivBonB
  integer :: j
  real    :: momscale
 
- ! momentum error relative to M*v_rms, not to the initial momentum alone:
- ! a system that starts at rest (totmom_in = 0) would otherwise be held to
- ! an absolute tolerance in code units
- momscale = sqrt(2.*mtot*max(ekin,0.))
- if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum',scale=momscale)
+ ! momentum error relative to M*v_rms, not to the initial momentum alone. scale not used in GR
+ momscale = 0
+ if (.not.gr) momscale = sqrt(2.*mtot*max(ekin,0.))
+ if (should_conserve_momentum) then
+    call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum',scale=momscale)
+ endif
  if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
  if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
  if (should_conserve_dustmass) then
