@@ -418,7 +418,7 @@ module part
 !
  integer, parameter :: ipartbufsize = 142 + 6*maxdustsmall + 2*maxdusttypes &
                                     + max(nabundances,krome_nmols) &
-                                    + 3 + 1 + n_nden_phantom & ! Bxyz, divBsymm, nden_nimhd
+                                    + 3 + n_nden_phantom & ! Bxyz, nden_nimhd
                                     + 6  ! Stamatellos cooling stores
 
  real            :: hfact,Bextx,Bexty,Bextz,tolh
@@ -1596,6 +1596,14 @@ subroutine combine_two_particles(keep,discard)
        eta_nimhd(:,keep)  = 0.5*(eta_nimhd(:,keep) + eta_nimhd(:,discard))
     endif
  endif
+ if (allocated(ttherm_store)) then
+    ttherm_store(keep) = factor*(ttherm_store(keep) + ttherm_store(discard))
+    ueqi_store(keep)   = factor*(ueqi_store(keep)   + ueqi_store(discard))
+    tau_store(keep)    = factor*(tau_store(keep)    + tau_store(discard))
+    du_store(keep)     = factor*(du_store(keep)     + du_store(discard))
+    gradP_cool(keep)   = factor*(gradP_cool(keep)   + gradP_cool(discard))
+    duSPH(keep)        = factor*(duSPH(keep)        + duSPH(discard))
+ endif
  if (do_radiation) then
     rad(:,keep) = 0.5*(rad(:,keep) + rad(:,discard))
     radpred(:,keep) = 0.5*(radpred(:,keep) + radpred(:,discard))
@@ -1858,7 +1866,6 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        if (maxmhdan==maxp) call fill_buffer(xtemp,dBevol(:,i),nbuf)
        if (maxmhdni==maxp) call fill_buffer(xtemp,eta_nimhd(:,i),nbuf)
        call fill_buffer(xtemp,Bxyz(:,i),nbuf)
-       if (maxmhdan==maxp) call fill_buffer(xtemp,divBsymm(i),nbuf)
        if (maxmhdni==maxp) call fill_buffer(xtemp,nden_nimhd(:,i),nbuf)
     endif
     if (do_radiation) then
@@ -1975,7 +1982,6 @@ subroutine unfill_buffer(ipart,xbuf)
     if (maxmhdan==maxp) dBevol(:,ipart) = real(unfill_buf(xbuf,j,size(dBevol,1)),kind=kind(dBevol))
     if (maxmhdni==maxp) eta_nimhd(:,ipart) = unfill_buf(xbuf,j,size(eta_nimhd,1))
     Bxyz(:,ipart) = real(unfill_buf(xbuf,j,3),kind=kind(Bxyz))
-    if (maxmhdan==maxp) divBsymm(ipart) = real(unfill_buf(xbuf,j),kind=kind(divBsymm))
     if (maxmhdni==maxp) nden_nimhd(:,ipart) = unfill_buf(xbuf,j,size(nden_nimhd,1))
  endif
  if (do_radiation) then
