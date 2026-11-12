@@ -18,7 +18,7 @@ module cpuinfo
 !
  implicit none
 
- public :: print_cpuinfo, get_cpuinfo
+ public :: print_cpuinfo, get_cpuinfo, unequal_cpu_speeds
 
  private
 
@@ -239,5 +239,32 @@ subroutine readvalr(line,rval)
  read(val,*,iostat=ierr) rval
 
 end subroutine readvalr
+
+!---------------------------------------------------
+!+
+!  true if the maximum frequencies of the cpus on this node
+!  differ by more than 10 percent (e.g. hybrid big/little cores).
+!  Reads Linux sysfs, so false if this is not available
+!+
+!---------------------------------------------------
+logical function unequal_cpu_speeds()
+ character(len=80) :: path
+ integer :: cpu,f,fmin,fmax,iu,ierr
+
+ fmin = huge(fmin)
+ fmax = 0
+ do cpu=0,huge(cpu)-1
+    write(path,'(a,i0,a)') '/sys/devices/system/cpu/cpu',cpu,'/cpufreq/cpuinfo_max_freq'
+    open(newunit=iu,file=trim(path),status='old',action='read',iostat=ierr)
+    if (ierr /= 0) exit
+    read(iu,*,iostat=ierr) f
+    close(iu)
+    if (ierr /= 0) exit
+    fmin = min(fmin,f)
+    fmax = max(fmax,f)
+ enddo
+ unequal_cpu_speeds = (fmax > 1.1*fmin)
+
+end function unequal_cpu_speeds
 
 end module cpuinfo

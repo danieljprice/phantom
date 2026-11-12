@@ -50,7 +50,7 @@ subroutine initialise()
  use writeheader,      only:write_codeinfo
  use evwrite,          only:init_evfile
  use mpidomain,        only:init_domains
- use cpuinfo,          only:print_cpuinfo
+ use cpuinfo,          only:print_cpuinfo,unequal_cpu_speeds
  use checkoptions,     only:check_compile_time_settings
  use metric,           only:metric_type
  use metric_et_utils,  only:read_tabulated_metric,gridinit
@@ -79,8 +79,8 @@ subroutine initialise()
 !--initialise openMP things if required
 !
  if (id==master) call print_cpuinfo()
+ call init_omp(unequal_cpu_speeds())
  if (id==master) call info_omp
- call init_omp
 !
 !--initialise MPI domains
 !

@@ -24,7 +24,7 @@ module cons2prim
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2primsolver, dim, eos, io, nicil, options, part,
+! :Dependencies: cons2primsolver, dim, eos, io, nicil, omputils, options, part,
 !   radiation_utils, shock_capturing, utils_gr
 !
  implicit none
@@ -266,6 +266,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use io,                only:fatal,warning
  use shock_capturing,   only:get_alphaloc_cd
  use options,           only:use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
+ use omputils,          only:use_particle_schedule,restore_loop_schedule
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
@@ -293,7 +294,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  X_i    = X_in
  Z_i    = Z_in
 
-!$omp parallel do default (none) &
+ call use_particle_schedule
+!$omp parallel do schedule(runtime) default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,rho) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(iphase,maxphase,maxp) &
@@ -417,6 +419,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
     endif
  enddo
 !$omp end parallel do
+ call restore_loop_schedule
 
  if (mhd_nonideal) then
     ! look for fatal errors in nicil and kill if necessary
