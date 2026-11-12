@@ -263,8 +263,17 @@ end subroutine total_dust_mass
 !    chi_sinks   = lambda_max|T_sinks| / Omega_c^2, tidal tensor of
 !                  sinks outside Rc (analytic cross-check)
 !  Per shell k (written to core_shells_xxxxx.ev):
-!    eta_rad = <da.rhat>_k/g_k (signed), eta_rms = <|da|^2>_k^1/2/g_k,
-!    xi/h = eta*r_k/h_k  (release shell when xi/h >~ 1)
+!    eta_rad  = <da.rhat>_k/g_k (signed, >0 = outward push), with its
+!               standard error sigma_k/(g_k sqrt(N_k))
+!    eta_tide = lambda_max|S_k - s_k 1| r_k/g_k, from the least-squares
+!               fit da = S_k r within the shell (l=2 part, which eta_rad
+!               cannot see; averages down like eta_rad)
+!    eta_rms  = <|da|^2>_k^1/2/g_k (noise floor diagnostic only)
+!    xi/h     = eta*r_k/h_k  (release shell when xi/h >~ 1)
+!  Shells have equal width Rc/nshell, counted inward from the surface,
+!  merged inward until each holds at least nmin particles. Membership
+!  is set at the first dump and kept while the core particle number
+!  is unchanged (the core is rigid, so radii are fixed in its frame).
 !
 !  The raw accelerations are recomputed with a call to derivs with the
 !  rigid-core projection switched off, plus the sink-gas accelerations.
@@ -278,7 +287,6 @@ subroutine core_validity(time,num,npart,xyzh,vxyzu)
  use deriv,        only:get_derivs_global
  use boundarypart, only:rigid_core_forces,get_core_residual_accel
  use vectorutils,  only:matrixinvert3D
- use sortutils,    only:indexx
  use dim,          only:gravity
  use timestep,        only:set_defaults_timestep
  use viscosity,       only:set_defaults_viscosity
@@ -286,27 +294,30 @@ subroutine core_validity(time,num,npart,xyzh,vxyzu)
  integer, intent(in)    :: num,npart
  real,    intent(in)    :: time
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer, parameter     :: ncols = 9, nshcols = 9
+ integer, parameter     :: ncols = 11, nshcols = 14
  character(len=13)      :: columns(ncols)
  character(len=15)      :: shcols(nshcols)
  character(len=40)      :: filename
  real, allocatable      :: accel(:,:),dela(:,:),rcore(:)
- integer, allocatable   :: icore(:),iorder(:)
- integer, save          :: nshell = 10, ncore0 = 0
+ integer, allocatable   :: icore(:)
+ integer, save          :: nshell = 20, nmin = 50, ncore0 = 0, ncore_shells = 0, nlayer = 0
  logical, save          :: use_baseline = .false.
- real, allocatable, save :: dela0(:,:),r0(:,:)
+ real, allocatable, save :: dela0(:,:),r0(:,:),shell_rin(:),shell_rout(:)
+ integer, allocatable, save :: ishell(:)
  real, save             :: q0inv(3,3)
- integer :: i,j,k,ncore,nboundary,ierr,jstart,jend,nin,iu
- real    :: xcm(3),omega(3),ri(3),pmat(3,3),qmat(3,3),qinv(3,3),gmat(3,3),smat(3,3)
+ integer :: i,j,k,l,ncore,nboundary,ierr,iu,nk
+ real    :: xcm(3),omega(3),ri(3),rhat(3),pmat(3,3),qmat(3,3),qinv(3,3),gmat(3,3),smat(3,3)
  real    :: amat(3,3),rotmat(3,3),tsinks(3,3),dk(3),eig(3),fxi,fyi,fzi,phii
- real    :: mb,rc,mc,omegac2,s,chi_tide,chi_breathe,chi_sinks,dist,rk,hk,mk,gk
- real    :: darad,da2,eta_rad,eta_rms,xi_max,eta_rms_out
- real, allocatable :: shell(:,:)
+ real    :: mb,rc,mc,omegac2,s,chi_tide,chi_breathe,chi_sinks,dist,rk,hk,mk,gk,drk
+ real    :: x,var,eta_rad,eta_rad_err,eta_tide,eta_rms,xi_max
+ real, allocatable :: shell(:,:),nsum(:),rsum(:),hsum(:),xsum(:),x2sum(:),da2sum(:)
+ real, allocatable :: pk(:,:,:),qk(:,:,:)
 
  if (npartoftype(iboundary) <= 0) call fatal('core_validity','no boundary particles in dump')
  if (dump_number == 0) then
     if (.not.gravity) print*,'WARNING: analysis compiled without self-gravity'
-    call prompt('Number of radial shells (equal particle number)',nshell,1)
+    call prompt('Number of equal-width radial shells in the core',nshell,1)
+    call prompt('Minimum number of particles per shell (shells merged inward)',nmin,1)
     call prompt('Subtract residual of first dump as baseline?',use_baseline)
     ! runtime options needed by derivs (not read by phantomanalysis);
     ! not set_default_options, which would also reset ieos and the units
@@ -345,7 +356,7 @@ subroutine core_validity(time,num,npart,xyzh,vxyzu)
 
  ! list of core particles in input order, and their radii
  ncore = nboundary
- allocate(icore(ncore),rcore(ncore),iorder(ncore))
+ allocate(icore(ncore),rcore(ncore))
  j = 0
  do i=1,npart
     if (iamboundary(iamtype(iphase(i)))) then
@@ -438,74 +449,108 @@ subroutine core_validity(time,num,npart,xyzh,vxyzu)
  chi_sinks = maxval(abs(eig))/omegac2
 
  !
- ! shell-by-shell measure, shells with equal particle number
+ ! shell-by-shell measure. Membership is fixed at the first dump (or
+ ! whenever the number of core particles changes)
  !
- call indexx(ncore,rcore,iorder)
- nshell = min(nshell,ncore)
- allocate(shell(nshcols,nshell))
- xi_max = 0.
- eta_rms_out = 0.
- do k=1,nshell
-    jstart = (k-1)*ncore/nshell + 1
-    jend   = k*ncore/nshell
-    rk = 0.
-    hk = 0.
-    darad = 0.
-    da2 = 0.
-    do j=jstart,jend
-       i = icore(iorder(j))
-       ri = xyzh(1:3,i) - xcm
-       rk = rk + rcore(iorder(j))
-       hk = hk + xyzh(4,i)
-       if (rcore(iorder(j)) > 0.) darad = darad + dot_product(dela(:,i),ri)/rcore(iorder(j))
-       da2 = da2 + dot_product(dela(:,i),dela(:,i))
+ if (.not.allocated(ishell) .or. ncore /= ncore_shells) then
+    if (allocated(ishell)) deallocate(ishell,shell_rin,shell_rout)
+    allocate(ishell(ncore),shell_rin(nshell),shell_rout(nshell))
+    call set_core_shells(ncore,rcore,rc,nshell,nmin,ishell,shell_rin,shell_rout,nlayer)
+    ncore_shells = ncore
+    print "(a,i0,a,i0,a)",' core_validity: ',nlayer,' shells (from ',nshell,' before merging)'
+ endif
+
+ allocate(nsum(nlayer),rsum(nlayer),hsum(nlayer),xsum(nlayer),x2sum(nlayer),da2sum(nlayer))
+ allocate(pk(3,3,nlayer),qk(3,3,nlayer),shell(nshcols,nlayer))
+ nsum = 0.
+ rsum = 0.
+ hsum = 0.
+ xsum = 0.
+ x2sum = 0.
+ da2sum = 0.
+ pk = 0.
+ qk = 0.
+ do j=1,ncore
+    i = icore(j)
+    k = ishell(j)
+    ri = xyzh(1:3,i) - xcm
+    rhat = 0.
+    if (rcore(j) > 0.) rhat = ri/rcore(j)
+    x = dot_product(dela(:,i),rhat)
+    nsum(k)   = nsum(k) + 1.
+    rsum(k)   = rsum(k) + rcore(j)
+    hsum(k)   = hsum(k) + xyzh(4,i)
+    xsum(k)   = xsum(k) + x
+    x2sum(k)  = x2sum(k) + x**2
+    da2sum(k) = da2sum(k) + dot_product(dela(:,i),dela(:,i))
+    do l=1,3
+       pk(:,l,k) = pk(:,l,k) + dela(:,i)*ri(l)
+       qk(:,l,k) = qk(:,l,k) + ri(:)*ri(l)
     enddo
-    nin = jend - jstart + 1
-    rk = rk/real(nin)
-    hk = hk/real(nin)
-    darad = darad/real(nin)
-    da2 = da2/real(nin)
-    mk = mb*real(count(rcore < rk)) + sink_mass_within(rk)
-    gk = mk/rk**2
-    eta_rad = darad/gk
-    eta_rms = sqrt(da2)/gk
-    shell(:,k) = (/rk,real(nin),mk,gk,hk,eta_rad,eta_rms,abs(eta_rad)*rk/hk,eta_rms*rk/hk/)
-    xi_max = max(xi_max,eta_rms*rk/hk)
-    if (k == nshell) eta_rms_out = eta_rms
  enddo
 
- write(shcols(1),'(a)') 'r_k'
- write(shcols(2),'(a)') 'npart_k'
- write(shcols(3),'(a)') 'M(<r_k)'
- write(shcols(4),'(a)') 'g_k'
- write(shcols(5),'(a)') 'h_k'
- write(shcols(6),'(a)') 'eta_rad'
- write(shcols(7),'(a)') 'eta_rms'
- write(shcols(8),'(a)') 'xi_rad/h'
- write(shcols(9),'(a)') 'xi_rms/h'
+ xi_max = 0.
+ do k=1,nlayer
+    nk  = nint(nsum(k))
+    rk  = rsum(k)/nsum(k)
+    hk  = hsum(k)/nsum(k)
+    drk = shell_rout(k) - shell_rin(k)
+    mk  = mb*real(count(rcore < rk)) + sink_mass_within(rk)
+    gk  = mk/rk**2
+    ! mean radial residual and its standard error
+    eta_rad = xsum(k)/nsum(k)/gk
+    var = 0.
+    if (nk > 1) var = max(x2sum(k) - nsum(k)*(xsum(k)/nsum(k))**2,0.)/(nsum(k) - 1.)
+    eta_rad_err = sqrt(var/nsum(k))/gk
+    ! tidal (traceless symmetric) part of the linear fit da = S_k r in the shell
+    eta_tide = 0.
+    call matrixinvert3D(qk(:,:,k),qinv,ierr)
+    if (ierr == 0) then
+       gmat = matmul(pk(:,:,k),qinv)
+       smat = 0.5*(gmat + transpose(gmat))
+       s = (smat(1,1) + smat(2,2) + smat(3,3))/3.
+       do l=1,3
+          smat(l,l) = smat(l,l) - s
+       enddo
+       call eigenvalues_sym3(smat,eig)
+       eta_tide = maxval(abs(eig))*rk/gk
+    endif
+    eta_rms = sqrt(da2sum(k)/nsum(k))/gk
+    shell(:,k) = (/shell_rin(k),shell_rout(k),rk,real(nk),mk,gk,hk,hk/drk,&
+                   eta_rad,eta_rad_err,eta_tide,eta_rms,abs(eta_rad)*rk/hk,eta_tide*rk/hk/)
+    xi_max = max(xi_max,abs(eta_rad)*rk/hk,eta_tide*rk/hk)
+ enddo
+
+ shcols = (/'r_in           ','r_out          ','r_k            ','npart_k        ',&
+            'M(<r_k)        ','g_k            ','h_k            ','h_k/dr_k       ',&
+            'eta_rad        ','err(eta_rad)   ','eta_tide       ','eta_rms        ',&
+            'xi_rad/h       ','xi_tide/h      '/)
  write(filename,"(a,i5.5,a)") 'core_shells_',num,'.ev'
  open(newunit=iu,file=trim(filename),status='replace')
  write(iu,"('# time = ',es18.10,'   Rc = ',es18.10,'   Mc = ',es18.10)") time,rc,mc
- write(iu,"('#',9('[',i2.2,1x,a15,']'))") (k,adjustr(shcols(k)),k=1,nshcols)
- do k=1,nshell
-    write(iu,"(9(1x,es18.10))") shell(:,k)
+ write(iu,"('#',14('[',i2.2,1x,a15,']'))") (k,adjustr(shcols(k)),k=1,nshcols)
+ do k=1,nlayer
+    write(iu,"(14(1x,es18.10))") shell(:,k)
  enddo
  close(iu)
 
+ ! outermost shell is the last one (shells are in order of increasing radius)
  columns = (/'     chi_tide', &
              '  chi_breathe', &
              '    chi_sinks', &
-             ' eta_rms(out)', &
-             ' max xi_rms/h', &
+             ' eta_rad(out)', &
+             ' err(eta_rad)', &
+             'eta_tide(out)', &
+             '  max(xi)/h  ', &
              '           Rc', &
              '           Mc', &
              '       t_dync', &
              '    |omega_c|'/)
  call write_time_file('core_validity',columns,time,&
-      (/chi_tide,chi_breathe,chi_sinks,eta_rms_out,xi_max,rc,mc,1./sqrt(omegac2),&
-        sqrt(dot_product(omega,omega))/),ncols,dump_number)
+      (/chi_tide,chi_breathe,chi_sinks,shell(9,nlayer),shell(10,nlayer),shell(11,nlayer),&
+        xi_max,rc,mc,1./sqrt(omegac2),sqrt(dot_product(omega,omega))/),ncols,dump_number)
 
- deallocate(accel,dela,icore,rcore,iorder,shell)
+ deallocate(accel,dela,icore,rcore,shell,nsum,rsum,hsum,xsum,x2sum,da2sum,pk,qk)
 
 contains
 
@@ -524,6 +569,70 @@ real function sink_mass_within(r)
 end function sink_mass_within
 
 end subroutine core_validity
+
+!----------------------------------------------------------------
+!+
+!  Assign core particles to radial shells for core_validity. The core
+!  is divided into nshell shells of equal width rc/nshell. Going inward
+!  from the surface, a shell with fewer than nmin particles is merged
+!  with the next shell inward; a remainder at the centre with fewer
+!  than nmin particles is merged with the shell outside it.
+!  On output, shells are numbered 1..nlayer in order of increasing
+!  radius, ishell(j) is the shell of core particle j, and rin/rout
+!  are the shell edges.
+!+
+!----------------------------------------------------------------
+subroutine set_core_shells(ncore,rcore,rc,nshell,nmin,ishell,rin,rout,nlayer)
+ integer, intent(in)  :: ncore,nshell,nmin
+ real,    intent(in)  :: rcore(ncore),rc
+ integer, intent(out) :: ishell(ncore),nlayer
+ real,    intent(out) :: rin(nshell),rout(nshell)
+ integer :: j,m,k,ncum,nom(ncore),nnom(nshell),kmerged(nshell)
+ real    :: dr,redge(0:nshell)
+
+ dr = rc/real(nshell)
+ do m=0,nshell
+    redge(m) = rc - m*dr   ! nominal shell m (counted from the surface) is [redge(m),redge(m-1)]
+ enddo
+ redge(nshell) = 0.
+
+ nnom = 0
+ do j=1,ncore
+    nom(j) = min(nshell,max(1,int((rc - rcore(j))/dr) + 1))
+    nnom(nom(j)) = nnom(nom(j)) + 1
+ enddo
+
+ ! merge nominal shells inward from the surface until each has nmin particles
+ k = 1
+ ncum = 0
+ do m=1,nshell
+    kmerged(m) = k
+    ncum = ncum + nnom(m)
+    if (ncum >= nmin .and. m < nshell) then
+       k = k + 1
+       ncum = 0
+    endif
+ enddo
+ nlayer = k
+ ! central remainder that is too small: merge with the shell outside it
+ if (ncum < nmin .and. nlayer > 1) then
+    where (kmerged == nlayer) kmerged = nlayer - 1
+    nlayer = nlayer - 1
+ endif
+
+ ! edges, and renumber so that shell 1 is innermost
+ rout = 0.
+ rin  = rc
+ do m=1,nshell
+    k = nlayer - kmerged(m) + 1
+    rout(k) = max(rout(k),redge(m-1))
+    rin(k)  = min(rin(k),redge(m))
+ enddo
+ do j=1,ncore
+    ishell(j) = nlayer - kmerged(nom(j)) + 1
+ enddo
+
+end subroutine set_core_shells
 
 !----------------------------------------------------------------
 !+
