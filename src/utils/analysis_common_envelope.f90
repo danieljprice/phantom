@@ -63,7 +63,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(36(a,/))", &
+    print "(37(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -99,16 +99,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '33) Velocity profile',&
             '34) Angular momentum profile',&
             '35) Keplerian velocity profile',&
-            '36) Total dust mass'
+            '36) Total dust mass',&
+            '37) Boundary-particle core validity'
     analysis_to_perform = 1
-    call prompt('Choose analysis type ',analysis_to_perform,1,36)
+    call prompt('Choose analysis type ',analysis_to_perform,1,37)
  endif
 
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,&
                                    xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
  ! List of analysis options that require specifying EOS options
- requires_eos_opts = any((/2,3,4,5,6,8,9,10,12,16,17,18,19,20,21,24,25,26,27,28,30,36/) == analysis_to_perform)
+ requires_eos_opts = any((/2,3,4,5,6,8,9,10,12,16,17,18,19,20,21,24,25,26,27,28,30,36,37/) == analysis_to_perform)
  if (dump_number == 0 .and. requires_eos_opts) call set_eos_options(analysis_to_perform)
 
  select case(analysis_to_perform)
@@ -184,6 +185,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(36) !Total dust mass
     call total_dust_mass(time,npart,particlemass,xyzh)
+ case(37) ! Validity of rigid boundary-particle core
+    call core_validity(time,num,npart,xyzh,vxyzu)
  end select
  !increase dump number counter
  dump_number = dump_number + 1
@@ -242,6 +245,319 @@ subroutine total_dust_mass(time,npart,particlemass,xyzh)
  deallocate(columns,temp)
 
 end subroutine total_dust_mass
+
+!----------------------------------------------------------------
+!+
+!  Validity of the rigid boundary-particle core, measured from the
+!  acceleration discarded by the rigid-body constraint
+!  (see notes "When is a rigid boundary-particle core a good
+!  approximation?"):
+!
+!   da_i = a_i - [a_cm + alpha x r_i + omega x (omega x r_i)]
+!
+!  Global (written to core_validity.ev):
+!    S = sym(<da r^T> <r r^T>^-1),  s = tr(S)/3,  Omega_c^2 = G Mc/Rc^3
+!    chi_tide    = lambda_max|S - s 1| / Omega_c^2   (dR/Rc = h2/2 chi_tide)
+!    chi_breathe = s / Omega_c^2  (signed, >0 = expansion;
+!                                  dR/Rc ~ chi_breathe/(3 Gamma1 - 4))
+!    chi_sinks   = lambda_max|T_sinks| / Omega_c^2, tidal tensor of
+!                  sinks outside Rc (analytic cross-check)
+!  Per shell k (written to core_shells_xxxxx.ev):
+!    eta_rad = <da.rhat>_k/g_k (signed), eta_rms = <|da|^2>_k^1/2/g_k,
+!    xi/h = eta*r_k/h_k  (release shell when xi/h >~ 1)
+!
+!  The raw accelerations are recomputed with a call to derivs with the
+!  rigid-core projection switched off, plus the sink-gas accelerations.
+!  Optionally the residual from the first dump analysed is subtracted,
+!  rotated with the core, to remove the frozen-in SPH noise.
+!+
+!----------------------------------------------------------------
+subroutine core_validity(time,num,npart,xyzh,vxyzu)
+ use part,         only:iphase,fxyzu,massoftype,iboundary,iamboundary,iamtype,&
+                        npartoftype,tolh
+ use deriv,        only:get_derivs_global
+ use boundarypart, only:rigid_core_forces,get_core_residual_accel
+ use vectorutils,  only:matrixinvert3D
+ use sortutils,    only:indexx
+ use dim,          only:gravity
+ use timestep,        only:set_defaults_timestep
+ use viscosity,       only:set_defaults_viscosity
+ use shock_capturing, only:set_defaults_shock_capturing
+ integer, intent(in)    :: num,npart
+ real,    intent(in)    :: time
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer, parameter     :: ncols = 9, nshcols = 9
+ character(len=13)      :: columns(ncols)
+ character(len=15)      :: shcols(nshcols)
+ character(len=40)      :: filename
+ real, allocatable      :: accel(:,:),dela(:,:),rcore(:)
+ integer, allocatable   :: icore(:),iorder(:)
+ integer, save          :: nshell = 10, ncore0 = 0
+ logical, save          :: use_baseline = .false.
+ real, allocatable, save :: dela0(:,:),r0(:,:)
+ real, save             :: q0inv(3,3)
+ integer :: i,j,k,ncore,nboundary,ierr,jstart,jend,nin,iu
+ real    :: xcm(3),omega(3),ri(3),pmat(3,3),qmat(3,3),qinv(3,3),gmat(3,3),smat(3,3)
+ real    :: amat(3,3),rotmat(3,3),tsinks(3,3),dk(3),eig(3),fxi,fyi,fzi,phii
+ real    :: mb,rc,mc,omegac2,s,chi_tide,chi_breathe,chi_sinks,dist,rk,hk,mk,gk
+ real    :: darad,da2,eta_rad,eta_rms,xi_max,eta_rms_out
+ real, allocatable :: shell(:,:)
+
+ if (npartoftype(iboundary) <= 0) call fatal('core_validity','no boundary particles in dump')
+ if (dump_number == 0) then
+    if (.not.gravity) print*,'WARNING: analysis compiled without self-gravity'
+    call prompt('Number of radial shells (equal particle number)',nshell,1)
+    call prompt('Subtract residual of first dump as baseline?',use_baseline)
+    ! runtime options needed by derivs (not read by phantomanalysis);
+    ! not set_default_options, which would also reset ieos and the units
+    tolh = 1.e-4
+    call set_defaults_timestep
+    call set_defaults_viscosity
+    call set_defaults_shock_capturing
+ endif
+
+ !
+ ! raw accelerations on the core: hydro + self-gravity + sinks
+ !
+ rigid_core_forces = .false.
+ call get_derivs_global()
+ rigid_core_forces = .true.
+
+ allocate(accel(3,npart),dela(3,npart))
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,iphase,fxyzu,accel,nptmass,xyzmh_ptmass) &
+ !$omp private(i,fxi,fyi,fzi,phii)
+ do i=1,npart
+    accel(1:3,i) = 0.
+    if (iamboundary(iamtype(iphase(i)))) then
+       fxi = 0.
+       fyi = 0.
+       fzi = 0.
+       phii = 0.
+       if (nptmass > 0) call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                                                xyzmh_ptmass,fxi,fyi,fzi,phii)
+       accel(1:3,i) = fxyzu(1:3,i) + (/fxi,fyi,fzi/)
+    endif
+ enddo
+ !$omp end parallel do
+
+ call get_core_residual_accel(npart,iphase,xyzh,vxyzu,accel,dela,xcm,omega,nboundary)
+
+ ! list of core particles in input order, and their radii
+ ncore = nboundary
+ allocate(icore(ncore),rcore(ncore),iorder(ncore))
+ j = 0
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) then
+       j = j + 1
+       icore(j) = i
+       rcore(j) = sqrt(dot_product(xyzh(1:3,i)-xcm,xyzh(1:3,i)-xcm))
+    endif
+ enddo
+
+ ! second-moment tensor Q = <r r^T>
+ qmat = 0.
+ do j=1,ncore
+    ri = xyzh(1:3,icore(j)) - xcm
+    do k=1,3
+       qmat(:,k) = qmat(:,k) + ri(:)*ri(k)
+    enddo
+ enddo
+ qmat = qmat / real(ncore)
+ call matrixinvert3D(qmat,qinv,ierr)
+ if (ierr /= 0) call fatal('core_validity','singular core second-moment tensor')
+
+ !
+ ! baseline subtraction: da_i(t) -> da_i(t) - R(t) da_i(0), with the
+ ! core rotation since the first dump R = <r(t) r(0)^T> Q(0)^-1
+ !
+ if (use_baseline) then
+    if (.not.allocated(dela0)) then
+       allocate(dela0(3,ncore),r0(3,ncore))
+       ncore0 = ncore
+       do j=1,ncore
+          dela0(:,j) = dela(:,icore(j))
+          r0(:,j) = xyzh(1:3,icore(j)) - xcm
+       enddo
+       q0inv = qinv
+    endif
+    if (ncore /= ncore0) call fatal('core_validity','number of core particles changed: cannot use baseline')
+    amat = 0.
+    do j=1,ncore
+       ri = xyzh(1:3,icore(j)) - xcm
+       do k=1,3
+          amat(:,k) = amat(:,k) + ri(:)*r0(k,j)
+       enddo
+    enddo
+    rotmat = matmul(amat/real(ncore),q0inv)
+    do j=1,ncore
+       dela(:,icore(j)) = dela(:,icore(j)) - matmul(rotmat,dela0(:,j))
+    enddo
+ endif
+
+ ! core radius and mass enclosed (boundary particles + sinks inside Rc)
+ mb = massoftype(iboundary)
+ rc = maxval(rcore)
+ mc = mb*real(ncore) + sink_mass_within(rc)
+ omegac2 = mc/rc**3   ! G = 1 in code units
+
+ !
+ ! deformation tensor S = sym(P Q^-1), P = <da r^T>
+ !
+ pmat = 0.
+ do j=1,ncore
+    ri = xyzh(1:3,icore(j)) - xcm
+    do k=1,3
+       pmat(:,k) = pmat(:,k) + dela(:,icore(j))*ri(k)
+    enddo
+ enddo
+ pmat = pmat / real(ncore)
+ gmat = matmul(pmat,qinv)
+ smat = 0.5*(gmat + transpose(gmat))
+ s = (smat(1,1) + smat(2,2) + smat(3,3))/3.
+ do k=1,3
+    smat(k,k) = smat(k,k) - s
+ enddo
+ call eigenvalues_sym3(smat,eig)
+ chi_tide = maxval(abs(eig))/omegac2
+ chi_breathe = s/omegac2
+
+ ! analytic tidal tensor from sinks outside the core
+ tsinks = 0.
+ do k=1,nptmass
+    dk = xyzmh_ptmass(1:3,k) - xcm
+    dist = sqrt(dot_product(dk,dk))
+    if (dist <= rc .or. xyzmh_ptmass(4,k) <= 0.) cycle
+    dk = dk/dist
+    do j=1,3
+       tsinks(:,j) = tsinks(:,j) + xyzmh_ptmass(4,k)/dist**3*3.*dk(:)*dk(j)
+       tsinks(j,j) = tsinks(j,j) - xyzmh_ptmass(4,k)/dist**3
+    enddo
+ enddo
+ call eigenvalues_sym3(tsinks,eig)
+ chi_sinks = maxval(abs(eig))/omegac2
+
+ !
+ ! shell-by-shell measure, shells with equal particle number
+ !
+ call indexx(ncore,rcore,iorder)
+ nshell = min(nshell,ncore)
+ allocate(shell(nshcols,nshell))
+ xi_max = 0.
+ eta_rms_out = 0.
+ do k=1,nshell
+    jstart = (k-1)*ncore/nshell + 1
+    jend   = k*ncore/nshell
+    rk = 0.
+    hk = 0.
+    darad = 0.
+    da2 = 0.
+    do j=jstart,jend
+       i = icore(iorder(j))
+       ri = xyzh(1:3,i) - xcm
+       rk = rk + rcore(iorder(j))
+       hk = hk + xyzh(4,i)
+       if (rcore(iorder(j)) > 0.) darad = darad + dot_product(dela(:,i),ri)/rcore(iorder(j))
+       da2 = da2 + dot_product(dela(:,i),dela(:,i))
+    enddo
+    nin = jend - jstart + 1
+    rk = rk/real(nin)
+    hk = hk/real(nin)
+    darad = darad/real(nin)
+    da2 = da2/real(nin)
+    mk = mb*real(count(rcore < rk)) + sink_mass_within(rk)
+    gk = mk/rk**2
+    eta_rad = darad/gk
+    eta_rms = sqrt(da2)/gk
+    shell(:,k) = (/rk,real(nin),mk,gk,hk,eta_rad,eta_rms,abs(eta_rad)*rk/hk,eta_rms*rk/hk/)
+    xi_max = max(xi_max,eta_rms*rk/hk)
+    if (k == nshell) eta_rms_out = eta_rms
+ enddo
+
+ write(shcols(1),'(a)') 'r_k'
+ write(shcols(2),'(a)') 'npart_k'
+ write(shcols(3),'(a)') 'M(<r_k)'
+ write(shcols(4),'(a)') 'g_k'
+ write(shcols(5),'(a)') 'h_k'
+ write(shcols(6),'(a)') 'eta_rad'
+ write(shcols(7),'(a)') 'eta_rms'
+ write(shcols(8),'(a)') 'xi_rad/h'
+ write(shcols(9),'(a)') 'xi_rms/h'
+ write(filename,"(a,i5.5,a)") 'core_shells_',num,'.ev'
+ open(newunit=iu,file=trim(filename),status='replace')
+ write(iu,"('# time = ',es18.10,'   Rc = ',es18.10,'   Mc = ',es18.10)") time,rc,mc
+ write(iu,"('#',9('[',i2.2,1x,a15,']'))") (k,adjustr(shcols(k)),k=1,nshcols)
+ do k=1,nshell
+    write(iu,"(9(1x,es18.10))") shell(:,k)
+ enddo
+ close(iu)
+
+ columns = (/'     chi_tide', &
+             '  chi_breathe', &
+             '    chi_sinks', &
+             ' eta_rms(out)', &
+             ' max xi_rms/h', &
+             '           Rc', &
+             '           Mc', &
+             '       t_dync', &
+             '    |omega_c|'/)
+ call write_time_file('core_validity',columns,time,&
+      (/chi_tide,chi_breathe,chi_sinks,eta_rms_out,xi_max,rc,mc,1./sqrt(omegac2),&
+        sqrt(dot_product(omega,omega))/),ncols,dump_number)
+
+ deallocate(accel,dela,icore,rcore,iorder,shell)
+
+contains
+
+real function sink_mass_within(r)
+ real, intent(in) :: r
+ integer :: l
+ real    :: dl(3)
+
+ sink_mass_within = 0.
+ do l=1,nptmass
+    if (xyzmh_ptmass(4,l) <= 0.) cycle
+    dl = xyzmh_ptmass(1:3,l) - xcm
+    if (dot_product(dl,dl) < r**2) sink_mass_within = sink_mass_within + xyzmh_ptmass(4,l)
+ enddo
+
+end function sink_mass_within
+
+end subroutine core_validity
+
+!----------------------------------------------------------------
+!+
+!  Eigenvalues of a real symmetric 3x3 matrix (closed form,
+!  trigonometric method), returned in descending order
+!+
+!----------------------------------------------------------------
+subroutine eigenvalues_sym3(a,eig)
+ use vectorutils, only:det
+ real, intent(in)  :: a(3,3)
+ real, intent(out) :: eig(3)
+ real :: p1,p2,p,q,r,phi,b(3,3)
+ integer :: k
+
+ p1 = a(1,2)**2 + a(1,3)**2 + a(2,3)**2
+ q  = (a(1,1) + a(2,2) + a(3,3))/3.
+ p2 = (a(1,1)-q)**2 + (a(2,2)-q)**2 + (a(3,3)-q)**2 + 2.*p1
+ p  = sqrt(p2/6.)
+ if (p <= tiny(p)) then
+    eig = q
+    return
+ endif
+ b = a
+ do k=1,3
+    b(k,k) = b(k,k) - q
+ enddo
+ b = b/p
+ r = max(-1.,min(1.,0.5*det(b)))
+ phi = acos(r)/3.
+ eig(1) = q + 2.*p*cos(phi)
+ eig(3) = q + 2.*p*cos(phi + 2.*pi/3.)
+ eig(2) = 3.*q - eig(1) - eig(3)
+
+end subroutine eigenvalues_sym3
 
 ! --------------------------------------------------------------------
 ! integer function  FindMinimum():

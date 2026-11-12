@@ -20,13 +20,20 @@ module boundarypart
  implicit none
  public :: get_boundary_particle_forces,set_boundary_particle_velocity,&
            calculate_boundary_core_CM,calculate_boundary_core_omega,&
-           drift_boundary_core
+           drift_boundary_core,get_core_residual_accel
 
  !
  ! sum of m du/dt over the core from the last call with du/dt present,
  ! i.e. the rate at which thermal energy is discarded by freezing u
  !
  real, public :: core_dudt = 0.
+
+ !
+ ! if .false., get_boundary_particle_forces leaves the forces on the core
+ ! untouched. Only for analysis tools that need the raw forces on the core
+ ! (e.g. to measure the acceleration discarded by the rigid constraint)
+ !
+ logical, public :: rigid_core_forces = .true.
 
  private
 
@@ -58,6 +65,7 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
  real                :: inertia(3,3),inertia_inv(3,3),dudt_sum
  logical             :: has_dudt
 
+ if (.not.rigid_core_forces) return
  has_dudt = (maxvxyzu >= 4 .and. size(fxyzu,1) >= 4)
  nboundary = 0
  avg_lin_accel = 0.
@@ -385,6 +393,92 @@ subroutine drift_boundary_core(dt,npart,iphase,xyzh,vxyzu)
  endif
 
 end subroutine drift_boundary_core
+
+!----------------------------------------------------------------
+!+
+!  Residual acceleration of the boundary particles, i.e. the part of
+!  the raw acceleration that the rigid-body constraint discards:
+!
+!    da_i = a_i - [ a_cm + alpha x r_i + omega x (omega x r_i) ]
+!
+!  where r_i = x_i - x_cm, omega = I^-1 L is the core angular velocity
+!  and alpha = I^-1 (tau - omega x I omega) is given by Euler's equations,
+!  with tau = <r x (a - a_cm)> the mean specific torque. With this choice
+!  the residual has no net force and no net torque, <da> = <r x da> = 0,
+!  so it contains only deformation (see boundary_core_validity notes).
+!
+!  accel must be the raw (unprojected) accelerations, e.g. from a derivs
+!  call with rigid_core_forces = .false. plus any external/sink forces.
+!  On output dela is zero for non-boundary particles.
+!+
+!---------------------------------------------------------------
+subroutine get_core_residual_accel(npart,iphase,xyz,vxyz,accel,dela,xcm,omega,nboundary)
+ use part,        only:iamboundary,iamtype
+ use vectorutils, only:cross_product3D
+ integer, intent(in)  :: npart
+ integer(kind=1), intent(in) :: iphase(:)
+ real,    intent(in)  :: xyz(:,:),vxyz(:,:),accel(:,:)
+ real,    intent(out) :: dela(:,:),xcm(3),omega(3)
+ integer, intent(out) :: nboundary
+ integer :: i,ierr
+ real    :: vcm(3),spin(3),inertia(3,3),inertia_inv(3,3)
+ real    :: acm(3),torque(3),torquei(3),ri(3),alpha(3),gyro(3)
+ real    :: alpha_x_r(3),omega_x_r(3),centrip(3)
+
+ dela(:,1:npart) = 0.
+ omega = 0.
+ call get_core_state(npart,iphase,xyz,vxyz,xcm,vcm,spin,inertia,nboundary)
+ if (nboundary <= 0) return
+
+ acm = 0.
+ !$omp parallel do default(none) &
+ !$omp shared(npart,iphase,accel) &
+ !$omp private(i) &
+ !$omp reduction(+:acm)
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) acm = acm + accel(1:3,i)
+ enddo
+ !$omp end parallel do
+ acm = acm / real(nboundary)
+
+ torque = 0.
+ !$omp parallel do default(none) &
+ !$omp shared(npart,iphase,xyz,accel,acm,xcm) &
+ !$omp private(i,torquei) &
+ !$omp reduction(+:torque)
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) then
+       call cross_product3D(xyz(1:3,i)-xcm,accel(1:3,i)-acm,torquei)
+       torque = torque + torquei
+    endif
+ enddo
+ !$omp end parallel do
+ torque = torque / real(nboundary)
+
+ call invert_core_inertia(inertia,inertia_inv,ierr)
+ if (ierr /= 0) then
+    alpha = 0.   ! degenerate core: translation only
+ else
+    omega = matmul(inertia_inv,spin)
+    call cross_product3D(omega,matmul(inertia,omega),gyro)
+    alpha = matmul(inertia_inv,torque - gyro)
+ endif
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,iphase,xyz,accel,dela,acm,xcm,alpha,omega) &
+ !$omp private(i,ri,alpha_x_r,omega_x_r,centrip)
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) then
+       ri = xyz(1:3,i) - xcm
+       call cross_product3D(alpha,ri,alpha_x_r)
+       call cross_product3D(omega,ri,omega_x_r)
+       call cross_product3D(omega,omega_x_r,centrip)
+       dela(1:3,i) = accel(1:3,i) - (acm + alpha_x_r + centrip)
+    endif
+ enddo
+ !$omp end parallel do
+
+end subroutine get_core_residual_accel
 
 !----------------------------------------------------------------
 !+
