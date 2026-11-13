@@ -1810,15 +1810,16 @@ subroutine test_HIIregion(ntests,npass)
  use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,iH2R
  use setup_params,   only:npart_total
  use deriv,          only:get_density_global
+ use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
- integer          :: np,i,nfailed(2),itest,nion,ierr
+ integer          :: np,i,nfailed(4),itest,nion,ierr
  real             :: totmass,psep,r2,rstrommax
  real             :: Rstrom,ci,k,rho0,rhomean
  real             :: totvol,nx,rmin,rmax,temp
  character(len=22) :: string
 
- if (mpi .or. periodic) then
-    write(iprint,*) '--> Skip HII tests when periodic or MPI are on...'
+ if (periodic) then
+    write(iprint,*) '--> Skip HII tests when periodic is on...'
     return
  else
     write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
@@ -1875,16 +1876,14 @@ subroutine test_HIIregion(ntests,npass)
  npartoftype(:)    = 0
  npartoftype(igas) = npart
  massoftype(:)     = 0.0
- massoftype(igas)  = totmass/npartoftype(igas)
+ massoftype(igas)  = totmass/reduceall_mpi('+',npart)
  if (maxphase==maxp) then
     do i=1,npart
        iphase(i) = isetphase(igas,iactive=.true.)
     enddo
  endif
 
- if (id==master) then
-    call initialize_H2R
- endif
+ call initialize_H2R
 
  xyzmh_ptmass(irstrom,1) = -1.
  ci   = sqrt(polykion)
@@ -1899,12 +1898,19 @@ subroutine test_HIIregion(ntests,npass)
  endif
  call get_density_global(2)
 
- do itest = 1,2
-    iH2R = itest
+ nfailed(:) = 0
+ do itest = 1,4
+    !-- itest 3: bounded neighbours from scratch, itest 4: warm start from the radius of itest 3
+    iH2R = min(itest,3)
+    if (itest >= 3) iH2R = 4
+    if (mpi .and. iH2R /= 4) cycle  ! only the bounded neighbours method runs with MPI
+    if (itest < 4) xyzmh_ptmass(irstrom,1) = -1.
     string = "nearest neighbors"
     if (iH2R == 2) string = "inversed ray tracing"
+    if (iH2R == 4) string = "bounded neighbours"
+    if (itest == 4) string = "bounded (warm start)"
     if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
-    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
     rstrommax = epsilon(rstrommax)
     rhomean   = 0.
     nion      = 0
@@ -1918,7 +1924,8 @@ subroutine test_HIIregion(ntests,npass)
        endif
        rhomean = rhomean + rho(i)
     enddo
-    rhomean = rhomean / npart
+    rhomean = rhomean / max(npart,1)
+    if (mpi) rstrommax = reduceall_mpi('max',rstrommax)
     Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
 
     call checkval(rstrommax,Rstrom,1.4e-2,nfailed(itest),'Initial strömgren radius')
