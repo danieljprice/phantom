@@ -202,6 +202,239 @@ end subroutine HII_feedback
 
 !-----------------------------------------------------------------------
 !+
+! HII feedback routine using boundaries to spare the full knn
+!+
+!-----------------------------------------------------------------------
+subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+ use part,       only:massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
+                      irstrom,get_partinfo,iphase,itemp,imu,get_pmass
+ use neighkdtree,   only:listneigh,getneigh_pos,leaf_is_active
+ use sortutils,  only:indexx
+ use physcon,    only:pc,pi
+ use dim,        only:maxvxyzu
+ use io,         only:iverbose,iprint,warning,id,master,nprocs
+ use mpiutils,   only:reduceall_mpi,allgatherv_mpi,allgather_mpi,get_displs_mpi
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: xyzh(:,:),rho(:),vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,    intent(inout) :: eos_vars(:,:)
+ integer, parameter :: maxc  = 128
+ real, save :: xyzcache(3,maxc)
+ real, allocatable  :: dnpart(:,:),dnpartall(:,:)
+ integer            :: nshell(nprocs),displs(nprocs)
+ integer            :: i,k,j,npartin,nneigh,nneigh_shell,itypej,its
+ real               :: pmass,Ndot,DNdot,DNratio,dn_lo,dn_hi,logNdiff,taud,mHII,r,r_in,rs,n_close
+ real               :: xi,yi,zi,vxi,vyi,vzi,log_Qi,xj,yj,zj,dx,dy,dz,vnorm,deltar
+ logical            :: isactive,isgas,isdust,converged,query
+
+ momflag = .false.
+ r = 0.
+ r_in = 0.
+ pmass = massoftype(igas)
+
+ !
+ !-- Rst derivation and thermal feedback
+ !
+ eos_vars(imu,:) = gmw
+ if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
+ do i=1,nptmass
+    npartin    = 0
+    log_Qi     = xyzmh_ptmass(irateion,i)
+    if (log_Qi <epsilon(log_Qi)) cycle
+    Ndot   = log_Qi
+    xi     = xyzmh_ptmass(1,i)
+    yi     = xyzmh_ptmass(2,i)
+    zi     = xyzmh_ptmass(3,i)
+    vxi    = vxyz_ptmass(1,i)
+    vyi    = vxyz_ptmass(2,i)
+    vzi    = vxyz_ptmass(3,i)
+    rs     = xyzmh_ptmass(irstrom,i)
+
+    if ( rs > 0. ) then !-- already processed once so delta guess
+       vnorm   = sqrt(vxi*vxi+vyi*vyi+vzi*vzi)
+       deltar = (2.*csion + vnorm)*HIIdt
+       r_hi  = rs + deltar
+       r_lo  = rs - deltar
+    else !-- never processed so initial guess at Rstrom
+       call getneigh_pos((/xi,yi,zi/),0.,0.,listneigh,nneigh,xyzcache,maxc,leaf_is_active)
+       n_close = rho(listneigh(1))*get_pmass(listneigh(1),.true.)
+       rs      = ((3*(10**log_Qi))/(4.*ar*n_close**2))**(1./3.)
+       deltar  = rs
+       r_hi   = 2.*rs
+       r_lo   = 0.
+    endif
+
+    !-- first convergence test to make sure the whole photon rate is used or escaped
+    converged  = .false.
+    query      = .true.
+    its        = 0
+    deltafind:do while (.not.converged)!--find the range that contains Rs
+
+       !-- query the tree to find neighbours  in r_high
+       if (query) call getneigh_pos((/xi,yi,zi/),0.,r_hi,listneigh,nneigh,xyzcache,maxc,leaf_is_active)
+
+
+       if (allocated(dnpart)) deallocate(dnpart)
+       allocate(dnpart(2,nneigh))
+       call compute_dnspheres(i,xi,yi,zi,log_Qi,r_hi,r_lo,xyzh,rho,listneigh,nneigh,nneigh_shell,dn_lo,dn_hi,dnpart)
+
+       nneigh_shell_tot = nneigh_shell
+       call reduceall_mpi("+",dn_lo)
+       call reduceall_mpi("+",dn_hi)
+       call reduceall_mpi("+",nneigh_shell_tot)
+
+       !-- check if the search englobe the region
+       if (dn_hi < 1.) then !-- have not distributed all photons: requery
+          its = its + 1
+          rs = rs + deltar
+          query = .true.
+       else if (dn_lo > 1. ) then !-- Rs shrunk, we have to shrunk the low bound, r_hi can safely shrink too
+          r_hi = r_lo
+          r_lo = r_lo - deltar
+          query = .false.
+       else
+          converged = .true.
+          query = .false.
+       endif
+    enddo deltafind
+
+    !-- ionise dn_low region
+    do k=nneigh_shell,nneigh
+       j = listneigh(k)
+       call ionise_particle(eos_vars,j)
+    enddo
+
+
+    !-- gather buffers in the shell to search for...
+    allocate(dnpartall(2,nneigh_shell_tot))
+    call allgather_mpi(nneigh_shell, nshell)
+    displs = get_displs_mpi(nshell)
+
+    call allgatherv_mpi(dnpart, dnpartall, counts=nshell, displs=displs)
+
+    !-- each rank can now sort the shell particles and cycle sequentially to find the discrete end of rs
+    id_shell = [(k, k=1,nneigh_shell_tot)]
+    call indexx(nneigh_shell_tot, dnpart(1,:), id_shell)
+    dntot = dn_lo
+    do k=1,nneigh_shell_tot
+       j = id_shell(k)
+       dnj = dnpartall(2,j)
+       if (dntot + dnj < 1) then
+          dntot = dntot + dnj
+          !-- if from the local rank then ionise
+          if ((displs(id) < j) .and. ((displs(id)+nshell(id)) > j)) then
+             call ionise_particle(eos_vars,j)
+          endif
+       else
+          xyzmh_ptmass(irstrom,i) = sqrt(dnpartall(1,id_shell(k-1)))
+          exit
+       endif
+    enddo
+
+
+ enddo
+
+ do i=1,nptmass
+    if (nneigh > 0) then
+       neigh_cycle:do k=1,nneigh
+          j = listneigh(k)
+          call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
+          if (isgas) then
+             if (.not. isdead_or_accreted(xyzh(4,j))) then
+                ! ionising photons needed to fully ionise the current particle
+                DNdot = DNcoeff + log10(get_pmass(j,.true.)*rho(j))
+                if (DNdot < Ndot) then
+                   if (eos_vars(imu,j) - muion > epsilon(muion) ) then ! is ionised ?
+                      logNdiff = DNdot - Ndot
+                      Ndot = Ndot + log10(1.-10.**(logNdiff))
+                      npartin = npartin + 1
+                      if (maxvxyzu >= 4) vxyzu(4,j) = uIon
+                   endif
+                else
+                   if (k > 1) then ! end of the HII region
+                      if (maxvxyzu >= 4) then
+                         DNratio = Ndot/DNdot
+                         eos_vars(itemp,j)  = DNratio * Tion + (1.0 - DNratio) * Tcold
+                         eos_vars(imu,j)    = DNratio * muion + (1.0 - DNratio) * gmw
+                         vxyzu(4,j)         = DNratio * uIon + (1.0 - DNratio) * vxyzu(4,j)
+                         Ndot = 0.
+                      endif
+                      r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+                      j = listneigh(1)
+                   else ! unresolved case
+                      r = epsilon(r)
+                   endif
+                   xyzmh_ptmass(irstrom,i) = r
+                   converged = .true.
+                   max_search = .true.
+                   exit neigh_cycle
+                endif
+             endif
+          endif
+       enddo neigh_cycle
+    endif
+    if (iverbose == 2) write(iprint,*)'Rstrom from sink ',i,' = ',r," with N = ",npartin,&
+                                         ' ionised particle, remaining Nphot : ',Ndot,DNdot,"in ",its," iterations."
+    if (.not.converged) call warning('HII_feedback','Photon march did not converge...',var='Ndot',&
+                                         val=((log_Qi-Ndot)/log_Qi),ival=its)
+ enddo
+
+end subroutine HII_bound
+
+
+subroutine compute_dnspheres(i,xi,yi,zi,log_Qi,r_hi,r_lo,xyzh,rho,listneigh,nneigh,nneigh_shell,dn_lo,dn_hi,dnpart)
+ use part, only:get_pmass
+ integer, intent(in)  :: listneigh(:),nneigh,i
+ integer, intent(out) :: nneigh_shell
+ real,    intent(in)  :: xyzh(:,:),rho(:)
+ real,    intent(in)  :: r_hi,r_lo
+ real,    intent(in)  :: xi,yi,zi,log_Qi
+ real,    intent(out) :: dn_lo,dn_hi,dnpart(:,:)
+ integer :: j,n,itmp
+ real    :: dx,dy,dz,dr2,r_hi2,r_lo2,dnj
+
+ dn_lo = 0.
+ dn_hi = 0.
+ nneigh_shell = 0
+ r_hi2 = r_hi**2
+ r_lo2 = r_lo**2
+
+ do n=1,nneigh
+    j     = listneigh(n)
+    dx    = xyzh(1,j) - xi
+    dy    = xyzh(2,j) - yi
+    dz    = xyzh(3,j) - zi
+    dr2   = dx*dx + dy*dy + dz*dz
+    dnj   = 10**((DNcoeff + log10(get_pmass(j,.true.)*rho(j)))-log_Qi)
+
+    if (dr2 < r_lo2) then
+       dn_lo = dn_lo + dnj
+    else
+       nneigh_shell = nneigh_shell + 1
+       itmp = listneigh(nneigh_shell)
+       listneigh(nneigh_shell) = j
+       listneigh(n) = itmp
+       dnpart(1,nneigh_shell) = dr2
+       dnpart(2,nneigh_shell) = dnj
+    endif
+
+    dn_hi = dn_hi + dnj
+ enddo
+
+end subroutine compute_dnspheres
+
+
+subroutine ionise_particle(eos_vars,j)
+ integer, intent(in) :: j
+ real, intent(inout) :: eos_vars
+
+ eos_vars(itemp,j)  = Tion
+ eos_vars(imu,j) = muion
+
+end subroutine ionise_particle
+
+!-----------------------------------------------------------------------
+!+
 ! HII feedback routine using K nearest neighbors prescription
 !+
 !-----------------------------------------------------------------------
