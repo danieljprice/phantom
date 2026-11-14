@@ -186,9 +186,9 @@ end subroutine update_ionrate
 ! HII feedback interface for switching algorithms
 !+
 !-----------------------------------------------------------------------
-subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
+subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
  integer, intent(in)    :: nptmass,npart
- real,    intent(in)    :: xyzh(:,:),rho(:)
+ real,    intent(in)    :: xyzh(:,:),rho(:),vxyz_ptmass(:,:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,    intent(inout) :: eos_vars(:,:)
  select case(iH2R)
@@ -196,9 +196,354 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
     call HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
  case(2,3)
     call HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
+ case(4)
+    call HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
  end select
 
 end subroutine HII_feedback
+
+!-----------------------------------------------------------------------
+!+
+! HII feedback routine using boundaries to spare the full knn
+!+
+!-----------------------------------------------------------------------
+subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+ use part,        only:ihacc,irateion,irstrom,itemp,imu
+ use neighkdtree, only:listneigh,getneigh_pos,leaf_is_active
+ use sortutils,   only:indexx
+ use dim,         only:maxvxyzu,mpi
+ use io,          only:iverbose,iprint,warning,id,nprocs
+ use mpiutils,    only:reduceall_mpi,allgatherv_mpi,allgather_mpi,get_displs_mpi
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: xyzh(:,:),rho(:),vxyz_ptmass(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,    intent(inout) :: eos_vars(:,:)
+ integer, parameter   :: maxc = 128, maxits = 50
+ real, save           :: xyzcache(3,maxc)
+ real,    allocatable :: dnpart(:,:),dnall(:),dr2all(:),rprev2(:)
+ integer, allocatable :: id_shell(:)
+ integer              :: nshell(nprocs),displs(nprocs)
+ integer              :: i,k,j,nneigh,nneigh_shell,nneigh_inner,nshell_tot,its,ifirst,ilast,kstart
+ real                 :: xi,yi,zi,log_Qi,coef,rs,r_lo,r_hi,deltar,vnorm
+ real                 :: dn_lo,dn_hi,dntot,dnj,phi
+ logical              :: converged,escaped,query
+
+ !
+ !-- reset every local particle to neutral before the sources ionise them again
+ !
+ eos_vars(imu,:) = gmw
+ if (maxvxyzu < 4) eos_vars(itemp,:) = Tcold  ! cooling in isothermal case
+
+ !
+ !-- squared radii of the previous update (-1 if none): source s reached particle j
+ !   last time if d_sj < r_S(s). Used for the flux sharing of overlapping regions;
+ !   ptmass arrays are synced, so every rank gets the same shares
+ !
+ allocate(rprev2(nptmass))
+ do i=1,nptmass
+    if (xyzmh_ptmass(irateion,i) > epsilon(0.) .and. xyzmh_ptmass(irstrom,i) > 0.) then
+       rprev2(i) = xyzmh_ptmass(irstrom,i)**2
+    else
+       rprev2(i) = -1.
+    endif
+ enddo
+
+ sources: do i=1,nptmass
+    log_Qi = xyzmh_ptmass(irateion,i)
+    if (log_Qi < epsilon(log_Qi)) cycle sources
+    xi   = xyzmh_ptmass(1,i)
+    yi   = xyzmh_ptmass(2,i)
+    zi   = xyzmh_ptmass(3,i)
+    rs   = xyzmh_ptmass(irstrom,i)
+    !-- photons used by particle j as a fraction of Q: y_j = coef*m_j*rho_j (eq. 3)
+    coef = 10.**(DNcoeff - log_Qi)
+
+    !
+    !-- starting range [r_lo,r_hi] (eq. 7 and 8), identical on every rank
+    !
+    if (rs > 0.) then  ! D-type front: moves less than (2 c_ion + v_sink) dt
+       vnorm  = sqrt(vxyz_ptmass(1,i)**2 + vxyz_ptmass(2,i)**2 + vxyz_ptmass(3,i)**2)
+       !-- floor: the front is only known to about one smoothing length (stand-in for 2 h_edge)
+       deltar = max((2.*csion + vnorm)*HIIdt, xyzmh_ptmass(ihacc,i), 0.01*rs)
+       r_lo   = max(rs - deltar, 0.)
+       r_hi   = min(rs + deltar, Rst_max)
+    else               ! new source: continuous Stromgren radius from the nearest gas
+       rs     = stromgren_guess(xi,yi,zi,xyzmh_ptmass(ihacc,i),log_Qi,xyzh,rho)
+       deltar = rs
+       r_lo   = 0.
+       r_hi   = min(2.*rs, Rst_max)
+    endif
+
+    !
+    !-- grow or shrink the range until W(r_lo) < 1 <= W(r_hi) (eq. 9)
+    !
+    converged = .false.
+    escaped   = .false.
+    query     = .true.
+    its       = 0
+    deltafind: do while (.not.converged)
+       its = its + 1
+       if (its > maxits) then
+          call warning('HII_bound','range search did not converge',ival=i)
+          cycle sources
+       endif
+       if (query) then  ! only needed when r_hi grows
+          call getneigh_pos((/xi,yi,zi/),0.,r_hi,listneigh,nneigh,xyzcache,maxc,leaf_is_active)
+          if (allocated(dnpart)) deallocate(dnpart)
+          allocate(dnpart(2,nneigh))
+       endif
+       call compute_dnspheres(i,nptmass,xyzmh_ptmass,rprev2,coef,r_lo,r_hi,xyzh,rho,&
+                              listneigh,nneigh,nneigh_shell,nneigh_inner,dn_lo,dn_hi,dnpart)
+       if (mpi) then
+          dn_lo = reduceall_mpi('+',dn_lo)
+          dn_hi = reduceall_mpi('+',dn_hi)
+       endif
+
+       if (dn_hi < 1.) then        ! photons left over at r_hi: the region is larger
+          if (r_hi >= Rst_max) then
+             escaped   = .true.    ! a fraction 1 - dn_hi of the photons escapes
+             converged = .true.
+          else
+             r_lo   = r_hi
+             deltar = 2.*deltar
+             r_hi   = min(r_hi + deltar, Rst_max)
+             query  = .true.
+          endif
+       elseif (dn_lo >= 1.) then   ! the region shrank inside r_lo: no new query needed
+          r_hi   = r_lo
+          deltar = 2.*deltar
+          r_lo   = max(r_lo - deltar, 0.)
+          query  = .false.
+       else
+          converged = .true.
+       endif
+    enddo deltafind
+
+    !
+    !-- ionise the local particles inside r_lo (inside r_hi if photons escape);
+    !   listneigh = [ shell | inner | rejected ], so no distance is recomputed
+    !
+    if (escaped) then
+       kstart = 1
+    else
+       kstart = nneigh_shell + 1
+    endif
+    do k=kstart,nneigh_shell+nneigh_inner
+       call ionise_particle(eos_vars,vxyzu,listneigh(k),1.)
+    enddo
+    if (escaped) then
+       xyzmh_ptmass(irstrom,i) = Rst_max
+       if (iverbose >= 2) write(iprint,*) 'HII_bound: photons escape from sink ',i,', fraction ',1.-dn_hi
+       cycle sources
+    endif
+
+    !
+    !-- gather the shell [r_lo,r_hi) on every rank: entry j of rank p sits at displs(p+1)+j
+    !
+    if (mpi) then
+       call allgather_mpi(nneigh_shell,nshell)
+       displs     = get_displs_mpi(nshell)
+       nshell_tot = sum(nshell)
+    else
+       nshell(1)  = nneigh_shell
+       displs(1)  = 0
+       nshell_tot = nneigh_shell
+    endif
+    allocate(dnall(2*nshell_tot),dr2all(nshell_tot),id_shell(nshell_tot))
+    if (mpi) then
+       call allgatherv_mpi(reshape(dnpart(:,1:nneigh_shell),(/2*nneigh_shell/)),dnall,&
+                           counts=2*nshell,displs=2*displs)
+    else
+       dnall = reshape(dnpart(:,1:nneigh_shell),(/2*nneigh_shell/))
+    endif
+    dr2all = dnall(1:2*nshell_tot-1:2)
+
+    !
+    !-- every rank sorts an index array (the gathered data keep their order, so displs
+    !   still gives the owner) and marches the shell; the boundary particle gets eq. 12
+    !
+    call indexx(nshell_tot,dr2all,id_shell)
+    ifirst = displs(id+1) + 1
+    ilast  = displs(id+1) + nshell(id+1)
+    dntot  = dn_lo
+    do k=1,nshell_tot
+       j   = id_shell(k)
+       dnj = dnall(2*j)
+       if (dntot + dnj <= 1.) then
+          phi = 1.
+       else
+          phi = (1. - dntot)/dnj
+       endif
+       if (j >= ifirst .and. j <= ilast) &
+          call ionise_particle(eos_vars,vxyzu,listneigh(j-displs(id+1)),phi)
+       rs    = sqrt(dr2all(j))
+       dntot = dntot + dnj
+       if (phi < 1.) exit
+    enddo
+    xyzmh_ptmass(irstrom,i) = rs
+    if (iverbose >= 2) write(iprint,*) 'HII_bound: Rstrom from sink ',i,' = ',rs,&
+                                       ' shell size ',nshell_tot,' in ',its,' iterations'
+    deallocate(dnall,dr2all,id_shell)
+ enddo sources
+ if (allocated(dnpart)) deallocate(dnpart)
+ deallocate(rprev2)
+
+end subroutine HII_bound
+
+
+!-----------------------------------------------------------------------
+!+
+!  photon demand of source i, as a fraction of its Q, inside r_lo and
+!  inside r_hi (eq. 6). A particle that other sources also reached at the
+!  previous update costs source i only its flux share (eq. 14):
+!    f_ij = F_ij / sum_s F_sj,  F_sj = Q_s/(4 pi d_sj^2),
+!  the sum running over i and every source s with d_sj < r_S(s) last update.
+!  listneigh is partitioned in place into three blocks:
+!    1 : nneigh_shell                          shell [r_lo,r_hi), same order as dnpart
+!    nneigh_shell+1 : nneigh_shell+nneigh_inner inside r_lo
+!    the rest                                   beyond r_hi, not gas, or dead
+!+
+!-----------------------------------------------------------------------
+subroutine compute_dnspheres(i,nptmass,xyzmh_ptmass,rprev2,coef,r_lo,r_hi,xyzh,rho,&
+                             listneigh,nneigh,nneigh_shell,nneigh_inner,dn_lo,dn_hi,dnpart)
+ use part, only:get_pmass,iphase,get_partinfo,isdead_or_accreted,irateion
+ integer, intent(in)    :: i,nptmass,nneigh
+ integer, intent(inout) :: listneigh(:)
+ integer, intent(out)   :: nneigh_shell,nneigh_inner
+ real,    intent(in)    :: xyzmh_ptmass(:,:),rprev2(:),coef,r_lo,r_hi
+ real,    intent(in)    :: xyzh(:,:),rho(:)
+ real,    intent(out)   :: dn_lo,dn_hi,dnpart(:,:)
+ integer :: j,n,s,ia,ib,itypej
+ real    :: dr2,r_hi2,r_lo2,dnj,xi,yi,zi,d2s,fsum
+ logical :: isactive,isgas,isdust
+
+ xi = xyzmh_ptmass(1,i)
+ yi = xyzmh_ptmass(2,i)
+ zi = xyzmh_ptmass(3,i)
+ dn_lo = 0.
+ dn_hi = 0.
+ nneigh_shell = 0
+ nneigh_inner = 0
+ r_hi2 = r_hi**2
+ r_lo2 = r_lo**2
+
+ do n=1,nneigh
+    j = listneigh(n)
+    call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
+    if (.not.isgas .or. isdead_or_accreted(xyzh(4,j))) cycle
+    dr2 = (xyzh(1,j)-xi)**2 + (xyzh(2,j)-yi)**2 + (xyzh(3,j)-zi)**2
+    if (dr2 >= r_hi2) cycle  ! the tree returns whole leaves, beyond r_hi too
+    !-- sum_s F_sj / F_ij, with Q_s/Q_i = 10**(logQ_s - logQ_i) to keep numbers O(1)
+    fsum = 1.
+    do s=1,nptmass
+       if (s == i .or. rprev2(s) < 0.) cycle  ! rprev2 < 0: not a source, or no radius yet
+       d2s = (xyzh(1,j)-xyzmh_ptmass(1,s))**2 + (xyzh(2,j)-xyzmh_ptmass(2,s))**2 &
+           + (xyzh(3,j)-xyzmh_ptmass(3,s))**2
+       if (d2s < rprev2(s)) fsum = fsum + 10.**(xyzmh_ptmass(irateion,s)-xyzmh_ptmass(irateion,i)) &
+                                          *dr2/max(d2s,tiny(d2s))
+    enddo
+    dnj   = coef*get_pmass(j,.true.)*rho(j)/fsum
+    dn_hi = dn_hi + dnj
+    ib = nneigh_shell + nneigh_inner + 1  ! first rejected slot (or n itself)
+    if (dr2 < r_lo2) then
+       dn_lo = dn_lo + dnj
+       nneigh_inner = nneigh_inner + 1
+       listneigh(n)  = listneigh(ib)        ! swap j into the end of the inner block
+       listneigh(ib) = j
+    else
+       ia = nneigh_shell + 1                ! first inner slot (= ib if no inner yet)
+       listneigh(n)  = listneigh(ib)        ! rotate: first inner -> end of inner block,
+       listneigh(ib) = listneigh(ia)        !         rejected -> n, j -> end of shell
+       listneigh(ia) = j
+       nneigh_shell  = nneigh_shell + 1
+       dnpart(1,nneigh_shell) = dr2
+       dnpart(2,nneigh_shell) = dnj
+    endif
+ enddo
+
+end subroutine compute_dnspheres
+
+!-----------------------------------------------------------------------
+!+
+!  first guess of the Stromgren radius of a new source (eq. 8), from the
+!  density of the nearest gas particle over all ranks
+!+
+!-----------------------------------------------------------------------
+real function stromgren_guess(xi,yi,zi,hacc,log_Qi,xyzh,rho) result(rs)
+ use neighkdtree, only:listneigh,getneigh_pos,leaf_is_active
+ use mpiutils,    only:reduceall_mpi
+ use dim,         only:mpi
+ use units,       only:utime
+ use physcon,     only:pi
+ use part,        only:iphase,get_partinfo,isdead_or_accreted
+ real, intent(in) :: xi,yi,zi,hacc,log_Qi
+ real, intent(in) :: xyzh(:,:),rho(:)
+ integer, parameter :: maxc = 128
+ real    :: xyzcache(3,maxc)
+ integer :: k,j,nneigh,itypej
+ real    :: rq,dr2,d2loc,d2min,rholoc,rhonear,nH,Q
+ logical :: isactive,isgas,isdust
+
+ rs = Rst_max
+ rq = max(hacc,1.e-3*Rst_max)
+ do while (rq < Rst_max)
+    call getneigh_pos((/xi,yi,zi/),0.,rq,listneigh,nneigh,xyzcache,maxc,leaf_is_active)
+    d2loc  = huge(d2loc)
+    rholoc = 0.
+    do k=1,nneigh
+       j = listneigh(k)
+       call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
+       if (.not.isgas .or. isdead_or_accreted(xyzh(4,j))) cycle
+       dr2 = (xyzh(1,j)-xi)**2 + (xyzh(2,j)-yi)**2 + (xyzh(3,j)-zi)**2
+       if (dr2 < d2loc) then
+          d2loc  = dr2
+          rholoc = rho(j)
+       endif
+    enddo
+    if (mpi) then
+       d2min = reduceall_mpi('min',d2loc)
+    else
+       d2min = d2loc
+    endif
+    if (d2min < rq**2) then
+       if (mpi) then  ! density of the nearest particle, held by whichever rank owns it
+          if (d2loc > d2min) rholoc = 0.
+          rhonear = reduceall_mpi('max',rholoc)
+       else
+          rhonear = rholoc
+       endif
+       nH = rhonear*mH1                 ! number density, code units
+       Q  = 10.**log_Qi*utime           ! photons per code time
+       rs = (3.*Q/(4.*pi*ar*nH**2))**(1./3.)
+       return
+    endif
+    rq = 2.*rq
+ enddo
+
+end function stromgren_guess
+
+!-----------------------------------------------------------------------
+!+
+!  ionise particle j with ionised fraction phi (1 = fully ionised),
+!  never lowering an ionisation already set by another source
+!+
+!-----------------------------------------------------------------------
+subroutine ionise_particle(eos_vars,vxyzu,j,phi)
+ use part, only:itemp,imu
+ use dim,  only:maxvxyzu
+ integer, intent(in)    :: j
+ real,    intent(in)    :: phi
+ real,    intent(inout) :: eos_vars(:,:),vxyzu(:,:)
+ real :: phi_old
+
+ phi_old = (gmw - eos_vars(imu,j))/(gmw - muion)
+ if (phi <= phi_old) return
+
+ eos_vars(itemp,j) = phi*Tion  + (1. - phi)*Tcold
+ eos_vars(imu,j)   = phi*muion + (1. - phi)*gmw
+ if (maxvxyzu >= 4) vxyzu(4,j) = phi*uIon + (1. - phi)*vxyzu(4,j)
+
+end subroutine ionise_particle
 
 !-----------------------------------------------------------------------
 !+
@@ -583,7 +928,7 @@ subroutine write_options_H2R(iunit)
  if (iH2R > 0) then
     write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
     call write_inopt(iH2R, 'iH2R',&
-    "HII region expansion feedback in star forming region(1 Knn method,2 inv RT method)", iunit)
+    "HII region expansion feedback in star forming region(1 Knn method,2 inv RT method,4 bounded Knn)", iunit)
     call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)(only Knn)", iunit)
  endif
