@@ -43,10 +43,16 @@ module HIIRegion
  integer, public               :: nside_H2R = 1 ! HEALPix Nside of the sectors (iH2R=4): 12*Nside**2 sectors
  integer, public               :: nsec_H2R  = 12
  real   , allocatable, public  :: rstrom_sec(:,:) ! Stromgren radius of each sector of each sink (nsec,maxptmass)
+ logical, allocatable, public  :: sectors_on(:)   ! sink solved in sectors (else isotropic) (maxptmass)
  real   , allocatable          :: secdir(:,:)     ! unit vector of the centre of each sector (3,nsec)
  real   , allocatable          :: secbeta(:)      ! angular radius of each sector: centre to farthest corner
 
  integer, parameter :: maxcache  = 1024
+ !-- a source in sectors falls back to a single isotropic region when fewer than
+ !   nsec_off*nsec of its particles are fully ionised, and returns to sectors once
+ !   nsec_on*nsec are (hysteresis)
+ integer, parameter :: nsec_on  = 4
+ integer, parameter :: nsec_off = 2
 
  real, parameter   :: a = -39.3178 !
  real, parameter   :: b =  221.997 !  fitted parameters to compute
@@ -95,11 +101,12 @@ subroutine initialize_H2R
 
  !
  !-- HEALPix sectors: centres and angular radii, the same on every rank and for every
- !   sink (no rotation of the grid yet). Sector radii start unknown (-1): cold start
+ !   sink (no rotation of the grid yet). Sector radii start unknown (-1): cold start,
+ !   in sectors
  !
  nsec_H2R = 12*nside_H2R**2
- if (allocated(secdir)) deallocate(secdir,secbeta,rstrom_sec)
- allocate(secdir(3,nsec_H2R),secbeta(nsec_H2R),rstrom_sec(nsec_H2R,maxptmass))
+ if (allocated(secdir)) deallocate(secdir,secbeta,rstrom_sec,sectors_on)
+ allocate(secdir(3,nsec_H2R),secbeta(nsec_H2R),rstrom_sec(nsec_H2R,maxptmass),sectors_on(maxptmass))
  do k=1,nsec_H2R
     call pix2vec_nest(nside_H2R,k-1,secdir(:,k),vertex)
     secbeta(k) = 0.
@@ -108,6 +115,7 @@ subroutine initialize_H2R
     enddo
  enddo
  rstrom_sec = -1.
+ sectors_on = .true.
  !-- vec2pix_nest fills its lookup table on the first call: do it here, outside OpenMP
  call vec2pix_nest(nside_H2R,secdir(:,1),ipix)
 
@@ -236,7 +244,7 @@ end subroutine HII_feedback
 !-----------------------------------------------------------------------
 subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
  use part,        only:ihacc,irateion,irstrom,itemp,imu
- use neighkdtree, only:listneigh=>listneigh_global,getneigh_sectors,node
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_sectors,getneigh_pos,leaf_is_active,node
  use kdtree,      only:irootnode
  use sortutils,   only:indexx
  use dim,         only:maxvxyzu,mpi
@@ -246,19 +254,18 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
  real,    intent(in)    :: xyzh(:,:),rho(:),vxyz_ptmass(:,:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  real,    intent(inout) :: eos_vars(:,:)
- integer, parameter   :: maxits = 50
+ integer, parameter   :: maxits = 50, maxc = 128
  real,    allocatable :: dnpart(:,:),dnall(:),rprev2(:,:),rprevmax2(:),dr2sec(:)
  real,    allocatable :: dn_lo(:),dn_hi(:),r_lo(:),r_hi(:),deltar(:),rs(:)
  integer, allocatable :: id_shell(:),isort(:),nsecall(:),offsec(:)
  logical, allocatable :: converged(:),escaped(:)
  integer              :: nshell(nprocs),displs(nprocs)
  integer              :: i,k,j,m,n,nsec,nneigh,nneigh_shell,nneigh_inner,nshell_tot,its,ifirst,ilast,nk
+ integer              :: nhot,nhot_loc
  real                 :: xsrc(3),log_Qi,coef,rs0,vnorm,ddyn,rbound,dntot,dnj,phi
- logical              :: query
+ real                 :: xyzcache(3,maxc)
+ logical              :: query,warm
 
- nsec = nsec_H2R
- allocate(dn_lo(nsec),dn_hi(nsec),r_lo(nsec),r_hi(nsec),deltar(nsec),rs(nsec))
- allocate(converged(nsec),escaped(nsec),nsecall(nsec),offsec(nsec+1))
  !
  !-- reset every local particle to neutral before the sources ionise them again
  !
@@ -271,7 +278,7 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
  !   flux sharing of overlapping regions. rstrom_sec is computed identically on
  !   every rank, so every rank gets the same shares
  !
- allocate(rprev2(nsec,nptmass),rprevmax2(nptmass))
+ allocate(rprev2(nsec_H2R,nptmass),rprevmax2(nptmass))
  do i=1,nptmass
     if (xyzmh_ptmass(irateion,i) > epsilon(0.) .and. xyzmh_ptmass(irstrom,i) > 0. &
         .and. all(rstrom_sec(:,i) > 0.)) then
@@ -287,6 +294,22 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     log_Qi = xyzmh_ptmass(irateion,i)
     if (log_Qi < epsilon(log_Qi)) cycle sources
     xsrc = xyzmh_ptmass(1:3,i)
+    !
+    !-- sectors by default; a source whose bubble is not resolved by its sectors is
+    !   solved as a single isotropic region (nsec = 1), its photons going to the
+    !   nearest gas. sectors_on is set from the number of fully ionised particles of
+    !   the previous update, identical on every rank. A new source starts in sectors
+    !
+    warm = (xyzmh_ptmass(irstrom,i) > 0. .and. all(rstrom_sec(:,i) > 0.))
+    if (.not.warm) sectors_on(i) = .true.
+    if (sectors_on(i)) then
+       nsec = nsec_H2R
+    else
+       nsec = 1
+    endif
+    if (allocated(dn_lo)) deallocate(dn_lo,dn_hi,r_lo,r_hi,deltar,rs,converged,escaped,nsecall,offsec)
+    allocate(dn_lo(nsec),dn_hi(nsec),r_lo(nsec),r_hi(nsec),deltar(nsec),rs(nsec))
+    allocate(converged(nsec),escaped(nsec),nsecall(nsec),offsec(nsec+1))
     !-- photons used by particle j as a fraction of its sector's budget Q/nsec (eq. 3, 13)
     coef = real(nsec)*10.**(DNcoeff - log_Qi)
 
@@ -301,16 +324,22 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     !
     !-- starting range [r_lo,r_hi] of each sector (eq. 7 and 8), identical on every rank
     !
-    if (xyzmh_ptmass(irstrom,i) > 0. .and. all(rstrom_sec(:,i) > 0.)) then
+    if (warm) then
        !-- D-type front: moves less than (2 c_ion + v_sink) dt; floor: the front is only
        !   known to about one smoothing length (stand-in for 2 h_edge)
        vnorm = sqrt(vxyz_ptmass(1,i)**2 + vxyz_ptmass(2,i)**2 + vxyz_ptmass(3,i)**2)
        ddyn  = (2.*csion + vnorm)*HIIdt
-       do k=1,nsec
-          deltar(k) = max(ddyn, xyzmh_ptmass(ihacc,i), 0.01*rstrom_sec(k,i))
-          r_lo(k)   = max(rstrom_sec(k,i) - deltar(k), 0.)
-          r_hi(k)   = min(rstrom_sec(k,i) + deltar(k), rbound)
-       enddo
+       if (nsec == 1) then  ! isotropic: the range encloses every sector of the last update
+          deltar(1) = max(ddyn, xyzmh_ptmass(ihacc,i), 0.01*maxval(rstrom_sec(:,i)))
+          r_lo(1)   = max(minval(rstrom_sec(:,i)) - deltar(1), 0.)
+          r_hi(1)   = min(maxval(rstrom_sec(:,i)) + deltar(1), rbound)
+       else
+          do k=1,nsec
+             deltar(k) = max(ddyn, xyzmh_ptmass(ihacc,i), 0.01*rstrom_sec(k,i))
+             r_lo(k)   = max(rstrom_sec(k,i) - deltar(k), 0.)
+             r_hi(k)   = min(rstrom_sec(k,i) + deltar(k), rbound)
+          enddo
+       endif
     else  ! new source: continuous Stromgren radius from the nearest gas, in every sector
        rs0    = stromgren_guess(xsrc(1),xsrc(2),xsrc(3),xyzmh_ptmass(ihacc,i),log_Qi,xyzh,rho,rbound)
        deltar = rs0
@@ -333,7 +362,11 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
           cycle sources
        endif
        if (query) then
-          call getneigh_sectors(xsrc,nsec,secdir,secbeta,r_hi,listneigh,nneigh)
+          if (nsec > 1) then
+             call getneigh_sectors(xsrc,nsec,secdir,secbeta,r_hi,listneigh,nneigh)
+          else  ! isotropic: a sphere of radius r_hi
+             call getneigh_pos(xsrc,0.,r_hi(1),listneigh,nneigh,xyzcache,maxc,leaf_is_active)
+          endif
           if (allocated(dnpart)) deallocate(dnpart)
           allocate(dnpart(3,nneigh))
        endif
@@ -371,6 +404,7 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     !-- ionise the local particles inside the r_lo of their sector;
     !   listneigh = [ shell | inner | rejected ], so no distance is recomputed
     !
+    nhot_loc = nneigh_inner
     !$omp parallel do default(none) &
     !$omp shared(nneigh_shell,nneigh_inner,listneigh,eos_vars,vxyzu) &
     !$omp private(n)
@@ -399,6 +433,7 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
           dnpart(:,m)  = dnpart(:,n)
        endif
     enddo
+    nhot_loc     = nhot_loc + nneigh_shell - m
     nneigh_shell = m
     where (escaped) rs = r_hi
 
@@ -446,14 +481,17 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     !-- every rank marches each sector independently from its own W(r_lo);
     !   the boundary particle of each sector gets eq. 12. A particle lies in one
     !   sector only and each sector sorts its own slice of dr2sec and id_shell,
-    !   so the sectors run in parallel
+    !   so the sectors run in parallel. nhot counts the fully ionised entries, the
+    !   same on every rank since each rank marches the whole gathered shell
     !
     ifirst = displs(id+1) + 1
     ilast  = displs(id+1) + nshell(id+1)
+    nhot   = 0
     !$omp parallel do default(none) schedule(dynamic) &
     !$omp shared(nsec,escaped,nsecall,offsec,isort,dnall,dr2sec,id_shell,dn_lo,r_lo,rs) &
     !$omp shared(ifirst,ilast,displs,id,listneigh,eos_vars,vxyzu) &
-    !$omp private(k,nk,m,j,dnj,dntot,phi)
+    !$omp private(k,nk,m,j,dnj,dntot,phi) &
+    !$omp reduction(+:nhot)
     do k=1,nsec
        if (escaped(k)) cycle
        nk = nsecall(k)
@@ -467,7 +505,8 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
           j   = isort(offsec(k) + id_shell(offsec(k)+m))
           dnj = dnall(3*j-1)
           if (dntot + dnj <= 1.) then
-             phi = 1.
+             phi  = 1.
+             nhot = nhot + 1
           else
              phi = (1. - dntot)/dnj
           endif
@@ -479,15 +518,32 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
        enddo
     enddo
     !$omp end parallel do
-    rstrom_sec(:,i) = rs
+    if (nsec == 1) then
+       rstrom_sec(:,i) = rs(1)
+    else
+       rstrom_sec(:,i) = rs
+    endif
     xyzmh_ptmass(irstrom,i) = sum(rs)/real(nsec)
+
+    !
+    !-- resolution of the bubble: sectors only once each holds a few hot particles
+    !
+    if (mpi) nhot_loc = int(reduceall_mpi('+',nhot_loc))
+    nhot = nhot + nhot_loc
+    if (sectors_on(i)) then
+       if (nhot < nsec_off*nsec_H2R) sectors_on(i) = .false.
+    else
+       if (nhot >= nsec_on*nsec_H2R) sectors_on(i) = .true.
+    endif
     if (iverbose >= 2) write(iprint,*) 'HII_bound: sink ',i,' Rstrom mean/min/max = ',&
                        sum(rs)/real(nsec),minval(rs),maxval(rs),' escaped sectors ',count(escaped),&
-                       ' shell size ',nshell_tot,' in ',its,' iterations'
+                       ' shell size ',nshell_tot,' in ',its,' iterations, ',nhot,' hot particles, ',&
+                       nsec,' sectors'
     deallocate(dnall,dr2sec,id_shell,isort)
  enddo sources
  if (allocated(dnpart)) deallocate(dnpart)
- deallocate(rprev2,rprevmax2,dn_lo,dn_hi,r_lo,r_hi,deltar,rs,converged,escaped,nsecall,offsec)
+ if (allocated(dn_lo)) deallocate(dn_lo,dn_hi,r_lo,r_hi,deltar,rs,converged,escaped,nsecall,offsec)
+ deallocate(rprev2,rprevmax2)
 
 end subroutine HII_bound
 
@@ -541,7 +597,7 @@ subroutine compute_dnspheres(i,nptmass,xyzmh_ptmass,rprev2,rprevmax2,coef,r_lo,r
     if (.not.isgas .or. isdead_or_accreted(xyzh(4,j))) cycle
     dx  = xyzh(1:3,j) - xyzmh_ptmass(1:3,i)
     dr2 = dot_product(dx,dx)
-    if (dr2 > 0.) then
+    if (size(r_hi) > 1 .and. dr2 > 0.) then  ! size 1: isotropic, a single sector
        call vec2pix_nest(nside_H2R,dx,ipix)
        k = ipix + 1
     else
