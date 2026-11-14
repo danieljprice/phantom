@@ -76,8 +76,8 @@ subroutine initialize_H2R
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm,c
  use eos,     only:gmw
  use dim,     only:maxptmass
- use healpix, only:pix2vec_nest
- integer :: k,iv
+ use healpix, only:pix2vec_nest,vec2pix_nest
+ integer :: k,iv,ipix
  real    :: vertex(3,4)
 
  !calculate the useful constant in code units
@@ -108,6 +108,8 @@ subroutine initialize_H2R
     enddo
  enddo
  rstrom_sec = -1.
+ !-- vec2pix_nest fills its lookup table on the first call: do it here, outside OpenMP
+ call vec2pix_nest(nside_H2R,secdir(:,1),ipix)
 
  if (id == master .and. iverbose > 1) then
     write(iprint,"(a,es18.10,es18.10)") " feedback constants mH,uIon      : ", mH,uIon
@@ -234,7 +236,7 @@ end subroutine HII_feedback
 !-----------------------------------------------------------------------
 subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
  use part,        only:ihacc,irateion,irstrom,itemp,imu
- use neighkdtree, only:listneigh,getneigh_sectors,node
+ use neighkdtree, only:listneigh=>listneigh_global,getneigh_sectors,node
  use kdtree,      only:irootnode
  use sortutils,   only:indexx
  use dim,         only:maxvxyzu,mpi
@@ -369,18 +371,29 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     !-- ionise the local particles inside the r_lo of their sector;
     !   listneigh = [ shell | inner | rejected ], so no distance is recomputed
     !
+    !$omp parallel do default(none) &
+    !$omp shared(nneigh_shell,nneigh_inner,listneigh,eos_vars,vxyzu) &
+    !$omp private(n)
     do n=nneigh_shell+1,nneigh_shell+nneigh_inner
        call ionise_particle(eos_vars,vxyzu,listneigh(n),1.)
     enddo
+    !$omp end parallel do
     !
     !-- the shell of an escaped sector is fully ionised here and left out of the gather
     !
+    if (any(escaped)) then
+       !$omp parallel do default(none) &
+       !$omp shared(nneigh_shell,listneigh,dnpart,escaped,eos_vars,vxyzu) &
+       !$omp private(n)
+       do n=1,nneigh_shell
+          if (escaped(nint(dnpart(3,n)))) call ionise_particle(eos_vars,vxyzu,listneigh(n),1.)
+       enddo
+       !$omp end parallel do
+    endif
     m = 0
     do n=1,nneigh_shell
        k = nint(dnpart(3,n))
-       if (escaped(k)) then
-          call ionise_particle(eos_vars,vxyzu,listneigh(n),1.)
-       else
+       if (.not.escaped(k)) then
           m = m + 1
           listneigh(m) = listneigh(n)
           dnpart(:,m)  = dnpart(:,n)
@@ -431,21 +444,27 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
 
     !
     !-- every rank marches each sector independently from its own W(r_lo);
-    !   the boundary particle of each sector gets eq. 12
+    !   the boundary particle of each sector gets eq. 12. A particle lies in one
+    !   sector only and each sector sorts its own slice of dr2sec and id_shell,
+    !   so the sectors run in parallel
     !
     ifirst = displs(id+1) + 1
     ilast  = displs(id+1) + nshell(id+1)
+    !$omp parallel do default(none) schedule(dynamic) &
+    !$omp shared(nsec,escaped,nsecall,offsec,isort,dnall,dr2sec,id_shell,dn_lo,r_lo,rs) &
+    !$omp shared(ifirst,ilast,displs,id,listneigh,eos_vars,vxyzu) &
+    !$omp private(k,nk,m,j,dnj,dntot,phi)
     do k=1,nsec
        if (escaped(k)) cycle
        nk = nsecall(k)
        do m=1,nk
-          dr2sec(m) = dnall(3*isort(offsec(k)+m)-2)
+          dr2sec(offsec(k)+m) = dnall(3*isort(offsec(k)+m)-2)
        enddo
-       call indexx(nk,dr2sec(1:nk),id_shell(1:nk))
+       call indexx(nk,dr2sec(offsec(k)+1:offsec(k)+nk),id_shell(offsec(k)+1:offsec(k)+nk))
        dntot = dn_lo(k)
        rs(k) = r_lo(k)
        do m=1,nk
-          j   = isort(offsec(k) + id_shell(m))
+          j   = isort(offsec(k) + id_shell(offsec(k)+m))
           dnj = dnall(3*j-1)
           if (dntot + dnj <= 1.) then
              phi = 1.
@@ -459,6 +478,7 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
           if (phi < 1.) exit
        enddo
     enddo
+    !$omp end parallel do
     rstrom_sec(:,i) = rs
     xyzmh_ptmass(irstrom,i) = sum(rs)/real(nsec)
     if (iverbose >= 2) write(iprint,*) 'HII_bound: sink ',i,' Rstrom mean/min/max = ',&
@@ -481,7 +501,7 @@ end subroutine HII_bound
 !    f_ij = F_ij / sum_s F_sj,  F_sj = Q_s/(4 pi d_sj^2),
 !  the sum running over i and every source s with d_sj < r_S(s) last update,
 !  r_S(s) taken in the sector of s that contains j.
-!  listneigh is partitioned in place into three blocks:
+!  listneigh is reordered into three blocks:
 !    1 : nneigh_shell                          shell [r_lo,r_hi) of the particle's sector,
 !                                              same order as dnpart(1:3,:) = (d^2, y_j, sector)
 !    nneigh_shell+1 : nneigh_shell+nneigh_inner inside r_lo of the particle's sector
@@ -498,16 +518,24 @@ subroutine compute_dnspheres(i,nptmass,xyzmh_ptmass,rprev2,rprevmax2,coef,r_lo,r
  real,    intent(in)    :: xyzmh_ptmass(:,:),rprev2(:,:),rprevmax2(:),coef,r_lo(:),r_hi(:)
  real,    intent(in)    :: xyzh(:,:),rho(:)
  real,    intent(out)   :: dn_lo(:),dn_hi(:),dnpart(:,:)
- integer :: j,n,s,k,ks,ipix,ia,ib,itypej
+ integer, allocatable :: iblock(:),listold(:)
+ integer :: j,n,s,k,ks,ipix,itypej,ninner,nrej
  real    :: dx(3),dxs(3),dr2,dnj,d2s,fsum
  logical :: isactive,isgas,isdust
 
  dn_lo = 0.
  dn_hi = 0.
- nneigh_shell = 0
- nneigh_inner = 0
-
+ !
+ !-- per particle: sector, distance and demand into dnpart(:,n), and its block
+ !   (0 rejected, 1 shell, 2 inner). This is the costly part: run it in parallel
+ !
+ allocate(iblock(nneigh))
+ !$omp parallel do default(none) &
+ !$omp shared(nneigh,listneigh,iphase,xyzh,xyzmh_ptmass,i,nptmass,rprev2,rprevmax2) &
+ !$omp shared(coef,rho,r_lo,r_hi,nside_H2R,dnpart,iblock) &
+ !$omp private(n,j,isactive,isgas,isdust,itypej,dx,dr2,ipix,k,fsum,s,dxs,d2s,ks,dnj)
  do n=1,nneigh
+    iblock(n) = 0
     j = listneigh(n)
     call get_partinfo(iphase(j),isactive,isgas,isdust,itypej)
     if (.not.isgas .or. isdead_or_accreted(xyzh(4,j))) cycle
@@ -536,25 +564,48 @@ subroutine compute_dnspheres(i,nptmass,xyzmh_ptmass,rprev2,rprevmax2,coef,r_lo,r
        if (d2s < rprev2(ks,s)) fsum = fsum + 10.**(xyzmh_ptmass(irateion,s)-xyzmh_ptmass(irateion,i)) &
                                              *dr2/max(d2s,tiny(d2s))
     enddo
-    dnj      = coef*get_pmass(j,.true.)*rho(j)/fsum
-    dn_hi(k) = dn_hi(k) + dnj
-    ib = nneigh_shell + nneigh_inner + 1  ! first rejected slot (or n itself)
+    dnj = coef*get_pmass(j,.true.)*rho(j)/fsum
+    dnpart(1,n) = dr2
+    dnpart(2,n) = dnj
+    dnpart(3,n) = real(k)
     if (dr2 < r_lo(k)**2) then
-       dn_lo(k) = dn_lo(k) + dnj
-       nneigh_inner = nneigh_inner + 1
-       listneigh(n)  = listneigh(ib)        ! swap j into the end of the inner block
-       listneigh(ib) = j
+       iblock(n) = 2
     else
-       ia = nneigh_shell + 1                ! first inner slot (= ib if no inner yet)
-       listneigh(n)  = listneigh(ib)        ! rotate: first inner -> end of inner block,
-       listneigh(ib) = listneigh(ia)        !         rejected -> n, j -> end of shell
-       listneigh(ia) = j
-       nneigh_shell  = nneigh_shell + 1
-       dnpart(1,nneigh_shell) = dr2
-       dnpart(2,nneigh_shell) = dnj
-       dnpart(3,nneigh_shell) = real(k)
+       iblock(n) = 1
     endif
  enddo
+ !$omp end parallel do
+ !
+ !-- sums and partition in serial, in list order: the sums do not depend on the
+ !   number of threads. The shell keeps dnpart compacted in its own order (m <= n)
+ !
+ nneigh_shell = count(iblock == 1)
+ nneigh_inner = count(iblock == 2)
+ allocate(listold(nneigh))
+ listold = listneigh(1:nneigh)
+ ninner  = nneigh_shell
+ nrej    = nneigh_shell + nneigh_inner
+ nneigh_shell = 0
+ do n=1,nneigh
+    select case(iblock(n))
+    case(1)
+       k = nint(dnpart(3,n))
+       dn_hi(k) = dn_hi(k) + dnpart(2,n)
+       nneigh_shell = nneigh_shell + 1
+       listneigh(nneigh_shell) = listold(n)
+       dnpart(:,nneigh_shell)  = dnpart(:,n)
+    case(2)
+       k = nint(dnpart(3,n))
+       dn_hi(k) = dn_hi(k) + dnpart(2,n)
+       dn_lo(k) = dn_lo(k) + dnpart(2,n)
+       ninner = ninner + 1
+       listneigh(ninner) = listold(n)
+    case default
+       nrej = nrej + 1
+       listneigh(nrej) = listold(n)
+    end select
+ enddo
+ deallocate(iblock,listold)
 
 end subroutine compute_dnspheres
 
