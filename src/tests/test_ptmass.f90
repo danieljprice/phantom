@@ -47,7 +47,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer :: itmp,ierr,itest,istart,imax
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
  logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
- logical :: do_test_binary_gr,do_test_orbit,do_test_sinkgas
+ logical :: do_test_binary_gr,do_test_orbit,do_test_sinkgas,do_bench_HII
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -64,6 +64,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_binary_gr = .false.
  do_test_orbit = .false.
  do_test_sinkgas = .false.
+ do_bench_HII = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -90,6 +91,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_merger = .true.
  case('ptmassHII')
     do_test_HII = .true.
+ case('ptmassHIIbench')
+    do_bench_HII = .true.
  case('ptmassSDAR')
     do_test_SDAR = .true.
  case('ptmassorbit','ptmassflyby')
@@ -180,6 +183,8 @@ subroutine test_ptmass(ntests,npass,string)
  if (do_test_SDAR .or. testall .and. .not.gr) call test_SDAR(ntests,npass)
 
  if (do_test_HII .or. testall .and. .not.gr) call test_HIIregion(ntests,npass)
+
+ if (do_bench_HII) call bench_HIIregion()
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -1790,32 +1795,19 @@ end subroutine test_merger
 !+
 !-----------------------------------------------------------------------
 subroutine test_HIIregion(ntests,npass)
- use dim,            only:maxp,maxphase,maxvxyzu,periodic,mpi
- use io,             only:id,master,iverbose,iprint
- use eos_HIIR,       only:polykion,init_eos_HIIR
- use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,gmw
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
-                          npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
-                          npartoftype,fxyzu,massoftype,init_part,&
-                          iphase,isetphase,irateion,irstrom,rho,&
-                          eos_vars,imu
- use ptmass,         only:h_acc
- use step_lf_global, only:init_step,step
- use spherical,      only:set_sphere
- use units,          only:set_units,utime,unit_velocity,udist,umass
- use physcon,        only:pc,solarm,years,pi,kboltz,mass_proton_cgs
- use kernel,         only:hfact_default
- use kdtree,         only:tree_accuracy
+ use dim,            only:periodic,mpi
+ use io,             only:id,master,iprint
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,npart,xyzh,vxyzu,&
+                          init_part,irstrom,irateion,rho,eos_vars
+ use eos,            only:ieos
+ use units,          only:utime
+ use physcon,        only:pi
  use testutils,      only:checkval,update_test_scores
- use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,nHIIsources,ar,mH,iH2R
- use setup_params,   only:npart_total
- use deriv,          only:get_density_global
+ use HIIRegion,      only:HII_feedback,ar,mH,iH2R,nside_H2R,rstrom_sec,initialize_H2R,sectors_on
  use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
- integer          :: np,i,nfailed(4),itest,nion,ierr
- real             :: totmass,psep,r2,rstrommax
- real             :: Rstrom,ci,k,rho0,rhomean
- real             :: totvol,nx,rmin,rmax,temp
+ integer          :: nfailed(10),itest,nion,ngas
+ real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth
  character(len=22) :: string
 
  if (periodic) then
@@ -1824,6 +1816,298 @@ subroutine test_HIIregion(ntests,npass)
  else
     write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
  endif
+ call setup_HII_sphere(49.,rho0)
+
+ nfailed(:) = 0
+ do itest = 1,4
+    !-- itest 3: bounded neighbours from scratch, itest 4: warm start from the radius of itest 3
+    iH2R = min(itest,3)
+    if (itest >= 3) iH2R = 4
+    if (mpi .and. iH2R /= 4) cycle  ! only the bounded neighbours method runs with MPI
+    if (itest < 4) xyzmh_ptmass(irstrom,1) = -1.
+
+    string = "nearest neighbors"
+
+    if (iH2R == 2) string = "inversed ray tracing"
+    if (iH2R == 4) string = "bounded neighbours"
+    if (itest == 4) string = "bounded (warm start)"
+
+    if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
+
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+    call measure_HII_region(rstrommax,nion)
+
+    !-- with sectors each sector resolves its own front: compare their mean radius
+
+    if (iH2R == 4) rstrommax = xyzmh_ptmass(irstrom,1)
+    Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
+
+    call checkval(rstrommax,Rstrom,1.4e-2,nfailed(itest),'Initial strömgren radius')
+
+    !-- ~1200 hot particles resolve the 12 sectors: the source stays in sectors
+    if (itest == 3) call checkval(sectors_on(1),.true.,nfailed(8),'sectors kept on')
+ enddo
+
+ !
+ !-- sectors: 48 sectors (Nside=2) in the uniform sphere, the mean radius is unchanged
+ !
+ iH2R = 4
+ nside_H2R = 2
+ call initialize_H2R
+ xyzmh_ptmass(irstrom,1) = -1.
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with 48 sectors'
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.4e-2,nfailed(5),'mean sector radius')
+
+ !
+ !-- shadowing: rho doubled for z > 0, the particles staying where they are. The photons
+ !   used per particle (alpha m rho/mH**2) double, so the photons used per unit volume
+ !   double too and R_S shrinks by 2**(-1/3) there. With Nside=1 the 4 northern sectors
+ !   (pixels 0-3) lie in z > 0, the 4 southern ones (pixels 8-11) in z < 0 keep the
+ !   uniform radius
+ !
+ nside_H2R = 1
+ call initialize_H2R
+ xyzmh_ptmass(irateion,1) = 50.5
+ xyzmh_ptmass(irstrom,1)  = -1.
+
+ where (xyzh(3,1:npart) > 0.) rho(1:npart) = 2.*rho(1:npart)
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with sectors, density x2 for z > 0'
+
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+
+ Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
+ Rdense = Rstrom*2.**(-1./3.)
+ rnorth = sum(rstrom_sec(1:4,1))/4.
+ rsouth = sum(rstrom_sec(9:12,1))/4.
+
+ call checkval(rnorth,Rdense,3.e-2,nfailed(6),'radius of the dense (northern) sectors')
+ call checkval(rsouth,Rstrom,3.e-2,nfailed(7),'radius of the uniform (southern) sectors')
+ where (xyzh(3,1:npart) > 0.) rho(1:npart) = 0.5*rho(1:npart)
+
+ !
+ !-- unresolved bubble (birth environment): ~12 hot particles, fewer than two
+ !   per sector on average, so the source falls back to a single isotropic region, and
+ !   stays there since the isotropic bubble is not resolved either
+ !
+ xyzmh_ptmass(irateion,1) = 47.
+ xyzmh_ptmass(irstrom,1)  = -1.
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with an unresolved bubble'
+
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+
+ call checkval(sectors_on(1),.false.,nfailed(9),'unresolved bubble switched to isotropic')
+
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+
+ call checkval(sectors_on(1),.false.,nfailed(9),'isotropic bubble stays isotropic')
+ Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.4e-2,nfailed(9),'isotropic radius of the unresolved bubble')
+
+ !
+ !-- escape: the Stromgren sphere is larger than the cloud, every sector reaches
+ !   the edge of the gas and the whole cloud is ionised
+ !
+ xyzmh_ptmass(irateion,1) = 52.5
+ xyzmh_ptmass(irstrom,1)  = -1.
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with escaping photons'
+
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+ call measure_HII_region(rstrommax,nion)
+
+ ngas = npart
+ if (mpi) ngas = int(reduceall_mpi('+',npart))
+ call checkval(nion,ngas,0,nfailed(10),'whole cloud ionised')
+ xyzmh_ptmass(irateion,1) = 49.
+
+ call update_test_scores(ntests,nfailed,npass)
+
+ call init_part()
+ iH2R = 0
+ ieos = 2
+
+end subroutine test_HIIregion
+
+!-----------------------------------------------------------------------
+!+
+!  Benchmark of the HII region methods: wall time of one call of each
+!  method for increasing ionising rates, i.e. increasing numbers of
+!  ionised particles in the same 10^6 particle sphere. Not part of the
+!  test suite: run with "phantomtest ptmassHIIbench"
+!+
+!-----------------------------------------------------------------------
+subroutine bench_HIIregion()
+ use dim,            only:periodic,mpi
+ use io,             only:id,master,iprint,nprocs
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,npart,xyzh,vxyzu,&
+                          init_part,irstrom,irateion,rho,eos_vars
+ use eos,            only:ieos
+ use units,          only:utime
+ use physcon,        only:pi
+ use timing,         only:getused
+ use mpiutils,       only:barrier_mpi,reduceall_mpi
+ use omputils,       only:init_omp,omp_num_threads
+ use HIIRegion,      only:HII_feedback,ar,mH,iH2R
+ integer, parameter :: nq = 4, nmeth = 4
+ real,    parameter :: logQ(nq) = (/49.,50.,51.,51.5/)
+ character(len=12), parameter :: label(nmeth) = &
+    (/'KNN         ','ray tracing ','bounded     ','bounded warm'/)
+ integer :: iq,imeth,nion(nq,nmeth)
+ real    :: rho0,Rstrom(nq),rmeas(nq,nmeth),tmeth(nq,nmeth)
+ real(kind=4) :: t1,t2
+
+ if (periodic) then
+    write(iprint,*) '--> Skip HII benchmark when periodic is on...'
+    return
+ endif
+ if (id==master) write(iprint,"(/,a)") '--> benchmarking HII region methods in a homogeneous sphere'
+ call setup_HII_sphere(logQ(1),rho0)
+
+ nion  = 0
+ rmeas = 0.
+ tmeth = -1.     ! -1: not run
+ do iq=1,nq
+    xyzmh_ptmass(irateion,1) = logQ(iq)
+    Rstrom(iq) = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+logQ(iq)+log10(utime)))
+
+    do imeth=1,nmeth
+       select case(imeth)
+       case(1)
+          iH2R = 1
+       case(2)
+          iH2R = 2
+       case default
+          iH2R = 4
+       end select
+       if (mpi .and. iH2R /= 4) cycle  ! KNN and ray tracing are serial only
+
+       if (imeth < 4) xyzmh_ptmass(irstrom,1) = -1.  ! method 4 starts from the radius of method 3
+       if (id==master) write(iprint,"(a,f5.1,a)") ' log Q = ',logQ(iq),', method: '//trim(label(imeth))
+
+       if (mpi) call barrier_mpi()
+
+       call getused(t1)
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+       call getused(t2)
+
+       tmeth(iq,imeth) = real(t2 - t1)
+
+       if (mpi) tmeth(iq,imeth) = reduceall_mpi('max',tmeth(iq,imeth))
+       call measure_HII_region(rmeas(iq,imeth),nion(iq,imeth))
+    enddo
+ enddo
+
+ call init_omp()
+ if (id==master) then
+    write(iprint,"(/,a,i0,a,i0,a)") ' HII region benchmark: wall time [s] of one call, ',&
+                                    nprocs,' MPI task(s), ',omp_num_threads,' OpenMP thread(s)'
+    write(iprint,"(1x,a5,a9,a9,4(1x,a12))") 'logQ','R_S [pc]','N_ion',label
+    do iq=1,nq
+       write(iprint,"(1x,f5.1,f9.3,i9,4(1x,a12))") logQ(iq),Rstrom(iq),maxval(nion(iq,:)),&
+            (time_string(tmeth(iq,imeth)),imeth=1,nmeth)
+    enddo
+    write(iprint,"(/,a)") ' measured radius / analytic Stromgren radius'
+    write(iprint,"(1x,a5,4(1x,a12))") 'logQ',label
+    do iq=1,nq
+       write(iprint,"(1x,f5.1,4(1x,a12))") logQ(iq),(ratio_string(rmeas(iq,imeth)/Rstrom(iq),&
+            tmeth(iq,imeth)),imeth=1,nmeth)
+    enddo
+ endif
+
+ call init_part()
+ iH2R = 0
+ ieos = 2
+
+end subroutine bench_HIIregion
+
+!-----------------------------------------------------------------------
+!+
+!  format a time for the benchmark table, "-" when the method was not run
+!+
+!-----------------------------------------------------------------------
+character(len=12) function time_string(t)
+ real, intent(in) :: t
+
+ if (t < 0.) then
+    time_string = '           -'
+ else
+    write(time_string,"(es12.3)") t
+ endif
+
+end function time_string
+
+character(len=12) function ratio_string(ratio,t)
+ real, intent(in) :: ratio,t
+
+ if (t < 0.) then
+    ratio_string = '           -'
+ else
+    write(ratio_string,"(f12.4)") ratio
+ endif
+
+end function ratio_string
+
+!-----------------------------------------------------------------------
+!+
+!  largest distance from the sink of an ionised particle, and the number
+!  of ionised particles, over all MPI tasks
+!+
+!-----------------------------------------------------------------------
+subroutine measure_HII_region(rstrommax,nion)
+ use dim,      only:mpi
+ use part,     only:xyzmh_ptmass,npart,xyzh,eos_vars,imu
+ use eos,      only:gmw
+ use mpiutils, only:reduceall_mpi
+ real,    intent(out) :: rstrommax
+ integer, intent(out) :: nion
+ integer :: i
+ real    :: r2
+
+ rstrommax = epsilon(rstrommax)
+ nion      = 0
+ do i=1,npart
+    if (eos_vars(imu,i) < gmw) then
+       nion = nion + 1
+       r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 &
+          + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
+       rstrommax = max(rstrommax,sqrt(r2))
+    endif
+ enddo
+ if (mpi) then
+    rstrommax = reduceall_mpi('max',rstrommax)
+    nion      = int(reduceall_mpi('+',nion))
+ endif
+
+end subroutine measure_HII_region
+
+!-----------------------------------------------------------------------
+!+
+!  homogeneous sphere of 10^6 particles with one ionising sink at its
+!  centre, densities computed, HII module initialised
+!+
+!-----------------------------------------------------------------------
+subroutine setup_HII_sphere(logQ,rho0)
+ use dim,            only:maxp,maxphase,maxvxyzu
+ use io,             only:id,master,iverbose
+ use eos_HIIR,       only:init_eos_HIIR
+ use eos,            only:gmw,ieos,polyk,gamma,temperature_coef
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,npart,irstrom,xyzh,vxyzu,&
+                          hfact,igas,npartoftype,fxyzu,massoftype,init_part,&
+                          iphase,isetphase,irateion
+ use ptmass,         only:h_acc
+ use spherical,      only:set_sphere
+ use units,          only:set_units,unit_velocity,udist,umass
+ use physcon,        only:pc,solarm,pi,kboltz,mass_proton_cgs
+ use kdtree,         only:tree_accuracy
+ use HIIRegion,      only:initialize_H2R,nHIIsources,iH2R
+ use setup_params,   only:npart_total
+ use deriv,          only:get_density_global
+ use mpiutils,       only:reduceall_mpi
+ real, intent(in)  :: logQ
+ real, intent(out) :: rho0
+ integer :: np,i,ierr
+ real    :: totmass,psep,totvol,nx,rmin,rmax,temp
+
  call set_units(dist=pc,mass=solarm,G=1.d0)
  call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
@@ -1841,7 +2125,7 @@ subroutine test_HIIregion(ntests,npass)
  h_acc = 0.002
 
  xyzmh_ptmass(4,1) = -1.
- xyzmh_ptmass(irateion,1) = 49. ! rate_ion [s^-1]
+ xyzmh_ptmass(irateion,1) = logQ ! log10 of the ionising rate [s^-1]
  nptmass = 1
  nHIIsources = 1
 
@@ -1866,8 +2150,6 @@ subroutine test_HIIregion(ntests,npass)
  if (id==master) then
     call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,nptot=npart_total,np_requested=np)
  endif
- np       = npart
-
 !
 !--set particle properties
 !
@@ -1883,11 +2165,10 @@ subroutine test_HIIregion(ntests,npass)
     enddo
  endif
 
+ iH2R = 4  ! allocates the sectors, used by the bounded method
  call initialize_H2R
 
  xyzmh_ptmass(irstrom,1) = -1.
- ci   = sqrt(polykion)
- k = 0.005
 
  polyk = (kboltz*temp)/(gmw*mass_proton_cgs)*((unit_velocity)**2)
  vxyzu(:,:) = 0.
@@ -1898,45 +2179,7 @@ subroutine test_HIIregion(ntests,npass)
  endif
  call get_density_global(2)
 
- nfailed(:) = 0
- do itest = 1,4
-    !-- itest 3: bounded neighbours from scratch, itest 4: warm start from the radius of itest 3
-    iH2R = min(itest,3)
-    if (itest >= 3) iH2R = 4
-    if (mpi .and. iH2R /= 4) cycle  ! only the bounded neighbours method runs with MPI
-    if (itest < 4) xyzmh_ptmass(irstrom,1) = -1.
-    string = "nearest neighbors"
-    if (iH2R == 2) string = "inversed ray tracing"
-    if (iH2R == 4) string = "bounded neighbours"
-    if (itest == 4) string = "bounded (warm start)"
-    if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with '//trim(string)//' method'
-    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
-    rstrommax = epsilon(rstrommax)
-    rhomean   = 0.
-    nion      = 0
-
-    do i= 1,npart
-       r2 = (xyzmh_ptmass(1,1)-xyzh(1,i))**2 + (xyzmh_ptmass(2,1)-xyzh(2,i))**2 + (xyzmh_ptmass(3,1)-xyzh(3,i))**2
-       if (eos_vars(imu,i) < gmw) then
-          if (r2>rstrommax**2) then
-             rstrommax = sqrt(r2)
-          endif
-       endif
-       rhomean = rhomean + rho(i)
-    enddo
-    rhomean = rhomean / max(npart,1)
-    if (mpi) rstrommax = reduceall_mpi('max',rstrommax)
-    Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
-
-    call checkval(rstrommax,Rstrom,1.4e-2,nfailed(itest),'Initial strömgren radius')
- enddo
- call update_test_scores(ntests,nfailed,npass)
-
- call init_part()
- iH2R = 0
- ieos = 2
-
-end subroutine test_HIIregion
+end subroutine setup_HII_sphere
 
 !-----------------------------------------------------------------------
 !+
