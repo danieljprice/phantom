@@ -1197,7 +1197,7 @@ subroutine check_HIIRegion(nerror)
     print "(/,a,/)", "Error: Gr is not compatible with HII Region"
     nerror = nerror + 1
  endif
- if (iH2R > 0 .and. mpi) then
+ if ((iH2R /= 0 .and. iH2R/=4) .and. mpi) then
     print "(/,a,/)", "Error: MPI is not compatible with HII Region"
     nerror = nerror + 1
  endif
