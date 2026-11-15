@@ -168,14 +168,20 @@ subroutine init_remote_values(npart,rad,vxyzu,radprop,EU0)
  real,    intent(inout) :: EU0(:,:)
  integer :: k
 
+ !$omp parallel default(none) shared(npart,nsendlist,isendlist,nremote,rad,vxyzu,radprop,EU0) private(k)
+ !$omp do schedule(static)
  do k=1,nsendlist
     call load_EU0(isendlist(k),rad,vxyzu,radprop,EU0)
  enddo
+ !$omp enddo nowait
  !--gas energy, specific heat and Eddington factor of remote particles are not used
+ !$omp do schedule(static)
  do k=npart+1,npart+nremote
     EU0(:,k) = 0.
  enddo
+ !$omp enddo
  call exchange_remote_values(EU0,npart)
+ !$omp end parallel
 
 end subroutine init_remote_values
 
@@ -330,11 +336,16 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     !$omp end single
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask=mask)
     !$omp single
-    !--E and opacity change in the update and the flux limiter in compute_flux,
-    !  so the remote particles get all three from their owners here
-    if (mpi) call exchange_remote_values(EU0,npart)
     call do_timing('radflux',t1,tcpu1)
     !$omp end single
+    !--E and opacity change in the update and the flux limiter in compute_flux,
+    !  so the remote particles get all three from their owners here
+    if (mpi) then
+       call exchange_remote_values(EU0,npart)
+       !$omp single
+       call do_timing('radexch',t1,tcpu1)
+       !$omp end single
+    endif
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
     !$omp single
     call do_timing('raddiff',t1,tcpu1)
@@ -355,9 +366,11 @@ subroutine do_radiation_onestep(dt,time,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,
     its = its + 1
     !--every MPI task needs the same errors, to take the same number of sweeps
     if (mpi) then
+       call get_timings(t1,tcpu1)
        errmax = reduceall_mpi('max',[maxerrE2,maxerrU2])
        maxerrE2 = errmax(1)
        maxerrU2 = errmax(2)
+       call do_timing('radexch',t1,tcpu1)
     endif
     maxerrE2prev2 = 0.
     maxerrU2prev2 = 0.
@@ -448,7 +461,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,time,xyzh,vxy
          dust_kappai,dust_cooling,heatingISRi,dust_gas
 
  c_code = get_c_code()
- !$omp do &
+ !$omp do schedule(dynamic,nchunk) &
  !$omp private(n,i,j,k,jh,rhoi,icompact,pmi,dti) &
  !$omp private(dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
  !$omp private(v2i,vi,v2j,vj,dWi,dWj,zetaomegai,zetaomegaj,grkern_tilde) &

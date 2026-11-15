@@ -14,9 +14,9 @@ module apr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: apr_region, dim, get_apr_level, io, io_summary, kdtree,
-!   kernel, mpiforce, neighkdtree, part, physcon, quitdump, relaxem,
-!   utils_apr, vectorutils
+! :Dependencies: apr_region, boundary, dim, get_apr_level, io, io_summary,
+!   kdtree, kernel, mpiforce, neighkdtree, part, physcon, quitdump,
+!   relaxem, utils_apr, vectorutils
 !
  use dim,  only:gr,use_apr
  use part, only:sync_aprmassoftype

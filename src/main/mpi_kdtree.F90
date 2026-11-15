@@ -68,6 +68,7 @@ module mpikdtree
  integer :: nlet_parent = 0
  integer, allocatable :: let_local(:)                      ! global leaves whose particles were imported
  integer :: nlet_local = 0
+ real    :: reach_ref = 0.                                 ! typical reach of the active leaves, all tasks
  integer, allocatable :: let_base(:)                       ! position before the nodes from each task
 
  ! the selection of the nodes to send each task
@@ -240,23 +241,26 @@ end subroutine deallocate_mpikdtree
 !  task that owns their section of the geometric tree, each task builds its
 !  local tree from its sections, and the cells of the geometric tree above
 !  the sections are built from the section roots of all tasks, identically
-!  on every task
+!  on every task. On substeps with few active particles, the local trees are
+!  instead revised for the new positions, keeping the owners (revised=.true.)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketreeglobal(xyzh,np,nactive,apr_tree,nptmass,xyzmh_ptmass)
+subroutine maketreeglobal(xyzh,np,nactive,apr_tree,revised,nptmass,xyzmh_ptmass)
  use mpibalance,   only:balancedomains
  use mpisections,  only:assign_section_owners
  use mpiutils,     only:reduceall_mpi
  use part,         only:ibelong,ibin,isdead_or_accreted
  use boundary,     only:cross_boundary
  use mpidomain,    only:isperiodic
- use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global
+ use timing,       only:increment_timer,get_timings,itimer_balance,itimer_tree_global,itimer_tree_revise
+ use kdtree,       only:revtree
  use dim,          only:ind_timesteps,periodic,maxpsph
 
  integer, intent(inout) :: np
  integer, intent(in)    :: nactive  ! number of active particles on this task
  real,    intent(inout) :: xyzh(:,:)
  logical, intent(in)    :: apr_tree
+ logical, intent(out)   :: revised
  integer, intent(in),    optional :: nptmass
  real,    intent(inout), optional :: xyzmh_ptmass(:,:)
  real,    allocatable :: wt(:)
@@ -265,7 +269,7 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,nptmass,xyzmh_ptmass)
  integer, allocatable :: isinkowner(:)
  integer      :: i,ncross
  logical      :: sinktree
- real(kind=4) :: t1,t2,tcpu1,tcpu2,tg1,tg2,tcpug1,tcpug2
+ real(kind=4) :: t1,t2,tcpu1,tcpu2,tg1,tg2,tcpug1,tcpug2,trev,tcpurev
 
  call get_timings(tg1,tcpug1)
  sinktree = .false.
@@ -289,6 +293,28 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,nptmass,xyzmh_ptmass)
  ! active), weighting particles by how often they are active
  ncount = reduceall_mpi('+',real([nactive,count(xyzh(4,1:np) > 0.)]))
  rebalance = (ncount(1) >= ncount(2))
+
+ ! with few active particles, the local trees are revised for the new positions, keeping
+ ! the owners, and the top of the global tree is rebuilt from their section roots
+ revised = .false.
+ trev = 0.
+ tcpurev = 0.
+ if (.not.apr_tree) then
+    call get_timings(t1,tcpu1)
+    call revtree(node,xyzh,np,leaf_is_active,ncells,revised,nactivetot=ncount(1),nlivetot=ncount(2))
+    call get_timings(t2,tcpu2)
+    trev = t2-t1
+    tcpurev = tcpu2-tcpu1
+    call increment_timer(itimer_tree_revise,trev,tcpurev)
+ endif
+ if (revised) then
+    call build_section_top()
+    call set_exact_top_sizes()
+    call get_timings(tg2,tcpug2)
+    ! the global time excludes the revision, which has its own timer
+    call increment_timer(itimer_tree_global,(tg2-tg1)-trev,(tcpug2-tcpug1)-tcpurev)
+    return
+ endif
  allocate(wt(np))
  if (ind_timesteps) then
     wt = 2.**ibin(1:np)
@@ -326,8 +352,8 @@ subroutine maketreeglobal(xyzh,np,nactive,apr_tree,nptmass,xyzmh_ptmass)
  call set_exact_top_sizes()
  call get_timings(tg2,tcpug2)
 
- ! the global time excludes the local tree, which has its own timers
- call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2),(tcpug2-tcpug1)-(tcpu1-tcpu2))
+ ! the global time excludes the local tree and any rejected revision, which have their own timers
+ call increment_timer(itimer_tree_global,(tg2-tg1)-(t1-t2)-trev,(tcpug2-tcpug1)-(tcpu1-tcpu2)-tcpurev)
 
 end subroutine maketreeglobal
 
@@ -932,6 +958,7 @@ subroutine let_exchange()
  ! select the nodes and leaves to send to each task. The descent for each task is split
  ! into pairs near the top of the tree, shared by the threads; the nodes found are then
  ! listed for each task, one task per thread at a time
+ call set_reach_ref()
  call start_let_marks(reset)
  allocate(implist(2,maximport_leaves,nprocs),itemr(3,nlet_split+3,nprocs),nitemr(nprocs))
  nnode  = 0
@@ -1057,12 +1084,16 @@ end subroutine let_exchange
 !  in its combined tree (the leaves in list and this task's leaves in the
 !  global tree) that the walks of iproc's active cells could pair with
 !  (marked by let_pair_step). Of these, those with a reach (size +
-!  radkern*hmax) more than reach_import_factor times the median are sent,
-!  largest first: large leaves in sparse regions, which many of iproc's
-!  cells meet. Only leaves whose particles are all active are sent: the
-!  force calculation can wake inactive neighbours, which would then have
-!  to be returned. Each leaf is listed in implist with its locator on
-!  iproc: its position in list, or minus its index in the global tree
+!  radkern*hmax) more than reach_import_factor times the typical reach of
+!  the active leaves of all tasks (set_reach_ref) are sent, largest first:
+!  large leaves in sparse regions, which many of iproc's cells meet. The
+!  reference is neither the median of the candidates (a distant receiver
+!  may meet only a few leaves, all of them large) nor of this task's own
+!  leaves (a task in a sparse region may hold only large leaves). Only
+!  leaves whose particles are all active are sent: the force calculation
+!  can wake inactive neighbours, which would then have to be returned.
+!  Each leaf is listed in implist with its locator on iproc: its position
+!  in list, or minus its index in the global tree
 !+
 !-----------------------------------------------------------------------
 subroutine select_import_leaves(list,nlist,implist,nleaves)
@@ -1102,11 +1133,11 @@ subroutine select_import_leaves(list,nlist,implist,nleaves)
 
  if (nc == 0) return
 
- ! their reach, sorted, and the smallest reach sent
+ ! their reach, sorted
  allocate(reach(nc),indx(nc))
  reach = node(cand(1:nc))%size + radkern*node(cand(1:nc))%hmax
  call indexx(nc,reach,indx)
- reachmin = reach_import_factor*reach(indx(nc/2+1))
+ reachmin = reach_import_factor*reach_ref
 
  ! largest reach first, within the budgets of leaves and particles
  npsent = 0
@@ -1125,6 +1156,48 @@ subroutine select_import_leaves(list,nlist,implist,nleaves)
  enddo
 
 end subroutine select_import_leaves
+
+!-----------------------------------------------------------------------
+!+
+!  the typical reach (size + radkern*hmax) of the active leaves, the
+!  reference for the reach of the leaves sent with their particles: the
+!  median over the tasks of the median of each task's active leaves
+!+
+!-----------------------------------------------------------------------
+subroutine set_reach_ref()
+ use dim,       only:reach_import_factor
+ use io,        only:id,nprocs
+ use kernel,    only:radkern
+ use mpiutils,  only:reduceall_mpi
+ use sortutils, only:indexx
+ real,    allocatable :: reach(:)
+ integer, allocatable :: indx(:)
+ real    :: medtask(nprocs)
+ integer :: n,nt
+
+ ! the median reach of this task's active leaves
+ n = nactive_leaves
+ medtask = 0.
+ if (n > 0) then
+    allocate(reach(n),indx(n))
+    reach = node(active_leaves(1:n))%size + radkern*node(active_leaves(1:n))%hmax
+    call indexx(n,reach,indx)
+    medtask(id+1) = reach(indx(n/2+1))
+    deallocate(reach,indx)
+ endif
+
+ ! the median over the tasks with active leaves, the same on every task
+ medtask = reduceall_mpi('+',medtask)
+ nt = count(medtask > 0.)
+ ! no leaf is sent if there are no active leaves
+ reach_ref = huge(reach_ref)/reach_import_factor
+ if (nt == 0) return
+ allocate(reach(nt),indx(nt))
+ reach = pack(medtask,medtask > 0.)
+ call indexx(nt,reach,indx)
+ reach_ref = reach(indx(nt/2+1))
+
+end subroutine set_reach_ref
 
 !-----------------------------------------------------------------------
 !+

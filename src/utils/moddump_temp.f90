@@ -83,7 +83,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call get_density_global(2)
  call initialize_H2R()
  call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
- call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
 
  !call delete_dead_or_accreted_particles(npart,npartoftype)
 

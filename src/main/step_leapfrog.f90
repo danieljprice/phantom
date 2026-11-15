@@ -125,7 +125,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step,Tfloor
  use cooling_radapprox,only:radcool_evolve_ui
- use timing,         only:increment_timer,get_timings,itimer_substep
+ use timing,         only:increment_timer,get_timings,itimer_substep,itimer_predict,itimer_correct
  use growth,         only:check_dustprop
  use porosity,       only:get_filfac
  use damping,        only:idamp
@@ -174,6 +174,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
  nvfloorp  = 0
+ call get_timings(t1,tcpu1)
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
@@ -237,6 +238,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predictor
  !$omp end parallel do
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_predict,t2-t1,tcpu2-tcpu1)
 
  !
  ! 1st ptmass kick (sink-gas)
@@ -293,7 +296,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! interpolation of SPH quantities needed in the SPH
 ! force evaluations, using dtsph
 !----------------------------------------------------
-!$omp parallel do default(none) schedule(guided,1) &
+ call get_timings(t1,tcpu1)
+!$omp parallel do default(none) schedule(static) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype,rho) &
 !$omp shared(pxyzu,ppred) &
@@ -402,6 +406,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_predict,t2-t1,tcpu2-tcpu1)
  if (use_dustgrowth) then
     if (use_porosity) then
        call get_filfac(npart,xyzh,dustprop(1,:),filfacpred,dustproppred,hdti,rho)
@@ -465,6 +471,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     itype   = igas
     ntypes  = get_ntypes(npartoftypetot)
     store_itype = (maxphase==maxp .and. ntypes > 1)
+    call get_timings(t1,tcpu1)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(pxyzu,ppred) &
@@ -628,6 +635,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_correct,t2-t1,tcpu2-tcpu1)
     if (use_dustgrowth) then
        if (use_porosity) then
           call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph,rho)
@@ -646,6 +655,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     errmax_prev = errmax
 
     if (.not.converged .and. npart > 0) then
+       call get_timings(t1,tcpu1)
 !$omp parallel do default(none)&
 !$omp private(i) &
 !$omp shared(npart,hdtsph,omega)&
@@ -709,6 +719,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           endif
        enddo until_converged
 !$omp end parallel do
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_correct,t2-t1,tcpu2-tcpu1)
 
        if (use_dustgrowth) then
           if (use_porosity) then

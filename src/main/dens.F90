@@ -675,6 +675,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  ! these are determined from iphase if multiple phases are used
  same_type = .true.
  gas_gas   = .true.
+ iamdustj  = .false.
  iamtypej  = iamtypei
 
  dphidhi   = 0.
@@ -1377,6 +1378,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  use viscosity,   only:irealvisc
  use io,          only:id
  use dim,         only:mpi,use_apr
+ use neighkdtree, only:nneighblock
 
  type(celldens), intent(inout) :: cell
 
@@ -1401,48 +1403,59 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  logical                         :: realviscosity
  logical                         :: ignoreself
  integer                         :: nneighi,apri
- integer                         :: i,lli
+ integer                         :: i,lli,n1,n2
+ real                            :: rhosum(maxrhosum)
 
  realviscosity = (irealvisc > 0)
 
- over_parts: do i = 1,cell%npcell
-    !--particle index is only known on the owner (used only to exclude self)
-    if (cell%owner == id) then
-       lli = inodeparts(cell%arr_index(i))
-    else
-       lli = 0
-    endif
-    ! note: only active particles have been sent here
-    if (maxphase==maxp) then
-       call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
-    else
-       iactivei = .true.
-       iamtypei = igas
-       iamgasi  = .true.
-    endif
+ over_blocks: do n1 = 1,max(nneigh,1),nneighblock
+    n2 = min(n1+nneighblock-1,nneigh)
+    over_parts: do i = 1,cell%npcell
+       !--particle index is only known on the owner (used only to exclude self)
+       if (cell%owner == id) then
+          lli = inodeparts(cell%arr_index(i))
+       else
+          lli = 0
+       endif
+       ! note: only active particles have been sent here
+       if (maxphase==maxp) then
+          call get_partinfo(cell%iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+       else
+          iactivei = .true.
+          iamtypei = igas
+          iamgasi  = .true.
+       endif
 
-    hi    = cell%h(i)
-    hi1   = 1./hi
-    hi21  = hi1*hi1
-    hi31  = hi1*hi21
-    hi41  = hi21*hi21
+       hi    = cell%h(i)
+       hi1   = 1./hi
+       hi21  = hi1*hi1
+       hi31  = hi1*hi21
+       hi41  = hi21*hi21
 
-    if (use_apr) then
-       apri = cell%apr(i)
-    else
-       apri = 1
-    endif
+       if (use_apr) then
+          apri = cell%apr(i)
+       else
+          apri = 1
+       endif
 
-    ignoreself = (cell%owner == id)
+       ignoreself = (cell%owner == id)
 
-    call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
-                          apri,listneigh,nneigh,nneighi,dxcache,xyzcache,&
-                          cell%rhosums(:,i),.true.,.false.,getdv,getdB,realviscosity,&
+       call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+                          apri,listneigh(n1:n2),n2-n1+1,nneighi,dxcache,xyzcache,&
+                          rhosum,(n1==1),.false.,getdv,getdB,realviscosity,&
                           xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level)
 
-    cell%nneightry = nneigh
-    cell%nneigh(i) = nneighi
- enddo over_parts
+       cell%nneightry = nneigh
+       if (n1 == 1) then
+          cell%rhosums(:,i) = rhosum
+          cell%nneigh(i)    = nneighi
+       else
+          ! self is counted once in each block
+          cell%rhosums(:,i) = cell%rhosums(:,i) + rhosum
+          cell%nneigh(i)    = cell%nneigh(i) + nneighi - merge(1,0,ignoreself)
+       endif
+    enddo over_parts
+ enddo over_blocks
 
 end subroutine compute_cell
 !--------------------------------------------------------------------------
