@@ -180,7 +180,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
- !$omp shared(dustprop,ddustprop,dustproppred,ufloor,icooling,Tfloor,rho,eos_vars) &
+ !$omp shared(dustprop,ddustprop,dustproppred,ufloor,icooling,Tfloor,rho) &
  !$omp shared(mprev,filfacprev,filfac,use_porosity) &
  !$omp shared(ibin,ibin_old,twas,timei) &
  !$omp firstprivate(itype) &
@@ -209,8 +209,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (icooling == 9) then
              vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
              call radcool_evolve_ui(vxyzu(4,i),hdti,i,Tfloor,rho(i))
-          elseif (icooling == 10 .and. is_ionised(eos_vars(imu,i))) then
-             vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
           else
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
           endif

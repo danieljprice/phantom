@@ -72,6 +72,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_solver,         only:init_cooling_solver
  use cooling_radapprox, only:init_star
  use viscosity,         only:irealvisc
+ use dim,               only:h2chemistry,store_dust_temperature
 
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
@@ -92,6 +93,9 @@ subroutine init_cooling(id,master,iprint,ierr)
     call init_star()
  case(10)
     if (ieos /= 2) call fatal('cooling','icooling=10 (HII regions) requires ieos=2',var='ieos',ival=ieos)
+    !--the relaxation needs the particle index, not passed on the chemistry/dust temperature paths
+    if (h2chemistry .or. store_dust_temperature) &
+       call fatal('cooling','icooling=10 (HII regions) is not compatible with h2chemistry or a stored dust temperature')
     call init_cooling_HIIR(ierr)
  case(6)
     call init_cooling_KI02(ierr)

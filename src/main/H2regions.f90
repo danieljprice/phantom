@@ -851,7 +851,7 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
                          endif
                       else
                          if (k > 1) then ! end of the HII region
-                            DNratio = Ndot/DNdot
+                            DNratio = 10**(Ndot)/10**(DNdot)
                             call ionise_particle(eos_vars,vxyzu,j,DNratio)
                             Ndot = 0.
                             r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)

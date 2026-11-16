@@ -1814,7 +1814,7 @@ subroutine test_HII_eos(ntests,npass)
  use physcon,   only:pc,solarm,kboltz,mass_proton_cgs
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(10),ierr
+ integer :: nfailed(17),ierr
  real    :: tempi,ponrhoi,spsoundi,ucold,u0,dudt,h,dt,trelax,Crelax0,muhalf,uhalf
  real    :: gmw0,gamma0,polyk0
 
@@ -1856,34 +1856,34 @@ subroutine test_HII_eos(ntests,npass)
  call relax_HIIR(u0,h,muion,gamma,dt,dudt)
  call checkval(u0 + dt*dudt,uIon,1.e-14,nfailed(5),'relax: ionised gas held at uIon')
  call checkval(held_HIIR(muion,0.),.true.,nfailed(6),'held: ionised gas')
- call checkval(held_HIIR(gmw,0.),.true.,nfailed(6),'held: neutral gas away from the front')
- call checkval(held_HIIR(0.,0.),.true.,nfailed(6),'held: unset mu counts as neutral')
- call checkval(held_HIIR(gmw,2.),.false.,nfailed(6),'held: neutral gas of the front is free')
- call checkval(held_HIIR(muhalf,0.),.false.,nfailed(6),'held: partially ionised gas is free')
+ call checkval(held_HIIR(gmw,0.),.true.,nfailed(7),'held: neutral gas away from the front')
+ call checkval(held_HIIR(0.,0.),.true.,nfailed(8),'held: unset mu counts as neutral')
+ call checkval(held_HIIR(gmw,2.),.false.,nfailed(9),'held: neutral gas of the front is free')
+ call checkval(held_HIIR(muhalf,0.),.false.,nfailed(10),'held: partially ionised gas is free')
 
  Crelax0 = Crelax
  Crelax  = 2.
  u0      = 3.*uhalf
  trelax  = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)  ! sound speed of the shocked gas
  call relax_HIIR(u0,h,muhalf,gamma,trelax,dudt)
- call checkval((u0 + trelax*dudt - uhalf)/(u0 - uhalf),exp(-1.),1.e-12,nfailed(7),&
+ call checkval((u0 + trelax*dudt - uhalf)/(u0 - uhalf),exp(-1.),1.e-12,nfailed(11),&
                'relax: shocked front decays over Crelax*h/cs')
 
  u0      = 3.*ucold
  trelax  = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)
  call relax_HIIR(u0,h,gmw,gamma,trelax,dudt)
- call checkval((u0 + trelax*dudt - ucold)/(u0 - ucold),exp(-1.),1.e-12,nfailed(7),&
+ call checkval((u0 + trelax*dudt - ucold)/(u0 - ucold),exp(-1.),1.e-12,nfailed(12),&
                'relax: shocked neutral gas decays over Crelax*h/cs')
 
  !-- half ionised front particle, still cold: heated by the star at once
  call relax_HIIR(ucold,h,muhalf,gamma,dt,dudt)
- call checkval(ucold + dt*dudt,uhalf,1.e-12,nfailed(8),'relax: front particle heated at once')
+ call checkval(ucold + dt*dudt,uhalf,1.e-12,nfailed(13),'relax: front particle heated at once')
 
  !-- thermal energy given to the forces in derivs
- call checkval(heated_u_HIIR(ucold,muion,gamma),uIon,epsilon(0.),nfailed(9),'heat: ionised gas at uIon')
- call checkval(heated_u_HIIR(0.5*ucold,gmw,gamma),ucold,1.e-14,nfailed(9),'heat: neutral gas at least at Tcold')
- call checkval(heated_u_HIIR(ucold,muhalf,gamma),uhalf,1.e-14,nfailed(10),'heat: front particle at its target')
- call checkval(heated_u_HIIR(2.*uhalf,muhalf,gamma),2.*uhalf,epsilon(0.),nfailed(10),'heat: shocked front kept')
+ call checkval(heated_u_HIIR(ucold,muion,gamma),uIon,epsilon(0.),nfailed(14),'heat: ionised gas at uIon')
+ call checkval(heated_u_HIIR(0.5*ucold,gmw,gamma),ucold,1.e-14,nfailed(15),'heat: neutral gas at least at Tcold')
+ call checkval(heated_u_HIIR(ucold,muhalf,gamma),uhalf,1.e-14,nfailed(16),'heat: front particle at its target')
+ call checkval(heated_u_HIIR(2.*uhalf,muhalf,gamma),2.*uhalf,epsilon(0.),nfailed(17),'heat: shocked front kept')
 
  Crelax  = Crelax0
  gmw = gmw0; gamma = gamma0; polyk = polyk0
@@ -1909,7 +1909,7 @@ subroutine test_HII_exp(ntests,npass)
  use HIIRegion,      only:HII_feedback,ar,mH,iH2R,nside_H2R,rstrom_sec,initialize_H2R,sectors_on
  use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
- integer          :: nfailed(10),itest,nion,ngas
+ integer          :: nfailed(12),itest,nion,ngas
  real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth,psep
  character(len=22) :: string
 
@@ -2005,9 +2005,9 @@ subroutine test_HII_exp(ntests,npass)
 
  call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
 
- call checkval(sectors_on(1),.false.,nfailed(9),'isotropic bubble stays isotropic')
+ call checkval(sectors_on(1),.false.,nfailed(10),'isotropic bubble stays isotropic')
  Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
- call checkval(xyzmh_ptmass(irstrom,1),Rstrom,psep/Rstrom,nfailed(9),'isotropic radius of the unresolved bubble')
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,psep/Rstrom,nfailed(11),'isotropic radius of the unresolved bubble')
 
  !
  !-- escape: the Stromgren sphere is larger than the cloud, every sector reaches
@@ -2022,7 +2022,7 @@ subroutine test_HII_exp(ntests,npass)
 
  ngas = npart
  if (mpi) ngas = int(reduceall_mpi('+',npart))
- call checkval(nion,ngas,0,nfailed(10),'whole cloud ionised')
+ call checkval(nion,ngas,0,nfailed(12),'whole cloud ionised')
  xyzmh_ptmass(irateion,1) = 49.
 
  call update_test_scores(ntests,nfailed,npass)

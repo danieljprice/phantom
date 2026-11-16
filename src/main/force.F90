@@ -1509,6 +1509,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projBi = 0.; projBj = 0.; divBdiffterm = 0.
        endif
 
+       !--HII regions (icooling=10): count the ionised gas neighbours of i,
+       !  also those whose kernel does not reach i (usej false with gravity)
+       if (icooling == 10 .and. iamgasj) then
+          if (is_ionised(eos_vars(imu,j))) fsum(ifronti) = fsum(ifronti) + 1.
+       endif
+
        !--get terms required for particle j
        if (usej) then
           hj       = 1./hj1
@@ -1535,10 +1541,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
              prj = eos_vars(igasP,j)
              spsoundj = eos_vars(ics,j)
-             !--HII regions (icooling=10): count the ionised neighbours of i
-             if (icooling == 10) then
-                if (is_ionised(eos_vars(imu,j))) fsum(ifronti) = fsum(ifronti) + 1.
-             endif
              radPj = 0.
              if (do_radiation) radPj = radprop(iradP,j)
              !
