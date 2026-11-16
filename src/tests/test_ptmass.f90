@@ -1807,7 +1807,7 @@ subroutine test_HIIregion(ntests,npass)
  use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  integer          :: nfailed(10),itest,nion,ngas
- real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth
+ real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth,psep
  character(len=22) :: string
 
  if (periodic) then
@@ -1817,6 +1817,8 @@ subroutine test_HIIregion(ntests,npass)
     write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
  endif
  call setup_HII_sphere(49.,rho0)
+
+ psep = norm2(xyzh(1:3,1)-xyzh(1:3,2))
 
  nfailed(:) = 0
  do itest = 1,4
@@ -1902,7 +1904,7 @@ subroutine test_HIIregion(ntests,npass)
 
  call checkval(sectors_on(1),.false.,nfailed(9),'isotropic bubble stays isotropic')
  Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
- call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.4e-2,nfailed(9),'isotropic radius of the unresolved bubble')
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,psep/Rstrom,nfailed(9),'isotropic radius of the unresolved bubble')
 
  !
  !-- escape: the Stromgren sphere is larger than the cloud, every sector reaches
@@ -2141,7 +2143,7 @@ subroutine setup_HII_sphere(logQ,rho0)
 !
  np       = 1000000
  totvol   = 4./3.*pi*rmax**3
- nx       = int(np**(1./3.))
+ nx       = nint(np**(1./3.))
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
  npart_total = 0
