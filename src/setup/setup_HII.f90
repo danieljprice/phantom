@@ -76,8 +76,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 0.01
  rmin  = 0.
  rmax  = 1.257*pc/udist
- ieos  = 22
- icooling = 6
+ ieos  = 2
+ icooling = 10  ! HII regions: two phase relaxation of the thermal energy
  IH2R  = 1
  temp = 100.
  totmass  = 6.4e2*solarm/umass

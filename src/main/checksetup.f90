@@ -254,7 +254,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9 .and. ieos /=22)) then
+    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9)) then
        print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma
@@ -1185,12 +1185,8 @@ subroutine check_HIIRegion(nerror)
  use dim,       only:gr,mpi,periodic
  use options,   only:icooling
  integer, intent(inout) :: nerror
- if (iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
-    print "(/,a,/)", "Error: If HII activated, eos == 21 or 22 is mandatory..."
-    nerror = nerror + 1
- endif
- if (iH2R > 0 .and. ieos==22 .and. icooling==0) then
-    print "(/,a,/)", "Error: ieos==22 need cooling at edges of HII Region"
+ if (iH2R > 0 .and. .not.(ieos==21 .or. (ieos==2 .and. icooling==10))) then
+    print "(/,a,/)", "Error: If HII activated, use ieos = 21, or ieos = 2 with icooling = 10"
     nerror = nerror + 1
  endif
  if (iH2R > 0 .and. gr) then

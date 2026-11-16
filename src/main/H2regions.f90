@@ -752,8 +752,9 @@ end function stromgren_guess
 !+
 !-----------------------------------------------------------------------
 subroutine ionise_particle(eos_vars,vxyzu,j,phi)
- use part, only:itemp,imu
- use dim,  only:maxvxyzu
+ use part,         only:itemp,imu
+ use eos,          only:gamma,icooling
+ use cooling_HIIR, only:heated_u_HIIR
  integer, intent(in)    :: j
  real,    intent(in)    :: phi
  real,    intent(inout) :: eos_vars(:,:),vxyzu(:,:)
@@ -764,7 +765,8 @@ subroutine ionise_particle(eos_vars,vxyzu,j,phi)
 
  eos_vars(itemp,j) = phi*Tion  + (1. - phi)*Tcold
  eos_vars(imu,j)   = phi*muion + (1. - phi)*gmw
- if (maxvxyzu >= 4) vxyzu(4,j) = phi*uIon + (1. - phi)*vxyzu(4,j)
+ !-- two phase model: heated at once (vpred in derivs), the step keeps it
+ if (icooling == 10) vxyzu(4,j) = heated_u_HIIR(vxyzu(4,j),eos_vars(imu,j),gamma)
 
 end subroutine ionise_particle
 
@@ -844,20 +846,14 @@ subroutine HII_Knn(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
                          if (eos_vars(imu,j) - muion > epsilon(muion) ) then ! is ionised ?
                             logNdiff = DNdot - Ndot
                             Ndot = Ndot + log10(1.-10.**(logNdiff))
-                            eos_vars(itemp,j)  = Tion
-                            eos_vars(imu,j) = muion
+                            call ionise_particle(eos_vars,vxyzu,j,1.)
                             npartin = npartin + 1
-                            if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                          endif
                       else
                          if (k > 1) then ! end of the HII region
-                            if (maxvxyzu >= 4) then
-                               DNratio = Ndot/DNdot
-                               eos_vars(itemp,j)  = DNratio * Tion + (1.0 - DNratio) * Tcold
-                               eos_vars(imu,j)    = DNratio * muion + (1.0 - DNratio) * gmw
-                               vxyzu(4,j)         = DNratio * uIon + (1.0 - DNratio) * vxyzu(4,j)
-                               Ndot = 0.
-                            endif
+                            DNratio = Ndot/DNdot
+                            call ionise_particle(eos_vars,vxyzu,j,DNratio)
+                            Ndot = 0.
                             r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
                             j = listneigh(1)
                          else ! unresolved case
@@ -966,10 +962,8 @@ subroutine HII_ray(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,rho,eos_vars)
                 call inversed_raytracing(i,(/xj,yj,zj/),xyzh,rho,xyzcache,noverlap,&
                                             pmass,log_Qi,fluxi,rsrci)
                 if (fluxi > 0.) then
-                   eos_vars(itemp,i) = Tion
-                   eos_vars(imu,i) = muion
+                   call ionise_particle(eos_vars,vxyzu,i,1.)
                    noverlapi = noverlapi + 1
-                   if (maxvxyzu >= 4) vxyzu(4,i) = uIon
                    k = k + 1
                    !$omp atomic update
                    xyzmh_ptmass(irstrom,j) = max(rsrci,xyzmh_ptmass(irstrom,j))

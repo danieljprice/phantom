@@ -350,7 +350,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           gammai = eos_vars(igamma,i)
        endif
        if (use_krome) gammai = eos_vars(igamma,i)
-       if (ieos==22) mui = eos_vars(imu,i)
+
        if (maxvxyzu >= 4) then
           uui = vxyzu(4,i)
           if (uui < 0. .and. .not. ieos==23) then
