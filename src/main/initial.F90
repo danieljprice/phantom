@@ -596,7 +596,7 @@ subroutine initialise_sink_particle_forces(time,dtextforce,dtsinkgas,logfile,ier
     fxyz_ptmass_tree = 0.
  endif
 
- if (iH2R > 0 .and. id==master) then
+ if (iH2R > 0) then
     call initialize_H2R
     call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  endif
