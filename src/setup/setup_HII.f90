@@ -76,14 +76,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 0.01
  rmin  = 0.
  rmax  = 1.257*pc/udist
- ieos  = 22
- icooling = 6
+ ieos  = 2
+ icooling = 10  ! HII regions: two phase relaxation of the thermal energy
  IH2R  = 1
  temp = 100.
  totmass  = 6.4e2*solarm/umass
  totvol   = 4./3.*pi*rmax**3
  rho0 = totmass/totvol
- polyk = ((gamma*kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
+ !--isothermal c_s^2 = kT/mu of the cold gas, as the HII eos expects (Tcold)
+ polyk = ((kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
 
  npart = 0
  npartoftype(:) = 0
@@ -91,7 +92,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
 
- if (maxvxyzu >= 4) vxyzu(4,:) = polyk
+ if (maxvxyzu >= 4) vxyzu(4,:) = polyk/(gamma-1.)
 
  nptmass = nsrc
  if (id==master) then
