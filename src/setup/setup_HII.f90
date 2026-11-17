@@ -23,6 +23,10 @@ module setup
 
  private
  integer :: nsrc = 1
+ logical :: add_blob   = .false. ! dense blob next to the centre, to test the HII sectors
+ real    :: rho_blob   = 100.    ! density contrast of the blob
+ real    :: r_blob     = 0.1     ! radius of the blob [pc]
+ real    :: d_blob     = 0.3     ! distance of the blob centre from the origin, along x [pc]
 
 contains
 
@@ -56,8 +60,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=*), intent(in)    :: fileprefix
  real,             intent(out)   :: vxyzu(:,:)
  integer(kind=8) :: nptot
- integer :: i,np,nx,seed
- real    :: psep,rmax,rmin,totmass,totvol,rho0,temp
+ integer :: i,np,nx,seed,nblob,nkeep
+ real    :: psep,rmax,rmin,totmass,totvol,rho0,temp,pmass,rb,xblob(3)
  !
  ! units (mass = solarm, length = 1 pc)
  !
@@ -72,14 +76,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 0.01
  rmin  = 0.
  rmax  = 1.257*pc/udist
- ieos  = 22
- icooling = 6
+ ieos  = 2
+ icooling = 10  ! HII regions: two phase relaxation of the thermal energy
  IH2R  = 1
  temp = 100.
  totmass  = 6.4e2*solarm/umass
  totvol   = 4./3.*pi*rmax**3
  rho0 = totmass/totvol
- polyk = ((gamma*kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
+ !--isothermal c_s^2 = kT/mu of the cold gas, as the HII eos expects (Tcold)
+ polyk = ((kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
 
  npart = 0
  npartoftype(:) = 0
@@ -87,7 +92,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
 
- if (maxvxyzu >= 4) vxyzu(4,:) = polyk
+ if (maxvxyzu >= 4) vxyzu(4,:) = polyk/(gamma-1.)
 
  nptmass = nsrc
  if (id==master) then
@@ -130,6 +135,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,nptot,np_requested=np)
  endif
  np       = npart
+ pmass    = totmass/real(np)
+
+ !
+ ! dense blob: remove the cloud particles inside it and refill it with
+ ! particles of the same mass at rho_blob times the cloud density
+ !
+ if (add_blob .and. id==master) then
+    rb    = r_blob*pc/udist
+    xblob = (/d_blob*pc/udist,0.,0./)
+    nkeep = 0
+    do i=1,npart
+       if (sum((xyzh(1:3,i) - xblob)**2) >= rb**2) then
+          nkeep = nkeep + 1
+          xyzh(:,nkeep) = xyzh(:,i)
+       endif
+    enddo
+    npart = nkeep
+    nptot = npart
+    nblob = nint(rho_blob*rho0*4./3.*pi*rb**3/pmass)
+    call set_sphere('random',id,master,0.,rb,psep,hfact,npart,xyzh,nptot,&
+                    np_requested=nblob,xyz_origin=xblob)
+    write(*,"(1x,a,i0,a,i0,a)") 'blob: ',npart-nkeep,' particles, ',np-nkeep,' cloud particles removed'
+ endif
 
 !
 !--set particle properties
@@ -138,7 +166,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npartoftype(:) = 0
  npartoftype(igas) = npart
  massoftype(:)  = 0.0
- massoftype(igas)  = totmass/npartoftype(igas)
+ massoftype(igas)  = pmass
  if (maxphase==maxp) then
     do i=1,npart
        iphase(i) = isetphase(igas,iactive=.true.)
@@ -162,6 +190,12 @@ subroutine get_input_from_prompts()
  use dim,       only:maxptmass
 
  call prompt('Enter the number of ionizing sources in the sphere',nsrc,1,maxptmass)
+ call prompt('Add a dense blob next to the centre?',add_blob)
+ if (add_blob) then
+    call prompt('Enter the density contrast of the blob',rho_blob,1.)
+    call prompt('Enter the radius of the blob (pc)',r_blob,0.)
+    call prompt('Enter the distance of the blob from the centre along x (pc)',d_blob,0.)
+ endif
 
 end subroutine get_input_from_prompts
 

@@ -102,7 +102,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
-                          dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
+                          dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,imu,&
                           filfac,filfacpred,mprev,filfacprev,&
                           fxyz_ptmass_tree
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
@@ -125,6 +125,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step,Tfloor
  use cooling_radapprox,only:radcool_evolve_ui
+ use cooling_HIIR,   only:is_ionised
  use timing,         only:increment_timer,get_timings,itimer_substep,itimer_predict,itimer_correct
  use growth,         only:check_dustprop
  use porosity,       only:get_filfac
@@ -475,7 +476,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(pxyzu,ppred) &
-!$omp shared(Bevol,dBevol,iphase,its) &
+!$omp shared(Bevol,dBevol,iphase,its,eos_vars) &
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass) &
@@ -510,6 +511,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    if (icooling == 9) then
                       vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
                       call radcool_evolve_ui(vxyzu(4,i),dti,i,Tfloor,rho(i))
+                   elseif (icooling == 10 .and. is_ionised(eos_vars(imu,i))) then
+                      vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
+                      vxyzu(4,i)   = vpred(4,i)
                    else
                       vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                    endif
@@ -537,6 +541,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (icooling == 9) then
                    vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
                    call radcool_evolve_ui(vxyzu(4,i),hdti,i,Tfloor,rho(i))
+                elseif (icooling == 10 .and. is_ionised(eos_vars(imu,i))) then
+                   vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+                   vxyzu(4,i)   = vpred(4,i)
                 else
                    vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
                 endif
@@ -600,6 +607,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (maxvxyzu >= 4) then
                    if (icooling == 9) then
                       call radcool_evolve_ui(vxyzu(4,i),hdtsph,i,Tfloor,rho(i),eni)
+                   elseif (icooling == 10 .and. is_ionised(eos_vars(imu,i))) then
+                      eni = vpred(4,i)
                    else
                       eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
                    endif
@@ -660,7 +669,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp private(i) &
 !$omp shared(npart,hdtsph,omega)&
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
-!$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
+!$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred,eos_vars) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
 !$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(rad,drad,radpred,icooling,Tfloor,xyzh,rho) &
@@ -702,6 +711,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 if (icooling == 9) then
                    call radcool_evolve_ui(vxyzu(4,i),-hdtsph,i,Tfloor,rho(i))
+                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
+                elseif (icooling == 10 .and. is_ionised(eos_vars(imu,i))) then
                    vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
                 else
                    vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
