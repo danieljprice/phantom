@@ -154,7 +154,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_piecewise,    only:get_eos_piecewise
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
- use eos_HIIR,         only:get_eos_HIIR_iso,get_eos_HIIR_adiab
+ use eos_HIIR,         only:get_eos_HIIR_iso
  use eos_zerotemp,     only:get_zerotemp_pressure,get_zerotemp_spsoundi
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
@@ -489,19 +489,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--HII region two temperature "equation of state"
 !
-!  flips the temperature depending on whether a particle is ionised or not,
+!  two isothermal phases, mixed at the ionisation front by the ionised fraction,
 !  use with ISOTHERMAL=yes
 !
     call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
-
- case(22)
-!
-!--HII region two temperature "equation of state"
-!
-!  flips the temperature depending on whether a particle is ionised or not,
-!  use with ISOTHERMAL=no
-!
-    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi)
  case(23)
 !
 !--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
@@ -654,7 +645,7 @@ subroutine init_eos(eos_type,ierr)
        write(*,'(a,f7.5,a,f7.5)') 'Assuming fixed composition X = ',X_in,', Z = ',Z_in
     endif
 
- case(21,22)
+ case(21)
 
     call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
 
@@ -1419,7 +1410,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
        write(iprint,*) 'WARNING! different utherms but run is isothermal'
     endif
 
- case(2,5,22)
+ case(2,5)
 !
 !--ideal gas or polytropic eos
 !  this routine is ONLY called if utherm is NOT stored, so polyk matters
@@ -1569,7 +1560,7 @@ logical function eos_outputs_temp(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(21,22)
+ case(21)
     eos_outputs_temp = .true.
  case default
     eos_outputs_temp = eos_is_non_ideal(ieos)
@@ -1641,7 +1632,7 @@ logical function eos_requires_isothermal(ieos)
  case(1,3,6,7,8,13,14,21,26)
     eos_requires_isothermal = .true.
  case default
-    !case(2,5,4,10,11,12,15,16,20,22,23,24,25,9)
+    !case(2,5,4,10,11,12,15,16,20,23,24,25,9)
     eos_requires_isothermal = .false.
  end select
 
@@ -1657,7 +1648,7 @@ logical function eos_allows_shock_and_work(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(2,5,10,12,15,16,21,22,24,25)
+ case(2,5,10,12,15,16,21,24,25)
     eos_allows_shock_and_work = .true.
  case default
     eos_allows_shock_and_work = .false.
@@ -2008,6 +1999,10 @@ subroutine read_options_eos(db,nerr)
  if (ieos== 9) call read_options_eos_piecewise(db,nerr)
  if (ieos==15) call read_options_eos_helmholtz(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
+ if (ieos==22) then
+    call error(label,'ieos=22 is replaced by ieos=2 with icooling=10 (HII regions)')
+    nerr = nerr + 1
+ endif
  if (ieos==23) call read_options_eos_tillotson(db,nerr)
  if (ieos==25) call read_options_eos_zerotemp(db,nerr)
  if (ieos==26) then

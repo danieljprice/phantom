@@ -21,7 +21,7 @@ module setup
 !   - Temperature : *Temperature*
 !   - dist_fac    : *distance unit in pc*
 !   - iH2R_in     : *HII feedback algorithm id*
-!   - ieos_in     : *eq. of state (1: isothermal, 8: barotropic, 21: HII region)*
+!   - ieos_in     : *eq. of state (1: isothermal, 2: adiabatic, 8: barotropic, 21/22: HII region)*
 !   - mass_fac    : *mass unit in Msun*
 !   - mu          : *mean molecular weight*
 !   - np          : *number of particles in sphere*
@@ -163,6 +163,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     else
        vxyzu(4,:) = 1.5*polyk
     endif
+    ! the two phase HII model needs the adiabatic index of the gas; gamma is stored
+    ! in the dump, so it is set here and not only with a new .in file. polyk stays
+    ! the isothermal c_s^2 = kT/mu the HII eos expects
+    if (Mcloud_msun >= 1e4 .and. Rcloud_pc > 5.) gamma = 5./3.
  endif
 
  !--Setting the centre of mass of the cloud to be zero
@@ -191,7 +195,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (maxvxyzu >= 4) then
           gamma   = 5./3.
           Tfloor  = 6.
-          icooling = 6
+          icooling = 10  ! HII regions: two phase relaxation of the thermal energy
        endif
     else
        r_crit        = 2.*h_acc
@@ -249,7 +253,7 @@ subroutine get_defaults_cluster(icluster,default_cluster)
     mu          = 2.35    ! mean molecular weight
     iH2R_in     = 1       ! switch HII regions
     if (maxvxyzu >= 4) then
-       ieos_in = 22 ! Adiabatic equation of state + HII
+       ieos_in = 2 ! Adiabatic equation of state + HII (with icooling=10)
        Temperature = 40.
     endif
  case(2)
@@ -327,8 +331,8 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# options for initial sound speed'
  call write_inopt(Temperature,'Temperature','Temperature',iunit)
  call write_inopt(mu,'mu','mean molecular weight',iunit)
- if (maxvxyzu < 4) call write_inopt(ieos_in,'ieos_in','eq. of state (1: isothermal, 8: barotropic, 21: HII region)'//&
-                                    ' [if .in file does not exist]',iunit)
+ call write_inopt(ieos_in,'ieos_in','eq. of state (1: isothermal, 2: adiabatic, 8: barotropic, 21/22: HII region)'//&
+                   ' [if .in file does not exist]',iunit)
  write(iunit,"(/,a)") '# options for sink particles'
  call write_inopt(Rsink_au,'Rsink_au','sink radius in au',iunit)
  write(iunit,"(/,a)") '# options for HII feedback'
@@ -366,7 +370,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(relax, 'relax',db,errcount=nerr)
  call read_inopt(mu,'mu',db,errcount=nerr)
  call read_inopt(iH2R_in,'iH2R_in',db,errcount=nerr)
- if (maxvxyzu < 4) call read_inopt(ieos_in,'ieos_in',db,errcount=nerr)
+ call read_inopt(ieos_in,'ieos_in',db,errcount=nerr)
  call read_inopt(Rsink_au,'Rsink_au',db,errcount=nerr)
  call close_db(db)
 

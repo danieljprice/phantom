@@ -77,7 +77,7 @@ module neighkdtree
 
  public :: allocate_neigh, deallocate_neigh
  public :: build_tree, get_neighbour_list, write_options_tree, read_options_tree
- public :: get_distance_from_centre_of_mass, getneigh_pos
+ public :: get_distance_from_centre_of_mass, getneigh_pos, getneigh_sectors
  public :: set_hmaxcell,get_hmaxcell
  public :: get_cell_location
  public :: get_leaf_neighbours,reset_dual_cache
@@ -807,6 +807,84 @@ subroutine getneigh(node,xpos,xsizei,rcuti,listneigh,nneigh,xyzcache,ixyzcachesi
  enddo over_stack
 
 end subroutine getneigh
+
+!----------------------------------------------------------------
+!+
+!  Walk the local tree for the particles around xpos whose distance
+!  may be below a radius that depends on direction: the sky is cut in
+!  nsec sectors of centre secdir(:,k) and angular radius secbeta(k),
+!  and sector k reaches out to rhisec(k). A node is opened if it is
+!  closer than the largest rhisec of the sectors its angular disc, seen
+!  from xpos, overlaps. Like getneigh, whole leaves are returned: the
+!  exact test, against the radius of each particle's own sector, is left
+!  to the caller.
+!+
+!----------------------------------------------------------------
+subroutine getneigh_sectors(xpos,nsec,secdir,secbeta,rhisec,listneigh,nneigh)
+ use io,      only:fatal
+ use physcon, only:pi
+ real,    intent(in)  :: xpos(3)
+ integer, intent(in)  :: nsec
+ real,    intent(in)  :: secdir(:,:),secbeta(:),rhisec(:)
+ integer, intent(out) :: listneigh(:)
+ integer, intent(out) :: nneigh
+ integer :: n,k,istack,il,ir
+ integer :: nstack(maxdepth+1)
+ real    :: dx,dy,dz,r2,d,s,alpha,ang,cosang,rnode,rhimax
+ real    :: xoffset,yoffset,zoffset,dummycache(3,1)
+
+ rhimax = maxval(rhisec(1:nsec))
+ nneigh = 0
+ istack = 1
+ nstack(istack) = irootnode
+
+ over_stack: do while(istack /= 0)
+    n = nstack(istack)
+    istack = istack - 1
+    call get_sep(xpos,node(n)%xcen,dx,dy,dz,xoffset,yoffset,zoffset,r2)
+    s = node(n)%size
+    !
+    !--largest search radius among the sectors this node may contain
+    !
+    if (r2 <= s*s) then
+       rnode = rhimax              ! xpos is inside the node: every direction
+       d     = 0.
+    else
+       d     = sqrt(r2)
+       alpha = asin(s/d)           ! angular radius of the node seen from xpos
+       rnode = 0.
+       do k=1,nsec
+          if (rhisec(k) <= rnode) cycle
+          ang = alpha + secbeta(k)
+          if (ang >= pi) then
+             rnode = rhisec(k)
+          else
+             cosang = cos(ang)
+             if (dx*secdir(1,k) + dy*secdir(2,k) + dz*secdir(3,k) > d*cosang) rnode = rhisec(k)
+          endif
+       enddo
+    endif
+
+    if (d - s < rnode) then
+       if (leaf_is_active(n) /= 0) then
+          call cache_neighbours(nneigh,n,0,0,listneigh,dummycache,xoffset,yoffset,zoffset)
+       else
+          il = node(n)%leftchild
+          ir = node(n)%rightchild
+          if (istack+2 > maxdepth+1) call fatal('getneigh_sectors','stack overflow')
+          if (il /= 0) then
+             istack = istack + 1
+             nstack(istack) = il
+          endif
+          if (ir /= 0) then
+             istack = istack + 1
+             nstack(istack) = ir
+          endif
+       endif
+    endif
+ enddo over_stack
+
+end subroutine getneigh_sectors
 
 !----------------------------------------------------------------
 !+
