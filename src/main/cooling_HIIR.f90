@@ -38,7 +38,7 @@ module cooling_HIIR
 
  private
 
- real :: mucold,tempcoef
+ real :: mucold = 0., tempcoef = 0.  ! set by init_cooling_HIIR (icooling=10)
 
 contains
 
