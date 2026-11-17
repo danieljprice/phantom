@@ -156,7 +156,7 @@ module forces
        ifskxi         = 13, &
        ifskyi         = 14, &
        ifskzi         = 15, &
-       ifronti        = 16, &
+!      16 is ifonrmaxi, in mpiforce: a maximum over MPI tasks (combine_cellforce)
        ipertouti      = 17, &
  !--dust array indexing
        ifdragxi       = 18, &
@@ -184,7 +184,9 @@ module forces
  !--pressure gradient for the radiative cooling approximation (icooling=9)
        igradpxi       = 35 + 5*(maxdustsmall-1), &
        igradpyi       = 36 + 5*(maxdustsmall-1), &
-       igradpzi       = 37 + 5*(maxdustsmall-1)
+       igradpzi       = 37 + 5*(maxdustsmall-1), &
+ !--HII regions (icooling=10): number of ionised neighbours
+       ifronti        = 38 + 5*(maxdustsmall-1)
 
  private
 

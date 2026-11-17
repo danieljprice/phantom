@@ -49,10 +49,12 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_cooling_HIIR(ierr)
  use eos,      only:gamma,polyk,gmw,temperature_coef
- use eos_HIIR, only:init_eos_HIIR
+ use eos_HIIR, only:init_eos_HIIR,muion
+ use io,       only:fatal
  integer, intent(out) :: ierr
 
  call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
+ if (gmw - muion <= 0.) call fatal('H2region','gmw lower than muion...')
  mucold   = gmw
  tempcoef = temperature_coef
 
