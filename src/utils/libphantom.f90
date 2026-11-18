@@ -341,20 +341,20 @@ end subroutine init_step_wrapper
 !
 subroutine finalize_step_wrapper(len_infile, infile, len_logfile, logfile, &
                                  len_evfile, evfile, len_dumpfile, dumpfile,
- t1,tcpu1,at_simulation_end)
- use evolve,       only:evol_poststep
- use timestep,     only:time,dt,dtmax
- use timestep_ind, only:nactive
- implicit none
- integer,                     intent(in)    :: len_infile,len_logfile,len_evfile,len_dumpfile
- character(len=len_infile),   intent(in)    :: infile
- character(len=len_logfile),  intent(inout) :: logfile
- character(len=len_evfile),   intent(inout) :: evfile
- character(len=len_dumpfile), intent(inout) :: dumpfile
- real(kind=4),                intent(in)    :: t1,tcpu1
- logical,                     intent(out)   :: at_simulation_end
+t1,tcpu1,at_simulation_end)
+use evolve,       only:evol_poststep
+use timestep,     only:time,dt,dtmax
+use timestep_ind, only:nactive
+implicit none
+integer,                     intent(in)    :: len_infile,len_logfile,len_evfile,len_dumpfile
+character(len=len_infile),   intent(in)    :: infile
+character(len=len_logfile),  intent(inout) :: logfile
+character(len=len_evfile),   intent(inout) :: evfile
+character(len=len_dumpfile), intent(inout) :: dumpfile
+real(kind=4),                intent(in)    :: t1,tcpu1
+logical,                     intent(out)   :: at_simulation_end
 
- call evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
+call evol_poststep(infile,logfile,evfile,dumpfile,time,t1,tcpu1,dt,dtmax,&
                     nactive,at_simulation_end)
 
 end subroutine finalize_step_wrapper
