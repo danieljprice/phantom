@@ -154,7 +154,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_piecewise,    only:get_eos_piecewise
  use eos_tillotson,    only:equationofstate_tillotson
  use eos_stamatellos
- use eos_HIIR,         only:get_eos_HIIR_iso
+ use eos_HIIR,         only:get_eos_HIIR
  use eos_zerotemp,     only:get_zerotemp_pressure,get_zerotemp_spsoundi
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
@@ -489,10 +489,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--HII region two temperature "equation of state"
 !
-!  two isothermal phases, mixed at the ionisation front by the ionised fraction,
-!  use with ISOTHERMAL=yes
+!  two isothermal phases, adiabatic gas at the ionisation front (with iH2R > 0)
 !
-    call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
+    if (.not.present(eni)) call fatal('eos','ieos=21 requires the thermal energy as input')
+    call get_eos_HIIR(polyk,temperature_coef,mui,gammai,eni,tempi,ponrhoi,spsoundi)
  case(23)
 !
 !--Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)
@@ -1629,7 +1629,7 @@ logical function eos_requires_isothermal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(1,3,6,7,8,13,14,21,26)
+ case(1,3,6,7,8,13,14,26)
     eos_requires_isothermal = .true.
  case default
     !case(2,5,4,10,11,12,15,16,20,23,24,25,9)
@@ -2000,7 +2000,7 @@ subroutine read_options_eos(db,nerr)
  if (ieos==15) call read_options_eos_helmholtz(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
  if (ieos==22) then
-    call error(label,'ieos=22 is replaced by ieos=2 with icooling=10 (HII regions)')
+    call error(label,'ieos=22 is replaced by ieos=21 (HII regions)')
     nerr = nerr + 1
  endif
  if (ieos==23) call read_options_eos_tillotson(db,nerr)

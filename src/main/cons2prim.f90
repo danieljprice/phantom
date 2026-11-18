@@ -341,10 +341,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           X_i = eos_vars(iX,i)
           Z_i = eos_vars(iZ,i)
        endif
-       !--HII regions (icooling=10): mu set by the HII routines, for the temperature
-       if (icooling == 10) then
+       !--HII regions: mu set by the HII routines, for the temperature
+       if (ieos == 21) then
           mui = eos_vars(imu,i)
-          if (mui <= 0.) mui = gmw
        endif
        if (do_nucleation) then
           mui    = nucleation(idmu,i)
