@@ -18,7 +18,7 @@ module eos_HIIR
 !
  implicit none
 
- public :: get_eos_HIIR_iso,init_eos_HIIR
+ public :: get_eos_HIIR,init_eos_HIIR
 
  real, public, parameter :: Tion = 10000.
  real, public, parameter :: muion = 0.5
@@ -40,6 +40,7 @@ contains
 subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  use physcon, only:kb_on_mh
  use units,   only:unit_velocity
+ use io,      only:fatal
 
  integer, intent(out) :: ierr
  real,    intent(in)  :: gamma,polyk,gmw,temperature_coef
@@ -48,11 +49,9 @@ subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  csion     = sqrt(polykion)
  Tcold     = polyk*gmw*temperature_coef
 
- if (gamma>1.) then
-    uIon = (kb_on_mh*Tion/(muion*(gamma-1.)))/(unit_velocity**2)
- else
-    uIon = 1.5*polykion
- endif
+ if (gamma <= 1.) call fatal('eos_HIIR','ieos=21 needs gamma > 1 for the gas of the front',var='gamma',val=gamma)
+ if (gmw <= muion) call fatal('eos_HIIR','gmw lower than muion',var='gmw',val=gmw)
+ uIon = (kb_on_mh*Tion/(muion*(gamma-1.)))/(unit_velocity**2)
 
  ierr = 0
 
@@ -60,27 +59,35 @@ end subroutine init_eos_HIIR
 
  !-----------------------------------------------------------------------
  !+
- !  Main eos routine (isothermal)
+ !  Main eos routine
  !
  !  two isothermal phases, P = c_s^2 rho, with c_s^2 = polyk in the cold gas
- !  and polykion in the ionised gas. The ionised fraction phi of the front
- !  particle is read from its temperature T = phi*Tion + (1-phi)*Tcold, set by
- !  the HII routines, and P/rho is mixed in the same way. Anything outside
- !  [Tcold,Tion] (e.g. T not set yet) is clipped to the nearest phase
+ !  (T <= Tcold) and polykion in the ionised gas (T >= Tion). The gas in
+ !  between, at the ionisation front, is adiabatic, P = (gamma-1) rho u, its
+ !  thermal energy relaxing to its phase (see HIIRegion)
  !+
  !-----------------------------------------------------------------------
-subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi)
- real, intent(in)    :: polyk,temperature_coef,mui
- real, intent(out)   :: ponrhoi,spsoundi
- real, intent(inout) :: tempi
- real :: phi
+subroutine get_eos_HIIR(polyk,temperature_coef,mui,gammai,eni,tempi,ponrhoi,spsoundi)
+ real, intent(in)  :: polyk,temperature_coef,mui,gammai,eni
+ real, intent(out) :: tempi,ponrhoi,spsoundi
 
- phi      = min(max((tempi - Tcold)/(Tion - Tcold),0.),1.)
- ponrhoi  = phi*polykion + (1. - phi)*polyk
- spsoundi = sqrt(ponrhoi)
- tempi    = phi*Tion + (1. - phi)*Tcold
+ if (mui > muion) then !- neutral or partially ionised
+    tempi = (gammai - 1.)*eni*mui*temperature_coef
+    if (tempi > Tcold) then !- if hot then in a shell
+       ponrhoi  = (gammai - 1.)*eni
+       spsoundi = sqrt(gammai*ponrhoi)
+    else !- else cold
+       ponrhoi  = polyk
+       spsoundi = sqrt(polyk)
+       tempi    = Tcold
+    endif
+ else
+    ponrhoi  = polykion
+    spsoundi = csion
+    tempi    = Tion
+ endif
 
-end subroutine get_eos_HIIR_iso
+end subroutine get_eos_HIIR
 
 end module eos_HIIR
 

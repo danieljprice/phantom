@@ -17,8 +17,8 @@ module testptmass
 ! :Dependencies: HIIRegion, apr, boundary, centreofmass, checksetup,
 !   cons2prim, deriv, dim, energies, eos, eos_HIIR, extern_binary,
 !   extern_gr, externalforces, gravwaveutils, infile_utils, io, kdtree,
-!   kernel, metric, metric_tools, mpiutils, neighkdtree, options, orbits,
-!   part, physcon, ptmass, ptmass_tree, random, setbinary, setdisc,
+!   kernel, metric, metric_tools, mpiutils, neighkdtree, omputils, options,
+!   orbits, part, physcon, ptmass, ptmass_tree, random, setbinary, setdisc,
 !   setorbit, setup_params, spherical, step_lf_global, stretchmap,
 !   subgroup, substepping, table_utils, testutils, timestep, timing, units,
 !   utils_subgroup
@@ -1790,8 +1790,14 @@ subroutine test_merger(ntests,npass)
 end subroutine test_merger
 
 subroutine test_HIIregion(ntests,npass)
+ use dim, only:maxvxyzu
+ use io,  only:iprint
  integer, intent(inout) :: ntests,npass
 
+ if (maxvxyzu < 4) then
+    write(iprint,*) '--> Skip HII tests: the HII region model needs the thermal energy'
+    return
+ endif
  call test_HII_eos(ntests,npass)
 
  call test_HII_exp(ntests,npass)
@@ -1800,92 +1806,83 @@ end subroutine test_HIIregion
 
 !-----------------------------------------------------------------------
 !+
-!  Test the two phase eos of the HII regions: the isothermal eos (ieos=21)
-!  mixed at the front and the two phase relaxation of the adiabatic model (icooling=10)
+!  Test the two phase model of the HII regions (ieos=21): isothermal phases,
+!  adiabatic gas at the front, and its relaxation to the phases in the step
 !+
 !-----------------------------------------------------------------------
 subroutine test_HII_eos(ntests,npass)
  use io,        only:id,master,iprint
- use eos,       only:gmw,gamma,polyk,init_eos
- use eos_HIIR,  only:get_eos_HIIR_iso,Tion,Tcold,muion,polykion,uIon
- use cooling_HIIR, only:init_cooling_HIIR,relax_HIIR,heated_u_HIIR,held_HIIR,Crelax
- use eos,       only:temperature_coef
+ use eos,       only:gmw,gamma,polyk,init_eos,temperature_coef
+ use eos_HIIR,  only:get_eos_HIIR,Tion,Tcold,muion,polykion,uIon
+ use HIIRegion, only:relax_u_HIIR,heated_u_HIIR,is_ionised,Crelax
  use units,     only:set_units,unit_velocity
  use physcon,   only:pc,solarm,kboltz,mass_proton_cgs
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(17),ierr
- real    :: tempi,ponrhoi,spsoundi,ucold,u0,dudt,h,dt,trelax,Crelax0,muhalf,uhalf
+ integer :: nfailed(19),ierr
+ real    :: tempi,ponrhoi,spsoundi,ucold,u0,h,dt,trelax,Crelax0,muhalf,uhalf
  real    :: gmw0,gamma0,polyk0
 
- if (id==master) write(iprint,"(/,a)") '--> testing HII region two phase equation of state'
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region two phase model'
  nfailed(:) = 0
- gmw0 = gmw; gamma0 = gamma; polyk0 = polyk
+ gmw0 = gmw; gamma0 = gamma; polyk0 = polyk; Crelax0 = Crelax
  call set_units(dist=pc,mass=solarm,G=1.d0)
  gmw   = 1.
  gamma = 5./3.
  polyk = (kboltz*100.)/(gmw*mass_proton_cgs)/unit_velocity**2
  call init_eos(21,ierr)
+ ucold  = polyk/(gamma - 1.)
+ muhalf = 0.5*(muion + gmw)
+ uhalf  = 0.5*(Tion + Tcold)/(temperature_coef*muhalf*(gamma - 1.))
+ h      = 1.e-2
+ dt     = 1.e-6
 
- !-- ieos=21: neutral, ionised, half ionised front particle, temperature not set yet
- tempi = Tcold
- call get_eos_HIIR_iso(polyk,temperature_coef,gmw,tempi,ponrhoi,spsoundi)
- call checkval(ponrhoi,polyk,epsilon(0.),nfailed(1),'iso: P/rho of the cold phase')
+ !-- eos: isothermal phases, adiabatic half ionised front particle, gas below Tcold
+ call get_eos_HIIR(polyk,temperature_coef,gmw,gamma,ucold,tempi,ponrhoi,spsoundi)
+ call checkval(spsoundi,sqrt(polyk),epsilon(0.),nfailed(1),'eos: isothermal cold phase')
 
- tempi = Tion
- call get_eos_HIIR_iso(polyk,temperature_coef,muion,tempi,ponrhoi,spsoundi)
- call checkval(ponrhoi,polykion,epsilon(0.),nfailed(2),'iso: P/rho of the ionised phase')
+ call get_eos_HIIR(polyk,temperature_coef,muion,gamma,uIon,tempi,ponrhoi,spsoundi)
+ call checkval(ponrhoi,polykion,epsilon(0.),nfailed(2),'eos: isothermal ionised phase')
 
- tempi = 0.5*(Tion + Tcold)
- call get_eos_HIIR_iso(polyk,temperature_coef,gmw,tempi,ponrhoi,spsoundi)
- call checkval(ponrhoi,0.5*(polyk + polykion),1.e-14,nfailed(3),'iso: P/rho of a half ionised particle')
+ call get_eos_HIIR(polyk,temperature_coef,muhalf,gamma,uhalf,tempi,ponrhoi,spsoundi)
+ call checkval(spsoundi,sqrt(gamma*(gamma - 1.)*uhalf),1.e-14,nfailed(3),'eos: adiabatic front particle')
 
- tempi = -1.
- call get_eos_HIIR_iso(polyk,temperature_coef,gmw,tempi,ponrhoi,spsoundi)
- call checkval(ponrhoi,polyk,epsilon(0.),nfailed(4),'iso: unset temperature is cold')
+ call get_eos_HIIR(polyk,temperature_coef,gmw,gamma,0.5*ucold,tempi,ponrhoi,spsoundi)
+ call checkval(tempi,Tcold,epsilon(0.),nfailed(4),'eos: gas below Tcold is cold')
 
- !-- icooling=10: the front relaxes over Crelax*h/c_s, the ionised gas is held at uIon,
- !   the neutral gas away from the front is held in force (no du/dt)
- call init_cooling_HIIR(ierr)
- ucold   = polyk/(gamma - 1.)
- muhalf  = 0.5*(muion + gmw)
- uhalf   = 0.5*(Tion + Tcold)/(temperature_coef*muhalf*(gamma - 1.))
- h       = 1.e-2
- dt      = 1.e-6
- u0      = 100.*ucold
- call relax_HIIR(u0,h,muion,gamma,dt,dudt)
- call checkval(u0 + dt*dudt,uIon,1.e-14,nfailed(5),'relax: ionised gas held at uIon')
- call checkval(held_HIIR(muion,0.),.true.,nfailed(6),'held: ionised gas')
- call checkval(held_HIIR(gmw,0.),.true.,nfailed(7),'held: neutral gas away from the front')
- call checkval(held_HIIR(0.,0.),.true.,nfailed(8),'held: unset mu counts as neutral')
- call checkval(held_HIIR(gmw,2.),.false.,nfailed(9),'held: neutral gas of the front is free')
- call checkval(held_HIIR(muhalf,0.),.false.,nfailed(10),'held: partially ionised gas is free')
+ !-- ionised gas, counted as ionised neighbours to find the neutral gas of the front (force)
+ call checkval(is_ionised(gmw),.false.,nfailed(5),'front: neutral gas is not ionised')
+ call checkval(is_ionised(0.),.false.,nfailed(6),'front: unset mu is not ionised')
+ call checkval(is_ionised(muhalf),.true.,nfailed(7),'front: partially ionised gas')
+ call checkval(is_ionised(muion),.true.,nfailed(8),'front: fully ionised gas')
 
- Crelax0 = Crelax
- Crelax  = 2.
- u0      = 3.*uhalf
- trelax  = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)  ! sound speed of the shocked gas
- call relax_HIIR(u0,h,muhalf,gamma,trelax,dudt)
- call checkval((u0 + trelax*dudt - uhalf)/(u0 - uhalf),exp(-1.),1.e-12,nfailed(11),&
+ !-- relaxation: the ionised gas at uIon, the front heated at once, the hot gas cools to its target
+ call checkval(relax_u_HIIR(100.*ucold,h,muion,dt),uIon,epsilon(0.),nfailed(9),'relax: ionised gas held at uIon')
+ call checkval(relax_u_HIIR(ucold,h,muhalf,dt),uhalf,1.e-14,nfailed(10),'relax: front particle heated at once')
+ call checkval(relax_u_HIIR(0.5*ucold,h,gmw,dt),ucold,epsilon(0.),nfailed(11),'relax: gas below its target set to it')
+
+ Crelax = 2.
+ u0     = 3.*uhalf
+ trelax = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)  ! sound speed of the shocked gas
+ call checkval((relax_u_HIIR(u0,h,muhalf,trelax) - uhalf)/(u0 - uhalf),exp(-1.),1.e-12,nfailed(12),&
                'relax: shocked front decays over Crelax*h/cs')
 
- u0      = 3.*ucold
- trelax  = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)
- call relax_HIIR(u0,h,gmw,gamma,trelax,dudt)
- call checkval((u0 + trelax*dudt - ucold)/(u0 - ucold),exp(-1.),1.e-12,nfailed(12),&
-               'relax: shocked neutral gas decays over Crelax*h/cs')
+ u0     = 3.*ucold
+ trelax = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)
+ call checkval((relax_u_HIIR(u0,h,gmw,trelax) - ucold)/(u0 - ucold),exp(-1.),1.e-12,nfailed(13),&
+               'relax: hot neutral gas decays over Crelax*h/cs')
+ call checkval(relax_u_HIIR(u0,h,gmw,0.),u0,epsilon(0.),nfailed(14),'relax: nothing over a zero interval')
+ call checkval(relax_u_HIIR(ucold*(1. + 1.e-4),h,gmw,dt),ucold,epsilon(0.),nfailed(15),'relax: back in its phase')
 
- !-- half ionised front particle, still cold: heated by the star at once
- call relax_HIIR(ucold,h,muhalf,gamma,dt,dudt)
- call checkval(ucold + dt*dudt,uhalf,1.e-12,nfailed(13),'relax: front particle heated at once')
+ Crelax = 0.
+ call checkval(relax_u_HIIR(u0,h,gmw,dt),ucold,epsilon(0.),nfailed(16),'relax: Crelax=0 gives two isothermal phases')
 
- !-- thermal energy given to the forces in derivs
- call checkval(heated_u_HIIR(ucold,muion,gamma),uIon,epsilon(0.),nfailed(14),'heat: ionised gas at uIon')
- call checkval(heated_u_HIIR(0.5*ucold,gmw,gamma),ucold,1.e-14,nfailed(15),'heat: neutral gas at least at Tcold')
- call checkval(heated_u_HIIR(ucold,muhalf,gamma),uhalf,1.e-14,nfailed(16),'heat: front particle at its target')
- call checkval(heated_u_HIIR(2.*uhalf,muhalf,gamma),2.*uhalf,epsilon(0.),nfailed(17),'heat: shocked front kept')
+ !-- thermal energy given to the forces when a particle is ionised
+ call checkval(heated_u_HIIR(ucold,muion),uIon,epsilon(0.),nfailed(17),'heat: ionised gas at uIon')
+ call checkval(heated_u_HIIR(ucold,muhalf),uhalf,1.e-14,nfailed(18),'heat: front particle at its target')
+ call checkval(heated_u_HIIR(2.*uhalf,muhalf),2.*uhalf,epsilon(0.),nfailed(19),'heat: shocked front kept')
 
- Crelax  = Crelax0
+ Crelax = Crelax0
  gmw = gmw0; gamma = gamma0; polyk = polyk0
 
  call update_test_scores(ntests,nfailed,npass)
@@ -2214,7 +2211,6 @@ subroutine setup_HII_sphere(logQ,rho0)
  real    :: totmass,psep,totvol,nx,rmin,rmax,temp
 
  call set_units(dist=pc,mass=solarm,G=1.d0)
- call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  iverbose = 0
  !
  ! initialise arrays to zero
@@ -2235,7 +2231,7 @@ subroutine setup_HII_sphere(logQ,rho0)
  nHIIsources = 1
 
  hfact = 1.2
- gamma = 1.
+ gamma = 5./3.
  rmin  = 0.
  rmax  = 2.91*pc/udist
  ieos  = 21
@@ -2276,12 +2272,10 @@ subroutine setup_HII_sphere(logQ,rho0)
  xyzmh_ptmass(irstrom,1) = -1.
 
  polyk = (kboltz*temp)/(gmw*mass_proton_cgs)*((unit_velocity)**2)
+ call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
  vxyzu(:,:) = 0.
  fxyzu(:,:) = 0.
- if (maxvxyzu >= 4) then
-    vxyzu(4,:) = polyk
-    ieos = 2
- endif
+ if (maxvxyzu >= 4) vxyzu(4,:) = polyk/(gamma - 1.)  ! cold phase
  call get_density_global(2)
 
 end subroutine setup_HII_sphere

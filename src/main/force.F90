@@ -39,12 +39,12 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
-!   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
-!   mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils, neighkdtree,
-!   nicil, options, part, physcon, ptmass, ptmass_heating, radiation_utils,
-!   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
-!   viscosity
+! :Dependencies: HIIRegion, boundary, cooling, derivutils, dim, dust, eos,
+!   eos_shen, eos_stamatellos, growth, io, io_summary, kdtree, kernel,
+!   metric_tools, mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils,
+!   neighkdtree, nicil, options, part, physcon, ptmass, ptmass_heating,
+!   radiation_utils, shock_capturing, timestep, timestep_ind, timing,
+!   units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph
@@ -185,7 +185,7 @@ module forces
        igradpxi       = 35 + 5*(maxdustsmall-1), &
        igradpyi       = 36 + 5*(maxdustsmall-1), &
        igradpzi       = 37 + 5*(maxdustsmall-1), &
- !--HII regions (icooling=10): number of ionised neighbours
+ !--HII regions: number of ionised neighbours
        ifronti        = 38 + 5*(maxdustsmall-1)
 
  private
@@ -959,7 +959,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,use_var_comp,icooling
  use eos_stamatellos, only:getopac_opdep
- use cooling_HIIR, only:is_ionised
+ use HIIRegion,   only:iH2R,is_ionised
  use part,        only:imu
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
@@ -1511,9 +1511,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projBi = 0.; projBj = 0.; divBdiffterm = 0.
        endif
 
-       !--HII regions (icooling=10): count the ionised gas neighbours of i,
+       !--HII regions: count the ionised gas neighbours of i,
        !  also those whose kernel does not reach i (usej false with gravity)
-       if (icooling == 10 .and. iamgasj) then
+       if (iH2R > 0 .and. iamgasj) then
           if (is_ionised(eos_vars(imu,j))) fsum(ifronti) = fsum(ifronti) + 1.
        endif
 
@@ -2799,7 +2799,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use io,             only:warning
  use physcon,        only:c,kboltz
  use eos_stamatellos,only:duSPH,gradP_cool
- use cooling_HIIR,   only:held_HIIR
+ use HIIRegion,      only:iH2R,is_ionised,is_fully_ionised
  integer,         intent(in)    :: icall
  type(cellforce), intent(inout) :: cell
  real,            intent(inout) :: fxyzu(:,:)
@@ -3197,10 +3197,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           else
              if (maxvxyzu >= 4) then
                 fxyzu(4,i) = fxyz4
-                !--the ionised and neutral phases of the HII region model are held at their
-                !  temperature, except the neutral gas of the front (ionised neighbours)
-                if (icooling == 10) then
-                   if (held_HIIR(eos_vars(imu,i),fsum(ifronti))) fxyzu(4,i) = 0.
+                !--HII regions: the neutral gas away from the ionisation front (no ionised
+                !  neighbour) is isothermal, its shocks are not heated
+                if (iH2R > 0) then
+                   if (is_fully_ionised(eos_vars(imu,i)) .or. &
+                       (.not.is_ionised(eos_vars(imu,i)) .and. fsum(ifronti) <= 0.)) fxyzu(4,i) = 0.
                 endif
                 if (icooling == 9) then
                    call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
