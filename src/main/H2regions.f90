@@ -569,7 +569,6 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
 
 end subroutine HII_bound
 
-
 !-----------------------------------------------------------------------
 !+
 !  photon demand of source i inside r_lo and inside r_hi of each sector,
