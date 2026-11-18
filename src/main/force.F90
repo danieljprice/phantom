@@ -2799,7 +2799,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use io,             only:warning
  use physcon,        only:c,kboltz
  use eos_stamatellos,only:duSPH,gradP_cool
- use HIIRegion,      only:iH2R,is_ionised
+ use HIIRegion,      only:iH2R,is_ionised,is_fully_ionised
  integer,         intent(in)    :: icall
  type(cellforce), intent(inout) :: cell
  real,            intent(inout) :: fxyzu(:,:)
@@ -3200,7 +3200,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 !--HII regions: the neutral gas away from the ionisation front (no ionised
                 !  neighbour) is isothermal, its shocks are not heated
                 if (iH2R > 0) then
-                   if (.not.is_ionised(eos_vars(imu,i)) .and. fsum(ifronti) <= 0.) fxyzu(4,i) = 0.
+                   if (is_fully_ionised(eos_vars(imu,i)) .or. &
+                       (.not.is_ionised(eos_vars(imu,i)) .and. fsum(ifronti) <= 0.)) fxyzu(4,i) = 0.
                 endif
                 if (icooling == 9) then
                    call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)

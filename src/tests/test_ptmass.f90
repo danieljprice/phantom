@@ -1814,7 +1814,7 @@ subroutine test_HII_eos(ntests,npass)
  use io,        only:id,master,iprint
  use eos,       only:gmw,gamma,polyk,init_eos,temperature_coef
  use eos_HIIR,  only:get_eos_HIIR,Tion,Tcold,muion,polykion,uIon
- use HIIRegion, only:evolve_u_HIIR,heated_u_HIIR,is_ionised,Crelax
+ use HIIRegion, only:relax_u_HIIR,heated_u_HIIR,is_ionised,Crelax
  use units,     only:set_units,unit_velocity
  use physcon,   only:pc,solarm,kboltz,mass_proton_cgs
  use testutils, only:checkval,update_test_scores
@@ -1856,27 +1856,26 @@ subroutine test_HII_eos(ntests,npass)
  call checkval(is_ionised(muhalf),.true.,nfailed(7),'front: partially ionised gas')
  call checkval(is_ionised(muion),.true.,nfailed(8),'front: fully ionised gas')
 
- !-- step: the ionised gas at uIon, the front heated at once, the hot gas cools to its target
- call checkval(evolve_u_HIIR(100.*ucold,uIon/dt,h,muion,dt),uIon,epsilon(0.),nfailed(9),'step: ionised gas held at uIon')
- call checkval(evolve_u_HIIR(ucold,0.,h,muhalf,dt),uhalf,1.e-14,nfailed(10),'step: front particle heated at once')
- call checkval(evolve_u_HIIR(2.*ucold,-2.*ucold/dt,h,gmw,dt),ucold,epsilon(0.),nfailed(11),&
-               'step: hot gas cooled below its target')
+ !-- relaxation: the ionised gas at uIon, the front heated at once, the hot gas cools to its target
+ call checkval(relax_u_HIIR(100.*ucold,h,muion,dt),uIon,epsilon(0.),nfailed(9),'relax: ionised gas held at uIon')
+ call checkval(relax_u_HIIR(ucold,h,muhalf,dt),uhalf,1.e-14,nfailed(10),'relax: front particle heated at once')
+ call checkval(relax_u_HIIR(0.5*ucold,h,gmw,dt),ucold,epsilon(0.),nfailed(11),'relax: gas below its target set to it')
+
  Crelax = 2.
  u0     = 3.*uhalf
  trelax = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)  ! sound speed of the shocked gas
- call checkval((evolve_u_HIIR(u0,0.,h,muhalf,trelax) - uhalf)/(u0 - uhalf),exp(-1.),1.e-12,nfailed(12),&
-               'step: shocked front decays over Crelax*h/cs')
+ call checkval((relax_u_HIIR(u0,h,muhalf,trelax) - uhalf)/(u0 - uhalf),exp(-1.),1.e-12,nfailed(12),&
+               'relax: shocked front decays over Crelax*h/cs')
 
  u0     = 3.*ucold
  trelax = Crelax*h/sqrt(gamma*(gamma - 1.)*u0)
- call checkval((evolve_u_HIIR(u0,0.,h,gmw,trelax) - ucold)/(u0 - ucold),exp(-1.),1.e-12,nfailed(13),&
-               'step: hot neutral gas decays over Crelax*h/cs')
- call checkval((evolve_u_HIIR(2.*ucold,ucold/trelax,h,gmw,trelax) - ucold)/(u0 - ucold),exp(-1.),1.e-12,&
-               nfailed(14),'step: hydro du/dt then relaxation')
- call checkval(evolve_u_HIIR(ucold*(1. + 1.e-4),0.,h,gmw,dt),ucold,epsilon(0.),nfailed(15),'step: back in its phase')
+ call checkval((relax_u_HIIR(u0,h,gmw,trelax) - ucold)/(u0 - ucold),exp(-1.),1.e-12,nfailed(13),&
+               'relax: hot neutral gas decays over Crelax*h/cs')
+ call checkval(relax_u_HIIR(u0,h,gmw,0.),u0,epsilon(0.),nfailed(14),'relax: nothing over a zero interval')
+ call checkval(relax_u_HIIR(ucold*(1. + 1.e-4),h,gmw,dt),ucold,epsilon(0.),nfailed(15),'relax: back in its phase')
 
  Crelax = 0.
- call checkval(evolve_u_HIIR(u0,0.,h,gmw,dt),ucold,epsilon(0.),nfailed(16),'step: Crelax=0 gives two isothermal phases')
+ call checkval(relax_u_HIIR(u0,h,gmw,dt),ucold,epsilon(0.),nfailed(16),'relax: Crelax=0 gives two isothermal phases')
 
  !-- thermal energy given to the forces when a particle is ionised
  call checkval(heated_u_HIIR(ucold,muion),uIon,epsilon(0.),nfailed(17),'heat: ionised gas at uIon')

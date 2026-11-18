@@ -73,7 +73,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,    only:i_belong
  use HIIRegion,    only:iH2R
  use subgroup,     only:r_neigh
- use cooling,      only:Tfloor
  use infile_utils, only:get_options,infile_exists
  use utils_shuffleparticles, only:shuffleparticles
  integer,          intent(in)    :: id

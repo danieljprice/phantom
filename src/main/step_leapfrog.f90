@@ -125,7 +125,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step,Tfloor
  use cooling_radapprox,only:radcool_evolve_ui
- use HIIRegion,      only:iH2R,evolve_u_HIIR
+ use HIIRegion,      only:iH2R,relax_u_HIIR
  use timing,         only:increment_timer,get_timings,itimer_substep,itimer_predict,itimer_correct
  use growth,         only:check_dustprop
  use porosity,       only:get_filfac
@@ -178,7 +178,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  call get_timings(t1,tcpu1)
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(rad,drad,iH2R,pxyzu) &
+ !$omp shared(rad,drad,iH2R,pxyzu,dtsph) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor,icooling,Tfloor,rho) &
  !$omp shared(eos_vars) &
@@ -210,11 +210,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (icooling == 9) then
              vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
              call radcool_evolve_ui(vxyzu(4,i),hdti,i,Tfloor,rho(i))
-          elseif (iH2R > 0 .and. itype == igas) then
-             vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-             vxyzu(4,i)   = evolve_u_HIIR(vxyzu(4,i),fxyzu(4,i),xyzh(4,i),eos_vars(imu,i),hdti)
           else
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          endif
+          !--HII regions, global timesteps: relaxation over the whole step
+          if (iH2R > 0 .and. itype == igas .and. .not.ind_timesteps) then
+             vxyzu(4,i) = relax_u_HIIR(vxyzu(4,i),xyzh(4,i),eos_vars(imu,i),dtsph)
           endif
        endif
 
@@ -355,11 +356,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (icooling == 9) then
              vpred(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
              call radcool_evolve_ui(vxyzu(4,i),hdti,i,Tfloor,rho(i),vpred(4,i))
-          elseif (iH2R > 0 .and. itype == igas) then
-             vpred(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-             vpred(4,i)   = evolve_u_HIIR(vxyzu(4,i),fxyzu(4,i),xyzh(4,i),eos_vars(imu,i),hdti)
           else
              vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          endif
+          !--HII regions, individual timesteps: the forces see u relaxed
+          if (iH2R > 0 .and. itype == igas .and. ind_timesteps) then
+             vpred(4,i) = relax_u_HIIR(vpred(4,i),xyzh(4,i),eos_vars(imu,i),hdti)
           endif
        endif
 
@@ -518,11 +520,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    if (icooling == 9) then
                       vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
                       call radcool_evolve_ui(vxyzu(4,i),dti,i,Tfloor,rho(i))
-                   elseif (iH2R > 0 .and. itype == igas) then
-                      vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
-                      vxyzu(4,i)   = evolve_u_HIIR(vxyzu(4,i),fxyzu(4,i),xyzh(4,i),eos_vars(imu,i),dti)
                    else
                       vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+                   endif
+                   !--HII regions: relaxation over the kick of the active particle
+                   if (iH2R > 0 .and. itype == igas) then
+                      vxyzu(4,i) = relax_u_HIIR(vxyzu(4,i),xyzh(4,i),eos_vars(imu,i),dti)
                    endif
                 endif
 
@@ -548,9 +551,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (icooling == 9) then
                    vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
                    call radcool_evolve_ui(vxyzu(4,i),hdti,i,Tfloor,rho(i))
-                elseif (iH2R > 0 .and. itype == igas) then
-                   vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-                   vxyzu(4,i)   = evolve_u_HIIR(vxyzu(4,i),fxyzu(4,i),xyzh(4,i),eos_vars(imu,i),hdti)
                 else
                    vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
                 endif
@@ -614,8 +614,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (maxvxyzu >= 4) then
                    if (icooling == 9) then
                       call radcool_evolve_ui(vxyzu(4,i),hdtsph,i,Tfloor,rho(i),eni)
-                   elseif (iH2R > 0 .and. itype == igas) then
-                      eni = evolve_u_HIIR(vxyzu(4,i),fxyzu(4,i),xyzh(4,i),eos_vars(imu,i),hdtsph)
                    else
                       eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
                    endif
@@ -676,7 +674,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp private(i) &
 !$omp shared(npart,hdtsph,omega)&
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
-!$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred,eos_vars) &
+!$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
 !$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(rad,drad,radpred,icooling,Tfloor,xyzh,rho) &

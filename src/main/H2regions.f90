@@ -34,7 +34,7 @@ module HIIRegion
 
  public :: update_ionrates,update_ionrate, HII_feedback,&
            initialize_H2R,read_options_H2R,write_options_H2R
- public :: evolve_u_HIIR,heated_u_HIIR,is_ionised
+ public :: relax_u_HIIR,heated_u_HIIR,is_ionised,is_fully_ionised
 
  integer, parameter, public    :: HIIuprate   = 8 ! update rate when IND_TIMESTEPS=yes (Hopkins like method)
  integer, public               :: iH2R = 0
@@ -1136,18 +1136,20 @@ end subroutine inversed_raytracing
 
 !-----------------------------------------------------------------------
 !+
-!  thermal energy after a kick of length dt in the step: hydro du/dt (zero
-!  for the neutral gas away from the front, see force), then the relaxation
-!  to the target of the phase, exact for any dt:
+!  relaxation of the thermal energy to the target of its phase over dt,
+!  exact for any dt:
 !    u_new = u_target + (u - u_target)*exp(-dt/t_relax),  t_relax = Crelax*h/c_s(u)
+!  uIon for the fully ionised gas, u_target at once below the target.
+!  It does not commute with the kicks, so the step applies it once per
+!  interval of time of the particle, not in each kick
 !+
 !-----------------------------------------------------------------------
-real function evolve_u_HIIR(ui,dudti,hi,mui,dt) result(unew)
+real function relax_u_HIIR(ui,hi,mui,dt) result(unew)
  use eos, only:gamma
- real, intent(in) :: ui,dudti,hi,mui,dt
+ real, intent(in) :: ui,hi,mui,dt
  real :: utarget,trelax
 
- unew = ui + dt*dudti
+ unew = ui
  if (dt <= 0.) return
 
  if (is_fully_ionised(mui)) then
@@ -1167,7 +1169,7 @@ real function evolve_u_HIIR(ui,dudti,hi,mui,dt) result(unew)
     endif
  endif
 
-end function evolve_u_HIIR
+end function relax_u_HIIR
 
 !-----------------------------------------------------------------------
 !+
