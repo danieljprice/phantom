@@ -14,9 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, datafiles, dim, eos, io, options, part,
-!   physcon, prompting, random, spherical, timestep, units,
-!   utils_shuffleparticles
+! :Dependencies: HIIRegion, datafiles, dim, eos, io, part, physcon,
+!   prompting, random, spherical, timestep, units, utils_shuffleparticles
 !
  implicit none
  public :: setpart

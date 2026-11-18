@@ -39,12 +39,12 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, derivutils, dim, dust, eos, eos_shen,
-!   eos_stamatellos, growth, io, io_summary, kdtree, kernel, metric_tools,
-!   mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils, neighkdtree,
-!   nicil, options, part, physcon, ptmass, ptmass_heating, radiation_utils,
-!   shock_capturing, timestep, timestep_ind, timing, units, utils_gr,
-!   viscosity
+! :Dependencies: HIIRegion, boundary, cooling, derivutils, dim, dust, eos,
+!   eos_shen, eos_stamatellos, growth, io, io_summary, kdtree, kernel,
+!   metric_tools, mpiderivs, mpiforce, mpikdtree, mpimemory, mpiutils,
+!   neighkdtree, nicil, options, part, physcon, ptmass, ptmass_heating,
+!   radiation_utils, shock_capturing, timestep, timestep_ind, timing,
+!   units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,&
                maxdusttypes,maxdustsmall,do_radiation,maxpsph

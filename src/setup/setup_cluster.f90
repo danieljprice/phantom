@@ -28,8 +28,8 @@ module setup
 !   - relax       : *relax the cloud?*
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
-!   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, setvfield, spherical, subgroup, timestep, units,
+!   infile_utils, io, kernel, mpidomain, part, physcon, prompting, ptmass,
+!   setup_params, setvfield, spherical, subgroup, timestep, units,
 !   utils_shuffleparticles, velfield
 !
  use dim, only:maxvxyzu,mhd

@@ -19,7 +19,7 @@ module neighkdtree
 !   - tree_accuracy : *tree opening criterion (0.0-1.0)*
 !
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, infile_utils, io,
-!   kdtree, kernel, mpikdtree, part, sortutils, timing
+!   kdtree, kernel, mpikdtree, part, physcon, sortutils, timing
 !
  use dim,          only:ncellsmax,gravity
  use dtypekdtree,  only:kdnode,lenfgrav,node,leaf_is_active,active_leaves,nactive_leaves,ncells

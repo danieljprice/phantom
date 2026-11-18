@@ -25,8 +25,8 @@ module HIIRegion
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, eos_HIIR, infile_utils, io, kernel, neighkdtree,
-!   part, physcon, sortutils, units
+! :Dependencies: dim, eos, eos_HIIR, healpix, infile_utils, io, kdtree,
+!   kernel, mpiutils, neighkdtree, part, physcon, sortutils, units
 !
  use eos_HIIR,   only:csion,uIon,muion
  use eos,        only:gmw
