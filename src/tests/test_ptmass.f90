@@ -174,6 +174,7 @@ subroutine test_ptmass(ntests,npass,string)
     do itest=1,3
        call test_accretion(ntests,npass,itest)
     enddo
+    call test_ptmass_neigh(ntests,npass)
  endif
  !
  !  Test sink particle creation
@@ -1271,6 +1272,56 @@ subroutine test_accretion(ntests,npass,itest)
  call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_accretion
+
+!-----------------------------------------------------------------------
+!+
+!  Test the neighbour search in the tree of sink particles used
+!  for accretion when nptmass > nfastacc, against a direct search
+!+
+!-----------------------------------------------------------------------
+subroutine test_ptmass_neigh(ntests,npass)
+ use io,          only:id,master
+ use part,        only:nptmass,xyzmh_ptmass
+ use ptmass_tree, only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh,nfastacc
+ use neighkdtree, only:listneigh
+ use dim,         only:maxptmass
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nquery = 1000
+ real,    parameter :: g = 1.2207440846057595 ! generates the R3 quasi-random sequence
+ real,    parameter :: a(3) = (/1./g,1./g**2,1./g**3/)
+ integer :: i,j,nneigh,nmissed,nfailed(1)
+ real    :: xyz(3),rsearch
+
+ if (id==master) write(*,"(/,a)") '--> testing neighbour search in the tree of sink particles'
+ !--sinks and search positions from a quasi-random sequence, without using
+ !  the state of the random number generator that other tests rely on
+ nptmass = min(2*nfastacc,maxptmass)
+ xyzmh_ptmass(:,1:nptmass) = 0.
+ do i=1,nptmass
+    xyzmh_ptmass(1:3,i) = mod(0.5 + i*a,1.) - 0.5
+    xyzmh_ptmass(4,i)   = 1.
+ enddo
+ call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+
+ rsearch = 0.1
+ nmissed = 0
+ do j=1,nquery
+    xyz = mod(0.123 + j*a,1.) - 0.5
+    call get_ptmass_neigh(ptmasskdtree,xyz,rsearch,listneigh,nneigh)
+    do i=1,nptmass
+       if (sum((xyzmh_ptmass(1:3,i) - xyz)**2) < rsearch**2) then
+          if (.not.any(listneigh(1:nneigh)==i)) nmissed = nmissed + 1
+       endif
+    enddo
+ enddo
+ nfailed = 0
+ call checkval(nmissed,0,0,nfailed(1),'sinks missed by the tree search')
+ call update_test_scores(ntests,nfailed,npass)
+ xyzmh_ptmass(:,1:nptmass) = 0.
+ nptmass = 0
+
+end subroutine test_ptmass_neigh
 
 !-----------------------------------------------------------------------
 !+
