@@ -612,7 +612,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
                      nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
  use part,           only:apr_level,aprmassoftype,ihacc
- use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
+ use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick,icreate_sinks,h_acc
  use externalforces, only:accrete_particles
  use options,        only:iexternalforce
  use io  ,           only:id,master,fatal,iprint,iverbose
@@ -645,7 +645,12 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  fast_acc = nptmass > nfastacc
 
  if (fast_acc) then
-    call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+    if (icreate_sinks == 2) then
+       !--stars (hacc < h_acc) do not accrete, see ptmass_check_acc
+       call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree,hacc_min=h_acc)
+    else
+       call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+    endif
  endif
  itype = igas
  pmassi = massoftype(igas)

@@ -1281,7 +1281,7 @@ end subroutine test_accretion
 !-----------------------------------------------------------------------
 subroutine test_ptmass_neigh(ntests,npass)
  use io,          only:id,master
- use part,        only:nptmass,xyzmh_ptmass
+ use part,        only:nptmass,xyzmh_ptmass,ihacc
  use ptmass_tree, only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh,nfastacc
  use neighkdtree, only:listneigh
  use dim,         only:maxptmass
@@ -1290,7 +1290,7 @@ subroutine test_ptmass_neigh(ntests,npass)
  integer, parameter :: nquery = 1000
  real,    parameter :: g = 1.2207440846057595 ! generates the R3 quasi-random sequence
  real,    parameter :: a(3) = (/1./g,1./g**2,1./g**3/)
- integer :: i,j,nneigh,nmissed,nfailed(1)
+ integer :: i,j,nneigh,nmissed,nstars,nfailed(2)
  real    :: xyz(3),rsearch
 
  if (id==master) write(*,"(/,a)") '--> testing neighbour search in the tree of sink particles'
@@ -1317,6 +1317,28 @@ subroutine test_ptmass_neigh(ntests,npass)
  enddo
  nfailed = 0
  call checkval(nmissed,0,0,nfailed(1),'sinks missed by the tree search')
+ call update_test_scores(ntests,nfailed(1:1),npass)
+
+ !--every other sink is a star (small hacc), left out of the tree with hacc_min
+ do i=1,nptmass
+    xyzmh_ptmass(ihacc,i) = merge(1.,1.e-3,mod(i,2)==0)
+ enddo
+ call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree,hacc_min=0.5)
+ nmissed = 0
+ nstars  = 0
+ do j=1,nquery
+    xyz = mod(0.123 + j*a,1.) - 0.5
+    call get_ptmass_neigh(ptmasskdtree,xyz,rsearch,listneigh,nneigh)
+    nstars = nstars + count(xyzmh_ptmass(ihacc,listneigh(1:nneigh)) < 0.5)
+    do i=2,nptmass,2
+       if (sum((xyzmh_ptmass(1:3,i) - xyz)**2) < rsearch**2) then
+          if (.not.any(listneigh(1:nneigh)==i)) nmissed = nmissed + 1
+       endif
+    enddo
+ enddo
+ nfailed = 0
+ call checkval(nmissed,0,0,nfailed(1),'cores missed by the tree search')
+ call checkval(nstars,0,0,nfailed(2),'stars found by the tree search')
  call update_test_scores(ntests,nfailed,npass)
  xyzmh_ptmass(:,1:nptmass) = 0.
  nptmass = 0

@@ -53,11 +53,13 @@ end subroutine deallocate_ptmasstree
 ! Build ptmass KD-tree (serial: there are at most maxptmass sinks)
 !+
 !-----------------------------------------------------------------
-subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
- use io, only:fatal
+subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree,hacc_min)
+ use io,   only:fatal
+ use part, only:ihacc
  real,             intent(in)    :: xyzmh_ptmass(:,:)
  integer,          intent(in)    :: nptmass
  type(ptmasstree), intent(inout) :: tree
+ real,             intent(in), optional :: hacc_min ! sinks with a smaller hacc cannot accrete (stars)
  integer :: stack(istacksize)
  integer :: i,iaxis,inode,lchild,rchild
  integer :: istart,iend,imed,npnode
@@ -67,10 +69,13 @@ subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
  real    :: xtmp(3),xcen(3)
  real    :: xpivot,mtot
 
- !-- initialize tree part index array with the alive sinks
+ !-- initialize tree part index array with the alive sinks that can accrete
  npnode = 0
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
+       if (present(hacc_min)) then
+          if (xyzmh_ptmass(ihacc,i) < hacc_min) cycle
+       endif
        npnode = npnode + 1
        tree%iptmassnode(npnode) = i
     endif
