@@ -175,6 +175,32 @@ end subroutine set_active_particles
 
 !----------------------------------------------------------------
 !+
+!  wake a particle between two steps, before the particles are
+!  flagged as active: all velocities have been synchronised to the
+!  current time by the corrector, so only the bin and the time of
+!  the half step need to be changed (as when waking in the corrector).
+!  istepfrac must not yet be incremented for the step about to start
+!+
+!----------------------------------------------------------------
+subroutine wake_particle(ibini,twasi,ibin_new,time,dtmax)
+ integer(kind=1), intent(inout) :: ibini
+ real,            intent(inout) :: twasi
+ integer(kind=1), intent(in)    :: ibin_new
+ real,            intent(in)    :: time,dtmax
+ integer(kind=1) :: ibin_wake
+ integer         :: nstep
+
+ ibin_wake = min(nbinmax,ibin_new)
+ if (ibin_wake <= ibini) return
+ !--the half step of the new bin is at the middle of its step that contains the current time
+ nstep = 2**(nbinmax-ibin_wake)  ! smallest steps per step of the new bin
+ twasi = time + (0.5*nstep - mod(istepfrac,nstep))*get_dt(dtmax,nbinmax)
+ ibini = ibin_wake
+
+end subroutine wake_particle
+
+!----------------------------------------------------------------
+!+
 !  routine to do bookwork needed when total number of bins changes
 !  (dt changes and istepfrac is correspondingly adjusted)
 !+
