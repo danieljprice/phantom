@@ -221,6 +221,8 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
        call fatal('evolve','error in individual timesteps')
     endif
 
+    if (gravity .and. icreate_sinks > 0) call ptmass_create_and_update_forces(time,dtextforce)
+
     !--flag particles as active or not for this timestep
     call set_active_particles(npart,nactive,nalive,nactivetot,nalivetot,iphase,ibin,xyzh)
     nskip = int(nactivetot)
@@ -237,8 +239,6 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
     nskip = int(ntot)
     nactive = npart
  endif
-
- if (gravity .and. icreate_sinks > 0) call ptmass_create_and_update_forces(time,dtextforce)
 
  if (iH2R > 0) then
     istepHII = 1
