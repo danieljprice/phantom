@@ -619,8 +619,9 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  use io_summary,     only:summary_accrete,summary_accrete_fail
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:ind_timesteps,maxp,maxphase,use_apr
- use timing,         only:get_timings,increment_timer,itimer_acc
+ use kernel,         only:radkern
  use neighkdtree,    only:listneigh
+ use timing,         only:get_timings,increment_timer,itimer_acc
  use ptmass_tree,    only:ptmasskdtree,build_ptmass_tree,get_ptmass_neigh,nfastacc
  integer,         intent(in)    :: npart,nptmass,ntypes
  real,            intent(inout) :: xyzh(:,:)
@@ -638,7 +639,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive,nboundary,nneigh
  real            :: pmassi,xi,yi,zi,fxi,fyi,fzi,accretedmass
- real            :: rsearch
+ real            :: rsearch,rsearch_sink
 
  call get_timings(t1,tcpu1)
 
@@ -660,7 +661,7 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  nlive        = 0
  nboundary    = 0
  ibin_wakei   = 0
- rsearch      = maxval(xyzmh_ptmass(ihacc,1:nptmass))
+ rsearch_sink = maxval(xyzmh_ptmass(ihacc,1:nptmass))
  dptmass(:,1:nptmass) = 0.
  !$omp parallel do default(none) &
  !$omp shared(maxp,maxphase) &
@@ -668,8 +669,9 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
  !$omp shared(xyzmh_ptmass,pxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
  !$omp shared(iexternalforce,ptmasskdtree) &
  !$omp shared(nbinmax,ibin_wake,fast_acc) &
- !$omp private(i,was_accreted,nfaili,xi,yi,zi,fxi,fyi,fzi,nneigh) &
- !$omp firstprivate(itype,pmassi,ibin_wakei,rsearch) &
+ !$omp shared(rsearch_sink) &
+ !$omp private(i,was_accreted,nfaili,xi,yi,zi,fxi,fyi,fzi,nneigh,rsearch) &
+ !$omp firstprivate(itype,pmassi,ibin_wakei) &
  !$omp reduction(+:accretedmass) &
  !$omp reduction(+:nfail) &
  !$omp reduction(+:naccreted) &
@@ -715,7 +717,8 @@ subroutine accretion(npart,nptmass,ntypes,xyzh,pxyzu,xyzmh_ptmass,pxyz_ptmass,&
           xi      = xyzh(1,i)
           yi      = xyzh(2,i)
           zi      = xyzh(3,i)
-          rsearch = max(xyzh(4,i),rsearch)
+          !--sinks within hacc can accrete i, sinks within the kernel radius of i wake it
+          rsearch = max(rsearch_sink,radkern*xyzh(4,i))
 
           if (ind_timesteps) ibin_wakei = ibin_wake(i)
           if (fast_acc) then

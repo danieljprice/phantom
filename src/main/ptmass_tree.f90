@@ -28,7 +28,7 @@ module ptmass_tree
  type(ptmasstree)     :: ptmasskdtree
  integer, parameter   :: nmaxleaf   = 2
  integer, parameter   :: iroot      = 1
- integer, parameter   :: istacksize = 512
+ integer, parameter   :: istacksize = maxptmass ! enough for the deepest tree (one sink split off per level)
 
  integer, parameter   :: nfastacc   = 100
 
@@ -238,7 +238,7 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
 
  integer              :: stack(istacksize)
  integer              :: istack
- integer              :: inode,i,istart,iend,il,ir,npnode
+ integer              :: inode,i,j,k,istart,iend,il,ir,npnode
  real                 :: dr2,dx,dy,dz,size
  logical              :: isleaf,isneigh
 
@@ -272,13 +272,14 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
        npnode = iend - istart + 1
        if (npnode > 0) then
           if (isleaf) then
+             if (nneigh + npnode > maxptmass) call fatal("ptmass_neigh","search found more sinks than can exist",ival=nneigh+npnode)
              do i = istart, iend
                 nneigh = nneigh + 1
                 listneigh(nneigh) = tree%iptmassnode(i)
              enddo
           else
              !-- push children (if exist)
-             if ((istack + 2) < istacksize) then
+             if (istack + 2 <= istacksize) then
                 if (il /= 0) then
                    istack = istack + 1
                    stack(istack) = il
@@ -288,11 +289,23 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
                    stack(istack) = ir
                 endif
              else
-                call fatal("ptmass_neigh","stack overflow in tree build",ival=istack)
+                call fatal("ptmass_neigh","stack overflow in tree search",ival=istack)
              endif
           endif
        endif
     endif
+ enddo
+
+ !-- sort by sink index, as in the direct loop over the sinks (the first unconditional match wins)
+ do i = 2, nneigh
+    j = listneigh(i)
+    k = i - 1
+    do while (k > 0)
+       if (listneigh(k) <= j) exit
+       listneigh(k+1) = listneigh(k)
+       k = k - 1
+    enddo
+    listneigh(k+1) = j
  enddo
 
 end subroutine get_ptmass_neigh
