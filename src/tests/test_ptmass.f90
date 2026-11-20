@@ -174,6 +174,8 @@ subroutine test_ptmass(ntests,npass,string)
     do itest=1,3
        call test_accretion(ntests,npass,itest)
     enddo
+    call test_ptmass_neigh(ntests,npass)
+    call test_fast_accretion(ntests,npass)
  endif
  !
  !  Test sink particle creation
@@ -1271,6 +1273,159 @@ subroutine test_accretion(ntests,npass,itest)
  call update_test_scores(ntests,nfailed(1:1),npass)
 
 end subroutine test_accretion
+
+!-----------------------------------------------------------------------
+!+
+!  Test the neighbour search in the tree of sink particles used
+!  for accretion when nptmass > nfastacc, against a direct search
+!+
+!-----------------------------------------------------------------------
+subroutine test_ptmass_neigh(ntests,npass)
+ use io,          only:id,master
+ use part,        only:nptmass,xyzmh_ptmass,ihacc
+ use ptmass_tree, only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh,nfastacc
+ use neighkdtree, only:listneigh
+ use dim,         only:maxptmass
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: nquery = 1000
+ real,    parameter :: g = 1.2207440846057595 ! generates the R3 quasi-random sequence
+ real,    parameter :: a(3) = (/1./g,1./g**2,1./g**3/)
+ integer :: i,j,nneigh,nmissed,nstars,nfailed(2)
+ real    :: xyz(3),rsearch
+
+ if (id==master) write(*,"(/,a)") '--> testing neighbour search in the tree of sink particles'
+ !--sinks and search positions from a quasi-random sequence, without using
+ !  the state of the random number generator that other tests rely on
+ nptmass = min(2*nfastacc,maxptmass)
+ xyzmh_ptmass(:,1:nptmass) = 0.
+ do i=1,nptmass
+    xyzmh_ptmass(1:3,i) = mod(0.5 + i*a,1.) - 0.5
+    xyzmh_ptmass(4,i)   = 1.
+ enddo
+ call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+
+ rsearch = 0.1
+ nmissed = 0
+ do j=1,nquery
+    xyz = mod(0.123 + j*a,1.) - 0.5
+    call get_ptmass_neigh(ptmasskdtree,xyz,rsearch,listneigh,nneigh)
+    do i=1,nptmass
+       if (sum((xyzmh_ptmass(1:3,i) - xyz)**2) < rsearch**2) then
+          if (.not.any(listneigh(1:nneigh)==i)) nmissed = nmissed + 1
+       endif
+    enddo
+ enddo
+ nfailed = 0
+ call checkval(nmissed,0,0,nfailed(1),'sinks missed by the tree search')
+ call update_test_scores(ntests,nfailed(1:1),npass)
+
+ !--every other sink is a star (small hacc), left out of the tree with hacc_min
+ do i=1,nptmass
+    xyzmh_ptmass(ihacc,i) = merge(1.,1.e-3,mod(i,2)==0)
+ enddo
+ call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree,hacc_min=0.5)
+ nmissed = 0
+ nstars  = 0
+ do j=1,nquery
+    xyz = mod(0.123 + j*a,1.) - 0.5
+    call get_ptmass_neigh(ptmasskdtree,xyz,rsearch,listneigh,nneigh)
+    nstars = nstars + count(xyzmh_ptmass(ihacc,listneigh(1:nneigh)) < 0.5)
+    do i=2,nptmass,2
+       if (sum((xyzmh_ptmass(1:3,i) - xyz)**2) < rsearch**2) then
+          if (.not.any(listneigh(1:nneigh)==i)) nmissed = nmissed + 1
+       endif
+    enddo
+ enddo
+ nfailed = 0
+ call checkval(nmissed,0,0,nfailed(1),'cores missed by the tree search')
+ call checkval(nstars,0,0,nfailed(2),'stars found by the tree search')
+ call update_test_scores(ntests,nfailed,npass)
+ xyzmh_ptmass(:,1:nptmass) = 0.
+ nptmass = 0
+
+end subroutine test_ptmass_neigh
+
+!-----------------------------------------------------------------------
+!+
+!  Test that the accretion through the tree of sink particles gives the
+!  same result as the direct loop over the sinks: same sink accreting
+!  (including when two sinks qualify) and same particles woken
+!+
+!-----------------------------------------------------------------------
+subroutine test_fast_accretion(ntests,npass)
+ use io,          only:id,master
+ use dim,         only:maxptmass
+ use part,        only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ndptmass
+ use ptmass,      only:ptmass_accrete,icreate_sinks
+ use ptmass_tree, only:build_ptmass_tree,ptmasskdtree,get_ptmass_neigh,nfastacc
+ use kernel,      only:radkern
+ use testutils,   only:checkval,update_test_scores
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: ngas = 2000
+ integer(kind=1), parameter :: nbinmax = 5
+ real,    parameter :: g = 1.2207440846057595 ! generates the R3 quasi-random sequence
+ real,    parameter :: a(3) = (/1./g,1./g**2,1./g**3/)
+ real,    parameter :: hacc = 0.05, facc = 0.8
+ integer :: i,j,npair,nneigh,nfaild,nfailf,ndiff(3),nfailed(3),icreate_sinks_old,listsink(maxptmass)
+ integer(kind=1) :: ibin_waked,ibin_wakef
+ real    :: xyz(3),hi,hid,hif,dptmassd(ndptmass,maxptmass),dptmassf(ndptmass,maxptmass)
+ logical :: accd,accf
+
+ if (id==master) write(*,"(/,a)") '--> testing accretion through the tree of sink particles against the direct loop'
+ icreate_sinks_old = icreate_sinks
+ icreate_sinks = 1
+ !--sinks in pairs (i,i+npair) whose accretion radii overlap, bound gas at rest
+ npair   = min(nfastacc,maxptmass/2)
+ nptmass = 2*npair
+ xyzmh_ptmass(:,1:nptmass) = 0.
+ vxyz_ptmass(:,1:nptmass)  = 0.
+ do i=1,npair
+    xyzmh_ptmass(1:3,i)       = mod(0.5 + i*a,1.) - 0.5
+    xyzmh_ptmass(1:3,i+npair) = xyzmh_ptmass(1:3,i) + 0.5*hacc
+ enddo
+ xyzmh_ptmass(4,1:nptmass)     = 1.e-3
+ xyzmh_ptmass(ihacc,1:nptmass) = hacc
+ call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+
+ ndiff = 0
+ do j=1,ngas+npair
+    if (j <= npair) then
+       !--between the two sinks of a pair: both accrete it unconditionally
+       xyz = 0.5*(xyzmh_ptmass(1:3,j) + xyzmh_ptmass(1:3,j+npair))
+    else
+       xyz = mod(0.123 + j*a,1.) - 0.5
+    endif
+    hi  = hacc*(0.1 + mod(j*0.6180339887,1.)) ! from 0.1 to 1.1 hacc
+    !--direct loop over the sinks
+    hid = hi
+    ibin_waked = 0
+    dptmassd(:,1:nptmass) = 0.
+    call ptmass_accrete(1,nptmass,xyz(1),xyz(2),xyz(3),hid,0.,0.,0.,0.,0.,0.,1,1.e-8, &
+                        xyzmh_ptmass,vxyz_ptmass,accd,dptmassd,0.,facc,nbinmax,ibin_waked,nfaild)
+    !--sinks from the tree, with the search radius used in accretion
+    hif = hi
+    ibin_wakef = 0
+    dptmassf(:,1:nptmass) = 0.
+    call get_ptmass_neigh(ptmasskdtree,xyz,max(hacc,radkern*hi),listsink,nneigh)
+    call ptmass_accrete(1,nptmass,xyz(1),xyz(2),xyz(3),hif,0.,0.,0.,0.,0.,0.,1,1.e-8, &
+                        xyzmh_ptmass,vxyz_ptmass,accf,dptmassf,0.,facc,nbinmax,ibin_wakef,nfailf,&
+                        listsink,nneigh)
+    if (accd .neqv. accf) ndiff(1) = ndiff(1) + 1
+    if (any(dptmassd(:,1:nptmass) /= dptmassf(:,1:nptmass))) ndiff(2) = ndiff(2) + 1
+    if (ibin_waked /= ibin_wakef) ndiff(3) = ndiff(3) + 1
+ enddo
+ nfailed = 0
+ call checkval(ndiff(1),0,0,nfailed(1),'same particles accreted')
+ call checkval(ndiff(2),0,0,nfailed(2),'same sinks accreting')
+ call checkval(ndiff(3),0,0,nfailed(3),'same particles woken')
+ call update_test_scores(ntests,nfailed,npass)
+
+ xyzmh_ptmass(:,1:nptmass) = 0.
+ nptmass = 0
+ icreate_sinks = icreate_sinks_old
+
+end subroutine test_fast_accretion
 
 !-----------------------------------------------------------------------
 !+

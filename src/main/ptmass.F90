@@ -961,6 +961,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,pxi,pyi,pzi,fxi,fyi,fzi, &
  ifail     = 0
  icand     = 0
  epartprev = huge(epartprev)
+ if (present(nfaili)) nfaili = ifail
  if (present(listneigh) .and. present(nneigh)) then
     fast_search = .true.
     if (nneigh == 0) return
