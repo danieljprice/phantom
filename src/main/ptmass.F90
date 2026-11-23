@@ -1357,7 +1357,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
     if (rij2 < hcheck2) then
 
        if (ind_timesteps) then
-          ! wake j now, so that it is active in the step about to start
+          ! wake j now into the bin of the candidate, so that it is active at the next step
+          ! of the candidate, i.e. the next time the candidate can be tested
           call wake_particle(ibin(j),twas(j),ibin_itest,time,dtmax)
           if (.not.iactivej .or. ifail==inosink_active) then
              ifail = inosink_active
