@@ -394,7 +394,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  write (*,'(/,2(3x,A,es11.4))')&
       'mass_of_particles       : ',massoftype(igas),&
       'time_between_spheres    : ',time_between_spheres,&
-      'wind velocity (km/s)    : ',params%vwind/unit_velocity/km
+      'wind velocity (km/s)    : ',params%vwind/km
  write (*,'(2(3x,A,es11.4),3x,A,i7)') &
       'dist between spheres    : ',wind_shell_spacing*neighbour_distance,&
       'dist between injection  : ',time_between_spheres*xyzmh_ptmass(ivwind,isink),&
