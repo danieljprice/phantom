@@ -39,6 +39,7 @@ subroutine test_units(ntests,npass)
  call test_unit_conversions(ntests,npass)
  call test_unit_types(ntests,npass)
  call test_geometric_units(ntests,npass)
+ call test_nearest_unit(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- UNITS TEST COMPLETE'
 
@@ -124,6 +125,40 @@ subroutine test_unit_extraction(ntests,npass)
  call update_test_scores(ntests, nfailed, npass)
 
 end subroutine test_unit_extraction
+
+!--------------------------------------------
+!+
+!  test of conversion of a value in code units
+!  to a string in the nearest sensible unit
+!+
+!--------------------------------------------
+subroutine test_nearest_unit(ntests,npass)
+ use units,   only:get_nearest_unit,in_code_units,set_units,utime,udist
+ use physcon, only:au,solarm,pi,days,years,pc
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: ntest = 6
+ character(len=6), parameter :: unit_types(ntest) = (/'time  ','time  ','time  ','time  ','length','length'/)
+ character(len=4), parameter :: expected(ntest) = (/'yr  ','days','Myr ','kyr ','au  ','pc  '/)
+ real, parameter :: tol = 5.e-3  ! strings are written to 3 significant figures
+ real :: vals(ntest),val
+ integer :: i,ierr,nfailed(2*ntest)
+ character(len=24) :: string
+
+ if (id==master) write(*,"(/,a)") '--> testing get_nearest_unit'
+ call set_units(dist=au,mass=solarm,G=1.d0)
+ ! orbital period at 1 au around 1 Msun, 1 day, 3 Myr, 1050 yr, 4.2 au and 1.5 pc
+ vals = (/2.*pi,real(days/utime),real(3.d6*years/utime),real(1050.d0*years/utime),4.2,real(1.5d0*pc/udist)/)
+ nfailed = 0
+ do i=1,ntest
+    string = get_nearest_unit(vals(i),trim(unit_types(i)))
+    call checkval(trim(string(index(string,' ')+1:)),trim(expected(i)),nfailed(2*i-1),'unit in '//trim(string))
+    ! converting the string back to code units should recover the value
+    val = in_code_units(string,ierr,unit_type=trim(unit_types(i)))
+    call checkval(val,vals(i),tol,nfailed(2*i),'value from '//trim(string))
+ enddo
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_nearest_unit
 
 !--------------------------------------------
 !+

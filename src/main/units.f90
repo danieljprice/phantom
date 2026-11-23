@@ -36,7 +36,7 @@ module units
  public :: c_is_unity, G_is_unity, in_geometric_units, in_code_units, in_units
  public :: is_time_unit, is_length_unit, is_mdot_unit, is_density_unit
  public :: in_solarr, in_solarm, in_solarl
- public :: get_unit_multiplier
+ public :: get_unit_multiplier, get_nearest_unit
 
  integer, parameter :: len_utype = 10
 
@@ -245,8 +245,14 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('days','day')
     unit = days
     utype = 'time'
+ case('Gyr')
+    unit = 1.d9*years
+    utype = 'time'
  case('Myr')
     unit = 1.d6*years
+    utype = 'time'
+ case('kyr')
+    unit = 1.d3*years
     utype = 'time'
  case('yr','year','yrs','years')
     unit = years
@@ -430,6 +436,41 @@ real function in_code_units(string,ierr,unit_type) result(rval)
  endif
 
 end function in_code_units
+
+!------------------------------------------------------------------------------------
+!+
+!  express a value given in code units as a human-readable string in the
+!  nearest sensible physical unit of the requested type ('time' or 'length'),
+!  e.g. '12.3 yr' or '4.20 au'. The nearest unit is chosen in log space.
+!+
+!------------------------------------------------------------------------------------
+function get_nearest_unit(val,unit_type) result(string)
+ real,             intent(in) :: val
+ character(len=*), intent(in) :: unit_type
+ character(len=24) :: string
+ character(len=4), parameter :: unit_names(13) = &
+    (/'s   ','min ','hr  ','days','yr  ','kyr ','Myr ','Gyr ','km  ','rsun','au  ','pc  ','kpc '/)
+ character(len=12) :: valstring
+ real    :: unit_code,err,errmin,x
+ integer :: i,ierr
+
+ write(valstring,"(1pg10.3)") val
+ string = trim(adjustl(valstring))
+ errmin = huge(errmin)
+ do i=1,size(unit_names)
+    ! value of one unit in code units, ierr /= 0 if it is not of the requested type
+    unit_code = in_code_units(trim(unit_names(i)),ierr,unit_type=unit_type)
+    if (ierr /= 0) cycle
+    x = val/unit_code
+    err = abs(log10(max(abs(x),tiny(x))))
+    if (err < errmin) then
+       errmin = err
+       write(valstring,"(1pg10.3)") x
+       string = trim(adjustl(valstring))//' '//trim(unit_names(i))
+    endif
+ enddo
+
+end function get_nearest_unit
 
 !------------------------------------------------------------------------------------
 !+
