@@ -991,7 +991,8 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  integer :: iu
  real :: time_end, tau_lucy_init
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,&
-         eps,time_base,time_incr
+         eps,time_base,time_incr,r_bound
+ logical :: supersonic
  real, allocatable :: trvurho_temp(:,:)
  real, allocatable :: JKmuS_temp(:,:)
  type(wind_state) :: state
@@ -1034,6 +1035,11 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  gamma_base = state%gamma
  time_base  = state%time+1e-4
 
+ ! a supersonic wind that decelerates to the sound speed has no steady-state solution:
+ ! the wind is bound and the profile beyond this radius is not physical
+ supersonic = (state%v > state%c)
+ r_bound    = -1.
+
  do while((state%r < rfill .or. state%time < time_end) .and. tfill < 0. .and. &
       iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1
@@ -1069,7 +1075,9 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
     endif
     if (state%r > rout)  tcross = min(state%time,tcross)
     if (state%r > rfill .and. rfill > 0.) tfill  = state%time
+    if (supersonic .and. r_bound < 0. .and. state%v <= state%c) r_bound = state%r
  enddo
+ if (r_bound > 0.) call warn_bound_wind(params,r_bound)
  if (state%time/time_end < .3 .and. state%r < rfill) then
     cstop = 'undefined'
     if (state%Tg < Tdust_stop) cstop = 'temperature reached lower limit (Tdust_stop)'
@@ -1106,6 +1114,33 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
 
 end subroutine save_windprofile
 
+!-----------------------------------------------------------------------
+!
+!  Warn that the 1D wind is bound (decelerates to the sound speed),
+!  giving the escape velocity at the injection radius for comparison
+!
+!-----------------------------------------------------------------------
+subroutine warn_bound_wind(params,r_bound)
+ use physcon, only:au,km,gg
+ use io,      only:warning
+ type(wind_params), intent(in) :: params
+ real,              intent(in) :: r_bound
+ real :: vesc
+ character(len=160) :: msg
+
+ vesc = sqrt(2.*gg*params%Mstar*max(1.-params%alpha_rad,0.)/params%Rinject)
+ write(msg,"(a,f0.2,a,f0.1,a,f0.1,a)") 'v reaches the sound speed at r = ',r_bound/au,&
+      ' au (v_wind = ',params%vwind/km,' km/s < v_esc = ',vesc/km,&
+      ' km/s); increase wind velocity or alpha (and set isink_radiation)'
+ call warning('wind is bound',trim(msg))
+
+end subroutine warn_bound_wind
+
+!-----------------------------------------------------------------------
+!
+!  write header for the wind profile file
+!
+!-----------------------------------------------------------------------
 subroutine filewrite_header(iunit,nwrite)
  integer, intent(in)  :: iunit
  integer, intent(out) :: nwrite
@@ -1117,6 +1152,11 @@ subroutine filewrite_header(iunit,nwrite)
        'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma','Q'
 end subroutine filewrite_header
 
+!-----------------------------------------------------------------------
+!
+! convert wind_state to array for writing to file
+!
+!-----------------------------------------------------------------------
 subroutine state_to_array(state,array)
  use dust_formation, only:idust_opacity
  type(wind_state), intent(in)  :: state
@@ -1153,8 +1193,14 @@ subroutine state_to_array(state,array)
     array(22) = state%gamma
  endif
  array(23) = state%Q
+
 end subroutine state_to_array
 
+!-----------------------------------------------------------------------
+!
+!  write wind_state to file
+!
+!-----------------------------------------------------------------------
 subroutine filewrite_state(iunit,nwrite,state)
  integer,          intent(in) :: iunit,nwrite
  type(wind_state), intent(in) :: state
