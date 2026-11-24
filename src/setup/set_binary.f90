@@ -175,7 +175,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  dx = 0.
  dv = 0.
  E  = 0.
- orbit_type = 'Eccentric'
+ orbit_type = 'eccentric'
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
     ecc = eccentricity
@@ -212,21 +212,21 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     Q(3) = sini*cos(omega)
 
     if (orbit_is_parabolic(eccentricity)) then
-       orbit_type = 'Parabolic'
+       orbit_type = 'parabolic'
        term1 = rperi*(1. - E*E)
        term2 = rperi*(2.*E)
        E_dot = sqrt(2.*mtot/(rperi**3))/(1. + E*E)
        term3 = -E*(rperi*E_dot)
        term4 = rperi*E_dot
     elseif (eccentricity > 1.) then ! hyperbolic
-       orbit_type = 'Hyperbolic'
+       orbit_type = 'hyperbolic'
        term1 = a*(cosh(E)-ecc)
        term2 = -a*(sqrt(ecc*ecc - 1.)*sinh(E))
        E_dot = sqrt(mtot/(abs(a)**3))/(ecc*cosh(E)-1.)
        term3 = a*(sinh(E)*E_dot)
        term4 = -a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
     else ! elliptical
-       orbit_type = 'Eccentric'
+       orbit_type = 'eccentric'
        term1 = a*(cos(E)-ecc)
        term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
        E_dot = sqrt(mtot/(a**3))/(1.-ecc*cos(E))
@@ -282,7 +282,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     print "(/,2x,17('-'),a,17('-'))",' binary parameters (code units) '
     print fmt,'m1, m2                     :',m1,m2
     print fmt,'mass ratio m2/m1           :',m2/m1
-    print fmt,'reduced mass.              :',reducedmass
+    print fmt,'reduced mass               :',reducedmass
     print fmt,'R_accretion (1, 2)         :',accretion_radius1,accretion_radius2
     print fmt,'Roche lobe  (1, 2)         :',Rochelobe1,Rochelobe2
 
