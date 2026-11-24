@@ -478,7 +478,7 @@ end subroutine print_task_table
 !+
 !----------------------------------------------------------------
 subroutine print_timinginfo(iprint,nsteps,nsteplast)
- use io,     only:formatreal
+ use io,     only:formatreal,nprocs
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
                   itimer_step,itimer_balance,itimer_dens,&
                   itimer_force,itimer_ev,itimer_io,ntimers
@@ -503,7 +503,12 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
- write(iprint,"(/,25x,a)") '  wall         cpu  cpu/wall  load bal      frac'
+ ! load balance is between MPI tasks, so only shown when running with MPI
+ if (nprocs > 1) then
+    write(iprint,"(/,25x,a)") '  wall         cpu  cpu/wall  load bal      frac'
+ else
+    write(iprint,"(/,25x,a)") '  wall         cpu  cpu/wall      frac'
+ endif
 
 ! skip the first 2 timers
 ! 1: from start
