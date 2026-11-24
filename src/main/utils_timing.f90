@@ -388,39 +388,67 @@ end subroutine reduce_timer_mpi
 !+
 !-----------------------------------------------
 subroutine print_timer(lu,itimer,time_total)
+ use io, only:nprocs
  integer,      intent(in) :: lu
  integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: time_total
+
+ ! without MPI the local/remote split is meaningless, so skip it
+ if (nprocs == 1 .and. is_mpi_split_timer(itimer)) return
 
  ! Print timings
  if (timers(itimer)%wall > epsilon(0._4)) then
     ! Print label and tree structure
     write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
+    ! wall and cpu time, in units depending on the total time
     if (time_total > 7200.0) then
-       write(lu,"('  ',f7.2,'h   ',f8.2,'h    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
-            timers(itimer)%wall/3600.,&
-            timers(itimer)%cpu/3600.,&
-            timers(itimer)%cpu/timers(itimer)%wall,&
-            timers(itimer)%loadbal*100.,&
-            timers(itimer)%wall/time_total*100.
+       write(lu,"('  ',f7.2,'h   ',f8.2,'h    ')",advance="no") &
+            timers(itimer)%wall/3600.,timers(itimer)%cpu/3600.
     elseif (time_total > 120.0) then
-       write(lu,"(f7.2,'min ',f8.2,'min    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
-            timers(itimer)%wall/60.,&
-            timers(itimer)%cpu/60.,&
+       write(lu,"(f7.2,'min ',f8.2,'min    ')",advance="no") &
+            timers(itimer)%wall/60.,timers(itimer)%cpu/60.
+    else
+       write(lu,"('  ',f7.2,'s   ',f8.2,'s    ')",advance="no") &
+            timers(itimer)%wall,timers(itimer)%cpu
+    endif
+    ! cpu/wall, load balance (MPI only) and fraction of total time
+    if (nprocs > 1) then
+       write(lu,"(f6.2,'   ',f6.2,'%','   ',f6.2,'%')") &
             timers(itimer)%cpu/timers(itimer)%wall,&
             timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     else
-       write(lu,"('  ',f7.2,'s   ',f8.2,'s    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
-            timers(itimer)%wall,&
-            timers(itimer)%cpu,&
+       write(lu,"(f6.2,'   ',f6.2,'%')") &
             timers(itimer)%cpu/timers(itimer)%wall,&
-            timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     endif
  endif
 
 end subroutine print_timer
+
+!-----------------------------------------------------------------------
+!+
+!  query whether a timer is part of the split into local and remote
+!  work in the density and force calculations (i.e. the timer itself
+!  or any of its parents is one of the local or remote timers)
+!+
+!-----------------------------------------------------------------------
+logical function is_mpi_split_timer(itimer)
+ integer, intent(in) :: itimer
+ integer :: i
+
+ is_mpi_split_timer = .false.
+ i = itimer
+ do while (i /= 0)
+    select case(i)
+    case(itimer_dens_local,itimer_dens_remote,itimer_force_local,itimer_force_remote)
+       is_mpi_split_timer = .true.
+       return
+    end select
+    i = timers(i)%parent
+ enddo
+
+end function is_mpi_split_timer
 
 !--------------------------------------------------------------------
 !+
