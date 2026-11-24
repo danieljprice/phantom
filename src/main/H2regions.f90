@@ -49,6 +49,7 @@ module HIIRegion
  logical, public               :: HIIupdateflag
  real   , public               :: HIIdt
  integer, public               :: nside_H2R = 1   ! HEALPix Nside of the sectors (iH2R=4): 12*Nside**2 sectors
+                                                  ! (0: whole sphere only)
  integer, public               :: nsec_H2R  = 12
  real   , allocatable, public  :: rstrom_sec(:,:) ! Stromgren radius of each sector of each sink (nsec,maxptmass)
  logical, allocatable, public  :: sectors_on(:)   ! sink solved in sectors (else isotropic) (maxptmass)
@@ -113,7 +114,7 @@ subroutine initialize_H2R
  !-- HEALPix sectors: centres and angular radii
  !
  if (iH2R == 4) then
-    nsec_H2R = 12*nside_H2R**2
+    nsec_H2R = max(12*nside_H2R**2,1)  ! Nside=0: a single sector, the whole sphere
 
     !-- sector allocation
     if (allocated(secdir)) deallocate(secdir)
@@ -126,18 +127,25 @@ subroutine initialize_H2R
     allocate(rstrom_sec(nsec_H2R,maxptmass))
     allocate(sectors_on(maxptmass))
 
-    !-- construct HEALPix grid
-    do k=1,nsec_H2R
-       call pix2vec_nest(nside_H2R,k-1,secdir(:,k),vertex)
-       secbeta(k) = 0.
-       do iv=1,4
-          secbeta(k) = max(secbeta(k),acos(min(1.,dot_product(secdir(:,k),vertex(:,iv)))))
-       enddo
-    enddo
     rstrom_sec = -1.
-    sectors_on = .true.
-    !-- vec2pix_nest fills its lookup table on the first call: do it here, outside OpenMP
-    call vec2pix_nest(nside_H2R,secdir(:,1),ipix)
+    if (nside_H2R > 0) then
+       !-- construct HEALPix grid
+       do k=1,nsec_H2R
+          call pix2vec_nest(nside_H2R,k-1,secdir(:,k),vertex)
+          secbeta(k) = 0.
+          do iv=1,4
+             secbeta(k) = max(secbeta(k),acos(min(1.,dot_product(secdir(:,k),vertex(:,iv)))))
+          enddo
+       enddo
+       sectors_on = .true.
+       !-- vec2pix_nest fills its lookup table on the first call: do it here, outside OpenMP
+       call vec2pix_nest(nside_H2R,secdir(:,1),ipix)
+    else
+       !-- whole sphere only: the sector geometry is never used
+       secdir  = 0.
+       secbeta = 0.
+       sectors_on = .false.
+    endif
  endif
 
  if (id == master .and. iverbose > 1) then
@@ -314,7 +322,7 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     xsrc = xyzmh_ptmass(1:3,i)
 
     warm = (xyzmh_ptmass(irstrom,i) > 0. .and. all(rstrom_sec(:,i) > 0.))
-    if (.not.warm) sectors_on(i) = .true.
+    if (.not.warm .and. nside_H2R > 0) sectors_on(i) = .true.
 
     if (sectors_on(i)) then
        nsec = nsec_H2R
@@ -552,7 +560,7 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     nhot = nhot + nhot_loc
     if (sectors_on(i)) then
        if (nhot < nsec_off*nsec_H2R) sectors_on(i) = .false.
-    else
+    elseif (nside_H2R > 0) then  ! Nside=0: always isotropic
        if (nhot >= nsec_on*nsec_H2R) sectors_on(i) = .true.
     endif
 
@@ -637,7 +645,7 @@ subroutine compute_dnspheres(i,nptmass,xyzmh_ptmass,rprev2,rprevmax2,coef,r_lo,r
        dxs = xyzh(1:3,j) - xyzmh_ptmass(1:3,s)
        d2s = dot_product(dxs,dxs)
        if (d2s >= rprevmax2(s)) cycle             ! beyond every sector of s
-       if (d2s > 0.) then
+       if (d2s > 0. .and. nside_H2R > 0) then
           call vec2pix_nest(nside_H2R,dxs,ipix)
           ks = ipix + 1
        else
@@ -1243,7 +1251,7 @@ subroutine write_options_H2R(iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)(only Knn)", iunit)
     call write_inopt(Crelax, 'Crelax', "relaxation time of the gas of the HII fronts in units of h/c_s", iunit)
     if (iH2R == 4) call write_inopt(nside_H2R, 'nsideH2R', &
-       "HEALPix Nside of the sectors, 12*Nside**2 sectors (power of 2, only bounded Knn)", iunit)
+       "HEALPix Nside of the sectors, 12*Nside**2 sectors (power of 2, 0 = whole sphere only, only bounded Knn)", iunit)
  endif
 
 end subroutine write_options_H2R
@@ -1265,7 +1273,7 @@ subroutine read_options_H2R(db,nerr)
     call read_inopt(Rmax,'Rmax',db,errcount=nerr,min=10.)
     call read_inopt(Crelax,'Crelax',db,errcount=nerr,min=0.,default=Crelax)
     if (iH2R == 4) then
-       call read_inopt(nside_H2R,'nsideH2R',db,errcount=nerr,min=1,default=1)
+       call read_inopt(nside_H2R,'nsideH2R',db,errcount=nerr,min=0,default=1)
        if (iand(nside_H2R,nside_H2R-1) /= 0) then
           call error('read_options_H2R','nsideH2R must be a power of 2')
           nerr = nerr + 1

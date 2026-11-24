@@ -1906,7 +1906,7 @@ subroutine test_HII_exp(ntests,npass)
  use HIIRegion,      only:HII_feedback,ar,mH,iH2R,nside_H2R,rstrom_sec,initialize_H2R,sectors_on
  use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
- integer          :: nfailed(12),itest,nion,ngas
+ integer          :: nfailed(14),itest,nion,ngas
  real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth,psep
  character(len=22) :: string
 
@@ -1960,6 +1960,19 @@ subroutine test_HII_exp(ntests,npass)
  if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with 48 sectors'
  call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
  call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.4e-2,nfailed(5),'mean sector radius')
+
+ !
+ !-- Nside=0: a single isotropic region, even with ~1200 hot particles that would
+ !   resolve the sectors (the second call checks that sectors are not switched on)
+ !
+ nside_H2R = 0
+ call initialize_H2R
+ xyzmh_ptmass(irstrom,1) = -1.
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region feedback with Nside=0 (whole sphere)'
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_vars)
+ call checkval(sectors_on(1),.false.,nfailed(13),'Nside=0 stays isotropic')
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.4e-2,nfailed(14),'Nside=0 radius')
 
  !
  !-- shadowing: rho doubled for z > 0, the particles staying where they are. The photons
