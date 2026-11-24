@@ -392,12 +392,22 @@ subroutine print_timer(lu,itimer,time_total)
  integer,      intent(in) :: lu
  integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: time_total
+ real(kind=4) :: tmin
 
  ! without MPI the local/remote split is meaningless, so skip it
  if (nprocs == 1 .and. is_mpi_split_timer(itimer)) return
 
+ ! skip timers that would print as zero in the units used below
+ if (time_total > 7200.0) then
+    tmin = 0.005_4*3600._4
+ elseif (time_total > 120.0) then
+    tmin = 0.005_4*60._4
+ else
+    tmin = 0.005_4
+ endif
+
  ! Print timings
- if (timers(itimer)%wall > epsilon(0._4)) then
+ if (timers(itimer)%wall >= tmin) then
     ! Print label and tree structure
     write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
     ! wall and cpu time, in units depending on the total time
