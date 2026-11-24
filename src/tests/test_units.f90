@@ -138,16 +138,16 @@ subroutine test_nearest_unit(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer, parameter :: ntest = 6
  character(len=6), parameter :: unit_types(ntest) = (/'time  ','time  ','time  ','time  ','length','length'/)
- character(len=4), parameter :: expected(ntest) = (/'yr  ','days','Myr ','kyr ','au  ','pc  '/)
- real, parameter :: tol = 5.e-3  ! strings are written to 3 significant figures
+ character(len=5), parameter :: expected(ntest) = (/'years','days ','Myr  ','years','au   ','pc   '/)
+ real, parameter :: tol = 5.e-6  ! strings are written to 6 significant figures
  real :: vals(ntest),val
  integer :: i,ierr,nfailed(2*ntest)
  character(len=24) :: string
 
  if (id==master) write(*,"(/,a)") '--> testing get_nearest_unit'
  call set_units(dist=au,mass=solarm,G=1.d0)
- ! orbital period at 1 au around 1 Msun, 1 day, 3 Myr, 1050 yr, 4.2 au and 1.5 pc
- vals = (/2.*pi,real(days/utime),real(3.d6*years/utime),real(1050.d0*years/utime),4.2,real(1.5d0*pc/udist)/)
+ ! orbital period at 1 au around 1 Msun, 1 day, 3 Myr, 1048.55 yr, 4.2 au and 1.5 pc
+ vals = (/2.*pi,real(days/utime),real(3.d6*years/utime),real(1048.55d0*years/utime),4.2,real(1.5d0*pc/udist)/)
  nfailed = 0
  do i=1,ntest
     string = get_nearest_unit(vals(i),trim(unit_types(i)))

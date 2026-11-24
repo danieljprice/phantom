@@ -48,6 +48,8 @@ subroutine test_wind(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer :: npart_old,istepfrac,npart_prefill
  real    :: dtinject,rmax,mstar0
+ integer :: i
+ integer, parameter :: nshell_test(3) = (/12,252,1000/)
  logical :: testcyl,use_shock_switch
 
  if (mpi) then
@@ -76,6 +78,12 @@ subroutine test_wind(ntests,npass)
 
  ! test trans-sonic wind - no radiation, no dust
  if (.not.isothermal) then
+    ! particle mass set from the number of particles per shell must give exactly that number
+    do i=1,size(nshell_test)
+       if (id==master) write(*,"(/,a,i0,a,/)") '--> testing wind with ',nshell_test(i),' particles per shell'
+       call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax,nshell_test(i))
+    enddo
+
     if (id==master) write(*,"(/,a,/)") '--> testing transonic wind'
     call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
 
@@ -129,14 +137,14 @@ end subroutine test_wind
 !  Initialises the wind test, and perform checks on the wind profile
 !+
 !-----------------------------------------------------------------------
-subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
- use inject,     only:init_inject,inject_particles,set_default_options_inject
+subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax,nshell)
+ use inject,     only:init_inject,inject_particles,set_default_options_inject,get_wind_particle_mass
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
  use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
  use part,       only:npart,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,init_part,&
                       npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss,iwalpha,rho,&
-                      sync_aprmassoftype
+                      sync_aprmassoftype,ieject
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
  use wind,       only:trvurho_1D,rfill_domain_au
@@ -151,11 +159,12 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  integer, intent(out)   :: npart_old,istepfrac,npart_prefill
  real,    intent(out)   :: dtinject,mstar0
  real,    intent(in)    :: rmax
+ integer, intent(in), optional :: nshell
 
  integer :: i,ierr,nerror,nwarn,ngrid
  integer :: nfailed(2),ncheck(2)
  real :: errmax(2)
- real :: t,default_particle_mass,dtnew
+ real :: t,default_particle_mass,dtnew,mdot_in,pmass_in
  real :: mdot0,mdot,mstar,r,v,rho1d,u,e,e0
  real, parameter :: tol_e = 2.e-4, tol_mdot = 5.e-16
 
@@ -182,12 +191,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  xyzmh_ptmass(iLum,1)  = 2e4 *solarl / unit_luminosity
  vxyz_ptmass = 0.
  fxyz_ptmass = 0.
- !
- ! for binary wind simulations the particle mass is IRRELEVANT
- ! since it will be over-written on the first call to init_inject
- !
  default_particle_mass = 1.e-9
- massoftype(igas) = default_particle_mass * (solarm / umass)
 
  gmw = 2.381
  if (isothermal) then
@@ -228,16 +232,42 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  call set_default_options_inject(icase)
  call check_setup(nerror,nwarn)
 
- ! set how much of the domain to pre-fill
+ ! set how much of the domain to pre-fill (not needed to check particles per shell)
  rfill_domain_au = rmax*udist/au  ! pre-fill out to rmax
+ if (present(nshell)) rfill_domain_au = 0.
+
+ ! set the particle mass as phantomsetup does: from the number of particles per shell,
+ ! by resolving the sonic point (trans-sonic wind) or directly
+ if (present(nshell)) then
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),nshell,0)
+ elseif (icase == 1) then
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,8)
+ else
+    massoftype(igas) = default_particle_mass * (solarm / umass)
+ endif
 
  ! check
  nfailed = 0; ncheck = 0; errmax = 0.
  istepfrac  = 0
+ mdot_in  = xyzmh_ptmass(imloss,1)
+ pmass_in = massoftype(igas)
  call init_inject(nerror)
- call sync_aprmassoftype() ! init_inject sets the particle mass
+ call sync_aprmassoftype()
+
+ ! the mass loss rate and particle mass are inputs: init_inject must not change them
+ call checkval(xyzmh_ptmass(imloss,1),mdot_in,epsilon(0.),nfailed(1),'Mdot unchanged by init_inject')
+ call checkval(massoftype(igas),pmass_in,epsilon(0.),nfailed(2),'particle mass unchanged by init_inject')
+ call update_test_scores(ntests,nfailed,npass)
+ nfailed = 0
 
  npart_old = npart
+ npart_prefill = npart
+ if (present(nshell)) then
+    call checkval(nint(xyzmh_ptmass(ieject,1)),nshell,0,nfailed(1),'particles per shell')
+    call update_test_scores(ntests,nfailed(1:1),npass)
+    return
+ endif
+
  ! the tests below work for both trans-sonic wind and radiation-driven wind
  if (icase == 1 .or. icase == 2) then
     ! pre-fill domain with boundary + fill shells (like setup_bondiinject): dtlast=0 triggers init path
