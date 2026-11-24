@@ -439,33 +439,35 @@ end function in_code_units
 
 !------------------------------------------------------------------------------------
 !+
-!  express a value given in code units as a human-readable string in the
-!  nearest sensible physical unit of the requested type ('time' or 'length'),
-!  e.g. '12.3 yr' or '4.20 au'. The nearest unit is chosen in log space.
+!  express a value in code units as a human-readable string in a sensible
+!  physical unit of the requested type ('time' or 'length') where value is >= 1,
+!  e.g. '1048.55 years' or '4.2 au'.
 !+
 !------------------------------------------------------------------------------------
 function get_nearest_unit(val,unit_type) result(string)
  real,             intent(in) :: val
  character(len=*), intent(in) :: unit_type
  character(len=24) :: string
- character(len=4), parameter :: unit_names(13) = &
-    (/'s   ','min ','hr  ','days','yr  ','kyr ','Myr ','Gyr ','km  ','rsun','au  ','pc  ','kpc '/)
- character(len=12) :: valstring
- real    :: unit_code,err,errmin,x
+ character(len=5), parameter :: unit_names(12) = &    ! order by increasing size
+    (/'s    ','min  ','hr   ','days ','years','Myr  ','Gyr  ','km   ','rsun ','au   ','pc   ','kpc  '/)
+ character(len=13) :: valstring
+ real, parameter :: xmin = 0.9999  ! allow for round-off when the value is exactly one unit
+ real    :: unit_code,x
  integer :: i,ierr
+ logical :: got_unit
 
- write(valstring,"(1pg10.3)") val
+ write(valstring,"(1pg13.6)") val
  string = trim(adjustl(valstring))
- errmin = huge(errmin)
+ got_unit = .false.
  do i=1,size(unit_names)
     ! value of one unit in code units, ierr /= 0 if it is not of the requested type
     unit_code = in_code_units(trim(unit_names(i)),ierr,unit_type=unit_type)
     if (ierr /= 0) cycle
     x = val/unit_code
-    err = abs(log10(max(abs(x),tiny(x))))
-    if (err < errmin) then
-       errmin = err
-       write(valstring,"(1pg10.3)") x
+    ! take the smallest unit of this type, then any larger unit where the value is >= 1
+    if (.not.got_unit .or. abs(x) >= xmin) then
+       got_unit = .true.
+       write(valstring,"(1pg13.6)") x
        string = trim(adjustl(valstring))//' '//trim(unit_names(i))
     endif
  enddo
