@@ -54,11 +54,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:periodic
- use physcon,      only:years,pc,solarm,pi
- use units,        only:set_units
+ use physcon,      only:pi
  use mpidomain,    only:i_belong
  use stretchmap,   only:set_density_profile
- use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
+ use utils_gr,     only:perturb_metric,get_sqrtg
  use infile_utils, only:get_options
 
  integer,          intent(in)    :: id
@@ -449,7 +448,6 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use setunits,     only:read_options_and_set_units
- use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21

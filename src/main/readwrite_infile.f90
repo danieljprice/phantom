@@ -62,8 +62,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use cooling,          only:write_options_cooling
  use gravwaveutils,    only:write_options_gravitationalwaves
  use radiation_utils,  only:write_options_radiation
- use dim,              only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,use_apr
- use part,             only:mhd,nptmass
+ use dim,              only:maxvxyzu,gravity,sink_radiation,gr,use_apr
+ use part,             only:nptmass
  use boundary_dyn,     only:write_options_boundary
  use HIIRegion,        only:write_options_H2R
  use viscosity,        only:write_options_viscosity
@@ -164,7 +164,7 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use io,           only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
+ use io,           only:ireadin,iwritein,iprint,warn,die,error,id,master,fileprefix
  use infile_utils, only:open_db_from_file,close_db,inopts,check_and_unroll_infile
  use mpiutils,     only:bcast_mpi,barrier_mpi
  character(len=*), intent(inout) :: infile
@@ -286,7 +286,7 @@ subroutine read_options_from_db(db,nerr,logfile,dumpfile,evfile)
  use io_control,       only:read_options_iocontrol
  use options,          only:read_options_output
  use shock_capturing,  only:read_options_shock_capturing
- use forcing,          only:read_options_forcing,write_options_forcing
+ use forcing,          only:read_options_forcing
  use externalforces,   only:read_options_externalforces
  use neighkdtree,      only:read_options_tree
  use dust,             only:read_options_dust

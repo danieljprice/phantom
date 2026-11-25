@@ -64,8 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master
  use physcon,      only:pi
- use geometry,     only:igeom_rotated,igeom_cartesian,&
-                        set_rotation_angles,coord_transform
+ use geometry,     only:igeom_rotated,igeom_cartesian,set_rotation_angles
  use timestep,     only:tmax,dtmax
  use mpidomain,    only:i_belong
  use infile_utils, only:get_options
@@ -476,7 +475,7 @@ end subroutine interactive_setup
 !------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,maxvxyzu
+ use dim,          only:tagline
  character(len=*), intent(in) :: filename
  integer,          parameter  :: lu = 20
  integer                      :: ierr1
