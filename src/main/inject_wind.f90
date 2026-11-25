@@ -311,7 +311,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  use timestep,          only:dtmax
  use wind,              only:wind_params
  use part,              only:massoftype,igas,xyzmh_ptmass,iReff,ivwind,&
-                             ispinx,ispinz,ieject,iTwind,iwalpha
+                             ispinx,ispinz,ieject,iwalpha
 
  integer,           intent(in) :: isink
  type(wind_params), intent(in) :: params
@@ -341,7 +341,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  write (*,'(2(3x,A,es11.4))') &
       'dist between spheres    : ',dshell
  write (*,'(3(3x,A,es11.4))') &
-      'wind_temperature        : ',xyzmh_ptmass(iTwind,isink),&
+      'wind_temperature        : ',params%Twind,&
       'injection_radius   (au) : ',params%rinject/au
  write (*,'(2(3x,A,es11.4))') &
       'stellar_radius     (au) : ',params%Rstar/au, &
