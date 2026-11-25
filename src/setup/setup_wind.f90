@@ -208,7 +208,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
- integer :: ierr,k
+ integer :: ierr,k,wind_type
  logical :: iexist
  real :: omega_corotate, posang_ascnode, arg_peri, incl
 
@@ -394,13 +394,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! of the wind from sink 1. This is the only place the particle mass is set.
  !
  if (iresolution > 0 .and. xyzmh_ptmass(imloss,1) <= 0.) call fatal('setup','primary star must have a wind')
- if (iresolution == 2) call set_default_options_inject(1)  ! trans-sonic wind
- ! wind_type argument: 0 for a standard wind, 1 for a trans-sonic wind
+ ! trans-sonic wind (wind_type = 1) if resolving the sonic point, or if no wind
+ ! velocity is given so that it comes from the 1D wind solution
+ wind_type = 0
+ if (.not.isothermal .and. (iresolution == 2 .or. xyzmh_ptmass(ivwind,1) <= 0.)) wind_type = 1
+ if (wind_type == 1) call set_default_options_inject(1)
  select case(iresolution)
  case(1)
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,particles_per_shell,0)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,particles_per_shell,0)
  case(2)
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),1,0,nzones_sonic_point)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,0,nzones_sonic_point)
  case default
     massoftype(igas) = default_particle_mass * (solarm / umass)
  end select

@@ -122,6 +122,8 @@ subroutine init_inject(ierr)
     if (abs(xyzmh_ptmass(imloss,isink)) < tiny(0.)) cycle
 
     call get_params_from_sink(xyzmh_ptmass(:,isink),wind_type,params)
+    ! isothermal: the wind is at the input temperature set by polyk, not Teff
+    if (isothermal) params%Twind = wind_temperature
 
     !implement background spheres starting from the smallest radius if pulsating
     !params%Rinject = min(params%Rinject,(xyzmh_ptmass(iReff,isink)-deltaR_puls)*udist)

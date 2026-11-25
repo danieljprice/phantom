@@ -73,6 +73,9 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  real :: tau_lucy_init,time_end,Rst
  real :: rho_cgs, wind_mu,T0!, pH, pH_tot
 
+ ! not every branch below finds the sonic point
+ rsonic = 0.
+ tsonic = 0.
  wind_gamma = gamma
  u_to_temperature_ratio = u_to_T
  time_end = tmax*utime
@@ -239,6 +242,7 @@ real function get_wind_particle_mass(xyzmh_ptmassi,wind_type,particles_per_shell
  call get_wind_solution(xyzmh_ptmassi,wind_type,xyzmh,params,rsonic)
 
  if (nzones_sonic > 0) then
+    if (rsonic <= params%Rinject) call fatal(label,'no sonic point found outside the injection radius')
     dr      = real((rsonic-params%Rinject)/udist)/nzones_sonic
     rho_ini = xyzmh(imloss)/(4.*pi*xyzmh(iReff)**2*xyzmh(ivwind))
     pmass   = rho_ini*dr**3
