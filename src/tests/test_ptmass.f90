@@ -1367,9 +1367,11 @@ subroutine test_fast_accretion(ntests,npass)
  real,    parameter :: g = 1.2207440846057595 ! generates the R3 quasi-random sequence
  real,    parameter :: a(3) = (/1./g,1./g**2,1./g**3/)
  real,    parameter :: hacc = 0.05, facc = 0.8
- integer :: i,j,npair,nneigh,nfaild,nfailf,ndiff(3),nfailed(3),icreate_sinks_old,listsink(maxptmass)
+ integer :: i,j,npair,nneigh,nfaild,nfailf,ndiff(3),nfailed(3),icreate_sinks_old
+ integer, allocatable :: listsink(:)
  integer(kind=1) :: ibin_waked,ibin_wakef
- real    :: xyz(3),hi,hid,hif,dptmassd(ndptmass,maxptmass),dptmassf(ndptmass,maxptmass)
+ real    :: xyz(3),hi,hid,hif
+ real, allocatable :: dptmassd(:,:),dptmassf(:,:)
  logical :: accd,accf
 
  if (id==master) write(*,"(/,a)") '--> testing accretion through the tree of sink particles against the direct loop'
@@ -1387,6 +1389,7 @@ subroutine test_fast_accretion(ntests,npass)
  xyzmh_ptmass(4,1:nptmass)     = 1.e-3
  xyzmh_ptmass(ihacc,1:nptmass) = hacc
  call build_ptmass_tree(xyzmh_ptmass,nptmass,ptmasskdtree)
+ allocate(listsink(nptmass),dptmassd(ndptmass,nptmass),dptmassf(ndptmass,nptmass))
 
  ndiff = 0
  do j=1,ngas+npair
@@ -1421,6 +1424,7 @@ subroutine test_fast_accretion(ntests,npass)
  call checkval(ndiff(3),0,0,nfailed(3),'same particles woken')
  call update_test_scores(ntests,nfailed,npass)
 
+ deallocate(listsink,dptmassd,dptmassf)
  xyzmh_ptmass(:,1:nptmass) = 0.
  nptmass = 0
  icreate_sinks = icreate_sinks_old
