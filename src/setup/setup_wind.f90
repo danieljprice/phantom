@@ -188,13 +188,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                            ispinx,ispiny,ispinz,ivwind,imloss,iTwind,iwalpha
  use physcon,         only:au,solarm,mass_proton_cgs,kboltz,solarl,km
  use units,           only:umass,set_units,unit_velocity,utime,unit_energ,udist,get_nearest_unit
- use inject,          only:set_default_options_inject,get_wind_particle_mass,print_wind_resolution
+ use inject,          only:set_default_options_inject,print_wind_resolution
+ use wind,            only:get_wind_particle_mass
  use setbinary,       only:set_binary
  use orbits,          only:get_orbital_period
  use sethierarchical, only:set_multiple
  use io,              only:master,fatal
- use eos,             only:gmw,ieos,isink,qfacdisc
- use spherical,       only:set_sphere
+ use eos,             only:gmw,ieos,isink,qfacdisc,init_eos
  use infile_utils,    only:get_options
  use kernel,          only:hfact_default
  use ptmass_radiation, only:isink_radiation
@@ -385,6 +385,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = wind_gamma
  endif
  polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
+ ! the 1D wind solution used to set the particle mass needs the equation of state
+ call init_eos(ieos,ierr)
+ if (ierr /= 0) call fatal('setup','error initialising equation of state')
 
  !
  ! set the particle mass, either directly or from the desired resolution
@@ -392,11 +395,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (iresolution > 0 .and. xyzmh_ptmass(imloss,1) <= 0.) call fatal('setup','primary star must have a wind')
  if (iresolution == 2) call set_default_options_inject(1)  ! trans-sonic wind
+ ! wind_type argument: 0 for a standard wind, 1 for a trans-sonic wind
  select case(iresolution)
  case(1)
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),particles_per_shell,0)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,particles_per_shell,0)
  case(2)
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,nzones_sonic_point)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),1,0,nzones_sonic_point)
  case default
     massoftype(igas) = default_particle_mass * (solarm / umass)
  end select
@@ -1108,7 +1112,7 @@ end subroutine write_setupfile
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use physcon,      only:au,steboltz,solarl,solarm,pi,km,years
+ use physcon,      only:au,solarl,solarm,km,years
  use units,        only:udist,umass,utime,unit_luminosity,unit_velocity
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr

@@ -24,7 +24,8 @@ module wind
  use part, only:n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa,idalpha
  use dim,  only:isothermal
  implicit none
- public :: setup_wind,wind_params
+ public :: setup_wind,wind_params,get_params_from_sink
+ public :: solve_wind,get_wind_solution,get_wind_particle_mass
  public :: wind_state,save_windprofile,interp_wind_profile,interp_wind_profile_at_r
 
  private
@@ -32,6 +33,7 @@ module wind
  real, parameter :: Tdust_stop = 0.001  ! Temperature at outer boundary of wind simulation
  real, parameter :: dtmin = 1.d-3      ! Minimum allowed timsestep (for 1D integration)
  real, public :: rfill_domain_au = 0.
+ real, public :: wind_shell_spacing = 1.  ! desired ratio of sphere spacing to particle spacing
 
  character(len=*), parameter :: label = 'wind'
 
@@ -60,7 +62,7 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  use timestep, only:tmax
  use ptmass_radiation, only:iget_tdust
  use units,            only:utime,udist
- use physcon,          only:c,years,pi
+ use physcon,          only:pi
  use eos,              only:gamma,gmw
  use dust_formation,   only:set_abundances,init_muGamma,idust_opacity
 
@@ -104,6 +106,149 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
 
 end subroutine setup_wind
 
+!-------------------------------------------------------------------------------
+!+
+!  get wind parameters from sink particle properties
+!+
+!-------------------------------------------------------------------------------
+subroutine get_params_from_sink(xyzmh_ptmassi,wind_type,params)
+ use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss,iwalpha
+ use units,             only:unit_velocity,umass,udist,unit_mdot,unit_luminosity
+ use physcon,           only:au,pi,steboltz
+ use io,                only:warning,fatal
+ use ptmass_radiation,  only:isink_radiation
+
+ real,               intent(in)  :: xyzmh_ptmassi(:)
+ integer,            intent(in)  :: wind_type
+ type (wind_params), intent(out) :: params
+
+ params%Mstar     = xyzmh_ptmassi(4)*umass
+ params%Lstar     = xyzmh_ptmassi(ilum)*unit_luminosity
+ params%Tstar     = xyzmh_ptmassi(iTeff)
+ params%alpha_rad = xyzmh_ptmassi(iwalpha)
+ params%vwind     = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
+ params%vinfty    = params%vwind !terminal wind velocity
+ params%Mdot      = xyzmh_ptmassi(imloss)*unit_Mdot
+ params%Twind     = 0.
+ if (.not. isothermal) params%Twind = xyzmh_ptmassi(iTwind)
+ if (params%Twind < 0.001) params%Twind = xyzmh_ptmassi(iTeff)
+ if (isink_radiation == 4)  then
+! take the initial velocity of the wind to be a fraction of the terminal velocity ~ 10-20%
+! in case of radiation driven winds, give an estimate of the initial velocity to obtain the terminal value
+    if (xyzmh_ptmassi(ivwind) < 1.2e8/unit_velocity) then
+       params%vwind = 0.2 * params%vwind
+    else
+       params%vwind = 0.1 * params%vwind
+    endif
+ endif
+! if you consider non-trans-sonic wind, provide an input wind velocity /= 0.
+ if (params%vwind <= 0. .and. wind_type /= 1) call fatal(label,'zero input wind velocity')
+
+ params%Rstar   = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
+ params%Rinject = xyzmh_ptmassi(iReff)*udist
+ params%Rstar   = params%Rinject/2.
+! set true stellar radius from L and Teff
+ ! if (xyzmh_ptmassi(iTeff) > tiny(0.)) then
+ !    params%Rstar = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
+ ! else
+ !    params%Rstar = params%Rinject
+ ! endif
+ if (params%Rinject < params%Rstar) then
+    call warning(label,'wind_inject_radius < Rstar',var='Rinj [au]',val=real(params%Rinject/au))
+ endif
+
+end subroutine get_params_from_sink
+
+!-----------------------------------------------------------------------
+!+
+!  integrate the 1D wind equations to get the initial wind velocity
+!  and the sonic radius for a given wind-emitting sink particle
+!+
+!-----------------------------------------------------------------------
+subroutine solve_wind(xyzmh_ptmassi,wind_type,params,rsonic,tsonic)
+ use io,             only:fatal
+ use physcon,        only:au
+ use units,          only:udist
+ use part,           only:iTeff
+ use eos,            only:gmw,gamma,temperature_coef
+ use wind_equations, only:init_wind_equations
+ real,              intent(in)    :: xyzmh_ptmassi(:)
+ integer,           intent(in)    :: wind_type
+ type(wind_params), intent(inout) :: params
+ real,              intent(out)   :: rsonic,tsonic
+ real :: gam1,u_to_T
+
+ if (params%Rinject < xyzmh_ptmassi(5)*udist) then
+    print *,'stop wind_inject_radius < Racc (au)',params%Rinject/au,xyzmh_ptmassi(5)*udist/au
+    call fatal(label,'invalid setting wind_inject_radius < accretion radius')
+ endif
+ ! ratio u/T for an ideal gas (requires init_eos); monatomic value if isothermal
+ gam1 = gamma - 1.
+ if (gamma <= 1.0001) gam1 = 2./3.
+ u_to_T = 1./(temperature_coef*gmw*gam1)
+ call init_wind_equations(xyzmh_ptmassi(4),xyzmh_ptmassi(iTeff),u_to_T)
+ call setup_wind(params,u_to_T,rsonic,tsonic,wind_type)
+
+end subroutine solve_wind
+
+!-----------------------------------------------------------------------
+!+
+!  wind parameters, injection velocity and sonic radius of a sink,
+!  computed on a copy of the sink properties so that they are unchanged.
+!  Trans-sonic winds need the 1D wind solution for these.
+!+
+!-----------------------------------------------------------------------
+subroutine get_wind_solution(xyzmh_ptmassi,wind_type,xyzmh,params,rsonic)
+ use units, only:udist,unit_velocity
+ use part,  only:iReff,ivwind
+ real,              intent(in)  :: xyzmh_ptmassi(:)
+ integer,           intent(in)  :: wind_type
+ real,              intent(out) :: xyzmh(:),rsonic
+ type(wind_params), intent(out) :: params
+ real :: tsonic
+
+ xyzmh = xyzmh_ptmassi
+ rsonic = 0.
+ call get_params_from_sink(xyzmh,wind_type,params)
+ xyzmh(iReff) = real(params%Rinject/udist)
+ if (wind_type == 1 .or. xyzmh(ivwind) <= 0.) then
+    call solve_wind(xyzmh,wind_type,params,rsonic,tsonic)
+    if (xyzmh(ivwind) <= 0.) xyzmh(ivwind) = real(params%vwind/unit_velocity)
+ endif
+
+end subroutine get_wind_solution
+
+!-----------------------------------------------------------------------
+!+
+!  particle mass giving either a chosen number of particles per shell,
+!  or a chosen number of particle spacings between the injection radius
+!  and the sonic point (trans-sonic winds). Called from the setup only.
+!+
+!-----------------------------------------------------------------------
+real function get_wind_particle_mass(xyzmh_ptmassi,wind_type,particles_per_shell,nzones_sonic) result(pmass)
+ use io,      only:fatal
+ use physcon, only:pi
+ use units,   only:udist
+ use part,    only:iReff,imloss,ivwind
+ real,    intent(in) :: xyzmh_ptmassi(:)
+ integer, intent(in) :: wind_type,particles_per_shell,nzones_sonic
+ type(wind_params) :: params
+ real :: xyzmh(size(xyzmh_ptmassi)),rsonic,dr,rho_ini
+
+ if (nzones_sonic > 0 .and. wind_type /= 1) call fatal(label,'resolving the sonic point requires wind_type = 1')
+ call get_wind_solution(xyzmh_ptmassi,wind_type,xyzmh,params,rsonic)
+
+ if (nzones_sonic > 0) then
+    dr      = real((rsonic-params%Rinject)/udist)/nzones_sonic
+    rho_ini = xyzmh(imloss)/(4.*pi*xyzmh(iReff)**2*xyzmh(ivwind))
+    pmass   = rho_ini*dr**3
+ else
+    pmass = sqrt(4.*pi)*wind_shell_spacing*xyzmh(iReff)*xyzmh(imloss)/&
+            (real(particles_per_shell)**1.5*xyzmh(ivwind))
+ endif
+
+end function get_wind_particle_mass
+
 !-----------------------------------------------------------------------
 !
 !  Initialize variables for wind integration
@@ -112,7 +257,6 @@ end subroutine setup_wind
 subroutine init_wind(params,time_end,state,tau_lucy_init)
 ! all quantities in cgs
  use physcon,          only:pi,Rg
- use io,               only:fatal
  use eos,              only:gmw
  use ptmass_radiation, only:iget_tdust
  use dust_formation,   only:kappa_gas,init_muGamma,idust_opacity
@@ -203,7 +347,7 @@ subroutine wind_step(params,state)
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity,calc_muGamma
- use part,             only:idK3,idmu,idgamma,idsat,idkappa
+ use part,             only:idK3,idmu,idgamma
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density,utime,umass
@@ -350,7 +494,7 @@ subroutine wind_step(params,state)
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity,calc_muGamma
- use part,             only:idK3,idmu,idgamma,idsat,idkappa
+ use part,             only:idK3,idmu,idgamma
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density,utime,umass,unit_velocity,udist
@@ -679,7 +823,7 @@ end subroutine get_initial_wind_speed
 !-----------------------------------------------------------------------
 subroutine get_initial_radius(params,time_end,Rst,rsonic,tsonic,stype)
  !all quantities in cgs
- use physcon, only:steboltz,pi
+ use physcon, only:pi
  use io,      only:iverbose
  use units,   only:udist
  integer,           intent(in)    :: stype
@@ -794,7 +938,6 @@ end subroutine get_initial_radius
 !-----------------------------------------------------------------------
 subroutine get_initial_tau_lucy(params,time_end,tau_lucy_init)
  !all quantities in cgs
- use physcon, only:steboltz,pi
  use io,      only:iverbose
  real, parameter :: step_factor = 1.1
  real,              intent(in)  :: time_end

@@ -29,14 +29,13 @@ module inject
 !   units, wind, wind_equations
 !
  use dim, only:isothermal,mhd
- use wind, only:rfill_domain_au
+ use wind, only:rfill_domain_au,wind_shell_spacing
 
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject,update_injected_par,get_wind_particle_mass,&
-      print_wind_resolution
+      set_default_options_inject,update_injected_par,print_wind_resolution
 
  private
 !
@@ -47,7 +46,6 @@ module inject
  integer :: iboundary_spheres = 5
  integer :: nfill_domain = 0
  real :: outer_boundary_au = 30.
- real :: wind_shell_spacing = 1.
  real :: pulsation_period
  real :: pulsation_period_days = 0.
  real :: piston_velocity_km_s = 0.
@@ -58,7 +56,6 @@ module inject
  real :: B_r = 0.
 
 ! global variables
- real :: u_to_temperature_ratio
  real :: omega_puls,deltaR_puls,piston_velocity !pulsations
  integer :: nwrite
 
@@ -78,7 +75,7 @@ subroutine init_inject(ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal
  use orbits,            only:get_eccentricity_vector,get_orbital_period
- use wind,              only:wind_params
+ use wind,              only:wind_params,get_params_from_sink,solve_wind
  use physcon,           only:mass_proton_cgs,kboltz,km
  use eos,               only:gmw,polyk
  use units,             only:unit_velocity,udist,get_nearest_unit
@@ -111,7 +108,6 @@ subroutine init_inject(ierr)
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
 
- call init_thermo()
  if (isothermal) wind_temperature = polyk * mass_proton_cgs/kboltz * unit_velocity**2*gmw
 
  call init_pulsating_wind(pulsating_wind)
@@ -125,11 +121,11 @@ subroutine init_inject(ierr)
     ! skip sink if no mass loss
     if (abs(xyzmh_ptmass(imloss,isink)) < tiny(0.)) cycle
 
-    call get_params_from_sink(xyzmh_ptmass(:,isink),params)
+    call get_params_from_sink(xyzmh_ptmass(:,isink),wind_type,params)
 
     !implement background spheres starting from the smallest radius if pulsating
     !params%Rinject = min(params%Rinject,(xyzmh_ptmass(iReff,isink)-deltaR_puls)*udist)
-    if (.not.pulsating_wind) call solve_wind(xyzmh_ptmass(:,isink),params,rsonic,tsonic)
+    if (.not.pulsating_wind) call solve_wind(xyzmh_ptmass(:,isink),wind_type,params,rsonic,tsonic)
 
     if (xyzmh_ptmass(ivwind,isink) <= 0.) xyzmh_ptmass(ivwind,isink) = params%vwind/unit_velocity
     if (xyzmh_ptmass(iTwind,isink) <= 0.) xyzmh_ptmass(iTwind,isink) = params%Twind
@@ -162,103 +158,6 @@ subroutine init_inject(ierr)
 
 end subroutine init_inject
 
-!-------------------------------------------------------------------------------
-!+
-!  get wind parameters from sink particle properties
-!+
-!-------------------------------------------------------------------------------
-subroutine get_params_from_sink(xyzmh_ptmassi,params)
- use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss,iwalpha
- use units,             only:unit_velocity,umass,udist,unit_mdot,unit_luminosity
- use wind,              only:wind_params
- use physcon,           only:au,pi,steboltz
- use io,                only:warning,fatal
- use ptmass_radiation,  only:isink_radiation
-
- real,               intent(in)  :: xyzmh_ptmassi(:)
- type (wind_params), intent(out) :: params
-
- params%Mstar     = xyzmh_ptmassi(4)*umass
- params%Lstar     = xyzmh_ptmassi(ilum)*unit_luminosity
- params%Tstar     = xyzmh_ptmassi(iTeff)
- params%alpha_rad = xyzmh_ptmassi(iwalpha)
- params%vwind     = xyzmh_ptmassi(ivwind)*unit_velocity !injection velocity
- params%vinfty    = params%vwind !terminal wind velocity
- params%Mdot      = xyzmh_ptmassi(imloss)*unit_Mdot
- params%Twind     = 0.
- if (.not. isothermal) params%Twind = xyzmh_ptmassi(iTwind)
- if (params%Twind < 0.001) params%Twind = xyzmh_ptmassi(iTeff)
- if (isink_radiation == 4)  then
-! take the initial velocity of the wind to be a fraction of the terminal velocity ~ 10-20%
-! in case of radiation driven winds, give an estimate of the initial velocity to obtain the terminal value
-    if (xyzmh_ptmassi(ivwind) < 1.2e8/unit_velocity) then
-       params%vwind = 0.2 * params%vwind
-    else
-       params%vwind = 0.1 * params%vwind
-    endif
- endif
-! if you consider non-trans-sonic wind, provide an input wind velocity /= 0.
- if (params%vwind <= 0. .and. wind_type /= 1) call fatal(label,'zero input wind velocity')
-
- params%Rstar   = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
- params%Rinject = xyzmh_ptmassi(iReff)*udist
- params%Rstar   = params%Rinject/2.
-! set true stellar radius from L and Teff
- ! if (xyzmh_ptmassi(iTeff) > tiny(0.)) then
- !    params%Rstar = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
- ! else
- !    params%Rstar = params%Rinject
- ! endif
- if (params%Rinject < params%Rstar) then
-    call warning(label,'wind_inject_radius < Rstar',var='Rinj [au]',val=real(params%Rinject/au))
- endif
-
-end subroutine get_params_from_sink
-
-!-----------------------------------------------------------------------
-!+
-!  set the ratio between internal energy and temperature
-!+
-!-----------------------------------------------------------------------
-subroutine init_thermo()
- use physcon, only:Rg
- use eos,     only:gmw,gamma
- use units,   only:unit_velocity
-
- if (gamma > 1.0001) then
-    u_to_temperature_ratio = Rg/(gmw*(gamma-1.)) / unit_velocity**2
- else
-    u_to_temperature_ratio = Rg/(gmw*2./3.) / unit_velocity**2
- endif
-
-end subroutine init_thermo
-
-!-----------------------------------------------------------------------
-!+
-!  integrate the 1D wind equations to get the initial wind velocity
-!  and the sonic radius for a given wind-emitting sink particle
-!+
-!-----------------------------------------------------------------------
-subroutine solve_wind(xyzmh_ptmassi,params,rsonic,tsonic)
- use io,             only:fatal
- use physcon,        only:au
- use units,          only:udist
- use part,           only:iTeff
- use wind,           only:setup_wind,wind_params
- use wind_equations, only:init_wind_equations
- real,              intent(in)    :: xyzmh_ptmassi(:)
- type(wind_params), intent(inout) :: params
- real,              intent(out)   :: rsonic,tsonic
-
- if (params%Rinject < xyzmh_ptmassi(5)*udist) then
-    print *,'stop wind_inject_radius < Racc (au)',params%Rinject/au,xyzmh_ptmassi(5)*udist/au
-    call fatal(label,'invalid setting wind_inject_radius < accretion radius')
- endif
- call init_wind_equations(xyzmh_ptmassi(4),xyzmh_ptmassi(iTeff),u_to_temperature_ratio)
- call setup_wind(params,u_to_temperature_ratio,rsonic,tsonic,wind_type)
-
-end subroutine solve_wind
-
 !-----------------------------------------------------------------------
 !+
 !  number of particles per shell (not rounded) needed for the shell
@@ -278,66 +177,6 @@ end function get_particles_per_shell
 
 !-----------------------------------------------------------------------
 !+
-!  wind parameters, injection velocity and sonic radius of a sink,
-!  computed on a copy of the sink properties so that they are unchanged.
-!  Trans-sonic winds need the 1D wind solution for these.
-!+
-!-----------------------------------------------------------------------
-subroutine get_wind_solution(xyzmh_ptmassi,xyzmh,params,rsonic)
- use units, only:udist,unit_velocity
- use part,  only:iReff,ivwind
- use wind,  only:wind_params
- real,              intent(in)  :: xyzmh_ptmassi(:)
- real,              intent(out) :: xyzmh(:),rsonic
- type(wind_params), intent(out) :: params
- real :: tsonic
-
- xyzmh = xyzmh_ptmassi
- rsonic = 0.
- call get_params_from_sink(xyzmh,params)
- xyzmh(iReff) = real(params%Rinject/udist)
- if (wind_type == 1 .or. xyzmh(ivwind) <= 0.) then
-    call init_thermo()
-    call solve_wind(xyzmh,params,rsonic,tsonic)
-    if (xyzmh(ivwind) <= 0.) xyzmh(ivwind) = real(params%vwind/unit_velocity)
- endif
-
-end subroutine get_wind_solution
-
-!-----------------------------------------------------------------------
-!+
-!  particle mass giving either a chosen number of particles per shell,
-!  or a chosen number of particle spacings between the injection radius
-!  and the sonic point (trans-sonic winds). Called from the setup only.
-!+
-!-----------------------------------------------------------------------
-real function get_wind_particle_mass(xyzmh_ptmassi,particles_per_shell,nzones_sonic) result(pmass)
- use io,      only:fatal
- use physcon, only:pi
- use units,   only:udist
- use part,    only:iReff,imloss,ivwind
- use wind,    only:wind_params
- real,    intent(in) :: xyzmh_ptmassi(:)
- integer, intent(in) :: particles_per_shell,nzones_sonic
- type(wind_params) :: params
- real :: xyzmh(size(xyzmh_ptmassi)),rsonic,dr,rho_ini
-
- if (nzones_sonic > 0 .and. wind_type /= 1) call fatal(label,'resolving the sonic point requires wind_type = 1')
- call get_wind_solution(xyzmh_ptmassi,xyzmh,params,rsonic)
-
- if (nzones_sonic > 0) then
-    dr      = real((rsonic-params%Rinject)/udist)/nzones_sonic
-    rho_ini = xyzmh(imloss)/(4.*pi*xyzmh(iReff)**2*xyzmh(ivwind))
-    pmass   = rho_ini*dr**3
- else
-    pmass = sqrt(4.*pi)*wind_shell_spacing*xyzmh(iReff)*xyzmh(imloss)/&
-            (real(particles_per_shell)**1.5*xyzmh(ivwind))
- endif
-
-end function get_wind_particle_mass
-
-!-----------------------------------------------------------------------
-!+
 !  print the resolution that a given particle mass gives for each
 !  wind-emitting sink, so the choice of particle mass can be checked
 !+
@@ -346,7 +185,7 @@ subroutine print_wind_resolution(xyzmh_ptmass,nptmass,pmass,gamma)
  use physcon, only:solarm
  use units,   only:umass,udist,unit_velocity
  use part,    only:imloss
- use wind,    only:wind_params
+ use wind,    only:wind_params,get_wind_solution
  real,    intent(in) :: xyzmh_ptmass(:,:),pmass,gamma
  integer, intent(in) :: nptmass
  type(wind_params) :: params
@@ -356,7 +195,7 @@ subroutine print_wind_resolution(xyzmh_ptmass,nptmass,pmass,gamma)
  print "(/,a,es10.3,a)",' particle mass = ',pmass*umass/solarm,' Msun'
  do isink=1,nptmass
     if (xyzmh_ptmass(imloss,isink) <= 0.) cycle
-    call get_wind_solution(xyzmh_ptmass(:,isink),xyzmh,params,rsonic)
+    call get_wind_solution(xyzmh_ptmass(:,isink),wind_type,xyzmh,params,rsonic)
     res    = get_particles_per_shell(xyzmh,pmass)
     nshell = max(1,nint(res))
     print "(a,i2,a,i8,a,f6.3)",' sink ',isink,': particles per shell = ',nshell,&
@@ -470,7 +309,7 @@ subroutine logging(params,isink,time_between_spheres,neighbour_distance,&
  use timestep,          only:dtmax
  use wind,              only:wind_params
  use part,              only:massoftype,igas,xyzmh_ptmass,iReff,ivwind,&
-                             ispinx,ispiny,ispinz,ieject,imloss,iTwind,iwalpha
+                             ispinx,ispinz,ieject,iTwind,iwalpha
 
  integer,           intent(in) :: isink
  type(wind_params), intent(in) :: params
@@ -766,7 +605,7 @@ end subroutine set_injected_Bfield
 subroutine inject_sphere(i,ifirst,ires,r,v,u,npart,npartoftype,xyzh,vxyzu,rho,itype,x0,v0,isink,JKmuS)
 
  use ptmass_radiation,  only:isink_radiation
- use part,              only:iTeff,dust_temp,xyzmh_ptmass,iReff,ispinx,ispiny,ispinz,ivwind
+ use part,              only:iTeff,dust_temp,xyzmh_ptmass,iReff,ispinx,ispinz,ivwind
  use injectutils,       only:inject_geodesic_sphere
 
  integer, intent(in)    :: i,ifirst,ires,isink,itype

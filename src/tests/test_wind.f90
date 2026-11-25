@@ -35,16 +35,15 @@ contains
 subroutine test_wind(ntests,npass)
  use inject,     only:inject_type
  use boundary,   only:set_boundary
- use physcon,    only:au,solarm,solarl
+ use physcon,    only:au,solarm
  use units,      only:set_units,udist
  use part,       only:npart,xyzmh_ptmass,xyzh,vxyzu,dust_temp,iReff
- use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,&
-                      disc_viscosity,nalpha,use_dust,isothermal
+ use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,disc_viscosity,&
+                      nalpha,isothermal
  use ptmass,     only:set_integration_precision
  use allocutils, only:allocate_array
  use options,    only:alpha
  use timestep,   only:tmax,tolv
- use readwrite_dumps, only:write_fulldump
  integer, intent(inout) :: ntests,npass
  integer :: npart_old,istepfrac,npart_prefill
  real    :: dtinject,rmax,mstar0
@@ -138,7 +137,7 @@ end subroutine test_wind
 !+
 !-----------------------------------------------------------------------
 subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax,nshell)
- use inject,     only:init_inject,inject_particles,set_default_options_inject,get_wind_particle_mass
+ use inject,     only:init_inject,inject_particles,set_default_options_inject
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
  use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
@@ -147,7 +146,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
                       sync_aprmassoftype,ieject
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
- use wind,       only:trvurho_1D,rfill_domain_au
+ use wind,       only:trvurho_1D,rfill_domain_au,get_wind_particle_mass
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
@@ -161,7 +160,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  real,    intent(in)    :: rmax
  integer, intent(in), optional :: nshell
 
- integer :: i,ierr,nerror,nwarn,ngrid
+ integer :: i,ierr,nerror,nwarn,ngrid,wind_type
  integer :: nfailed(2),ncheck(2)
  real :: errmax(2)
  real :: t,default_particle_mass,dtnew,mdot_in,pmass_in
@@ -230,6 +229,9 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
 
  ! trans-sonic wind
  call set_default_options_inject(icase)
+ ! wind type set by set_default_options_inject: trans-sonic for icase 1
+ wind_type = 0
+ if (icase == 1 .and. .not.isothermal) wind_type = 1
  call check_setup(nerror,nwarn)
 
  ! set how much of the domain to pre-fill (not needed to check particles per shell)
@@ -239,9 +241,9 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  ! set the particle mass as phantomsetup does: from the number of particles per shell,
  ! by resolving the sonic point (trans-sonic wind) or directly
  if (present(nshell)) then
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),nshell,0)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,nshell,0)
  elseif (icase == 1) then
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,8)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,0,8)
  else
     massoftype(igas) = default_particle_mass * (solarm / umass)
  endif
@@ -398,7 +400,7 @@ end subroutine test_injected_mass
 subroutine integrate_wind(npart_old,istepfrac,dtinject)
  use io,             only:iprint
  use timestep,       only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
- use part,           only:npart,init_part,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot,rho
+ use part,           only:npart,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot,rho
  use timestep_ind,   only:nbinmax
  use step_lf_global, only:step,init_step
  use partinject,     only:update_injected_particles
