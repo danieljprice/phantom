@@ -29,13 +29,15 @@ module pcg
 
  abstract interface
   !--y = A x, or z = P^{-1} r for the preconditioner
-  subroutine pcg_operator(x,y)
-   real, intent(in)  :: x(:)
-   real, intent(out) :: y(:)
+  subroutine pcg_operator(n,x,y)
+   integer, intent(in)  :: n
+   real,    intent(in)  :: x(n)
+   real,    intent(out) :: y(n)
   end subroutine pcg_operator
   !--true when the residual r is small enough to stop
-  logical function pcg_stop(r)
-   real, intent(in) :: r(:)
+  logical function pcg_stop(n,r)
+   integer, intent(in) :: n
+   real,    intent(in) :: r(n)
   end function pcg_stop
  end interface
 
@@ -56,26 +58,26 @@ subroutine pcg_solve(n,apply_op,apply_prec,converged,maxit,x,r,z,p,w,niter,ierr)
  integer, intent(in)    :: n,maxit
  procedure(pcg_operator) :: apply_op,apply_prec
  procedure(pcg_stop)     :: converged
- real,    intent(out)   :: x(:)
- real,    intent(inout) :: r(:)
- real,    intent(out)   :: z(:),p(:),w(:)
+ real,    intent(out)   :: x(n)
+ real,    intent(inout) :: r(n)
+ real,    intent(out)   :: z(n),p(n),w(n)
  integer, intent(out)   :: niter,ierr
  integer :: i
  real    :: gamma,gammanew,alpha,beta,denom
 
  niter = 0
  ierr  = 0
- x(1:n) = 0.
- if (converged(r(1:n))) return
+ x = 0.
+ if (converged(n,r)) return
 
- call apply_prec(r(1:n),z(1:n))
- p(1:n) = z(1:n)
+ call apply_prec(n,r,z)
+ p = z
  gamma = dot(n,r,z)
  if (gamma <= 0.) return
 
  do while (niter < maxit)
     niter = niter + 1
-    call apply_op(p(1:n),w(1:n))
+    call apply_op(n,p,w)
     denom = dot(n,p,w)
     if (denom <= 0.) then
        ierr  = ierr_pcg_breakdown
@@ -89,9 +91,9 @@ subroutine pcg_solve(n,apply_op,apply_prec,converged,maxit,x,r,z,p,w,niter,ierr)
        r(i) = r(i) - alpha*w(i)
     enddo
     !$omp end parallel do
-    if (converged(r(1:n))) exit
+    if (converged(n,r)) exit
 
-    call apply_prec(r(1:n),z(1:n))
+    call apply_prec(n,r,z)
     gammanew = dot(n,r,z)
     if (gammanew <= 0.) exit
     beta = gammanew/gamma
@@ -112,7 +114,7 @@ end subroutine pcg_solve
 !-----------------------------------------------------------------------
 real function dot(n,a,b)
  integer, intent(in) :: n
- real,    intent(in) :: a(:),b(:)
+ real,    intent(in) :: a(n),b(n)
  integer :: i
  real    :: acc
 

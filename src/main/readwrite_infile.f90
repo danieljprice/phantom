@@ -171,7 +171,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  character(len=*), intent(out)   :: logfile,evfile,dumpfile
  character(len=*), parameter   :: label = 'read_infile'
  character(len=len(infile)+4)  :: infilenew
- character(len=len(dumpfile))  :: dumpfilenew
+ character(len=len(fileprefix)) :: dumpfilenew
  integer :: ierr,idot,nerr,i
  logical :: igotloops,iexist
  type(inopts), allocatable :: db(:)

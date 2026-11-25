@@ -32,6 +32,8 @@ module setup
  integer :: nx
  logical :: rotated
  real    :: wavelength, ampl
+ ! wavenumber, phase origin and density amplitude of the wave, used by rhofunc
+ real    :: wk, xdot0, drho
 
  integer, parameter :: maxwaves = 5
  character(len=*), parameter :: wavetype(0:maxwaves-1) = &
@@ -80,9 +82,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  real :: deltax,totmass
  integer :: i,ierr,igeom
  real :: przero,uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3)
- real :: sina,sinb,cosa,cosb,wk,sinx1,cosx1,rvec(8),uui
- real :: runit(3),gam1,x0(3),xdot0,x1
- real :: drho,dv(3),dB(3),du
+ real :: sina,sinb,cosa,cosb,sinx1,cosx1,rvec(8),uui
+ real :: runit(3),gam1,x0(3),x1
+ real :: dv(3),dB(3),du
  real :: q0(8),vwave
  procedure(rho_func), pointer :: density_func
 !
@@ -226,7 +228,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  tmax = wavelength/vwave
  dtmax = 0.1*tmax
 
-contains
+end subroutine setpart
 
 !-------------------------------------------------
 !+
@@ -234,6 +236,7 @@ contains
 !+
 !-------------------------------------------------
 real function rhofunc(xi)
+ use setup_params, only:rhozero
  real, intent(in) :: xi
 
  rhofunc = rhozero + drho*cos(wk*(xi - xdot0))
@@ -241,8 +244,6 @@ real function rhofunc(xi)
  !rhofunc = q0(1) + ampl*rvec(1)*cos(wk*(xi - xdot0))
 
 end function rhofunc
-
-end subroutine setpart
 
 !-------------------------------------------------
 !+
