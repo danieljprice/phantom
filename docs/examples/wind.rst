@@ -28,7 +28,7 @@ For an isothermal wind, use SETUP=isowind
 
 
 At the end of these instructions, a wind.setup and wind.in file are created. Each file contains specific options that are described below.
-Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting. 
+Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting.
 
 Content of the .setup file
 --------------------------
@@ -37,6 +37,9 @@ Content of the .setup file
 
    # input file for wind setup routine
    # set any two of lum, Teff and Reff (third one is derived)
+
+   # stars
+                  nstar =           1    ! number of stars (1=single, 2=binary, >=3 hierarchical system)
 
    # primary star
            primary_mass =       1.600    ! primary star mass (Msun)
@@ -53,9 +56,6 @@ Content of the .setup file
    # primary spin
             primary_veq =       0.000    ! primary equatorial velocity (in km/s)
 
-   # companion
-        icompanion_star =           0    ! set to 1 for a binary system, 2 for a triple system
-
    # resolution
             iresolution =           0    ! particle mass from 0=mass,1=particles_per_shell,2=sonic point
       mass_of_particles =   1.000E-11    ! particle mass (Msun)
@@ -65,7 +65,10 @@ Content of the .setup file
 
 The .setup file contains the properties of each star and of its wind, the orbit if there is a companion, and the resolution.
 Each star is a sink particle. Its properties, e.g. its luminosity, are used to calculate the radiation pressure.
-Companions are added with ``icompanion_star``, which adds a ``# secondary`` block and a ``# binary orbit`` block.
+Companions are added by increasing ``nstar``. Each extra star gets its own block of options (``secondary_*``, then ``star3_*``, ``star4_*``, ...), and star i is sink particle i.
+For ``nstar = 2`` the orbit is given by the generic orbit options (``itype``, ``a``, ``e``, ``i``, ``O``, ``w``, ``f``), where the semi-major axis can be given with units (e.g. ``a = 143 au``).
+For ``nstar >= 3`` the stars are placed in a hierarchical system set by the ``hierarchy`` string and the orbit of each level (e.g. ``1_a``, ``12_e``); the .setup file lists which star corresponds to which label in the hierarchy string. Star i is the i-th label in the hierarchy string, so the order of the string sets the order of the stars (see :doc:`hierarchicalsystems` for the hierarchical labels).
+Setup files from older versions, with ``icompanion_star``, ``semi_major_axis``, ``eccentricity`` and ``true_anomaly``, are still read and are rewritten with the new options.
 
 The wind of each star is set by:
 
@@ -254,7 +257,7 @@ parameter entering in the above equation for the effective gravity::
 
              iget_tdust =           1    ! dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy 4:MCfost)
 
-defines how the dust temperature is calculated. By default one assumes Tdust = Tgas but other options are availabe as well. 
+defines how the dust temperature is calculated. By default one assumes Tdust = Tgas but other options are available as well.
 Options 1-3 use analytical prescriptions, and option 4 uses full 3D RT using the MCfost code (under development!)::
 
         iray_resolution =          -1    ! set the number of rays to 12*4**iray_resolution (deactivated if <0)

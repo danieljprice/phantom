@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! initial conditions for binary wind accretion / AGB star wind injection
+! initial conditions for binary wind accretion / AGB star wind injection,
+! from a single star, a binary or a hierarchical system of stars
 !
 ! :References:
 !   Siess et al. 2022, A&A, 667, 75
@@ -14,62 +15,23 @@ module setup
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - Reff2a              : *tight binary primary effective radius (au)*
-!   - Reff2b              : *tight binary secondary effective radius (au)*
 !   - T_wind              : *wind temperature (K)*
-!   - Teff2a              : *tight binary primary effective temperature (K)*
-!   - Teff2b              : *tight binary secondary effective temperature (K)*
-!   - binary2_a           : *tight binary semi-major axis*
-!   - binary2_e           : *tight binary eccentricity*
-!   - eccentricity        : *eccentricity of the binary system*
-!   - icompanion_star     : *set to 1 for a binary system, 2 for a triple system*
-!   - inclination         : *inclination of the tight binary system w.r.t. outer binary (deg)*
 !   - iresolution         : *particle mass from 0=mass,1=particles_per_shell,2=sonic point*
-!   - lum2a               : *tight binary primary luminosity (Lsun)*
-!   - lum2b               : *tight binary secondary luminosity (Lsun)*
+!   - iwind               : *isothermal wind: 2=constant temperature, 3=T(r) profile*
 !   - mass_of_particles   : *particle mass (Msun)*
+!   - nstar               : *number of stars (1=single, 2=binary, >=3 hierarchical system)*
 !   - nzones_sonic_point  : *particle spacings from injection radius to sonic point*
 !   - particles_per_shell : *number of particles per shell of the primary wind*
-!   - primary_Reff        : *primary star effective radius (au)*
-!   - primary_Teff        : *primary star effective temperature (K)*
-!   - primary_alpha       : *primary alpha parameter*
-!   - primary_lum         : *primary star luminosity (Lsun)*
-!   - primary_mass        : *primary star mass (Msun)*
-!   - primary_mdot        : *primary wind mass loss rate (in Msun/yr)*
-!   - primary_racc        : *primary star accretion radius (au)*
-!   - primary_spinx       : *x-component of spin direction*
-!   - primary_spiny       : *y-component of spin direction*
-!   - primary_spinz       : *z-component of spin direction*
-!   - primary_veq         : *primary equatorial velocity (in km/s)*
-!   - primary_vwind       : *primary wind velocity (in km/s)*
-!   - primary_wind_temp   : *primary wind temperature (K, 0 = use Teff)*
-!   - q2                  : *tight binary mass ratio*
-!   - racc2a              : *tight binary primary accretion radius*
-!   - racc2b              : *tight binary secondary accretion radius*
-!   - secondary_Reff      : *secondary star effective radius (au)*
-!   - secondary_Teff      : *secondary star effective temperature)*
-!   - secondary_alpha     : *secondary alpha parameter*
-!   - secondary_lum       : *secondary star luminosity (Lsun)*
-!   - secondary_mass      : *secondary star mass (Msun)*
-!   - secondary_mdot      : *secondary wind mass loss rate (in Msun/yr)*
-!   - secondary_racc      : *secondary star accretion radius (au)*
-!   - secondary_spinx     : *x-component of spin direction*
-!   - secondary_spiny     : *y-component of spin direction*
-!   - secondary_spinz     : *z-component of spin direction*
-!   - secondary_veq       : *secondary equatorial velocity (in km/s)*
-!   - secondary_vwind     : *secondary wind velocity (in km/s)*
-!   - secondary_wind_temp : *secondary wind temperature (K, 0 = use Teff)*
-!   - semi_major_axis     : *semi-major axis of the binary system (au)*
-!   - subst               : *star to substitute*
 !   - temp_exponent       : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
-!   - true_anomaly        : *initial true anomaly of the binary orbit (deg)*
 !   - wind_gamma          : *adiabatic index (initial if Krome chemistry used)*
 !
-! :Dependencies: dim, eos, infile_utils, inject, io, kernel, orbits, part,
-!   physcon, prompting, ptmass_radiation, setbinary, sethierarchical,
-!   spherical, units
+! :Dependencies: dim, eos, infile_utils, inject, io, kernel, part, physcon,
+!   prompting, ptmass_radiation, sethier_utils, sethierarchical, setorbit,
+!   units, wind
 !
- use dim, only:isothermal
+ use dim,           only:isothermal
+ use setorbit,      only:orbit_t
+ use sethier_utils, only:max_hier_levels
  implicit none
  public :: setpart
 
@@ -77,34 +39,32 @@ module setup
  real, public  :: wind_gamma
  real, public  :: T_wind
  real :: temp_exponent
- integer :: icompanion_star,iwind
- real :: semi_major_axis,semi_major_axis_au,eccentricity,f
+ integer :: nstar,iwind
+ type(orbit_t) :: orbit
  real :: default_particle_mass
  integer :: iresolution,particles_per_shell,nzones_sonic_point
- real :: primary_lum_lsun,primary_mass_msun,primary_Reff_au,primary_racc_au
- real :: primary_lum,primary_mass,primary_Reff,primary_racc,primary_Teff
- real :: secondary_lum_lsun,secondary_mass_msun,secondary_Reff_au,secondary_racc_au
- real :: secondary_lum,secondary_mass,secondary_Reff,secondary_racc,secondary_Teff
- real :: primary_veq,primary_veq_km_s,secondary_veq,secondary_veq_km_s,spin(2,3)
- real :: lum2a_lsun,lum2b_lsun,Teff2a,Teff2b,Reff2a_au,Reff2b_au
- real :: binary2_a_au,racc2a_au,racc2b_au,binary2_i,q2
- real :: primary_mdot_msun_yr,primary_vwind_km_s,secondary_mdot_msun_yr,secondary_vwind_km_s
- real :: primary_mdot,primary_vwind,primary_wind_temp,secondary_mdot,secondary_vwind,secondary_wind_temp
- real :: primary_alpha,secondary_alpha
 
- ! which of L, Teff and Reff is computed from the other two, for the primary and secondary
+ ! which of L, Teff and Reff is computed from the other two
  integer, parameter :: iderived_none = 0, &
                        iderived_lum  = 1, &
                        iderived_Teff = 2, &
                        iderived_Reff = 3
 
- integer :: iderived(2)
- real :: Reff2a,Reff2b
- real :: racc2a,racc2b
- real :: lum2a,lum2b
- real :: binary2_a
- real :: binary2_e
- integer :: subst
+ ! properties of each star, in the units used in the .setup file
+ type wind_star_t
+    real :: mass_msun,racc_au,lum_lsun,Teff,Reff_au
+    real :: mdot_msun_yr,vwind_km_s,wind_temp,alpha
+    real :: veq_km_s,spin(3)
+    integer :: iderived
+ end type wind_star_t
+
+ integer, parameter :: maxstars = max_hier_levels
+ type(wind_star_t) :: star(maxstars)
+
+ ! label used for star i in the .setup file
+ character(len=*), parameter :: star_label(maxstars) = &
+    (/'primary  ','secondary','star3    ','star4    ','star5    ', &
+      'star6    ','star7    ','star8    ','star9    ','star10   '/)
 
 contains
 !----------------------------------------------------------------
@@ -113,70 +73,68 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine set_default_parameters_wind()
+ use setorbit, only:set_defaults_orbit
+ integer :: i
 
  wind_gamma    = 5./3.
  if (isothermal) then
-    T_wind                = 100000.
-    temp_exponent         = 0.5
-    ! primary_racc_au       = 0.465
-    ! primary_mass_msun     = 1.5
-    ! primary_lum_lsun      = 0.
-    ! primary_Reff_au       = 0.465240177008 !100 Rsun
+    T_wind        = 100000.
+    temp_exponent = 0.5
+    iwind         = 2
  else
     T_wind = 3000.
-    !primary_racc_au       = 1.
-    !primary_mass_msun     = 1.5
-    !primary_lum_lsun      = 20000.
-    !primary_Reff_au       = 0.
+    iwind  = 1
  endif
- spin     = 0.
- spin(:,3) = 1.  !spin along z-axis
- icompanion_star = 0
- semi_major_axis       = 4.0
- eccentricity          = 0.
- primary_Teff          = 0.
- ! placeholder default value
- secondary_Teff        = 0.
- iderived(:)           = iderived_none
- semi_major_axis_au    = 4.0
- f                     = 180.
+ nstar = 1
  default_particle_mass = 1.e-10
  iresolution           = 0
  particles_per_shell   = 1000
  nzones_sonic_point    = 8
- primary_lum_lsun      = 5315.
- primary_mass_msun     = 1.5
- primary_Reff_au       = 1.
- primary_racc_au       = 1.
- primary_mdot_msun_yr  = 0.
- primary_vwind_km_s    = 0.
- primary_wind_temp     = 0.
- primary_alpha         = 0.
- primary_veq = 0.
- primary_veq_km_s = 0.
- ! placeholder default value
- secondary_lum_lsun    = 1000.
- secondary_mass_msun   = 1.0
- secondary_Reff_au     = 0.8
- secondary_racc_au     = 0.1
- secondary_mdot_msun_yr = .0
- secondary_vwind_km_s  = 0.
- secondary_wind_temp   = 0.
- secondary_alpha       = 0.
- secondary_veq         = 0.
- secondary_veq_km_s    = 0.
- lum2a_lsun            = 0.
- lum2b_lsun            = 0.
- Teff2a                = 0.
- Teff2b                = 0.
- Reff2a_au             = 0.
- Reff2b_au             = 0.
- binary2_a_au          = 0.3
- racc2a_au             = 0.1
- racc2b_au             = 0.1
- binary2_i             = 0.
+ !
+ ! primary (wind-launching) star
+ !
+ call set_default_star(star(1),mass_msun=1.5,racc_au=1.,lum_lsun=5315.,Reff_au=1.)
+ !
+ ! placeholder values for companions
+ !
+ do i=2,maxstars
+    call set_default_star(star(i),mass_msun=1.0,racc_au=0.1,lum_lsun=1000.,Reff_au=0.8)
+ enddo
+ !
+ ! binary orbit, with the periapsis along the x-axis and starting at apastron
+ !
+ call set_defaults_orbit(orbit)
+ orbit%elems%a = '4.0'
+ orbit%e = 0.
+ orbit%w = 0.
+ orbit%f = 180.
 
 end subroutine set_default_parameters_wind
+
+!----------------------------------------------------------------
+!+
+!  default properties of a star, with no wind and no spin
+!+
+!----------------------------------------------------------------
+subroutine set_default_star(s,mass_msun,racc_au,lum_lsun,Reff_au)
+ type(wind_star_t), intent(out) :: s
+ real,              intent(in)  :: mass_msun,racc_au,lum_lsun,Reff_au
+
+ s%mass_msun    = mass_msun
+ s%racc_au      = racc_au
+ s%lum_lsun     = lum_lsun
+ s%Teff         = 0.
+ s%Reff_au      = Reff_au
+ s%mdot_msun_yr = 0.
+ s%vwind_km_s   = 0.
+ s%wind_temp    = 0.
+ s%alpha        = 0.
+ s%veq_km_s     = 0.
+ s%spin         = 0.
+ s%spin(3)      = 1.  ! spin along z-axis
+ s%iderived     = iderived_none
+
+end subroutine set_default_star
 
 !----------------------------------------------------------------
 !+
@@ -184,19 +142,16 @@ end subroutine set_default_parameters_wind
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,            only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,iTeff,iLum,iReff, &
-                           ispinx,ispiny,ispinz,ivwind,imloss,iTwind,iwalpha
- use physcon,         only:au,solarm,mass_proton_cgs,kboltz,solarl,km
- use units,           only:umass,set_units,unit_velocity,utime,unit_energ,udist,get_nearest_unit
- use inject,          only:set_default_options_inject,print_wind_resolution
- use wind,            only:get_wind_particle_mass
- use setbinary,       only:set_binary
- use orbits,          only:get_orbital_period
- use sethierarchical, only:set_multiple
- use io,              only:master,fatal
- use eos,             only:gmw,ieos,isink,qfacdisc,init_eos
- use infile_utils,    only:get_options
- use kernel,          only:hfact_default
+ use part,             only:xyzmh_ptmass,vxyz_ptmass,nptmass,igas,ivwind,imloss,iLum,iReff
+ use physcon,          only:au,solarm,mass_proton_cgs,kboltz,solarl
+ use units,            only:umass,set_units,unit_velocity,utime,unit_energ,udist,get_nearest_unit
+ use inject,           only:set_default_options_inject,print_wind_resolution
+ use wind,             only:get_wind_particle_mass
+ use setorbit,         only:set_orbits
+ use io,               only:master,fatal
+ use eos,              only:gmw,ieos,isink,qfacdisc,init_eos
+ use infile_utils,     only:get_options
+ use kernel,           only:hfact_default
  use ptmass_radiation, only:isink_radiation
  integer,          intent(in)    :: id
  integer,          intent(inout) :: npart
@@ -208,9 +163,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
- integer :: ierr,k,wind_type
+ integer :: ierr,i,wind_type
  logical :: iexist
- real :: omega_corotate, posang_ascnode, arg_peri, incl
+ real :: m(maxstars),racc(maxstars)
 
  hfact = hfact_default
  call set_units(dist=au,mass=solarm,G=1.d0)
@@ -229,7 +184,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--the wind alpha parameters are ignored unless radiation pressure from sinks is switched on
 !
- if ((primary_alpha > 0. .or. secondary_alpha > 0.) .and. isink_radiation == 0) then
+ if (any(star(1:nstar)%alpha > 0.) .and. isink_radiation == 0) then
     isink_radiation = 1
     if (id==master) print "(a)",' wind alpha > 0: setting isink_radiation = 1 in the .in file'
  endif
@@ -242,131 +197,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:) = 0.
- omega_corotate = 0.
- posang_ascnode = 0.
- arg_peri       = 0.
- incl           = 0.
-
- if (icompanion_star == 1) then
-    call set_binary(primary_mass, &
-                    secondary_mass, &
-                    semi_major_axis, &
-                    eccentricity, &
-                    primary_racc, &
-                    secondary_racc, &
-                    xyzmh_ptmass, vxyz_ptmass, nptmass, ierr, &
-                    posang_ascnode=posang_ascnode,&
-                    arg_peri=arg_peri,&
-                    incl=incl,&
-                    f=f)
-    print "(2x,a)",'binary period (physical units) : '//&
-          trim(get_nearest_unit(get_orbital_period(primary_mass+secondary_mass,semi_major_axis),'time'))
-    xyzmh_ptmass(iTeff,1) = primary_Teff
-    xyzmh_ptmass(iReff,1) = primary_Reff
-    xyzmh_ptmass(iLum,1)  = primary_lum
-    xyzmh_ptmass(imloss,1) = primary_mdot
-    xyzmh_ptmass(ivwind,1) = primary_vwind
-    xyzmh_ptmass(iTwind,1) = primary_wind_temp
-    xyzmh_ptmass(iwalpha,1) = primary_alpha
-    primary_veq = primary_veq_km_s * (km / unit_velocity)
-    xyzmh_ptmass(ispinx,1) = primary_Reff**2*spin(1,1)*primary_veq
-    xyzmh_ptmass(ispiny,1) = primary_Reff**2*spin(1,2)*primary_veq
-    xyzmh_ptmass(ispinz,1) = primary_Reff**2*spin(1,3)*primary_veq
-
-    xyzmh_ptmass(iTeff,2) = secondary_Teff
-    xyzmh_ptmass(iReff,2) = secondary_Reff
-    xyzmh_ptmass(iLum,2)  = secondary_lum
-    xyzmh_ptmass(imloss,2) = secondary_mdot
-    xyzmh_ptmass(ivwind,2) = secondary_vwind
-    xyzmh_ptmass(iTwind,2) = secondary_wind_temp
-    xyzmh_ptmass(iwalpha,2) = secondary_alpha
-    secondary_veq = secondary_veq_km_s * (km / unit_velocity)
-    xyzmh_ptmass(ispinx,2) = secondary_Reff**2*spin(2,1)*secondary_veq
-    xyzmh_ptmass(ispiny,2) = secondary_Reff**2*spin(2,2)*secondary_veq
-    xyzmh_ptmass(ispinz,2) = secondary_Reff**2*spin(2,3)*secondary_veq
- elseif (icompanion_star == 2) then
-    !-- hierarchical triple
-    nptmass  = 0
-    print "(/,a)",'----------- Hierarchical triple -----------'
-    print "(a,g10.3,a)",'     First hierarchical level primary mass: ', primary_mass_msun
-    print "(a,g10.3,a)",'   First hierarchical level secondary mass: ', secondary_mass_msun
-    print "(a,g10.3)",  '                    Wide binary mass ratio: ', secondary_mass/primary_mass
-    print "(a,g10.3)",  '                   Tight binary mass ratio: ', q2
-    print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
-!        print "(a,g10.3,a)",'                        Accretion Radius 1: ', primary_racc!, trim(dist_unit)
-!        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', racc2a!, trim(dist_unit)
-!        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', racc2b!, trim(dist_unit)
-
-    if (subst>0) then
-       print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
-    else
-       print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
-    endif
-
-    call set_multiple(primary_mass,secondary_mass,semimajoraxis=semi_major_axis,eccentricity=eccentricity, &
-            accretion_radius1=primary_racc,accretion_radius2=secondary_racc, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
-
-    if (subst == 12) then
-       call set_multiple(secondary_mass/(q2+1),secondary_mass*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
-                accretion_radius1=racc2a,accretion_radius2=racc2b, &
-                xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
-                posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
-
-       xyzmh_ptmass(iTeff,1) = primary_Teff
-       xyzmh_ptmass(iReff,1) = primary_Reff
-       xyzmh_ptmass(iLum,1)  = primary_lum
-       xyzmh_ptmass(iTeff,2) = Teff2a
-       xyzmh_ptmass(iReff,2) = Reff2a
-       xyzmh_ptmass(iLum,2)  = lum2a
-       xyzmh_ptmass(iTeff,3) = Teff2b
-       xyzmh_ptmass(iReff,3) = Reff2b
-       xyzmh_ptmass(iLum,3)  = lum2b
-
-    elseif (subst == 11) then
-       call set_multiple(primary_mass*q2/(q2+1),primary_mass/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
-                accretion_radius1=racc2b,accretion_radius2=primary_racc, &
-                xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
-                posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
-
-       xyzmh_ptmass(iTeff,1)  = primary_Teff
-       xyzmh_ptmass(iReff,1)  = primary_Reff
-       xyzmh_ptmass(iLum,1)   = primary_lum
-       xyzmh_ptmass(imloss,1) = primary_mdot
-       xyzmh_ptmass(ivwind,1) = primary_vwind
-       xyzmh_ptmass(iTwind,1) = primary_wind_temp
-       xyzmh_ptmass(iwalpha,1) = primary_alpha
-       xyzmh_ptmass(iTeff,2)  = secondary_Teff
-       xyzmh_ptmass(iReff,2)  = secondary_Reff
-       xyzmh_ptmass(iLum,2)   = secondary_lum
-       xyzmh_ptmass(iTeff,3)  = Teff2b
-       xyzmh_ptmass(iReff,3)  = Reff2b
-       xyzmh_ptmass(iLum,3)   = lum2b
-    endif
-
+!
+!--place the stars: star i is sink particle i
+!
+ do i=1,nstar
+    m(i)    = star(i)%mass_msun * (solarm / umass)
+    racc(i) = star(i)%racc_au * (au / udist)
+ enddo
+ nptmass = 0
+ call set_orbits(nstar,m,racc,orbit,fileprefix,xyzmh_ptmass,vxyz_ptmass,nptmass,id==master,ierr)
+ if (ierr /= 0) call fatal('setup','error placing stars on their orbits')
+ if (nstar == 2 .and. id==master) print "(2x,a)",'binary period (physical units) : '//&
+    trim(get_nearest_unit(orbit%period,'time'))
+ do i=1,nstar
+    call set_sink_properties(star(i),xyzmh_ptmass(:,i))
+ enddo
+ if (nstar >= 3 .and. id==master) then
     print *,'Sink particles summary'
     print *,'  #    mass       racc      lum         Reff'
-    do k=1,nptmass
-       print '(i4,2(2x,f9.5),2(2x,es10.3))',k,xyzmh_ptmass(4:5,k),xyzmh_ptmass(iLum,k)/(solarl*utime/unit_energ),&
-               xyzmh_ptmass(iReff,k)*udist/au
+    do i=1,nptmass
+       print '(i4,2(2x,f9.5),2(2x,es10.3))',i,xyzmh_ptmass(4:5,i),xyzmh_ptmass(iLum,i)/(solarl*utime/unit_energ),&
+             xyzmh_ptmass(iReff,i)*udist/au
     enddo
     print *,''
-
- else
-    nptmass = 1
-    xyzmh_ptmass(4,1)      = primary_mass
-    xyzmh_ptmass(5,1)      = primary_racc
-    xyzmh_ptmass(iTeff,1)  = primary_Teff
-    xyzmh_ptmass(iReff,1)  = primary_Reff
-    xyzmh_ptmass(iLum,1)   = primary_lum
-    xyzmh_ptmass(imloss,1) = primary_mdot
-    xyzmh_ptmass(ivwind,1) = primary_vwind
-    xyzmh_ptmass(iTwind,1) = primary_wind_temp
-    xyzmh_ptmass(iwalpha,1) = primary_alpha
-    primary_veq = primary_veq_km_s * (km / unit_velocity)
-    xyzmh_ptmass(ispinx,1) = primary_Reff**2*spin(1,1)*primary_veq
-    xyzmh_ptmass(ispiny,1) = primary_Reff**2*spin(1,2)*primary_veq
-    xyzmh_ptmass(ispinz,1) = primary_Reff**2*spin(1,3)*primary_veq
  endif
 
  if (isothermal) then
@@ -375,7 +228,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ieos = 6
        qfacdisc = 0.5*temp_exponent
        isink = 1
-       T_wind = primary_Teff
+       T_wind = star(1)%Teff
     else
        isink = 1
        ieos = 1
@@ -413,15 +266,44 @@ end subroutine setpart
 
 !----------------------------------------------------------------
 !+
+!  set the stellar, wind and spin properties of a sink particle
+!  from the properties of a star
+!+
+!----------------------------------------------------------------
+subroutine set_sink_properties(s,xyzmh_ptmassi)
+ use part,    only:iTeff,iLum,iReff,ispinx,ispiny,ispinz,ivwind,imloss,iTwind,iwalpha
+ use physcon, only:solarm,km,years
+ use units,   only:umass,utime,unit_velocity
+ type(wind_star_t), intent(inout) :: s
+ real,              intent(inout) :: xyzmh_ptmassi(:)
+ real :: lum,Reff,veq
+
+ call get_lum_and_Reff(s%lum_lsun,s%Reff_au,s%Teff,lum,Reff,s%iderived)
+ xyzmh_ptmassi(iTeff)   = s%Teff
+ xyzmh_ptmassi(iReff)   = Reff
+ xyzmh_ptmassi(iLum)    = lum
+ xyzmh_ptmassi(imloss)  = s%mdot_msun_yr * (solarm / umass) * (utime / years)
+ xyzmh_ptmassi(ivwind)  = s%vwind_km_s * (km / unit_velocity)
+ xyzmh_ptmassi(iTwind)  = s%wind_temp
+ xyzmh_ptmassi(iwalpha) = s%alpha
+ veq = s%veq_km_s * (km / unit_velocity)
+ xyzmh_ptmassi(ispinx)  = Reff**2*s%spin(1)*veq
+ xyzmh_ptmassi(ispiny)  = Reff**2*s%spin(2)*veq
+ xyzmh_ptmassi(ispinz)  = Reff**2*s%spin(3)*veq
+
+end subroutine set_sink_properties
+
+!----------------------------------------------------------------
+!+
 !  determine which problem to set up interactively
 !+
 !----------------------------------------------------------------
 subroutine setup_interactive()
- use prompting, only:prompt
- use physcon,   only:au,solarm
- use units,     only:umass,udist
- use io,        only:fatal
- integer :: ichoice
+ use prompting,       only:prompt
+ use io,              only:fatal
+ use sethierarchical, only:generate_hierarchy_string,set_hierarchical_default_options
+ real :: a_au
+ integer :: i,ichoice
 
  if (isothermal) then
     iwind = 2
@@ -431,226 +313,47 @@ subroutine setup_interactive()
     if (iwind == 2 .or. iwind == 3) then
        call fatal('setup','If you choose options 2 or 3, the code must be compiled with SETUP=isowind')
     endif
-    if (iwind == 3) T_wind = primary_Teff
  endif
 
- icompanion_star = 0
- call prompt('Add binary?',icompanion_star,0,2)
+ nstar = 1
+ call prompt('Number of stars (1=single, 2=binary, >=3 hierarchical system)',nstar,1,maxstars)
 
- !Hierarchical triple system
- if (icompanion_star == 2) then
-    !select the tight binary
-    ichoice = 1
-    print "(a)",'Star to be substituted by a tight binary'
-    print "(a)",' 1: primary (2+1)' ,' 2: companion (1+2)'
-    call prompt('Select star to be substituted',ichoice,1,2)
-    subst = ichoice+10
-
-    !select orbital parameters for outer binary
-    semi_major_axis_au = 15.
-    eccentricity       = 0.
-    ichoice = 1
-    print "(a)",'Orbital parameters first hierarchical level binary'
-    print "(a)",' 1: semi-axis = 15 au, eccentricity = 0',' 0: custom'
-    call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
-    if (ichoice == 0) then
-       call prompt('enter semi-major axis in au',semi_major_axis_au,0.)
-       call prompt('enter eccentricity',eccentricity,0.)
-    endif
-    semi_major_axis = semi_major_axis_au * au / udist
-    ichoice = 1
-
-    !replace companion by tight binary system : 1+2
-    if (subst == 12) then
-       print "(a)",'Primary star parameters (the single wind launching central star)'
-       print "(a)",' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
-        ' 1: Mass = 1.5 Msun, accretion radius = 1.2568 au', &
-        ' 0: custom'
-       call prompt('select mass and radius of primary',ichoice,0,2)
-       select case(ichoice)
-       case(2)
-          primary_mass_msun = 1.2
-          primary_racc_au   = 0.2568
-       case(1)
-          primary_mass_msun = 1.5
-          primary_racc_au   = 1.2568
-       case default
-          primary_mass_msun = 1.5
-          primary_racc_au   = 1.
-          call prompt('enter primary mass',primary_mass_msun,0.,100.)
-          call prompt('enter accretion radius in au ',primary_racc_au,0.)
-       end select
-       primary_mass = primary_mass_msun * (solarm / umass)
-       primary_racc = primary_racc_au * (au / udist)
-
-       ichoice = 1
-       print "(a)",'Total mass of tight binary system (1+2)'
-       print "(a)",' 1: Total mass tight binary = 1.0 Msun',' 0: custom'
-       secondary_mass_msun = 1.
-       call prompt('select mass',ichoice,0,1)
-       select case(ichoice)
-       case(0)
-          call prompt('enter total mass tigh binary',secondary_mass_msun,0.,100.)
-       end select
-       secondary_mass = secondary_mass_msun * (solarm / umass)
-
-       ichoice = 1
-       print "(a)",'Mass ratio and accretion radii of stars in tight orbit:'
-       print "(a)",' 1: mass ratio m2b/m2a = 1, accretion radius a = 0.01 au, accretion radius b = 0.01 au',' 0: custom'
-       call prompt('select mass ratio and accretion radii of tight binary',ichoice,0,1)
-       select case(ichoice)
-       case(1)
-          q2 = 1.
-          racc2a_au = 0.1
-          racc2b_au = 0.1
-       case default
-          q2 = 1.
-          racc2a_au = 0.1
-          racc2b_au = 0.1
-          call prompt('enter tight binary mass ratio',q2,0.)
-          call prompt('enter accretion radius a in au ',racc2a_au,0.)
-          call prompt('enter accretion radius b in au ',racc2b_au,0.)
-       end select
-       racc2a = racc2a_au * (au / udist)
-       racc2b = racc2b_au * (au / udist)
-       secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
-
-       !replace primary by tight binary system : 2+1
-    elseif (subst == 11) then
-       print "(a)",'Stellar parameters of the remote single star (2+1)'
-       print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
-       call prompt('select mass and radius of remote single star',ichoice,0,1)
-       select case(ichoice)
-       case(1)
-          secondary_mass_msun = 1.
-          secondary_racc_au   = 0.1
-       case default
-          secondary_mass_msun = 1.
-          secondary_racc_au   = 0.1
-          call prompt('enter mass of remote single star',secondary_mass_msun,0.,100.)
-          call prompt('enter accretion radius in au ',secondary_racc_au,0.)
-       end select
-       secondary_mass = secondary_mass_msun * (solarm / umass)
-       secondary_racc = secondary_racc_au * (au / udist)
-
-       ichoice = 1
-       print "(a)",'wind-launching star accretion radius in tigh orbit (called primary)'
-       print "(a)",' 2: accretion radius primary = 0.2568 au',&
-        ' 1: accretion radius primary = 1.2568 au', &
-        ' 0: custom'
-       call prompt('select accretion radius of wind launching star',ichoice,0,2)
-       select case(ichoice)
-       case(2)
-          primary_racc_au = 0.2568
-       case(1)
-          primary_racc_au = 1.2568
-       case default
-          primary_racc_au = 1.
-          call prompt('enter accretion radius in au ',primary_racc_au,0.)
-       end select
-       primary_racc = primary_racc_au * (au / udist)
-
-       ichoice = 1
-       print "(a)",'Total mass of the tight binary system (2+1):'
-       print "(a)",' 2: Total mass tight binary = 1.2 Msun',&
-        ' 1: Total mass tight binary = 1.5 Msun', &
-        ' 0: custom'
-       call prompt('select total mass tight binary',ichoice,0,2)
-       select case(ichoice)
-       case(2)
-          primary_mass_msun = 1.2
-       case(1)
-          primary_mass_msun = 1.5
-       case default
-          primary_mass_msun = 1.5
-          call prompt('enter primary mass',primary_mass_msun,0.,100.)
-       end select
-       primary_mass = primary_mass_msun * (solarm / umass)
-
-       ichoice = 1
-       print "(a)",'Mass ratio and accretion radius of secondary in tight orbit:'
-       print "(a)",' 1: mass ratio m1b/m1a = 0.3, accretion radius b = 0.01 au',' 0: custom'
-       call prompt('select mass ratio and accretion radius of tight binary',ichoice,0,1)
-       select case(ichoice)
-       case(1)
-          q2 = 0.3
-          racc2b_au = 0.1
-       case default
-          q2 = 0.3
-          racc2b_au = 0.1
-          call prompt('enter tight binary mass ratio',q2,0.)
-          call prompt('enter accretion radius b in au ',racc2b_au,0.)
-       end select
-       racc2b = racc2b_au * (au / udist)
-    endif
-
-    ichoice = 1
-    print "(a)",'Orbital parameters of tight system:'
-    print "(a)",' 1: semi-axis = 4 au, eccentricity = 0',' 0: custom'
-    call prompt('select tight binary semi-major axis and eccentricity',ichoice,0,1)
-    select case(ichoice)
-    case(1)
-       binary2_a_au = 4.
-       binary2_e    = 0.
-    case default
-       binary2_a_au = 4.
-       binary2_e    = 0.
-       call prompt('enter semi-major axis in au',binary2_a_au,0.,semi_major_axis_au)
-       call prompt('enter eccentricity',binary2_e,0.)
-    end select
-    binary2_a = binary2_a_au * au / udist
-
-    ichoice = 1
-    print "(a)",'inclination of orbit tight binary w.r.t. outer binary:'
-    print "(a)",' 1: inclination = 0 deg',' 0: custom'
-    call prompt('select inclination',ichoice,0,1)
-    select case(ichoice)
-    case(1)
-       binary2_i = 0.
-    case default
-       binary2_i = 0.
-       call prompt('enter inclination',binary2_i,0.,90.)
-    end select
-
-    !binary or single star case
- else
-    if (icompanion_star == 1) then
-       print "(a)",'Primary star parameters'
-    else
+ do i=1,nstar
+    if (nstar == 1) then
        print "(a)",'Stellar parameters'
+    else
+       print "(/,a)",trim(star_label(i))//' star parameters'
     endif
-    ! define primary properties, wind and spin characteristics
-    call get_sink_properties(primary_mass_msun,primary_mass,primary_racc_au,primary_racc,&
-                             primary_Reff_au,primary_Reff,primary_Teff,primary_lum_lsun,primary_lum)
-    call get_sink_wind(primary_mdot_msun_yr,primary_vwind_km_s,primary_wind_temp,primary_alpha)
-    call get_sink_spin(spin(1,:),primary_veq_km_s)
+    ! define stellar properties, wind and spin characteristics
+    call get_sink_properties(star(i))
+    call get_sink_wind(star(i))
+    call get_sink_spin(star(i))
+ enddo
+ if (iwind == 3) T_wind = star(1)%Teff
 
-    if (icompanion_star == 1) then
-       print "(/,a)",'Secondary star parameters'
-       ! define secondary properties, wind and spin characteristics
-       call get_sink_properties(secondary_mass_msun,secondary_mass,secondary_racc_au,&
-                                secondary_racc,secondary_Reff_au,secondary_Reff,secondary_Teff,&
-                                secondary_lum_lsun,secondary_lum)
-       call get_sink_wind(secondary_mdot_msun_yr,secondary_vwind_km_s,secondary_wind_temp,secondary_alpha)
-       call get_sink_spin(spin(2,:),secondary_veq_km_s)
-
-       ichoice = 1
-       print "(/,a)",'Orbital parameters'
-       print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0, true-anom = 180',' 0: custom'
-       call prompt('select semi-major axis, ecccentricity, and true anomaly',ichoice,0,1)
-       select case(ichoice)
-       case(1)
-          semi_major_axis_au = 3.7
-          eccentricity       = 0.
-       case default
-          semi_major_axis_au = 1.
-          eccentricity       = 0.
-          call prompt('enter semi-major axis in au',semi_major_axis_au,0.)
-          call prompt('enter eccentricity',eccentricity,0.)
-          call prompt('enter true anomaly',f,0.,360.)
-       end select
-       semi_major_axis = semi_major_axis_au * au / udist
-    endif
+ if (nstar == 2) then
+    ichoice = 1
+    print "(/,a)",'Orbital parameters'
+    print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0, true-anom = 180',' 0: custom'
+    call prompt('select semi-major axis, ecccentricity, and true anomaly',ichoice,0,1)
+    select case(ichoice)
+    case(1)
+       a_au    = 3.7
+       orbit%e = 0.
+    case default
+       a_au    = 1.
+       orbit%e = 0.
+       call prompt('enter semi-major axis in au',a_au,0.)
+       call prompt('enter eccentricity',orbit%e,0.)
+       call prompt('enter true anomaly',orbit%f,0.,360.)
+    end select
+    write(orbit%elems%a,"(g13.6)") a_au
+    orbit%elems%a = adjustl(orbit%elems%a)
+ elseif (nstar >= 3) then
+    ! default hierarchy and orbits, to be edited in the .setup file
+    call generate_hierarchy_string(nstar)
+    call set_hierarchical_default_options()
+    print "(/,a)",' using default orbits for the hierarchical system: edit the .setup file to change them'
  endif
  call get_resolution()
 
@@ -692,7 +395,7 @@ end subroutine get_resolution
 !--------------------------------------------------------
 logical function sonic_option_allowed()
 
- sonic_option_allowed = (icompanion_star == 0 .and. .not.isothermal)
+ sonic_option_allowed = (nstar == 1 .and. .not.isothermal)
 
 end function sonic_option_allowed
 
@@ -702,10 +405,9 @@ end function sonic_option_allowed
 ! rotation axis + spin rate in unit of critical spin rate
 !+
 !--------------------------------------------------------
-subroutine get_sink_spin(xyzspin,wind_rotation_speed_km_s)
+subroutine get_sink_spin(s)
  use prompting, only:prompt
- real, intent(inout) :: xyzspin(3)
- real, intent(inout) :: wind_rotation_speed_km_s
+ type(wind_star_t), intent(inout) :: s
  integer :: ichoice
  real :: spin
 
@@ -716,28 +418,26 @@ subroutine get_sink_spin(xyzspin,wind_rotation_speed_km_s)
  call prompt('select equatorial velocity',ichoice,0,2)
  select case(ichoice)
  case(2)
-    wind_rotation_speed_km_s = 0.
+    s%veq_km_s = 0.
  case(1)
-    wind_rotation_speed_km_s = 10.
+    s%veq_km_s = 10.
  case default
     ! would be more interesting to input the omega parameter instead
-    call prompt('enter wind rotation speed in km/s',wind_rotation_speed_km_s,0.,1000.)
+    call prompt('enter wind rotation speed in km/s',s%veq_km_s,0.,1000.)
  end select
- if (wind_rotation_speed_km_s /= 0.) then
+ if (s%veq_km_s /= 0.) then
     ichoice = 1
     print "(a)",'spin orientation (vector)'
     print "(a)",' 1: along z-axis',&
          ' 0: custom'
     call prompt('select spin orientation',ichoice,0,1)
     if (ichoice == 0) then
-       call prompt('enter x-component',xyzspin(1),-1.,1.)
-       call prompt('enter y-component',xyzspin(2),-1.,1.)
-       call prompt('enter z-component',xyzspin(3),-1.,1.)
+       call prompt('enter x-component',s%spin(1),-1.,1.)
+       call prompt('enter y-component',s%spin(2),-1.,1.)
+       call prompt('enter z-component',s%spin(3),-1.,1.)
        ! renormalize vector
-       spin = sqrt(xyzspin(1)**2+xyzspin(2)**2+xyzspin(3)**2)
-       xyzspin(1) = xyzspin(1)/spin
-       xyzspin(2) = xyzspin(2)/spin
-       xyzspin(3) = xyzspin(3)/spin
+       spin = sqrt(s%spin(1)**2+s%spin(2)**2+s%spin(3)**2)
+       s%spin = s%spin/spin
     endif
  endif
 end subroutine get_sink_spin
@@ -748,9 +448,9 @@ end subroutine get_sink_spin
 ! wind mass loss rate, velocity and temperature
 !+
 !--------------------------------------------------------
-subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha)
+subroutine get_sink_wind(s)
  use prompting, only:prompt
- real, intent(inout) :: wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha
+ type(wind_star_t), intent(inout) :: s
  integer :: ichoice
 
  ichoice = 1
@@ -761,22 +461,22 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha)
  call prompt('select wind mass loss rate',ichoice,0,2)
  select case(ichoice)
  case(2)
-    wind_mdot_msun_yr = 0.
+    s%mdot_msun_yr = 0.
  case(1)
-    wind_mdot_msun_yr = 1.e-7
+    s%mdot_msun_yr = 1.e-7
  case default
-    call prompt('enter wind mass loss rate',wind_mdot_msun_yr,0.,1.)
+    call prompt('enter wind mass loss rate',s%mdot_msun_yr,0.,1.)
  end select
- if (wind_mdot_msun_yr /= 0.) then
+ if (s%mdot_msun_yr /= 0.) then
     ichoice = 1
     print "(a)",' 1: Wind velocity = 10 km/s',&
          ' 0: custom'
     call prompt('select wind velocity',ichoice,0,1)
     select case (ichoice)
     case(1)
-       wind_speed_km_s = 10.
+       s%vwind_km_s = 10.
     case default
-       call prompt('enter wind speed in km/s',wind_speed_km_s,0.,10000.)
+       call prompt('enter wind speed in km/s',s%vwind_km_s,0.,10000.)
     end select
     ichoice = 1
     print "(a)",' 2: Wind temperature = Teff',&
@@ -785,11 +485,11 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha)
     call prompt('select wind temperature',ichoice,0,2)
     select case (ichoice)
     case(2)
-       wind_temp = 0.  ! 0 means use Teff
+       s%wind_temp = 0.  ! 0 means use Teff
     case(1)
-       wind_temp = 3000.
+       s%wind_temp = 3000.
     case default
-       call prompt('enter wind temperature in K',wind_temp,1.,1.e7)
+       call prompt('enter wind temperature in K',s%wind_temp,1.,1.e7)
     end select
     ichoice = 1
     print "(a)",' 1: Wind parameter alpha = 0.',&
@@ -797,14 +497,14 @@ subroutine get_sink_wind(wind_mdot_msun_yr,wind_speed_km_s,wind_temp,wind_alpha)
     call prompt('select wind velocity',ichoice,0,1)
     select case (ichoice)
     case(1)
-       wind_alpha = 0.
+       s%alpha = 0.
     case default
-       call prompt('enter wind alpha parameter',wind_alpha,0.,10.)
+       call prompt('enter wind alpha parameter',s%alpha,0.,10.)
     end select
  else
-    wind_speed_km_s = 0.
-    wind_temp = 0.
-    wind_alpha = 0.
+    s%vwind_km_s = 0.
+    s%wind_temp  = 0.
+    s%alpha      = 0.
  endif
 
 end subroutine get_sink_wind
@@ -816,13 +516,9 @@ end subroutine get_sink_wind
 ! and surface temperature
 !+
 !--------------------------------------------------------
-subroutine get_sink_properties(sink_mass_msun,sink_mass,sink_racc_au,sink_racc,&
-                               sink_Reff_au,sink_Reff,sink_Teff,sink_lum_lsun,sink_lum)
+subroutine get_sink_properties(s)
  use prompting, only:prompt
- use physcon,   only:au,solarm,solarl
- use units,     only:umass,udist,unit_luminosity
- real, intent(inout) :: sink_mass_msun,sink_racc_au,sink_Reff_au,sink_Teff,sink_lum_lsun
- real, intent(inout) :: sink_mass,sink_racc,sink_Reff,sink_lum
+ type(wind_star_t), intent(inout) :: s
  integer :: ichoice
 
  ichoice = 2
@@ -833,20 +529,20 @@ subroutine get_sink_properties(sink_mass_msun,sink_mass,sink_racc_au,sink_racc,&
  call prompt('select mass and radius',ichoice,0,3)
  select case(ichoice)
  case(3)
-    sink_lum_lsun  = 2.d4
-    sink_Teff      = 5.d4
-    sink_mass_msun = 1.2
-    sink_racc_au   = 1.
-    wind_gamma     = 1.4
+    s%lum_lsun  = 2.d4
+    s%Teff      = 5.d4
+    s%mass_msun = 1.2
+    s%racc_au   = 1.
+    wind_gamma  = 1.4
  case(2)
-    sink_mass_msun = 1.2
-    sink_racc_au   = 0.2568
+    s%mass_msun = 1.2
+    s%racc_au   = 0.2568
  case(1)
-    sink_mass_msun = 1.
-    sink_racc_au   = 1.2568
+    s%mass_msun = 1.
+    s%racc_au   = 1.2568
  case default
-    call prompt('enter stellar mass',sink_mass_msun,0.,100.)
-    call prompt('enter accretion radius in au ',sink_racc_au,0.)
+    call prompt('enter stellar mass',s%mass_msun,0.,100.)
+    call prompt('enter accretion radius in au ',s%racc_au,0.)
  end select
  ichoice = 1
  print "(a)",' 2: Effective radius = 0.1 au',&
@@ -855,11 +551,11 @@ subroutine get_sink_properties(sink_mass_msun,sink_mass,sink_racc_au,sink_racc,&
  call prompt('select effective radius',ichoice,0,2)
  select case(ichoice)
  case(2)
-    sink_Reff_au = 0.1
+    s%Reff_au = 0.1
  case(1)
-    sink_Reff_au = 1.
+    s%Reff_au = 1.
  case default
-    call prompt('enter effective radius in au ',sink_Reff_au,0.)
+    call prompt('enter effective radius in au ',s%Reff_au,0.)
  end select
  ichoice = 1
  print "(a)",' 1: Effective temperature = 3000 K, luminosity = 5000 Lsun',&
@@ -867,17 +563,12 @@ subroutine get_sink_properties(sink_mass_msun,sink_mass,sink_racc_au,sink_racc,&
  call prompt('select effective temperature and luminosity',ichoice,0,1)
  select case(ichoice)
  case(1)
-    sink_Teff     = 3000.
-    sink_lum_lsun = 5000.
+    s%Teff     = 3000.
+    s%lum_lsun = 5000.
  case default
-    call prompt('enter effective temperature ',sink_Teff,0.)
-    call prompt('enter luminosity ',sink_lum_lsun,0.)
+    call prompt('enter effective temperature ',s%Teff,0.)
+    call prompt('enter luminosity ',s%lum_lsun,0.)
  end select
-
- sink_mass = sink_mass_msun * (solarm / umass)
- sink_racc = sink_racc_au * (au / udist)
- sink_Reff = sink_Reff_au * (au / udist)
- sink_lum  = sink_lum_lsun * (solarl / unit_luminosity)
 
 end subroutine get_sink_properties
 
@@ -947,17 +638,53 @@ end function get_Teff
 !  to the .setup file, omitting the one computed from the other two
 !+
 !----------------------------------------------------------------
-subroutine write_lum_Teff_Reff(star,lum_lsun,Teff,reff_au,ider,iunit)
+subroutine write_lum_Teff_Reff(label,lum_lsun,Teff,reff_au,ider,iunit)
  use infile_utils, only:write_inopt
- character(len=*), intent(in) :: star
+ character(len=*), intent(in) :: label
  real,             intent(in) :: lum_lsun,Teff,reff_au
  integer,          intent(in) :: ider,iunit
 
- if (ider /= iderived_lum)  call write_inopt(lum_lsun,star//'_lum',star//' star luminosity (Lsun)',iunit)
- if (ider /= iderived_Teff) call write_inopt(Teff,star//'_Teff',star//' star effective temperature (K)',iunit)
- if (ider /= iderived_Reff) call write_inopt(reff_au,star//'_Reff',star//' star effective radius (au)',iunit)
+ if (ider /= iderived_lum)  call write_inopt(lum_lsun,label//'_lum',label//' star luminosity (Lsun)',iunit)
+ if (ider /= iderived_Teff) call write_inopt(Teff,label//'_Teff',label//' star effective temperature (K)',iunit)
+ if (ider /= iderived_Reff) call write_inopt(reff_au,label//'_Reff',label//' star effective radius (au)',iunit)
 
 end subroutine write_lum_Teff_Reff
+
+!----------------------------------------------------------------
+!+
+!  write the properties of one star to the .setup file
+!+
+!----------------------------------------------------------------
+subroutine write_star(s,label,iunit)
+ use infile_utils, only:write_inopt
+ type(wind_star_t), intent(inout) :: s
+ character(len=*),  intent(in)    :: label
+ integer,           intent(in)    :: iunit
+ real :: lum,Reff
+
+ ! make L, Teff and Reff consistent, so the derived one is not written
+ call get_lum_and_Reff(s%lum_lsun,s%Reff_au,s%Teff,lum,Reff,s%iderived)
+
+ write(iunit,"(/,a)") '# '//label//' star'
+ call write_inopt(s%mass_msun,label//'_mass',label//' star mass (Msun)',iunit)
+ call write_inopt(s%racc_au,label//'_racc',label//' star accretion radius (au)',iunit)
+ call write_lum_Teff_Reff(label,s%lum_lsun,s%Teff,s%Reff_au,s%iderived,iunit)
+
+ write(iunit,"(/,a)") '# '//label//' wind'
+ call write_inopt(s%mdot_msun_yr,label//'_mdot',label//' wind mass loss rate (in Msun/yr)',iunit)
+ call write_inopt(s%vwind_km_s,label//'_vwind',label//' wind velocity (in km/s)',iunit)
+ call write_inopt(s%wind_temp,label//'_wind_temp',label//' wind temperature (K, 0 = use Teff)',iunit)
+ call write_inopt(s%alpha,label//'_alpha',label//' alpha parameter',iunit)
+
+ write(iunit,"(/,a)") '# '//label//' spin'
+ call write_inopt(s%veq_km_s,label//'_veq',label//' equatorial velocity (in km/s)',iunit)
+ if (s%veq_km_s /= 0) then
+    call write_inopt(s%spin(1),label//'_spinx','x-component of spin direction',iunit)
+    call write_inopt(s%spin(2),label//'_spiny','y-component of spin direction',iunit)
+    call write_inopt(s%spin(3),label//'_spinz','z-component of spin direction',iunit)
+ endif
+
+end subroutine write_star
 
 !----------------------------------------------------------------
 !+
@@ -965,121 +692,31 @@ end subroutine write_lum_Teff_Reff
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
- use infile_utils, only:write_inopt
+ use infile_utils,    only:write_inopt
+ use setorbit,        only:write_options_orbits
+ use sethierarchical, only:hs
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
+ integer :: i
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for wind setup routine'
  write(iunit,"(a)") '# set any two of lum, Teff and Reff (third one is derived)'
 
- call get_lum_and_Reff(primary_lum_lsun,primary_Reff_au,primary_Teff,primary_lum,primary_Reff,iderived(1))
+ write(iunit,"(/,a)") '# stars'
+ call write_inopt(nstar,'nstar','number of stars (1=single, 2=binary, >=3 hierarchical system)',iunit)
+ do i=1,nstar
+    call write_star(star(i),trim(star_label(i)),iunit)
+ enddo
 
- if (icompanion_star == 2) then
-    call get_lum_and_Reff(secondary_lum_lsun,secondary_Reff_au,secondary_Teff,secondary_lum,secondary_Reff,iderived(2))
-
-    call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
-    !-- hierarchical triple
-    write(iunit,"(/,a)") '# options for hierarchical triple'
-    call write_inopt(subst,'subst','star to substitute',iunit)
-    write(iunit,"(/,a)") '# input of primary (wind launching star)'
-    if (subst == 12) then
-       call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
-       call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
-       call write_lum_Teff_Reff('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,iderived(1),iunit)
-       call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-       call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
-
-       write(iunit,"(/,a)") '# input secondary to be replaced by tight binary'
-       call write_inopt(secondary_mass_msun,'secondary_mass','total mass of secondary tight binary (Msun)',iunit)
-       call write_inopt(q2,'q2','tight binary mass ratio',iunit)
-       !-- tight orbital parameters
-       call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
-       call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
-       !-- accretion radii, luminosity, radii
-       call write_inopt(racc2a_au,'racc2a','tight binary primary accretion radius',iunit)
-       call write_inopt(racc2b_au,'racc2b','tight binary secondary accretion radius',iunit)
-       call write_inopt(lum2a_lsun,'lum2a','tight binary primary luminosity (Lsun)',iunit)
-       call write_inopt(lum2b_lsun,'lum2b','tight binary secondary luminosity (Lsun)',iunit)
-       call write_inopt(Teff2a,'Teff2a','tight binary primary effective temperature (K)',iunit)
-       call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
-       call write_inopt(Reff2a_au,'Reff2a','tight binary primary effective radius (au)',iunit)
-       call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
-    elseif (subst == 11) then
-       call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
-       call write_lum_Teff_Reff('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,iderived(1),iunit)
-
-       write(iunit,"(/,a)") '# input tight binary to create close companion'
-       call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
-       call write_inopt(q2,'q2','tight binary mass ratio',iunit)
-       !-- tight orbital parameters
-       call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
-       call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
-       !-- accretion radii
-       call write_inopt(racc2b_au,'racc2b','tight binary secondary accretion radius',iunit)
-       call write_inopt(lum2b_lsun,'lum2b','tight binary secondary luminosity (Lsun)',iunit)
-       call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
-       call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
-
-       write(iunit,"(/,a)") '# input of secondary, outer binary'
-       call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
-       call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
-       call write_lum_Teff_Reff('secondary',secondary_lum_lsun,secondary_Teff,secondary_Reff_au,iderived(2),iunit)
-       call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-       call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
-    endif
-    call write_inopt(binary2_i,'inclination','inclination of the tight binary system w.r.t. outer binary (deg)',iunit)
-    !binary or single star
- else
-    write(iunit,"(/,a)") '# primary star'
-    call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
-    call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
-    call write_lum_Teff_Reff('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,iderived(1),iunit)
-
-    write(iunit,"(/,a)") '# primary wind'
-    call write_inopt(primary_mdot_msun_yr,'primary_mdot','primary wind mass loss rate (in Msun/yr)',iunit)
-    call write_inopt(primary_vwind_km_s,'primary_vwind','primary wind velocity (in km/s)',iunit)
-    call write_inopt(primary_wind_temp,'primary_wind_temp','primary wind temperature (K, 0 = use Teff)',iunit)
-    call write_inopt(primary_alpha,'primary_alpha','primary alpha parameter',iunit)
-
-    write(iunit,"(/,a)") '# primary spin'
-    call write_inopt(primary_veq_km_s,'primary_veq','primary equatorial velocity (in km/s)',iunit)
-    if (primary_veq_km_s /= 0) then
-       call write_inopt(spin(1,1),'primary_spinx','x-component of spin direction',iunit)
-       call write_inopt(spin(1,2),'primary_spiny','y-component of spin direction',iunit)
-       call write_inopt(spin(1,3),'primary_spinz','z-component of spin direction',iunit)
-    endif
-
-    write(iunit,"(/,a)") '# companion'
-    call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
-    if (icompanion_star == 1) then
-       call get_lum_and_Reff(secondary_lum_lsun,secondary_Reff_au,secondary_Teff,secondary_lum,secondary_Reff,iderived(2))
-       call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
-       call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
-
-       call write_lum_Teff_Reff('secondary',secondary_lum_lsun,secondary_Teff,secondary_Reff_au,iderived(2),iunit)
-
-       write(iunit,"(/,a)") '# secondary wind'
-       call write_inopt(secondary_mdot_msun_yr,'secondary_mdot','secondary wind mass loss rate (in Msun/yr)',iunit)
-       call write_inopt(secondary_vwind_km_s,'secondary_vwind','secondary wind velocity (in km/s)',iunit)
-       call write_inopt(secondary_wind_temp,'secondary_wind_temp','secondary wind temperature (K, 0 = use Teff)',iunit)
-       call write_inopt(secondary_alpha,'secondary_alpha','secondary alpha parameter',iunit)
-
-       write(iunit,"(/,a)") '# secondary spin'
-       call write_inopt(secondary_veq_km_s,'secondary_veq','secondary equatorial velocity (in km/s)',iunit)
-       if (secondary_veq_km_s /= 0) then
-          call write_inopt(spin(2,1),'secondary_spinx','x-component of spin direction',iunit)
-          call write_inopt(spin(2,2),'secondary_spiny','y-component of spin direction',iunit)
-          call write_inopt(spin(2,3),'secondary_spinz','z-component of spin direction',iunit)
-       endif
-
-       write(iunit,"(/,a)") '# binary orbit'
-       call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-       call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
-       call write_inopt(f,'true_anomaly','initial true anomaly of the binary orbit (deg)',iunit)
-    endif
+ if (nstar >= 3) then
+    write(iunit,"(/,a)") '# stars in the hierarchy, in the order of the hierarchy string:'
+    do i=1,nstar
+       write(iunit,"(a)") '#   '//trim(hs%labels%sink(i))//' = '//trim(star_label(i))
+    enddo
  endif
+ call write_options_orbits(nstar,orbit,iunit)
 
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(iresolution,'iresolution','particle mass from 0=mass,1=particles_per_shell,2=sonic point',iunit)
@@ -1095,8 +732,9 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# equation of state'
  if (isothermal) then
     wind_gamma = 1.
+    call write_inopt(iwind,'iwind','isothermal wind: 2=constant temperature, 3=T(r) profile',iunit)
     if (iwind == 3) then
-       call write_inopt(primary_Teff,'T_wind','wind temperature at injection radius (K)',iunit)
+       call write_inopt(star(1)%Teff,'T_wind','wind temperature at injection radius (K)',iunit)
        call write_inopt(temp_exponent,'temp_exponent','temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)',iunit)
     else
        call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
@@ -1110,129 +748,73 @@ end subroutine write_setupfile
 
 !----------------------------------------------------------------
 !+
+!  read the properties of one star from the .setup file
+!+
+!----------------------------------------------------------------
+subroutine read_star(s,label,db,nerr)
+ use infile_utils, only:inopts,read_inopt
+ type(wind_star_t),         intent(inout) :: s
+ character(len=*),          intent(in)    :: label
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer,                   intent(inout) :: nerr
+
+ s%iderived = iderived_none
+ call read_inopt(s%mass_msun,label//'_mass',db,min=0.,max=1000.,errcount=nerr)
+ call read_inopt(s%lum_lsun,label//'_lum',db,default=0.,min=0.,max=1e7,errcount=nerr)
+ call read_inopt(s%Teff,label//'_Teff',db,default=0.,min=0.,errcount=nerr)
+ call read_inopt(s%Reff_au,label//'_Reff',db,default=0.,min=0.,errcount=nerr)
+ call read_inopt(s%racc_au,label//'_racc',db,min=0.,errcount=nerr)
+ if (s%racc_au < tiny(0.)) then
+    print "(a)",' ERROR: '//label//' accretion radius not defined'
+    nerr = nerr+1
+ endif
+ call read_inopt(s%mdot_msun_yr,label//'_mdot',db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(s%vwind_km_s,label//'_vwind',db,min=0.,max=1.e4,errcount=nerr)
+ call read_inopt(s%wind_temp,label//'_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
+ call read_inopt(s%alpha,label//'_alpha',db,min=0.,max=10.,errcount=nerr)
+ call read_inopt(s%veq_km_s,label//'_veq',db,min=0.,max=1000.,errcount=nerr)
+ if (s%veq_km_s /= 0) then
+    call read_inopt(s%spin(1),label//'_spinx',db,min=-1.,max=1.,errcount=nerr)
+    call read_inopt(s%spin(2),label//'_spiny',db,min=-1.,max=1.,errcount=nerr)
+    call read_inopt(s%spin(3),label//'_spinz',db,min=-1.,max=1.,errcount=nerr)
+ endif
+
+end subroutine read_star
+
+!----------------------------------------------------------------
+!+
 !  Read parameters from setup file
 !+
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use physcon,      only:au,solarl,solarm,km,years
- use units,        only:udist,umass,utime,unit_luminosity,unit_velocity
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db,int_to_string
+ use physcon,      only:solarm
+ use units,        only:umass
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
  type(inopts), allocatable     :: db(:)
- integer :: nerr,ichange
+ integer :: nerr,i,icompanion_star
+ real :: m(maxstars)
 
  nerr = 0
- ichange = 0
- iderived(:) = iderived_none
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(primary_mass_msun,'primary_mass',db,min=0.,max=1000.,errcount=nerr)
- primary_mass = primary_mass_msun * (solarm / umass)
- call read_inopt(primary_lum_lsun,'primary_lum',db,default=0.,min=0.,max=1e7,errcount=nerr)
- primary_lum = primary_lum_lsun * (solarl / unit_luminosity)
- call read_inopt(primary_Teff,'primary_Teff',db,default=0.,min=0.,errcount=nerr)
- call read_inopt(primary_Reff_au,'primary_Reff',db,default=0.,min=0.,errcount=nerr)
- primary_Reff = primary_Reff_au * au / udist
- call read_inopt(primary_racc_au,'primary_racc',db,min=0.,errcount=nerr)
- primary_racc = primary_racc_au * au / udist
- if (primary_racc < tiny(0.)) then
-    print *,'ERROR: primary accretion radius not defined'
-    nerr = nerr+1
- endif
- call read_inopt(primary_mdot_msun_yr,'primary_mdot',db,min=0.,max=1.,errcount=nerr)
- primary_mdot = primary_mdot_msun_yr * (solarm / umass) * (utime /years)
- call read_inopt(primary_vwind_km_s,'primary_vwind',db,min=0.,max=1.e4,errcount=nerr)
- primary_vwind = primary_vwind_km_s * (km / unit_velocity)
- call read_inopt(primary_wind_temp,'primary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
- call read_inopt(primary_alpha,'primary_alpha',db,min=0.,max=10.,errcount=nerr)
- call read_inopt(primary_veq_km_s,'primary_veq',db,min=0.,max=1000.,errcount=nerr)
- if (primary_veq_km_s /= 0) then
-    call read_inopt(spin(1,1),'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
-    call read_inopt(spin(1,2),'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
-    call read_inopt(spin(1,3),'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
- endif
 
- call read_inopt(icompanion_star,'icompanion_star',db,min=0,errcount=nerr)
- if (icompanion_star == 1) then
-    call read_inopt(secondary_mass_msun,'secondary_mass',db,min=0.,max=1000.,errcount=nerr)
-    secondary_mass = secondary_mass_msun * (solarm / umass)
-    call read_inopt(secondary_lum_lsun,'secondary_lum',db,default=0.,min=0.,max=1e7,errcount=nerr)
-    secondary_lum = secondary_lum_lsun * (solarl / unit_luminosity)
-    call read_inopt(secondary_Teff,'secondary_Teff',db,default=0.,min=0.,errcount=nerr)
-    call read_inopt(secondary_Reff_au,'secondary_Reff',db,default=0.,min=0.,errcount=nerr)
-    secondary_Reff = secondary_Reff_au * au / udist
-    call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,errcount=nerr)
-    secondary_racc = secondary_racc_au * au / udist
-    if (secondary_racc < tiny(0.)) then
-       print *,'ERROR: secondary accretion radius not defined'
-       nerr = nerr+1
-    endif
-    call read_inopt(secondary_mdot_msun_yr,'secondary_mdot',db,min=0.,max=1.,errcount=nerr)
-    secondary_mdot = secondary_mdot_msun_yr * (solarm / umass) *(utime /years)
-    call read_inopt(secondary_vwind_km_s,'secondary_vwind',db,min=0.,max=1.e4,errcount=nerr)
-    secondary_vwind = secondary_vwind_km_s * (km / unit_velocity)
-    call read_inopt(secondary_wind_temp,'secondary_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
-    call read_inopt(secondary_alpha,'secondary_alpha',db,min=0.,max=10.,errcount=nerr)
-    call read_inopt(secondary_veq_km_s,'secondary_veq',db,min=0.,max=1000.,errcount=nerr)
-    if (secondary_veq_km_s /= 0) then
-       call read_inopt(spin(2,1),'secondary_spinx',db,min=-1.,max=1.,errcount=nerr)
-       call read_inopt(spin(2,2),'secondary_spiny',db,min=-1.,max=1.,errcount=nerr)
-       call read_inopt(spin(2,3),'secondary_spinz',db,min=-1.,max=1.,errcount=nerr)
-    endif
-    call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
-    semi_major_axis = semi_major_axis_au * au / udist
-    call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
-    call read_inopt(f,'true_anomaly',db,min=0.,max=360.,errcount=nerr)
- elseif (icompanion_star == 2) then
-    !-- hierarchical triple
-    call read_inopt(subst,'subst',db,errcount=nerr)
-    !replace primary by tight binary system : 2+1
-    if (subst == 11) then
-       call read_inopt(secondary_lum_lsun,'secondary_lum',db,default=0.,min=0.,max=1000.,errcount=nerr)
-       secondary_lum = secondary_lum_lsun * (solarl / unit_luminosity)
-       call read_inopt(secondary_Teff,'secondary_Teff',db,default=0.,min=0.,max=1000.,errcount=nerr)
-       call read_inopt(secondary_Reff_au,'secondary_Reff',db,default=0.,min=0.,max=1000.,errcount=nerr)
-       secondary_Reff = secondary_Reff_au * au / udist
-       call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,max=1000.,errcount=nerr)
-       secondary_racc = secondary_racc_au * au / udist
-    elseif (subst == 12) then
-       call read_inopt(lum2a_lsun,'lum2a',db,errcount=nerr)
-       lum2a = lum2a_lsun * (solarl / unit_luminosity)
-       !secondary_lum_lsun = lum2a_lsun
-       call read_inopt(Teff2a,'Teff2a',db,errcount=nerr)
-       call read_inopt(Reff2a_au,'Reff2a',db,errcount=nerr)
-       Reff2a = Reff2a_au * au / udist
-       !secondary_Reff =  Reff2a
-       call read_inopt(racc2a_au,'racc2a',db,errcount=nerr)
-       racc2a = racc2a_au * au / udist
-    endif
-    call read_inopt(secondary_mass_msun,'secondary_mass',db,min=0.,max=1000.,errcount=nerr)
-    secondary_mass = secondary_mass_msun * (solarm / umass)
-    call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
-    semi_major_axis = semi_major_axis_au * au / udist
-    call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
-    !-- masses
-    call read_inopt(q2,'q2',db,min=0.,max=1.,errcount=nerr)
-    !-- tight parameters
-    call read_inopt(binary2_a_au,'binary2_a',db,errcount=nerr)
-    binary2_a = binary2_a_au * au / udist
-    call read_inopt(binary2_e,'binary2_e',db,errcount=nerr)
-    !-- accretion radii,...
-    call read_inopt(racc2b_au,'racc2b',db,errcount=nerr)
-    racc2b = racc2b_au * au / udist
-    if (racc2b < tiny(0.)) then
-       print *,'WARNING: secondary accretion radius not defined'
-       !nerr = nerr+1
-    endif
-    call read_inopt(lum2b_lsun,'lum2b',db,errcount=nerr)
-    lum2b = lum2b_lsun * (solarl / unit_luminosity)
-    call read_inopt(Teff2b,'Teff2b',db,errcount=nerr)
-    call read_inopt(Reff2b_au,'Reff2b',db,errcount=nerr)
-    Reff2b = Reff2b_au * au / udist
-    call read_inopt(binary2_i,'inclination',db,errcount=nerr)
+ call read_inopt(nstar,'nstar',db,default=0,min=0,max=maxstars,errcount=nerr)
+ if (nstar == 0) then
+    ! setup files from before nstar was introduced give icompanion_star
+    ! (hierarchical triples set up with icompanion_star = 2 are no longer supported)
+    call read_inopt(icompanion_star,'icompanion_star',db,min=0,max=1,errcount=nerr)
+    nstar = icompanion_star + 1
+    print "(a)",' WARNING: icompanion_star is deprecated, using nstar = '//trim(int_to_string(nstar))//' instead'
  endif
+ do i=1,nstar
+    call read_star(star(i),trim(star_label(i)),db,nerr)
+    m(i) = star(i)%mass_msun * (solarm / umass)
+ enddo
+ call read_orbit_options(db,m,nerr)
+ call check_winds(nerr)
 
  ! resolution: setup files without iresolution keep the particle mass they specify
  call read_inopt(iresolution,'iresolution',db,min=0,max=2,default=0,errcount=nerr)
@@ -1251,15 +833,19 @@ subroutine read_setupfile(filename,ierr)
 
  if (isothermal) then
     wind_gamma = 1.
+    call read_inopt(iwind,'iwind',db,min=2,max=3,default=2,errcount=nerr)
     call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
-    if (iwind == 3) call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
+    if (iwind == 3) then
+       star(1)%Teff = T_wind
+       call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
+    endif
  else
     call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
  endif
  call close_db(db)
- call check_stellar_props('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,.true.,nerr)
- if (icompanion_star > 0) &
-    call check_stellar_props('secondary',secondary_lum_lsun,secondary_Teff,secondary_Reff_au,.false.,nerr)
+ do i=1,nstar
+    call check_stellar_props(trim(star_label(i)),star(i)%lum_lsun,star(i)%Teff,star(i)%Reff_au,i==1,nerr)
+ enddo
  ierr = nerr
  call write_setupfile(filename)
 
@@ -1267,12 +853,70 @@ end subroutine read_setupfile
 
 !----------------------------------------------------------------
 !+
+!  read the orbit(s) of the stars. Binary setup files from before
+!  the generic orbit options give semi_major_axis, eccentricity
+!  and true_anomaly instead: these are used to set the orbit, and
+!  the .setup file is then rewritten with the generic options
+!+
+!----------------------------------------------------------------
+subroutine read_orbit_options(db,m,nerr)
+ use infile_utils, only:inopts,read_inopt
+ use setorbit,     only:read_options_orbits,set_defaults_orbit
+ type(inopts), allocatable, intent(inout) :: db(:)
+ real,                      intent(in)    :: m(:)
+ integer,                   intent(inout) :: nerr
+ character(len=len(orbit%elems%a)) :: a_string
+ integer :: ierr
+
+ ! the semi-major axis is kept as the string given in the file (in au, the code unit);
+ ! err is non-zero only if the key is absent, and suppresses the error message
+ a_string = ''
+ call read_inopt(a_string,'semi_major_axis',db,err=ierr)
+ if (nstar == 2 .and. ierr == 0) then
+    call set_defaults_orbit(orbit)
+    orbit%elems%a = a_string
+    call read_inopt(orbit%e,'eccentricity',db,min=0.,errcount=nerr)
+    call read_inopt(orbit%f,'true_anomaly',db,min=0.,max=360.,default=180.,errcount=nerr)
+    orbit%w = 0.
+ else
+    call read_options_orbits(nstar,orbit,m,db,nerr)
+ endif
+
+end subroutine read_orbit_options
+
+!----------------------------------------------------------------
+!+
+!  winds are injected from at most two stars, and the primary
+!  must have a wind if any star does
+!+
+!----------------------------------------------------------------
+subroutine check_winds(nerr)
+ integer, intent(inout) :: nerr
+ integer :: i
+
+ do i=3,nstar
+    if (star(i)%mdot_msun_yr > 0.) then
+       print "(a)",' ERROR: only the primary and secondary stars can have a wind'
+       nerr = nerr + 1
+    endif
+ enddo
+ if (nstar >= 2) then
+    if (star(2)%mdot_msun_yr > 0. .and. star(1)%mdot_msun_yr <= 0.) then
+       print "(a)",' ERROR: the primary star must have a wind if the secondary has one'
+       nerr = nerr + 1
+    endif
+ endif
+
+end subroutine check_winds
+
+!----------------------------------------------------------------
+!+
 !  check that two of L, Teff and Reff are given, so that the third
 !  can be derived. Stars that are not required may give none of them
 !+
 !----------------------------------------------------------------
-subroutine check_stellar_props(star,lum,Teff,Reff,required,nerr)
- character(len=*), intent(in)    :: star
+subroutine check_stellar_props(label,lum,Teff,Reff,required,nerr)
+ character(len=*), intent(in)    :: label
  real,             intent(in)    :: lum,Teff,Reff
  logical,          intent(in)    :: required
  integer,          intent(inout) :: nerr
@@ -1283,7 +927,7 @@ subroutine check_stellar_props(star,lum,Teff,Reff,required,nerr)
  if (Teff > 0.) ngiven = ngiven + 1
  if (Reff > 0.) ngiven = ngiven + 1
  if (ngiven == 1 .or. (required .and. ngiven == 0)) then
-    print "(a)",' ERROR: '//star//' star needs two of '//star//'_lum, '//star//'_Teff and '//star//'_Reff'
+    print "(a)",' ERROR: '//label//' star needs two of '//label//'_lum, '//label//'_Teff and '//label//'_Reff'
     nerr = nerr + 1
  endif
 
