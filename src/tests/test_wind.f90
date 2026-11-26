@@ -432,7 +432,7 @@ subroutine test_parker_wind(ntests,npass,rmax)
     call checkval(params%vwind,vexact,tol_v0,nfailed(2),'injection velocity')
 
     ! velocity profile through and beyond the sonic point
-    call save_windprofile(params,rmax*udist,rmax*udist,0.,tcross,tfill,'parker_profile.dat',1)
+    call save_windprofile(params,real(rmax*udist),real(rmax*udist),0.,tcross,tfill,'parker_profile.dat',1)
     do i=1,size(trvurho_1D,dim=2)
        r = trvurho_1D(2,i)
        v = trvurho_1D(3,i)
