@@ -17,7 +17,7 @@ module sethierarchical
 !  - Ceppi et al. (2022) MNRAS 514, 906
 !  - Ceppi et al. (2023) MNRAS 520, 5817
 !
-! :Owner: Simone Ceppi
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - hierarchy : *string defining the hierarchy (e.g. 111,112,121,1221,1222)*

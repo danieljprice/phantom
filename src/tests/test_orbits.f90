@@ -14,7 +14,8 @@ module testorbits
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: orbits, setbinary, testutils
+! :Dependencies: orbits, part, setbinary, sethierarchical, setorbit,
+!   testutils
 !
  use testutils, only:checkval,update_test_scores
  use orbits,    only:get_eccentricity,get_semimajor_axis, get_orbital_period, &

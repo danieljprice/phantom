@@ -10,11 +10,11 @@ module testsethier
 !
 ! :References: None
 !
-! :Owner: Simone Ceppi
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io
+! :Dependencies: io, sethier_utils, testutils
 !
  implicit none
  public :: test_sethier
