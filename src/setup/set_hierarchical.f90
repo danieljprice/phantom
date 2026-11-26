@@ -27,7 +27,8 @@ module sethierarchical
  use sethier_utils, only:process_hierarchy,max_hier_levels,lenhierstring,hierarchical_system,&
       hier_db_size,hier_db_prop,recursive_splitting, gen_rotate, find_hier_level_orb_elem, &
       find_hierarchy_index, find_data_index, find_ptmass_index,&
-      load_hierarchy_file,update_hierarchy_file,check_substitution,&
+      load_hierarchy_file,update_hierarchy_file,check_substitution,write_hierarchy_file,&
+      print_hierarchy,hierarchy_filename,&
       ierr_HIER2,ierr_subststar,ierr_Omegasubst,ierr_missstar,pi
  implicit none
 
@@ -64,11 +65,15 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  integer :: splits, sink_num_temp, subst
  character(len=10) :: sink_list(max_hier_levels), split_list(max_hier_levels)
  character(len=20) :: hl_temp
+ character(len=30) :: filename
 
  call print_chess_logo()
+ call print_hierarchy(hierarchy)
+ filename = hierarchy_filename(prefix)
 
  splits = 0
  sink_list = hs%labels%sink
+ split_list = ''
  sink_num_temp = hs%labels%sink_num
 
  call recursive_splitting(sink_num_temp, sink_list, split_list, splits)
@@ -91,11 +96,73 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
-            ierr=ierr, subst=subst, prefix=prefix)
+            ierr=ierr, subst=subst, filename=filename)
 
  enddo
 
+ ! put the sinks in the order of the labels in the hierarchy string
+ if (ierr == 0) call order_sinks_as_labels(filename, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+
 end subroutine set_hierarchical
+
+!--------------------------------------------------------------------------
+!+
+!  reorder the sinks of the hierarchical system, which set_hierarchical
+!  places in the order the levels are split, so that sink k is the k-th
+!  label in the hierarchy string, and update the indices in the
+!  hierarchy file to match
+!+
+!--------------------------------------------------------------------------
+subroutine order_sinks_as_labels(filename, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+ character(len=*),  intent(in)    :: filename
+ integer,           intent(in)    :: nptmass
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,           intent(out)   :: ierr
+ real    :: data(hier_db_size,hier_db_prop)
+ real    :: xyzmh_old(size(xyzmh_ptmass,1),hs%labels%sink_num),vxyz_old(size(vxyz_ptmass,1),hs%labels%sink_num)
+ integer :: iold(hs%labels%sink_num)
+ integer :: i,l,n,lines,label,io
+
+ n = hs%labels%sink_num
+ call load_hierarchy_file(filename, data, lines, ierr)
+ if (ierr /= 0) return
+
+ ! index of the sink currently holding each label
+ iold = 0
+ do i=1,n
+    read(hs%labels%sink(i),*,iostat=io) label
+    do l=1,lines
+       if (int(data(l,2)) == label .and. int(data(l,1)) > 0) iold(i) = int(data(l,1))
+    enddo
+    if (iold(i) < 1 .or. iold(i) > nptmass) then
+       print "(a)",' ERROR: set_hierarchical: sink '//trim(hs%labels%sink(i))//' not found in hierarchy file'
+       ierr = ierr_missstar
+       return
+    endif
+ enddo
+
+ ! move the sinks into the order of the labels
+ do i=1,n
+    xyzmh_old(:,i) = xyzmh_ptmass(:,iold(i))
+    vxyz_old(:,i)  = vxyz_ptmass(:,iold(i))
+ enddo
+ do i=1,n
+    xyzmh_ptmass(:,i) = xyzmh_old(:,i)
+    vxyz_ptmass(:,i)  = vxyz_old(:,i)
+ enddo
+
+ ! and give the new indices in the hierarchy file
+ do l=1,lines
+    do i=1,n
+       if (int(data(l,1)) == iold(i)) then
+          data(l,1) = i
+          exit
+       endif
+    enddo
+ enddo
+ call write_hierarchy_file(filename, data, lines)
+
+end subroutine order_sinks_as_labels
 
 !--------------------------------------------------------------------------
 !+
@@ -225,7 +292,7 @@ subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxy
  integer :: int_sinks(max_hier_levels), inner_sinks_num, i
  real :: mass
 
- call find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
+ call find_hierarchy_index(level, int_sinks, inner_sinks_num, hierarchy_filename(prefix))
  !print*, 'found ', inner_sinks_num, ' sinks: ', int_sinks(:inner_sinks_num)
 
  xorigin = 0.
@@ -266,7 +333,7 @@ end function get_hier_level_mass
 subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
-                      posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
+                      posang_ascnode,arg_peri,incl,f,verbose,subst,filename)
  use setbinary, only:set_binary
  real,              intent(in)    :: m1,m2
  real,              intent(in)    :: semimajoraxis,eccentricity
@@ -274,11 +341,11 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,           intent(inout) :: nptmass
  integer,           intent(out)   :: ierr
+ character(len=*),  intent(in)    :: filename
  real,              intent(in),  optional :: posang_ascnode,arg_peri,incl,f
  integer,           intent(in),  optional :: subst
  real,              intent(out), optional :: omega_corotate
  logical,           intent(in),  optional :: verbose
- character(len=20), intent(in),  optional :: prefix
 
  integer :: i1,i2,subst_index
  real    :: mtot,period
@@ -296,7 +363,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  ierr = 0
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  if (present(subst) .and. subst > 10) then
-    call load_hierarchy_file(prefix, data, lines, ierr)
+    call load_hierarchy_file(filename, data, lines, ierr)
  else
     mtot = m1 + m2
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
@@ -304,25 +371,25 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
     hier_prefix = '1'
 
     lines = 0
-    call update_hierarchy_file(prefix, hs, data, lines, hier_prefix, 1, 2, ierr)
+    call update_hierarchy_file(filename, hs, data, lines, hier_prefix, 1, 2, ierr)
  endif
  subst_index = 0
  !--- Checks to avoid bad substitutions
  if (present(subst) .and. subst > 10) then
     write(hier_prefix, *) subst
 
-    call check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
+    call check_substitution(hier_prefix, semimajoraxis, filename, ierr)
     !call check_substitution('11                  ', semimajoraxis, prefix, ierr)
 
     !print*,data(:,1)
     !print*,data(:,2)
     !print*,hier_prefix
 
-    call find_data_index(hier_prefix, subst_index, prefix, ierr) ! QUI VOGLIO DATA INDEX
+    call find_data_index(hier_prefix, subst_index, filename, ierr) ! QUI VOGLIO DATA INDEX
 
     data(subst_index,1) = 0
 
-    call find_ptmass_index(hier_prefix, subst_index, prefix, ierr) ! QUI VOGLIO PTMASS INDEX
+    call find_ptmass_index(hier_prefix, subst_index, filename, ierr) ! QUI VOGLIO PTMASS INDEX
 
     q2=m2/m1
 
@@ -439,7 +506,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
     vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
 
     ! Write updated HIERARCHY file with the two new stars and the substituted one
-    call update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, ierr)
+    call update_hierarchy_file(filename, hs, data, lines, hier_prefix, i1, i2, ierr)
     !print*,'---------------'
     !print*,x_subst
     !call get_hierarchical_level_com(hier_prefix, x_subst, v_subst, xyzmh_ptmass, vxyz_ptmass, prefix)
@@ -478,7 +545,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !logical :: do_verbose
 
  real :: data(24,10)
- character(len=20)      :: hier_prefix, filename
+ character(len=20)      :: hier_prefix
+ character(len=30)      :: filename ! prefix (len 20) + '.hierarchy'
  logical                :: iexist
  integer                :: io, lines
  real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
@@ -507,11 +575,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !do_verbose = .true.
  !if (present(verbose)) do_verbose = verbose
 
- if (present(prefix)) then
-    filename = trim(prefix)//'.hierarchy'
- else
-    filename = 'HIERARCHY'
- endif
+ filename = hierarchy_filename(prefix)
 
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  inquire(file=trim(filename), exist=iexist)
@@ -815,8 +879,9 @@ subroutine print_chess_logo()
  print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
  print*,"                                                                      "
 
- print "(/,65('-'),1(/,a),/,65('-'),/)",&
-         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+ print "(/,65('-'),2(/,a),/,65('-'),/)",&
+         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)',&
+         '     please cite Ceppi et al. (2022, 2023) when using CHESS'
 
 end subroutine print_chess_logo
 

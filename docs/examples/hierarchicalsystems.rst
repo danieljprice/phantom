@@ -4,7 +4,7 @@ Setting up hierarchical (triple) systems embedded in accretion discs
 **DISCLAIMER**: Although in the future it will be possible to set up a generic hierarchical systems with discs, up to now the only tested and supported configuration consists in an hierarchical triple system surrounded by a circumtriple disc.
 
 In the *disc* and *dustydisc* environment it is possible to set up an hierarchical triple system setting *nsinks* = 3 in the .setup file.
-The hierarchical triple system initial condition is built by means of the osculating elements of the outer and of the inner binary orbit. Firstly *phantomsetup* builds a binary with the parameters of the outer orbit. Then, one of the sinks of the outer binary is substituted with an inner binary of the same mass of the substituted sink. The center of mass of the inner binary follows the orbit of the substituted sink. The subroutine devoted to this is called *set_multiple* and can be called as much times as needed, in order to build a generic hierarchical system. 
+The hierarchical triple system initial condition is built by means of the osculating elements of the outer and of the inner binary orbit. Firstly *phantomsetup* builds a binary with the parameters of the outer orbit. Then, one of the sinks of the outer binary is substituted with an inner binary of the same mass of the substituted sink. The center of mass of the inner binary follows the orbit of the substituted sink. The subroutine devoted to this is called *set_multiple* and can be called as much times as needed, in order to build a generic hierarchical system.
 
 The following additional parameters are needed in the .setup file, in order to define the triple orbit:
 
@@ -26,10 +26,10 @@ Hierarchical index
 The following is the nomenclature used in *setup_disc.f90* in order to refer to different hierarchical levels and stars in a general hierarchical system. In particular the *subst* parameter in the .setup file is the hierarchical index of the star that has to be substituted.
 
 ::
-   
+
           __ 1 __               Single star
         /         \
-      11           12           Binary 
+      11           12           Binary
       |           /  \
       11        121  122        Hierarchical triple
      /  \        |    |
@@ -37,6 +37,10 @@ The following is the nomenclature used in *setup_disc.f90* in order to refer to 
            ...
 
 The hierarchical indexes (1, 11, 12, 112, ...) are used to identify the hierarchical position of the star in the system. In the code they are used to specify the sink to be substituted with a binary when calling the *set_multiple* routine in order to build an hierarchical system.
+
+Order of the sink particles
+---------------------------
+When a hierarchical system is set up from a ``hierarchy`` string (e.g. ``hierarchy = 11,121,122`` in the .setup file), the sink particles are in the order of the labels in the string: sink 1 is the first label, sink 2 the second, and so on. The labels may be given in any order, so the order of the string sets the numbering of the sinks. For example, a binary with a planet orbiting the first star can be given as ``hierarchy = 111,12,112``, so that the two stars are sinks 1 and 2 and the planet is sink 3.
 
 HIERARCHY file
 --------------

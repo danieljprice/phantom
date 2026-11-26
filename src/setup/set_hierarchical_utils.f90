@@ -6,9 +6,11 @@
 !--------------------------------------------------------------------------!
 module sethier_utils
 !
-! sethierarchical
+! Utility routines needed for the hierarchical sink particle setup
 !
-! :References: None
+! :References:
+!  - Ceppi et al. (2022) MNRAS 514, 906
+!  - Ceppi et al. (2023) MNRAS 520, 5817
 !
 ! :Owner: Daniel Price
 !
@@ -54,6 +56,8 @@ module sethier_utils
  public :: gen_rotate
  public :: find_ptmass_index
  public :: findloc_local
+ public :: hierarchy_from_brackets,hierarchy_to_brackets,print_hierarchy
+ public :: write_hierarchy_file,hierarchy_filename
 
  interface findloc_local
   module procedure findloc_int
@@ -73,10 +77,9 @@ contains
 !--------------------------------------------------------------------------
 pure function process_hierarchy(string) result(mylabels)
  character(len=*), intent(in) :: string
-
- integer :: i,j, del_pos, pre_del_pos
- type(hs_labels)    :: mylabels
- character(len=:), allocatable :: sink, temp_hl
+ integer :: i,j,del_pos,pre_del_pos
+ type(hs_labels) :: mylabels
+ character(len=:), allocatable :: sink,temp_hl
 
  mylabels%sink = ''
  mylabels%hl = ''
@@ -125,12 +128,14 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
  integer,           intent(in)    :: sink_num
  character(len=10), intent(inout) :: split_list(:)
  integer,           intent(inout) :: splits
-
  integer :: i, longest, longests_len, count
  character(len=10) :: longests(max_hier_levels), new_splits(max_hier_levels)
  character(len=10) :: new_sink_list(max_hier_levels), longest_cut, sink_list_temp(max_hier_levels)
 
  sink_list_temp(:) = sink_list(:)
+ ! these are searched before being filled, so must start empty
+ new_splits(:)    = ''
+ new_sink_list(:) = ''
 
  longest = 0
  if (sink_num>1) then
@@ -188,14 +193,10 @@ end subroutine recursive_splitting
 !  compute the total mass of an hierarchical level
 !+
 !--------------------------------------------------------------------------
-!pure
 real function get_hierarchical_level_mass(level, hs) result(part_mass)
  character(len=*),          intent(in) :: level
  type(hierarchical_system), intent(in) :: hs
-
  integer :: i
-
- !print*,'get_hierarchical_lvl_mass ', trim(level)
 
  part_mass = 0
  do i=1, hs%labels%sink_num
@@ -213,20 +214,12 @@ end function get_hierarchical_level_mass
 !  read information from the hierarchy file
 !+
 !--------------------------------------------------------------------------
-subroutine load_hierarchy_file(prefix, data, lines, ierr)
- integer,           intent(out) :: ierr, lines
- real,              intent(out) :: data(hier_db_size,hier_db_prop)
- character(len=20), intent(in), optional :: prefix
-
- character(len=20) :: filename
+subroutine load_hierarchy_file(filename, data, lines, ierr)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(out) :: ierr,lines
+ real,             intent(out) :: data(hier_db_size,hier_db_prop)
  integer :: io
  logical :: iexist
-
- if (present(prefix)) then
-    filename = trim(prefix)//'.hierarchy'
- else
-    filename = 'HIERARCHY'
- endif
 
  inquire(file=trim(filename), exist=iexist)
 
@@ -251,20 +244,17 @@ end subroutine load_hierarchy_file
 !  write information to the hierarchy file
 !+
 !--------------------------------------------------------------------------
-subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, ierr)
+subroutine update_hierarchy_file(filename, hs, data, lines, hier_prefix, i1, i2, ierr)
  integer,                   intent(in)    :: i1, i2
  character(len=20),         intent(in)    :: hier_prefix
  type(hierarchical_system), intent(in)    :: hs
  real,                      intent(inout) :: data(hier_db_size,hier_db_prop)
  integer,                   intent(inout) :: lines
  integer,                   intent(out)   :: ierr
- character(len=20),         intent(in), optional :: prefix
-
- integer :: i,iu
+ character(len=*),          intent(in)    :: filename
+ integer :: iu
  real :: mprimary, msecondary, semimajoraxis, eccentricity, incl, arg_peri, posang_ascnode, binary_f
- real :: accr1, accr2
- real :: period
- character(len=20) :: filename
+ real :: accr1, accr2, period
  logical :: iexist
 
  !print*,'updating: ',trim(adjustl(hier_prefix))
@@ -279,21 +269,12 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
 
  period = sqrt(4.*pi**2*semimajoraxis**3/(mprimary+msecondary))
 
- if (present(prefix)) then
-    filename = trim(prefix)//'.hierarchy'
- else
-    filename = 'HIERARCHY'
- endif
-
  if (lines > 0) then
-    open(newunit=iu,file=trim(filename),status='old')
-    do i=1,lines
-       write(iu,*) int(data(i,1)), int(data(i,2)), data(i,3:)
-    enddo
+    call write_hierarchy_file(filename,data,lines)
+    open(newunit=iu,file=trim(filename),status='old',position='append')
  else
     inquire(file=trim(filename), exist=iexist)
     if (iexist) print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
-
     open(newunit=iu,file=trim(filename),status='replace')
  endif
  write(iu,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
@@ -302,17 +283,378 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
        period, incl, arg_peri, posang_ascnode
  close(iu)
 
- call load_hierarchy_file(prefix, data, lines, ierr)
+ call load_hierarchy_file(filename, data, lines, ierr)
 
 end subroutine update_hierarchy_file
+
+!--------------------------------------------------------------------------
+!+
+!  name of the hierarchy file: prefix.hierarchy, or HIERARCHY if no
+!  prefix is given
+!+
+!--------------------------------------------------------------------------
+function hierarchy_filename(prefix) result(filename)
+ character(len=20), intent(in), optional :: prefix
+ character(len=30) :: filename ! prefix (len 20) + '.hierarchy'
+
+ if (present(prefix)) then
+    filename = trim(prefix)//'.hierarchy'
+ else
+    filename = 'HIERARCHY'
+ endif
+
+end function hierarchy_filename
+
+!--------------------------------------------------------------------------
+!+
+!  write the whole table of the hierarchy file
+!+
+!--------------------------------------------------------------------------
+subroutine write_hierarchy_file(filename, data, lines)
+ character(len=*), intent(in) :: filename
+ real,             intent(in) :: data(hier_db_size,hier_db_prop)
+ integer,          intent(in) :: lines
+ integer :: i,iu
+
+ open(newunit=iu,file=trim(filename),status='replace')
+ do i=1,lines
+    write(iu,*) int(data(i,1)), int(data(i,2)), data(i,3:)
+ enddo
+ close(iu)
+
+end subroutine write_hierarchy_file
+
+!--------------------------------------------------------------------------
+!+
+!  convert a hierarchy given with brackets, where o is a star and
+!  (A-B) is a binary of the components A and B, e.g. (o-o)-o, into
+!  the numbered labels of the stars, e.g. 111,112,12. The outermost
+!  pair needs no brackets. A single star, o, is labelled 1
+!+
+!--------------------------------------------------------------------------
+subroutine hierarchy_from_brackets(brackets,hierarchy,ierr)
+ character(len=*), intent(in)  :: brackets
+ character(len=*), intent(out) :: hierarchy
+ integer,          intent(out) :: ierr
+ character(len=len(brackets)+2) :: str
+ integer :: i,n,pos
+
+ ! remove spaces
+ str = ''
+ n = 0
+ do i=1,len_trim(brackets)
+    if (brackets(i:i) /= ' ') then
+       n = n + 1
+       str(n:n) = brackets(i:i)
+    endif
+ enddo
+
+ ! first try the string as a single node, e.g. o or (o-o)
+ pos = 1
+ hierarchy = ''
+ call parse_bracket_node(str(1:n),pos,'1',hierarchy,ierr)
+ if (ierr == 0 .and. pos == n+1) return
+
+ ! otherwise the outermost pair has no brackets, e.g. (o-o)-o
+ str = '('//str(1:n)//')'
+ pos = 1
+ hierarchy = ''
+ call parse_bracket_node(str(1:n+2),pos,'1',hierarchy,ierr)
+ if (ierr == 0 .and. pos /= n+3) ierr = 1
+
+end subroutine hierarchy_from_brackets
+
+!--------------------------------------------------------------------------
+!+
+!  parse one node of a bracketed hierarchy starting at str(pos:),
+!  where the node has the numbered label given: a star, o, is added
+!  to the list of labels; a binary (A-B) gives its components the
+!  labels label//'1' and label//'2'
+!+
+!--------------------------------------------------------------------------
+recursive subroutine parse_bracket_node(str,pos,label,hierarchy,ierr)
+ character(len=*), intent(in)    :: str,label
+ integer,          intent(inout) :: pos
+ character(len=*), intent(inout) :: hierarchy
+ integer,          intent(out)   :: ierr
+
+ ierr = 1
+ if (pos > len(str) .or. len(label) > len(hierarchy) .or. len(label) > 10) return
+ select case(str(pos:pos))
+ case('o')
+    if (len_trim(hierarchy) + len(label) + 1 > len(hierarchy)) return
+    if (len_trim(hierarchy) > 0) then
+       hierarchy = trim(hierarchy)//','//label
+    else
+       hierarchy = label
+    endif
+    pos = pos + 1
+    ierr = 0
+ case('(')
+    pos = pos + 1
+    call parse_bracket_node(str,pos,label//'1',hierarchy,ierr)
+    if (ierr /= 0) return
+    ierr = 1
+    if (pos > len(str)) return
+    if (str(pos:pos) /= '-') return
+    pos = pos + 1
+    call parse_bracket_node(str,pos,label//'2',hierarchy,ierr)
+    if (ierr /= 0) return
+    ierr = 1
+    if (pos > len(str)) return
+    if (str(pos:pos) /= ')') return
+    pos = pos + 1
+    ierr = 0
+ end select
+
+end subroutine parse_bracket_node
+
+!--------------------------------------------------------------------------
+!+
+!  convert the numbered labels of the stars, e.g. 111,112,12, into a
+!  hierarchy given with brackets, e.g. (o-o)-o. The labels must form
+!  a complete binary tree: every binary has both components, and no
+!  star is also a binary. The brackets list the stars from left to
+!  right, which may differ from the order of the numbered labels
+!+
+!--------------------------------------------------------------------------
+subroutine hierarchy_to_brackets(hierarchy,brackets,ierr)
+ character(len=*), intent(in)  :: hierarchy
+ character(len=*), intent(out) :: brackets
+ integer,          intent(out) :: ierr
+ type(hs_labels) :: labels
+ integer :: i,nfound
+
+ labels = process_hierarchy(hierarchy)
+ brackets = ''
+ ierr = 1
+ ! labels contain only 1 and 2 and start from the top level, 1
+ do i=1,labels%sink_num
+    if (len_trim(labels%sink(i)) < 1) return
+    if (verify(trim(labels%sink(i)),'12') /= 0 .or. labels%sink(i)(1:1) /= '1') return
+ enddo
+
+ nfound = 0
+ call write_bracket_node('1',labels%sink(1:labels%sink_num),brackets,nfound,ierr)
+ if (ierr /= 0) return
+ ! every label must have been found exactly once
+ if (nfound /= labels%sink_num) then
+    ierr = 1
+    return
+ endif
+ ! the outermost pair needs no brackets
+ i = len_trim(brackets)
+ if (i > 2) brackets = brackets(2:i-1)
+
+end subroutine hierarchy_to_brackets
+
+!--------------------------------------------------------------------------
+!+
+!  write the node with the numbered label given, as o if it is a star
+!  or as (A-B) if it is a binary
+!+
+!--------------------------------------------------------------------------
+recursive subroutine write_bracket_node(label,sinks,brackets,nfound,ierr)
+ character(len=*), intent(in)    :: label
+ character(len=*), intent(in)    :: sinks(:)
+ character(len=*), intent(inout) :: brackets
+ integer,          intent(inout) :: nfound
+ integer,          intent(out)   :: ierr
+ integer :: i,nstar,nbelow
+
+ ierr = 1
+ if (len(label) > 10) return
+ nstar = 0
+ nbelow = 0
+ do i=1,size(sinks)
+    if (trim(sinks(i)) == label) then
+       nstar = nstar + 1
+    elseif (len_trim(sinks(i)) > len(label)) then
+       if (sinks(i)(1:len(label)) == label) nbelow = nbelow + 1
+    endif
+ enddo
+ if (nstar == 1 .and. nbelow == 0) then
+    ! a star
+    brackets = trim(brackets)//'o'
+    nfound = nfound + 1
+    ierr = 0
+ elseif (nstar == 0 .and. nbelow >= 2) then
+    ! a binary
+    brackets = trim(brackets)//'('
+    call write_bracket_node(label//'1',sinks,brackets,nfound,ierr)
+    if (ierr /= 0) return
+    brackets = trim(brackets)//'-'
+    call write_bracket_node(label//'2',sinks,brackets,nfound,ierr)
+    if (ierr /= 0) return
+    brackets = trim(brackets)//')'
+ endif
+
+end subroutine write_bracket_node
+
+!--------------------------------------------------------------------------
+!+
+!  print a hierarchy given by the numbered labels of the stars, both
+!  with brackets, e.g. (o-o)-o, and as a tree drawn from the top level
+!  down, e.g. for 11,121,122:
+!
+!           __ 1 __
+!         /         \
+!       11           12
+!       |           /  \
+!       11        121  122
+!       1          2    3      <- sink id
+!
+!  where stars are carried down to the bottom row, below which the sink
+!  number of each star (its position in the hierarchy string) is given
+!+
+!--------------------------------------------------------------------------
+subroutine print_hierarchy(hierarchy)
+ character(len=*), intent(in) :: hierarchy
+ integer, parameter :: margin = 3, lenrow = 200
+ type(hs_labels) :: labels
+ character(len=lenhierstring) :: brackets
+ character(len=10) :: leaves(max_hier_levels),tmp
+ character(len=lenrow) :: row
+ character(len=12) :: num
+ integer :: ierr,i,j,n,nleaves,maxdepth,spacing,depth,x,xl,xr,isink,i1,i2,nul
+ integer :: xleaf(max_hier_levels)
+
+ call hierarchy_to_brackets(hierarchy,brackets,ierr)
+ if (ierr /= 0) then
+    print "(a)",' WARNING: hierarchy '//trim(hierarchy)//' is not a complete binary tree'
+    return
+ endif
+ labels = process_hierarchy(hierarchy)
+ print "(a)",' hierarchy (o = star): '//trim(brackets)
+
+ ! stars from left to right: for labels made of 1 and 2 this is alphabetical order
+ nleaves = labels%sink_num
+ leaves(1:nleaves) = labels%sink(1:nleaves)
+ do i=2,nleaves
+    tmp = leaves(i)
+    j = i - 1
+    do while (j >= 1)
+       if (leaves(j) <= tmp) exit
+       leaves(j+1) = leaves(j)
+       j = j - 1
+    enddo
+    leaves(j+1) = tmp
+ enddo
+
+ ! one column per star, wide enough for the longest label
+ maxdepth = 0
+ do i=1,nleaves
+    maxdepth = max(maxdepth,len_trim(leaves(i))-1)
+ enddo
+ spacing = maxdepth + 4
+ do i=1,nleaves
+    xleaf(i) = margin + spacing/2 + (i-1)*spacing
+ enddo
+
+ print "(a)",''
+ do depth=0,maxdepth
+    ! labels of the binaries and stars at this depth, with the stars above carried down
+    row = ''
+    do n=1,labels%hl_num
+       if (len_trim(labels%hl(n))-1 == depth) then
+          x  = node_column(trim(labels%hl(n)),leaves(1:nleaves),xleaf)
+          xl = (x + node_column(trim(labels%hl(n))//'1',leaves(1:nleaves),xleaf))/2
+          xr = (x + node_column(trim(labels%hl(n))//'2',leaves(1:nleaves),xleaf))/2
+          ! underline from above each branch to one space short of the label, as in __ 1 __
+          i1 = x - (len_trim(labels%hl(n))-1)/2
+          i2 = i1 + len_trim(labels%hl(n)) - 1
+          ! the same length on both sides, as long as the shorter side allows
+          nul = min(i1-2-xl,xr-2-i2)
+          if (nul > 0) then
+             row(i1-1-nul:i1-2) = repeat('_',nul)
+             row(i2+2:i2+1+nul) = repeat('_',nul)
+          endif
+          call put_label(row,trim(labels%hl(n)),x)
+       endif
+    enddo
+    do i=1,nleaves
+       if (len_trim(leaves(i))-1 <= depth) call put_label(row,trim(leaves(i)),xleaf(i))
+    enddo
+    print "(a)",trim(row)
+    if (depth == maxdepth) exit
+
+    ! branches down to the next depth
+    row = ''
+    do n=1,labels%hl_num
+       if (len_trim(labels%hl(n))-1 == depth) then
+          x  = node_column(trim(labels%hl(n)),leaves(1:nleaves),xleaf)
+          xl = (x + node_column(trim(labels%hl(n))//'1',leaves(1:nleaves),xleaf))/2
+          xr = (x + node_column(trim(labels%hl(n))//'2',leaves(1:nleaves),xleaf))/2
+          row(xl:xl) = '/'
+          row(xr:xr) = '\'
+       endif
+    enddo
+    do i=1,nleaves
+       if (len_trim(leaves(i))-1 <= depth) row(xleaf(i):xleaf(i)) = '|'
+    enddo
+    print "(a)",trim(row)
+ enddo
+
+ ! sink number of each star, i.e. its position in the hierarchy string
+ row = ''
+ do i=1,nleaves
+    isink = findloc_local(labels%sink(1:labels%sink_num),leaves(i))
+    write(num,"(i0)") isink
+    call put_label(row,trim(num),xleaf(i))
+ enddo
+ print "(a)",row(1:xleaf(nleaves)+len_trim(num))//'     <- sink id'
+ print "(a)",''
+
+end subroutine print_hierarchy
+
+!--------------------------------------------------------------------------
+!+
+!  column of a node in the tree: the column of a star, or the middle
+!  of the columns of the two components of a binary
+!+
+!--------------------------------------------------------------------------
+recursive integer function node_column(label,leaves,xleaf) result(x)
+ character(len=*), intent(in) :: label
+ character(len=*), intent(in) :: leaves(:)
+ integer,          intent(in) :: xleaf(:)
+ integer :: i
+
+ do i=1,size(leaves)
+    if (trim(leaves(i)) == label) then
+       x = xleaf(i)
+       return
+    endif
+ enddo
+ x = (node_column(label//'1',leaves,xleaf) + node_column(label//'2',leaves,xleaf))/2
+
+end function node_column
+
+!--------------------------------------------------------------------------
+!+
+!  write a label into a row of text, centred on column x
+!+
+!--------------------------------------------------------------------------
+subroutine put_label(row,label,x)
+ character(len=*), intent(inout) :: row
+ character(len=*), intent(in)    :: label
+ integer,          intent(in)    :: x
+ integer :: i1,i2
+
+ if (len(label) == 0) return
+ i1 = max(1,x - (len(label)-1)/2)
+ i2 = min(len(row),i1 + len(label) - 1)
+ row(i1:i2) = label(1:i2-i1+1)
+
+end subroutine put_label
 
 !--------------------------------------------------------------------------
 !+
 !  check that a substitution is valid
 !+
 !--------------------------------------------------------------------------
-subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
- character(len=20), intent(in)  :: hier_prefix, prefix
+subroutine check_substitution(hier_prefix, semimajoraxis, filename, ierr)
+ character(len=20), intent(in)  :: hier_prefix
+ character(len=*),  intent(in)  :: filename
  real,              intent(in)  :: semimajoraxis
  integer,           intent(out) :: ierr
  integer :: lines, subst_index
@@ -320,7 +662,7 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
  real :: data(hier_db_size,hier_db_prop)
 
  ! Check that star to be substituted exists in HIERARCHY file
- call find_data_index(hier_prefix, subst_index, prefix, ierr)
+ call find_data_index(hier_prefix, subst_index, filename, ierr)
 
  if (subst_index == 0) then
     print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
@@ -329,7 +671,7 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
  endif
 
  ! Check that star to be substituted has not already been substituted
- call load_hierarchy_file(prefix, data, lines, ierr)
+ call load_hierarchy_file(filename, data, lines, ierr)
 
  if (data(subst_index,1) == 0) then
     print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
@@ -426,14 +768,15 @@ end subroutine find_hier_level_orb_elem
 !  find index of ptmass corresponding to a particular label
 !+
 !--------------------------------------------------------------------------
-subroutine find_ptmass_index(hier_label, index, prefix, ierr)
+subroutine find_ptmass_index(hier_label, index, filename, ierr)
  integer,           intent(out) :: index, ierr
- character(len=20), intent(in), optional :: prefix, hier_label
+ character(len=20), intent(in)  :: hier_label
+ character(len=*),  intent(in)  :: filename
 
  real :: data(hier_db_size,hier_db_prop)
  integer :: lines, hier_int, io, loc
 
- call load_hierarchy_file(prefix, data, lines, ierr)
+ call load_hierarchy_file(filename, data, lines, ierr)
 
  read(hier_label,*,iostat=io) hier_int
 
@@ -452,18 +795,18 @@ end subroutine find_ptmass_index
 !  indexes in HIERARCHY file
 !+
 !--------------------------------------------------------------------------
-subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
+subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, filename)
  character(len=10), intent(in)  :: level
  integer,           intent(out) :: inner_sinks_num
  integer,           intent(out) :: int_sinks(max_hier_levels)
- character(len=20), intent(in), optional :: prefix
+ character(len=*),  intent(in)  :: filename
  real :: data(hier_db_size,hier_db_prop)
  integer                :: i, lines, ierr, h_index, io
  character(len=10)      :: label = '         '
 
  read(level,*,iostat=io) h_index
 
- call load_hierarchy_file(prefix, data, lines, ierr)
+ call load_hierarchy_file(filename, data, lines, ierr)
 
  inner_sinks_num = 0
  do i=1, lines
@@ -481,13 +824,14 @@ end subroutine find_hierarchy_index
 !  return position of hier_label in hierarchy file
 !+
 !--------------------------------------------------------------------------
-subroutine find_data_index(hier_label, index, prefix, ierr)
+subroutine find_data_index(hier_label, index, filename, ierr)
  integer,           intent(out) :: index, ierr
- character(len=20), intent(in), optional :: prefix, hier_label
+ character(len=20), intent(in)  :: hier_label
+ character(len=*),  intent(in)  :: filename
  real :: data(hier_db_size,hier_db_prop)
  integer :: lines, hier_int, io
 
- call load_hierarchy_file(prefix, data, lines, ierr)
+ call load_hierarchy_file(filename, data, lines, ierr)
 
  read(hier_label,*,iostat=io) hier_int
  index = findloc_local(int(data(1:lines,2)), hier_int)
