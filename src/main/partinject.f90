@@ -247,6 +247,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
           endif
        endif
     enddo
+    updated_particle = .false.
  endif
 
 end subroutine update_injected_particles
