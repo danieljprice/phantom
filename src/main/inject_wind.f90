@@ -417,7 +417,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
  real,    intent(out)   :: dtinject
  integer :: outer_sphere,inner_sphere,inner_boundary_sphere,ifirst,i,ipart,j, &
             nreleased,nboundaries,isink,itype,npart_per_sphere,nfill
- real    :: local_time,GM,r,v,u,rhoi,e,mass_lost,x0(3),v0(3),inner_radius,fdone,dum
+ real    :: local_time,r,v,u,rhoi,mass_lost,x0(3),v0(3),inner_radius,dum
  real    :: mass_of_spheres,time_between_spheres,rinject,wind_injection_speed
  character(len=*), parameter :: label = 'inject_particles'
  logical, save :: released = .false.
@@ -432,7 +432,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
     if (abs(xyzmh_ptmass(ivwind,isink)) < tiny(0.)) cycle
 
     x0 = xyzmh_ptmass(1:3,isink)
-    GM = xyzmh_ptmass(4,isink)
     v0 = vxyz_ptmass(1:3,isink)
 
     npart_per_sphere = nint(xyzmh_ptmass(ieject,isink))
@@ -512,11 +511,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
        if (pulsating_wind.and.released) then
           !call pulsating_wind_profile(time,local_time,r,v,u,rhoi,e,GM,i,inner_sphere)
        else
-          if (idust_opacity == 2) then
-             call interp_wind_profile(time,local_time,r,v,u,rhoi,e,GM,fdone,isink,JKmuS)
-          else
-             call interp_wind_profile(time,local_time,r,v,u,rhoi,e,GM,fdone,isink)
-          endif
+          call interp_wind_profile(isink,local_time,r,v,u,rhoi,JKmuS)
           if (iverbose > 0) print '(" ## update boundary  ",i4,2(i4),i7,i2,5x,8(1x,es12.5))',i,&
                inner_sphere,outer_sphere,npart,isink,time,local_time,r/xyzmh_ptmass(iReff,isink),v*udist/utime,&
                xyzmh_ptmass(imloss,isink) /(solarm/umass) * (years/utime)

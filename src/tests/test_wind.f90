@@ -149,7 +149,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
                       sync_aprmassoftype,ieject
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
- use wind,       only:trvurho_1D,rfill_domain_au,get_wind_particle_mass
+ use wind,       only:wind_profiles,rfill_domain_au,get_wind_particle_mass
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
@@ -284,15 +284,15 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
     xyzmh_ptmass(4,1) = mstar0  ! reset star mass as we pre-fill twice in order to get npart_prefill correct
 
     ! check 1D wind profile satisfies Mdot = 4 pi r^2 rho v = constant
-    ngrid = size(trvurho_1D,dim=2)
+    ngrid = size(wind_profiles(1)%trvurho,dim=2)
     if (id==master) write(*,"(/,a)") '--> checking 1D wind profile'
     mdot0 = xyzmh_ptmass(imloss,1)
     mstar = xyzmh_ptmass(4,1)*umass
     do i=1,ngrid
-       r = trvurho_1D(2,i)
-       v = trvurho_1D(3,i)
-       rho1d = trvurho_1D(5,i)
-       u = trvurho_1D(4,i)
+       r = wind_profiles(1)%trvurho(2,i)
+       v = wind_profiles(1)%trvurho(3,i)
+       rho1d = wind_profiles(1)%trvurho(5,i)
+       u = wind_profiles(1)%trvurho(4,i)
 
        ! check that the mass flux is constant at every radius in the 1D wind profile
        mdot = 4.*pi*r**2*rho1d*v/unit_mdot
@@ -378,7 +378,7 @@ subroutine test_parker_wind(ntests,npass,rmax)
  use part,    only:nptmass,xyzmh_ptmass,nsinkproperties,iTeff,iTwind,ivwind,imloss,iReff,iwalpha
  use eos,     only:gmw,gamma,ieos,init_eos,polyk
  use options, only:icooling,write_files
- use wind,    only:wind_params,get_wind_solution,save_windprofile,trvurho_1D
+ use wind,    only:wind_params,get_wind_solution,save_windprofile,wind_profiles
  use ptmass_radiation, only:isink_radiation
  use dust_formation,   only:idust_opacity
  integer, intent(inout) :: ntests,npass
@@ -433,20 +433,86 @@ subroutine test_parker_wind(ntests,npass,rmax)
 
     ! velocity profile through and beyond the sonic point
     call save_windprofile(params,real(rmax*udist),real(rmax*udist),0.,tcross,tfill,'parker_profile.dat',1)
-    do i=1,size(trvurho_1D,dim=2)
-       r = trvurho_1D(2,i)
-       v = trvurho_1D(3,i)
+    do i=1,size(wind_profiles(1)%trvurho,dim=2)
+       r = wind_profiles(1)%trvurho(2,i)
+       v = wind_profiles(1)%trvurho(3,i)
        call checkvalbuf(v,parker_wind_velocity(r,rc,cs),tol_v,'v(r)',nfailed(3),ncheck,errmax)
     enddo
     call checkvalbuf_end('v(r) against Lambert W solution',ncheck,nfailed(3),errmax,tol_v)
     call update_test_scores(ntests,nfailed,npass)
  enddo
 
+ ! one 1D profile per sink, for several sinks with different winds
+ call test_profiles_per_sink(ntests,npass,rmax)
+
  icooling        = icooling_prev
  isink_radiation = isink_radiation_prev
  write_files     = write_files_prev
 
 end subroutine test_parker_wind
+
+!-----------------------------------------------------------------------
+!+
+!  checks that each sink has its own 1D wind profile: three sinks where
+!  sink 2 has no wind and sinks 1 and 3 have different mass loss rates.
+!  Each profile must carry the mass loss rate of its own sink, and the
+!  age of the wind must be recovered from its radius
+!+
+!-----------------------------------------------------------------------
+subroutine test_profiles_per_sink(ntests,npass,rmax)
+ use physcon, only:pi,solarm,years
+ use units,   only:umass,udist,utime
+ use part,    only:nptmass,xyzmh_ptmass,nsinkproperties,imloss,iwalpha
+ use wind,    only:wind_params,get_wind_solution,save_windprofile,wind_profiles,&
+                   has_wind_profile,interp_wind_profile,wind_age_at_r
+ integer, intent(inout) :: ntests,npass
+ real,    intent(in)    :: rmax
+ integer, parameter :: nsinks = 3
+ real,    parameter :: tol_mdot = 4.e-16, tol_age = 1.e-12
+ real,    parameter :: mdot_msun_yr(nsinks) = (/1.e-5,0.,3.e-6/)
+ type(wind_params) :: params
+ integer :: i,k,nfailed(4),ncheck(2)
+ real    :: xyzmh(nsinkproperties),rsonic,tcross,tfill,mdot,errmax(2),age,r,v,u,rho
+
+ if (id==master) write(*,"(/,a)") '--> checking 1D wind profiles for several sinks'
+
+ nptmass = nsinks
+ do k=1,nsinks
+    xyzmh_ptmass(:,k) = xyzmh_ptmass(:,1)
+    xyzmh_ptmass(iwalpha,k) = 0.
+    xyzmh_ptmass(imloss,k)  = mdot_msun_yr(k)*(solarm/umass)/(years/utime)
+ enddo
+ if (allocated(wind_profiles)) deallocate(wind_profiles)
+ do k=1,nsinks
+    if (xyzmh_ptmass(imloss,k) <= 0.) cycle
+    call get_wind_solution(xyzmh_ptmass(:,k),1,xyzmh,params,rsonic)
+    call save_windprofile(params,real(rmax*udist),real(rmax*udist),0.,tcross,tfill,'profile.dat',k)
+ enddo
+
+ nfailed = 0; ncheck = 0; errmax = 0.
+ call checkval(has_wind_profile(1),.true.,nfailed(1),'sink 1 has a wind profile')
+ call checkval(has_wind_profile(2),.false.,nfailed(2),'sink 2 has no wind profile')
+ call checkval(has_wind_profile(3),.true.,nfailed(3),'sink 3 has a wind profile')
+ do k=1,nsinks,2
+    ! the mass flux 4 pi r^2 rho v at every radius is the mass loss rate of that sink
+    do i=1,size(wind_profiles(k)%trvurho,dim=2)
+       mdot = 4.*pi*wind_profiles(k)%trvurho(2,i)**2*wind_profiles(k)%trvurho(5,i)*&
+              wind_profiles(k)%trvurho(3,i)/(mdot_msun_yr(k)*solarm/years)
+       call checkvalbuf(mdot,1.,tol_mdot,'dM/dt of own sink',nfailed(4),ncheck(1),errmax(1))
+    enddo
+    ! r -> age is the inverse of age -> r
+    do i=1,size(wind_profiles(k)%trvurho,dim=2),10
+       age = 0.7*wind_profiles(k)%trvurho(1,i)/utime
+       call interp_wind_profile(k,age,r,v,u,rho)
+       call checkvalbuf(wind_age_at_r(k,r)/age,1.,tol_age,'age from radius',nfailed(4),ncheck(2),errmax(2))
+    enddo
+ enddo
+ call checkvalbuf_end('dM/dt = 4 pi r^2 rho v of own sink',ncheck(1),nfailed(4),errmax(1),tol_mdot)
+ call checkvalbuf_end('age from radius',ncheck(2),nfailed(4),errmax(2),tol_age)
+ call update_test_scores(ntests,nfailed,npass)
+ nptmass = 1
+
+end subroutine test_profiles_per_sink
 
 !-----------------------------------------------------------------------
 !+
