@@ -90,6 +90,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  real    :: term1,term2,term3,term4,theta,theta_max,energy
  logical :: do_verbose
  character(len=12) :: orbit_type
+ character(len=24) :: label
+ character(len=*), parameter :: fmt = "(2x,a,3(1x,1pg13.6))"
 
  ierr = 0
  do_verbose = .true.
@@ -163,19 +165,6 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  Rochelobe1 = Rochelobe_estimate(m2,m1,rperi)
  Rochelobe2 = Rochelobe_estimate(m1,m2,rperi)
 
- if (do_verbose) then
-    print "(/,2x,a)",'---------- binary parameters ----------- '
-    print "(8(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
-        'primary mass     :',m1, &
-        'secondary mass   :',m2, &
-        'mass ratio m2/m1 :',m2/m1, &
-        'reduced mass     :',reducedmass, &
-        'semi-major axis  :',a, &
-        'period           :',period, &
-        'eccentricity     :',eccentricity, &
-        'pericentre       :',rperi, &
-        'apocentre        :',rapo
- endif
  if (accretion_radius1 > Rochelobe1) then
     print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe at periastron'
  endif
@@ -185,6 +174,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  dx = 0.
  dv = 0.
+ E  = 0.
+ orbit_type = 'eccentric'
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
     ecc = eccentricity
@@ -221,39 +212,26 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     Q(3) = sini*cos(omega)
 
     if (orbit_is_parabolic(eccentricity)) then
-       orbit_type = 'Parabolic'
+       orbit_type = 'parabolic'
        term1 = rperi*(1. - E*E)
        term2 = rperi*(2.*E)
        E_dot = sqrt(2.*mtot/(rperi**3))/(1. + E*E)
        term3 = -E*(rperi*E_dot)
        term4 = rperi*E_dot
     elseif (eccentricity > 1.) then ! hyperbolic
-       orbit_type = 'Hyperbolic'
+       orbit_type = 'hyperbolic'
        term1 = a*(cosh(E)-ecc)
        term2 = -a*(sqrt(ecc*ecc - 1.)*sinh(E))
        E_dot = sqrt(mtot/(abs(a)**3))/(ecc*cosh(E)-1.)
        term3 = a*(sinh(E)*E_dot)
        term4 = -a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
     else ! elliptical
-       orbit_type = 'Eccentric'
+       orbit_type = 'eccentric'
        term1 = a*(cos(E)-ecc)
        term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
        E_dot = sqrt(mtot/(a**3))/(1.-ecc*cos(E))
        term3 = a*(-sin(E)*E_dot)
        term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
-    endif
-
-    if (do_verbose) then
-       print "(4(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
-             trim(orbit_type)//' anomaly:',E, &
-             'E_dot            :',E_dot, &
-             'inclination     (i, deg):',incl, &
-             'angle asc. node (O, deg):',posang_ascnode, &
-             'arg. periapsis  (w, deg):',arg_peri
-       if (present(f)) print "(2x,a,1pg14.6)", &
-             'true anomaly    (f, deg):',f
-       if (present(mean_anomaly)) print "(2x,a,1pg14.6)", &
-             'mean anomaly    (M, deg):',mean_anomaly
     endif
 
     ! Rotating everything
@@ -279,38 +257,68 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  omega0 = v2(2)/x2(1)
 
- ! print info about positions and velocities
- if (do_verbose) then
-    print "(13(2x,a,1pg14.6,/),2(2x,a,3(1pg14.6,1x),/))", &
-        'energy (mtot/2a) :',energy,&
-        'energy (KE+PE)   :',get_specific_energy(mtot,dx,dv),&
-        'angular momentum :',angmbin, &
-        'mean ang. speed  :',omega0, &
-        'inclination (i)  :',get_inclination(dx,dv), &
-        'Omega_0 (prim)   :',v2(2)/x2(1), &
-        'Omega_0 (second) :',v2(2)/x2(1), &
-        'R_accretion (1)  :',accretion_radius1, &
-        'R_accretion (2)  :',accretion_radius2, &
-        'Roche lobe  (1)  :',Rochelobe1, &
-        'Roche lobe  (2)  :',Rochelobe2, &
-        'separation (d)   :',sqrt(dot_product(dx,dx)), &
-        'relative velocity:',sqrt(dot_product(dv,dv)), &
-        'separation (dx)  :',dx, &
-        'velocity   (dv)  :',dv
- endif
-
  if (present(omega_corotate)) then
-    if (do_verbose) print "(a)",' SETTING VELOCITIES FOR COROTATING FRAME: '
+    ! set velocities in the frame corotating with the binary
     omega_corotate = omega0
     v1(2) = v1(2) - omega0*x1(1)
     v2(2) = v2(2) - omega0*x2(1)
-    if (do_verbose) print "(2(2x,a,1pg14.6,/))", &
-     'Omega_0 (primary)     :',v1(2)/x1(1), &
-     'Omega_0 (secondary)   :',v2(2)/x2(1)
  endif
 
- ! conclude printout
- if (do_verbose) print "(2x,40('-'),/)"
+ ! sanity checks on the orbit we have just set up
+ if (abs(energy) > 0.) then
+    if (abs(get_specific_energy(mtot,dx,dv) - energy) > 1000.*epsilon(energy)*abs(energy)) &
+       print "(1x,a,2(1pg14.6))",'WARNING: set_binary: energy from dx,dv differs from -mtot/2a: ', &
+                                 get_specific_energy(mtot,dx,dv),energy
+ endif
+ if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
+    ! compare cosines, since the input angle can be negative or > 180 degrees
+    if (abs(cos(get_inclination(dx,dv)*deg_to_rad) - cos(incl*deg_to_rad)) > 1.e-3) &
+       print "(1x,a,2(1pg14.6))",'WARNING: set_binary: inclination from dx,dv differs from input: ', &
+                                 get_inclination(dx,dv),incl
+ endif
+
+ ! print info about the binary
+ if (do_verbose) then
+    print "(/,2x,17('-'),a,17('-'))",' binary parameters (code units) '
+    print fmt,'m1, m2                     :',m1,m2
+    print fmt,'mass ratio m2/m1           :',m2/m1
+    print fmt,'reduced mass               :',reducedmass
+    print fmt,'R_accretion (1, 2)         :',accretion_radius1,accretion_radius2
+    print fmt,'Roche lobe  (1, 2)         :',Rochelobe1,Rochelobe2
+
+    ! for a parabolic orbit the input is the pericentre distance, printed below
+    if (.not.orbit_is_parabolic(eccentricity)) print fmt,'semi-major axis (a)        :',a
+    print fmt,'eccentricity (e)           :',eccentricity
+    if (present(incl))           print fmt,'inclination (i, deg)       :',incl
+    if (present(posang_ascnode)) print fmt,'asc. node (Omega, deg)     :',posang_ascnode
+    if (present(arg_peri))       print fmt,'arg. periapsis (w, deg)    :',arg_peri
+    if (present(f)) then
+       print fmt,'true anomaly (f, deg)      :',f
+    elseif (present(mean_anomaly)) then
+       print fmt,'mean anomaly (M, deg)      :',mean_anomaly
+    endif
+
+    ! derived quantities
+    if (eccentricity < 1.) then
+       print fmt,'period                     :',period
+       print fmt,'mean angular speed         :',2.*pi/period
+       print fmt,'pericentre, apocentre      :',rperi,rapo
+    else
+       print fmt,'pericentre                 :',rperi
+    endif
+    print fmt,'energy, ang. momentum      :',energy,angmbin
+    print fmt,'initial angular speed      :',omega0
+
+    if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
+       label = trim(orbit_type)//' anomaly'  ! pad to the same width as the other labels
+       print fmt,label//'   :',E
+    endif
+    print fmt,'separation, |dv|           :',sqrt(dot_product(dx,dx)),sqrt(dot_product(dv,dv))
+    print fmt,'separation (dx,dy,dz)      :',dx
+    print fmt,'relative vel (dvx,dvy,dvz) :',dv
+    if (present(omega_corotate)) print "(2x,a)",'velocities set in frame corotating at the initial angular speed'
+    print "(2x,66('-'),/)"
+ endif
 
 !
 !--positions and accretion radii

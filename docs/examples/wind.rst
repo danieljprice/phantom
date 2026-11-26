@@ -10,7 +10,7 @@ If you find a bug, please send me an email at lionel.siess@ulb.be
 Initial setup
 -------------
 
-Note that given the mass loss rate and particle's mass, spheres of particles will be periodically injected, meaning that the number of particles in the simulation will keep increasing.
+Note that given the mass loss rate and particle mass, spheres of particles will be periodically injected, meaning that the number of particles in the simulation will keep increasing.
 
 ::
 
@@ -36,31 +36,123 @@ Content of the .setup file
 ::
 
    # input file for wind setup routine
-           primary_mass =       1.500    ! primary star mass (Msun)
-           primary_racc =       1.000    ! primary star accretion radius (au)
-            primary_lum =   2.000E+04    ! primary star luminosity (Lsun)
-           primary_Teff =       3000.    ! primary star effective temperature (K)
-           primary_Reff =       1.000    ! primary star effective radius (au)
-        icompanion_star =           0    ! set to 1 for a binary system
-      mass_of_particles =   1.000E-11    ! mass resolution (Msun)
-             wind_gamma =       1.666    ! adiabatic index (initial if Krome chemistry used)
+   # set any two of lum, Teff and Reff (third one is derived)
 
+   # primary star
+           primary_mass =       1.600    ! primary star mass (Msun)
+           primary_racc =       2.500    ! primary star accretion radius (au)
+            primary_lum =       7250.    ! primary star luminosity (Lsun)
+           primary_Reff =       2.517    ! primary star effective radius (au)
 
-The .setup file contains the stellar properties and sets the mass of the particle (see however  ``iwind_resolution``).
-Each star is considered as a sink particles and its properties, e.g. its luminosity, will be used to calculate the radiation pressure.
-Companions can be added using the icompanion_star parameter.
+   # primary wind
+        primary_Rinject =           0    ! wind injection radius (w. units, e.g. 2.5 au, 0=Reff)
+           primary_mdot =   3.000E-06    ! primary wind mass loss rate (in Msun/yr)
+          primary_vwind =        16.5    ! primary wind velocity (in km/s)
+      primary_wind_temp =       1500.    ! primary wind temperature (K, 0 = use Teff)
+          primary_alpha =       0.000    ! primary alpha parameter
 
-Note also that 
+   # primary spin
+            primary_veq =       0.000    ! primary equatorial velocity (in km/s)
+
+   # companion
+        icompanion_star =           0    ! set to 1 for a binary system, 2 for a triple system
+
+   # resolution
+            iresolution =           0    ! particle mass from 0=mass,1=particles_per_shell,2=sonic point
+      mass_of_particles =   1.000E-11    ! particle mass (Msun)
+
+   # equation of state
+             wind_gamma =       1.300    ! adiabatic index (initial if Krome chemistry used)
+
+The .setup file contains the properties of each star and of its wind, the orbit if there is a companion, and the resolution.
+Each star is a sink particle. Its properties, e.g. its luminosity, are used to calculate the radiation pressure.
+Companions are added with ``icompanion_star``, which adds a ``# secondary`` block and a ``# binary orbit`` block.
+
+The wind of each star is set by:
+
+- ``primary_mdot``: the mass loss rate. This is an input and is never changed by the code.
+- ``primary_vwind``: the wind velocity at the injection radius. Set it to zero for a trans-sonic wind (``wind_type = 1``), where the code finds the velocity.
+- ``primary_wind_temp``: the wind temperature at the injection radius. Zero means the stellar effective temperature is used.
+- ``primary_Rinject``: the radius at which the wind is injected, with units (e.g. ``2.5 au``). Zero means
+  the wind is injected at the stellar effective radius ``primary_Reff``. A larger value injects the wind above the photosphere; the stellar radius
+  used for the dust temperature and radiation is still computed from the luminosity and effective temperature.
+
+Note also that
 
 .. math::
 
-      \textrm{primary_lum} = 4\pi\times\textrm{primary_Reff}^2\times\sigma\times\textrm{primary_Teff}^4 
-      
-so you only need to provide 2 out of these 3 variables. 
+      \textrm{primary_lum} = 4\pi\times\textrm{primary_Reff}^2\times\sigma\times\textrm{primary_Teff}^4
 
-- If you set one of these variables to zero, it will be  recalculated according to the previous formula. 
+so you provide 2 out of these 3 variables and the third, if omitted or set to zero, is computed from the formula above.
+The default is to give the luminosity and the effective radius, since these set the radiation pressure and
+the stellar radius, and compute the effective temperature. To give the effective temperature instead,
+replace one of the other two with ``primary_Teff``.
+If you provide all three, the luminosity and effective radius are kept, the effective temperature is recomputed,
+and a warning is given if it differs from the value you provided.
 
-- If you provide all the quantites, the radius will be recalculated
+Choosing the resolution
+-----------------------
+
+The particle mass sets the resolution. Particles are injected in spherical shells, and the distance between shells is kept close to the
+distance between particles on a shell, so the particles are spaced evenly in all directions. The particle spacing at the injection radius is then
+
+.. math::
+
+      \Delta \approx \left(\frac{m}{\rho}\right)^{1/3}, \qquad \rho = \frac{\dot{M}}{4\pi R^2 v},
+
+where :math:`m` is the particle mass, :math:`\dot{M}` the mass loss rate, :math:`v` the injection velocity and :math:`R` the injection radius.
+A smaller particle mass resolves the density profile of the wind better. To change the resolution, e.g. for a convergence study, change the particle mass
+by a factor of 8 (or 10), which changes the linear resolution :math:`\Delta` by a factor of 2. The number of particles per shell, :math:`N \approx 4\pi R^2/\Delta^2`,
+follows from the particle mass:
+
+.. math::
+
+      N = \left(\frac{\sqrt{4\pi}\, s\, R\, \dot{M}}{m\, v}\right)^{2/3},
+
+where :math:`s` is ``wind_shell_spacing``. Shells are injected every :math:`\Delta t = m N / \dot{M}`.
+The only constraint is that the wind must be resolved azimuthally: a warning is given if there are fewer than 12 particles per shell.
+
+The particle mass is set only by ``phantomsetup``, using ``iresolution``:
+
+- ``iresolution = 0`` (recommended, the default): give the particle mass directly, ``mass_of_particles`` (in Msun). All stars with winds share this one particle mass.
+- ``iresolution = 1``: give the number of particles per shell of the primary wind, ``particles_per_shell``, and the particle mass is computed from the formula above. This is mainly useful to reproduce old calculations (see below).
+- ``iresolution = 2``: give the number of particle spacings between the injection radius and the sonic point, ``nzones_sonic_point``. This ensures the acceleration zone of a trans-sonic wind is resolved. It solves the 1D wind equations, sets ``wind_type = 1`` in the .in file, and is only available for a single star with a non-isothermal wind.
+
+``phantomsetup`` prints the particle mass and, for each star with a wind, the number of particles per shell, so you can check the resolution before running.
+Since the number of particles per shell must be an integer, the actual shell spacing differs slightly from ``wind_shell_spacing``; it is printed at the start of the run.
+For example, for the star above, decreasing the particle mass by successive factors of 8:
+
+================= ======================= ====================== =======================
+particle mass     particles per shell     time between shells    particles per 1000 yr
+================= ======================= ====================== =======================
+1.9e-9 Msun       252                     0.16 yr                1.6e6
+2.4e-10 Msun      1008                    0.08 yr                1.3e7
+3.0e-11 Msun      4032                    0.04 yr                1.0e8
+3.8e-12 Msun      16128                   0.02 yr                8.0e8
+================= ======================= ====================== =======================
+
+Migrating old input files
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The runtime parameter ``iwind_resolution`` has been removed and is ignored with a warning, because its meaning changed over time.
+Restarting from an existing dump file gives the same number of particles per shell and the same mass loss rate as before.
+To set up an old calculation again, use the following in the .setup file:
+
+=========================================================== ==========================================================================
+Old setting                                                 New setting
+=========================================================== ==========================================================================
+``iwind_resolution = q`` (before January 2025)              ``iresolution = 1``, ``particles_per_shell = 40q(q-1)+12``,
+                                                            i.e. 252 for q=3, 492 for q=4, 812 for q=5. Shells are now
+                                                            Fibonacci spheres instead of icosahedra, so results agree
+                                                            statistically but not bit for bit.
+``iwind_resolution = N`` (from January 2025)                ``iresolution = 1``, ``particles_per_shell = N``. Runs between
+                                                            March 2025 and this change usually used N+1 particles per
+                                                            shell and a mass loss rate multiplied by ((N+1)/N)^(3/2);
+                                                            the run log shows both (``Mdot [Msun/yr] : ... --> ...``).
+                                                            Set both to those values to reproduce such runs exactly.
+``iwind_resolution = 0``, ``wind_type = 0``                 ``iresolution = 0`` with the same ``mass_of_particles``.
+``iwind_resolution = 0``, ``wind_type = 1``                 ``iresolution = 2``, ``nzones_sonic_point = 8``.
+=========================================================== ==========================================================================
 
 Content of the .in file
 -----------------------
@@ -70,64 +162,39 @@ Options controlling particle injection
 
 ::
 
-  # options controlling particle injection
-             sonic_type =           0    ! find transonic solution (1=yes,0=no)
-          wind_velocity =         15.    ! injection wind velocity (km/s, if sonic_type = 0)
-     wind_inject_radius =       1.100    ! wind injection radius (au, if 0 take Rstar)
-         wind_mass_rate =   1.000E-05    ! wind mass loss rate (Msun/yr)
-       wind_temperature =       2500.    ! wind temperature at the injection point (K)
-       iwind_resolution =          10    ! if<>0 set number of particles on the sphere, reset particle mass
-           nfill_domain =           0    ! number of spheres used to set the background density profile
+   # options for injecting/removing particles
+              wind_type =           0    ! wind type 0=std, 1=transonic, 2=pulsation, 3=jets
+           rfill_domain =       0.000    ! outer radius of the background density profile
      wind_shell_spacing =       1.000    ! desired ratio of sphere spacing to particle spacing
       iboundary_spheres =           5    ! number of boundary spheres (integer)
-         outer_boundary =         50.    ! delete gas particles outside this radius (au)
+         outer_boundary =         30.    ! delete gas particles outside this radius (au)
+                  rkill =      -1.000    ! deactivate particles outside this radius (<0 is off)
 
-Here’s a brief description of each of them (remember that technical details can be found in `Siess et al. (2023)`::
+Here's a brief description of each of them (technical details can be found in `Siess et al. (2022)`)::
 
-             sonic_type =           0    ! find transonic solution (1=yes,0=no)
+              wind_type =           0    ! wind type 0=std, 1=transonic, 2=pulsation, 3=jets
 
-decide whether you set the initial wind velocity (``sonic_type = 0``) or if you let the code find the trans-sonic solution.
-In this latter case, you need a high wind temperature (coronal wind) so the pressure gradient can overcome the stellar gravity::
+``wind_type = 0`` uses the wind velocity given in the .setup file.
+``wind_type = 1`` lets the code find the trans-sonic solution. In this case you need a high wind temperature (coronal wind, > 10,000 K) so the pressure gradient can overcome the stellar gravity.
+``wind_type = 2`` adds a pulsating inner boundary (``pulsation_period``, ``piston_velocity``) and ``wind_type = 3`` launches jets (``jet_edge_velocity``, ``jet_opening_angle``)::
 
-          wind_velocity =         15.    ! injection wind velocity (km/s, if sonic_type = 0)
+           rfill_domain =       0.000    ! outer radius of the background density profile
 
-set the launching wind velocity (if sonic_type = 0)::
-
-     wind_inject_radius =       1.100    ! wind injection radius (au, if 0 take Rstar)
-
-set the distance from the star's center where the wind is launched. If set to zero, the stellar surface is assumed::
-
-         wind_mass_rate =   1.000E-05    ! wind mass loss rate (Msun/yr)
-
-set the mass loss rate::
-
-       wind_temperature =       2500.    ! wind temperature at the injection point (K)
-
-set the wind temperature. For trans-sonic solution, this value needs to be high (> 10,000 K)::
-
-       iwind_resolution =          10    ! if<>0 set number of particles on the sphere, reset particle mass
-
-set the number of particles to be launched and given the mass loss rate determines the particle's mass.
-If set to zero, the particle mass defined in the .setup file is used and the code finds the corresponding number of particles to be launched::
-
-           nfill_domain =           0    ! number of spheres used to set the background density profile
-
-set a background density profile. This option can limit the effect of boundary conditions. The larger nfill_domain, the bigger the domain::
+fill the domain up to this radius (au) with the 1D wind solution at the start. This option can limit the effect of boundary conditions::
 
      wind_shell_spacing =       1.000    ! desired ratio of sphere spacing to particle spacing
 
-set the resolution of the simulation.
-This parameters gives the ratio between the distance of 2 particles on an ejected sphere and the distance between 2 consecutive spheres.
-Its value should be kept close to unity that::
+the ratio between the distance between 2 consecutive shells and the distance between 2 particles on a shell.
+Its value should be kept close to unity::
 
       iboundary_spheres =           5    ! number of boundary spheres (integer)
 
 set the number of shells that serve as inner boundary condition for the wind::
 
-         outer_boundary =         50.    ! delete gas particles outside this radius (au)
+         outer_boundary =         30.    ! delete gas particles outside this radius (au)
 
-To limit the number of particles, delete from the memory the particles that go beyond ``outer_boundary`` (in astronomical unit).
-This option is slightly different from ``rkill`` where in this case the particles are declared dead and remained allocated.
+To limit the number of particles, delete from the memory the particles that go beyond ``outer_boundary`` (in astronomical units).
+This option is slightly different from ``rkill`` where in this case the particles are declared dead and remain allocated.
 
 
 Options controlling dust
