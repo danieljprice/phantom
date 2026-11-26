@@ -26,6 +26,7 @@ module eos_HIIR
  real, public           :: csion
  real, public           :: uIon
  real, public           :: Tcold
+ real, parameter        :: tolTcold = 1.e-10 ! relative excess over Tcold that is rounding, not heating
 
  private
 
@@ -75,7 +76,7 @@ subroutine get_eos_HIIR(polyk,temperature_coef,mui,gammai,eni,tempi,ponrhoi,spso
 
  if (mui > muion) then !- neutral or partially ionised
     tempi = (gammai - 1.)*eni*mui*temperature_coef
-    if (tempi > Tcold) then !- if hot then in a shell
+    if (tempi > Tcold*(1. + tolTcold)) then !- if hot then in a shell
        ponrhoi  = (gammai - 1.)*eni
        spsoundi = sqrt(gammai*ponrhoi)
     else !- else cold

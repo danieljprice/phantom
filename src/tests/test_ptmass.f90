@@ -1819,9 +1819,9 @@ subroutine test_HII_eos(ntests,npass)
  use physcon,   only:pc,solarm,kboltz,mass_proton_cgs
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(21),ierr
+ integer :: nfailed(22),ierr,k,nadiab
  real    :: tempi,ponrhoi,spsoundi,ucold,u0,h,dt,trelax,Crelax0,muhalf,uhalf
- real    :: gmw0,gamma0,polyk0,X0,Z0
+ real    :: gmw0,gamma0,polyk0,X0,Z0,polykk
 
  if (id==master) write(iprint,"(/,a)") '--> testing HII region two phase model'
  nfailed(:) = 0
@@ -1884,6 +1884,16 @@ subroutine test_HII_eos(ntests,npass)
  call checkval(heated_u_HIIR(ucold,muion),uIon,epsilon(0.),nfailed(17),'heat: ionised gas at uIon')
  call checkval(heated_u_HIIR(ucold,muhalf),uhalf,1.e-14,nfailed(18),'heat: front particle at its target')
  call checkval(heated_u_HIIR(2.*uhalf,muhalf),2.*uhalf,epsilon(0.),nfailed(19),'heat: shocked front kept')
+
+ !-- neutral gas held at its target is cold whatever the rounding of the target
+ nadiab = 0
+ do k=1,1000
+    polykk = polyk*(1. + 1.e-3*k)
+    call init_eos_HIIR(gamma,polykk,gmw,temperature_coef,X_in,Z_in,ierr)
+    call get_eos_HIIR(polykk,temperature_coef,gmw,gamma,heated_u_HIIR(0.,gmw),tempi,ponrhoi,spsoundi)
+    if (spsoundi /= sqrt(polykk)) nadiab = nadiab + 1
+ enddo
+ call checkval(nadiab,0,0,nfailed(22),'eos: neutral gas at its target is isothermal')
 
  !-- H+ and He+ in a solar mix X = 0.7, Z = 0: 1/mu = 2X + Y/2
  gmw = 2.35
