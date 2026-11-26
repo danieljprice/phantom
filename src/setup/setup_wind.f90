@@ -12,7 +12,7 @@ module setup
 ! :References:
 !   Siess et al. 2022, A&A, 667, 75
 !
-! :Owner: Lionel Siess
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - T_wind              : *wind temperature (K)*
@@ -21,7 +21,7 @@ module setup
 !   - mass_of_particles   : *particle mass (Msun)*
 !   - nstar               : *number of stars (1=single, 2=binary, >=3 hierarchical system)*
 !   - nzones_sonic_point  : *particle spacings from injection radius to sonic point*
-!   - particles_per_shell : *number of particles per shell of the primary wind*
+!   - particles_per_shell : *number of particles per shell of the first star with a wind*
 !   - temp_exponent       : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma          : *adiabatic index (initial if Krome chemistry used)*
 !
@@ -165,7 +165,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
  character(len=len(fileprefix)+6) :: filename
- integer :: ierr,i,wind_type
+ integer :: ierr,i,wind_type,iref
  logical :: iexist
  real :: m(maxstars),racc(maxstars)
 
@@ -246,19 +246,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  !
  ! set the particle mass, either directly or from the desired resolution
- ! of the wind from sink 1. This is the only place the particle mass is set.
+ ! of the wind from the first star with a wind (iref). This is the only
+ ! place the particle mass is set.
  !
- if (iresolution > 0 .and. xyzmh_ptmass(imloss,1) <= 0.) call fatal('setup','primary star must have a wind')
+ iref = 0
+ do i=nstar,1,-1
+    if (xyzmh_ptmass(imloss,i) > 0.) iref = i
+ enddo
+ if (iresolution > 0 .and. iref == 0) call fatal('setup','no star has a wind')
  ! trans-sonic wind (wind_type = 1) if resolving the sonic point, or if no wind
  ! velocity is given so that it comes from the 1D wind solution
  wind_type = 0
- if (.not.isothermal .and. (iresolution == 2 .or. xyzmh_ptmass(ivwind,1) <= 0.)) wind_type = 1
+ if (iref > 0) then
+    if (.not.isothermal .and. (iresolution == 2 .or. xyzmh_ptmass(ivwind,iref) <= 0.)) wind_type = 1
+ endif
  if (wind_type == 1) call set_default_options_inject(1)
  select case(iresolution)
  case(1)
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,particles_per_shell,0)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,iref),wind_type,particles_per_shell,0)
  case(2)
-    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,0,nzones_sonic_point)
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,iref),wind_type,0,nzones_sonic_point)
  case default
     massoftype(igas) = default_particle_mass * (solarm / umass)
  end select
@@ -380,7 +387,7 @@ subroutine get_resolution()
  imax = 1
  if (sonic_option_allowed()) imax = 2
  print "(/,a)",'Resolution'
- print "(a)",' 0: set particle mass',' 1: set number of particles per shell (primary wind)'
+ print "(a)",' 0: set particle mass',' 1: set number of particles per shell (first star with a wind)'
  if (imax == 2) print "(a)",' 2: set number of particle spacings between injection radius and sonic point'
  call prompt('select how to set the particle mass',iresolution,0,imax)
  select case(iresolution)
@@ -718,7 +725,7 @@ subroutine write_setupfile(filename)
  call write_inopt(iresolution,'iresolution','particle mass from 0=mass,1=particles_per_shell,2=sonic point',iunit)
  select case(iresolution)
  case(1)
-    call write_inopt(particles_per_shell,'particles_per_shell','number of particles per shell of the primary wind',iunit)
+    call write_inopt(particles_per_shell,'particles_per_shell','number of particles per shell of the first star with a wind',iunit)
  case(2)
     call write_inopt(nzones_sonic_point,'nzones_sonic_point','particle spacings from injection radius to sonic point',iunit)
  case default
@@ -814,7 +821,6 @@ subroutine read_setupfile(filename,ierr)
     m(i) = star(i)%mass_msun * (solarm / umass)
  enddo
  call read_orbit_options(db,m,nerr)
- call check_winds(nerr)
 
  ! resolution: setup files without iresolution keep the particle mass they specify
  call read_inopt(iresolution,'iresolution',db,min=0,max=2,default=0,errcount=nerr)
@@ -844,7 +850,8 @@ subroutine read_setupfile(filename,ierr)
  endif
  call close_db(db)
  do i=1,nstar
-    call check_stellar_props(trim(star_label(i)),star(i)%lum_lsun,star(i)%Teff,star(i)%Reff_au,i==1,nerr)
+    call check_stellar_props(trim(star_label(i)),star(i)%lum_lsun,star(i)%Teff,star(i)%Reff_au,&
+                             i==1 .or. star(i)%mdot_msun_yr > 0.,nerr)
  enddo
  ierr = nerr
  call write_setupfile(filename)
@@ -883,31 +890,6 @@ subroutine read_orbit_options(db,m,nerr)
  endif
 
 end subroutine read_orbit_options
-
-!----------------------------------------------------------------
-!+
-!  winds are injected from at most two stars, and the primary
-!  must have a wind if any star does
-!+
-!----------------------------------------------------------------
-subroutine check_winds(nerr)
- integer, intent(inout) :: nerr
- integer :: i
-
- do i=3,nstar
-    if (star(i)%mdot_msun_yr > 0.) then
-       print "(a)",' ERROR: only the primary and secondary stars can have a wind'
-       nerr = nerr + 1
-    endif
- enddo
- if (nstar >= 2) then
-    if (star(2)%mdot_msun_yr > 0. .and. star(1)%mdot_msun_yr <= 0.) then
-       print "(a)",' ERROR: the primary star must have a wind if the secondary has one'
-       nerr = nerr + 1
-    endif
- endif
-
-end subroutine check_winds
 
 !----------------------------------------------------------------
 !+

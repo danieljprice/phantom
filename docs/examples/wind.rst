@@ -70,6 +70,7 @@ Companions are added by increasing ``nstar``. Each extra star gets its own block
 For ``nstar = 2`` the orbit is given by the generic orbit options (``itype``, ``a``, ``e``, ``i``, ``O``, ``w``, ``f``), where the semi-major axis can be given with units (e.g. ``a = 143 au``).
 For ``nstar >= 3`` the stars are placed in a hierarchical system set by the ``hierarchy`` string and the orbit of each level (e.g. ``1_a``, ``12_e``); the .setup file lists which star corresponds to which label in the hierarchy string. Star i is the i-th label in the hierarchy string, so the order of the string sets the order of the stars (see :doc:`hierarchicalsystems` for the hierarchical labels).
 Setup files from older versions, with ``icompanion_star``, ``semi_major_axis``, ``eccentricity`` and ``true_anomaly``, are still read and are rewritten with the new options.
+Any of the stars can have a wind (set ``*_mdot > 0``), and each wind is computed from the 1D wind profile of its own star.
 
 The wind of each star is set by:
 
@@ -118,7 +119,7 @@ The only constraint is that the wind must be resolved azimuthally: a warning is 
 The particle mass is set only by ``phantomsetup``, using ``iresolution``:
 
 - ``iresolution = 0`` (recommended, the default): give the particle mass directly, ``mass_of_particles`` (in Msun). All stars with winds share this one particle mass.
-- ``iresolution = 1``: give the number of particles per shell of the primary wind, ``particles_per_shell``, and the particle mass is computed from the formula above. This is mainly useful to reproduce old calculations (see below).
+- ``iresolution = 1``: give the number of particles per shell of the wind of the first star with a wind, ``particles_per_shell``, and the particle mass is computed from the formula above. This is mainly useful to reproduce old calculations (see below).
 - ``iresolution = 2``: give the number of particle spacings between the injection radius and the sonic point, ``nzones_sonic_point``. This ensures the acceleration zone of a trans-sonic wind is resolved. It solves the 1D wind equations, sets ``wind_type = 1`` in the .in file, and is only available for a single star with a non-isothermal wind.
 
 ``phantomsetup`` prints the particle mass and, for each star with a wind, the number of particles per shell, so you can check the resolution before running.
