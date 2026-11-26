@@ -666,7 +666,7 @@ subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundar
  logical,           intent(in)  :: onewind
  real,              intent(out) :: tboundary,tcross,tfill
  real :: tend,rout,rfill
- character(len=24) :: wfile
+ character(len=len(fileprefix)+14) :: wfile ! prefix + NN_profile.dat
 
  tboundary = (iboundary_spheres+nfill_domain)*time_between_spheres
  tend      = max(tmax,tboundary)*utime
