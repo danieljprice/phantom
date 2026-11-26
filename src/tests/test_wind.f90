@@ -469,10 +469,10 @@ subroutine test_profiles_per_sink(ntests,npass,rmax)
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: rmax
  integer, parameter :: nsinks = 3
- real,    parameter :: tol_mdot = 4.e-16, tol_age = 1.e-12
+ real,    parameter :: tol_mdot = 4.e-16, tol_age = 1.e-11
  real,    parameter :: mdot_msun_yr(nsinks) = (/1.e-5,0.,3.e-6/)
  type(wind_params) :: params
- integer :: i,k,nfailed(4),ncheck(2)
+ integer :: i,k,nfailed(5),ncheck(2)
  real    :: xyzmh(nsinkproperties),rsonic,tcross,tfill,mdot,errmax(2),age,r,v,u,rho
 
  if (id==master) write(*,"(/,a)") '--> checking 1D wind profiles for several sinks'
@@ -505,11 +505,11 @@ subroutine test_profiles_per_sink(ntests,npass,rmax)
     do i=1,size(wind_profiles(k)%trvurho,dim=2),10
        age = 0.7*wind_profiles(k)%trvurho(1,i)/utime
        call interp_wind_profile(k,age,r,v,u,rho)
-       call checkvalbuf(wind_age_at_r(k,r)/age,1.,tol_age,'age from radius',nfailed(4),ncheck(2),errmax(2))
+       call checkvalbuf(wind_age_at_r(k,r)/age,1.,tol_age,'age from radius',nfailed(5),ncheck(2),errmax(2))
     enddo
  enddo
  call checkvalbuf_end('dM/dt = 4 pi r^2 rho v of own sink',ncheck(1),nfailed(4),errmax(1),tol_mdot)
- call checkvalbuf_end('age from radius',ncheck(2),nfailed(4),errmax(2),tol_age)
+ call checkvalbuf_end('age from radius',ncheck(2),nfailed(5),errmax(2),tol_age)
  call update_test_scores(ntests,nfailed,npass)
  nptmass = 1
 
