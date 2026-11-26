@@ -45,6 +45,7 @@ Content of the .setup file
            primary_Reff =       2.517    ! primary star effective radius (au)
 
    # primary wind
+        primary_Rinject =           0    ! primary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)
            primary_mdot =   3.000E-06    ! primary wind mass loss rate (in Msun/yr)
           primary_vwind =        16.5    ! primary wind velocity (in km/s)
       primary_wind_temp =       1500.    ! primary wind temperature (K, 0 = use Teff)
@@ -72,7 +73,9 @@ The wind of each star is set by:
 - ``primary_mdot``: the mass loss rate. This is an input and is never changed by the code.
 - ``primary_vwind``: the wind velocity at the injection radius. Set it to zero for a trans-sonic wind (``wind_type = 1``), where the code finds the velocity.
 - ``primary_wind_temp``: the wind temperature at the injection radius. Zero means the stellar effective temperature is used.
-- ``primary_Reff``: the effective radius, which is also the radius at which the wind is injected.
+- ``primary_Rinject``: the radius at which the wind is injected, with units (e.g. ``2.5 au``). Zero means
+  the wind is injected at the stellar effective radius ``primary_Reff``. A larger value injects the wind above the photosphere; the stellar radius
+  used for the dust temperature and radiation is still computed from the luminosity and effective temperature.
 
 Note also that
 
@@ -82,7 +85,7 @@ Note also that
 
 so you provide 2 out of these 3 variables and the third, if omitted or set to zero, is computed from the formula above.
 The default is to give the luminosity and the effective radius, since these set the radiation pressure and
-the injection radius, and compute the effective temperature. To give the effective temperature instead,
+the stellar radius, and compute the effective temperature. To give the effective temperature instead,
 replace one of the other two with ``primary_Teff``.
 If you provide all three, the luminosity and effective radius are kept, the effective temperature is recomputed,
 and a warning is given if it differs from the value you provided.

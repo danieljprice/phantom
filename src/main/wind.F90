@@ -120,9 +120,9 @@ end subroutine setup_wind
 subroutine get_params_from_sink(xyzmh_ptmassi,wind_type,params)
  use part,              only:ilum,iTeff,iReff,ivwind,iTwind,imloss,iwalpha
  use units,             only:unit_velocity,umass,udist,unit_mdot,unit_luminosity
- use physcon,           only:au,pi,steboltz
  use io,                only:warning,fatal
- use ptmass_radiation,  only:isink_radiation
+ use physcon,           only:au
+ use ptmass_radiation,  only:isink_radiation,get_stellar_radius
 
  real,               intent(in)  :: xyzmh_ptmassi(:)
  integer,            intent(in)  :: wind_type
@@ -150,17 +150,13 @@ subroutine get_params_from_sink(xyzmh_ptmassi,wind_type,params)
 ! if you consider non-trans-sonic wind, provide an input wind velocity /= 0.
  if (params%vwind <= 0. .and. wind_type /= 1) call fatal(label,'zero input wind velocity')
 
- params%Rstar   = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
+ ! the wind is injected at the effective radius, which can be above
+ ! the stellar photosphere (but not below it)
  params%Rinject = xyzmh_ptmassi(iReff)*udist
- params%Rstar   = params%Rinject/2.
-! set true stellar radius from L and Teff
- ! if (xyzmh_ptmassi(iTeff) > tiny(0.)) then
- !    params%Rstar = sqrt(params%Lstar/(4.*pi*steboltz*params%Tstar**4))
- ! else
- !    params%Rstar = params%Rinject
- ! endif
- if (params%Rinject < params%Rstar) then
-    call warning(label,'wind_inject_radius < Rstar',var='Rinj [au]',val=real(params%Rinject/au))
+ params%Rstar   = get_stellar_radius(xyzmh_ptmassi)*udist
+ ! allow for round-off when the wind is injected at the photosphere
+ if (params%Rinject < (1.-1.e-6)*params%Rstar) then
+    call warning(label,'wind injection radius < stellar radius',var='Rinj [au]',val=real(params%Rinject/au))
  endif
 
 end subroutine get_params_from_sink

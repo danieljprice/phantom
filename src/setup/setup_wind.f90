@@ -31,6 +31,7 @@ module setup
 !   - nzones_sonic_point  : *particle spacings from injection radius to sonic point*
 !   - particles_per_shell : *number of particles per shell of the primary wind*
 !   - primary_Reff        : *primary star effective radius (au)*
+!   - primary_Rinject     : *primary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)*
 !   - primary_Teff        : *primary star effective temperature (K)*
 !   - primary_alpha       : *primary alpha parameter*
 !   - primary_lum         : *primary star luminosity (Lsun)*
@@ -47,6 +48,7 @@ module setup
 !   - racc2a              : *tight binary primary accretion radius*
 !   - racc2b              : *tight binary secondary accretion radius*
 !   - secondary_Reff      : *secondary star effective radius (au)*
+!   - secondary_Rinject   : *secondary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)*
 !   - secondary_Teff      : *secondary star effective temperature)*
 !   - secondary_alpha     : *secondary alpha parameter*
 !   - secondary_lum       : *secondary star luminosity (Lsun)*
@@ -85,6 +87,9 @@ module setup
  real :: primary_lum,primary_mass,primary_Reff,primary_racc,primary_Teff
  real :: secondary_lum_lsun,secondary_mass_msun,secondary_Reff_au,secondary_racc_au
  real :: secondary_lum,secondary_mass,secondary_Reff,secondary_racc,secondary_Teff
+ ! wind injection radii, with units (e.g. 2.5 au); 0 = at the stellar photosphere (Reff)
+ character(len=20) :: primary_Rinject_str,secondary_Rinject_str
+ real :: primary_Rinject,secondary_Rinject
  real :: primary_veq,primary_veq_km_s,secondary_veq,secondary_veq_km_s,spin(2,3)
  real :: lum2a_lsun,lum2b_lsun,Teff2a,Teff2b,Reff2a_au,Reff2b_au
  real :: binary2_a_au,racc2a_au,racc2b_au,binary2_i,q2
@@ -148,6 +153,8 @@ subroutine set_default_parameters_wind()
  primary_mass_msun     = 1.5
  primary_Reff_au       = 1.
  primary_racc_au       = 1.
+ primary_Rinject_str   = '0'
+ primary_Rinject       = 0.
  primary_mdot_msun_yr  = 0.
  primary_vwind_km_s    = 0.
  primary_wind_temp     = 0.
@@ -159,6 +166,8 @@ subroutine set_default_parameters_wind()
  secondary_mass_msun   = 1.0
  secondary_Reff_au     = 0.8
  secondary_racc_au     = 0.1
+ secondary_Rinject_str = '0'
+ secondary_Rinject     = 0.
  secondary_mdot_msun_yr = .0
  secondary_vwind_km_s  = 0.
  secondary_wind_temp   = 0.
@@ -227,6 +236,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
       read_setupfile,write_setupfile,setup_interactive)
  if (ierr /= 0) stop 'rerun phantomsetup after editing .setup file'
 !
+!--by default the wind is injected at the stellar photosphere
+!
+ if (primary_Rinject <= 0.)   primary_Rinject   = primary_Reff
+ if (secondary_Rinject <= 0.) secondary_Rinject = secondary_Reff
+!
 !--the wind alpha parameters are ignored unless radiation pressure from sinks is switched on
 !
  if ((primary_alpha > 0. .or. secondary_alpha > 0.) .and. isink_radiation == 0) then
@@ -262,7 +276,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(2x,a)",'binary period (physical units) : '//&
           trim(get_nearest_unit(get_orbital_period(primary_mass+secondary_mass,semi_major_axis),'time'))
     xyzmh_ptmass(iTeff,1) = primary_Teff
-    xyzmh_ptmass(iReff,1) = primary_Reff
+    xyzmh_ptmass(iReff,1) = primary_Rinject
     xyzmh_ptmass(iLum,1)  = primary_lum
     xyzmh_ptmass(imloss,1) = primary_mdot
     xyzmh_ptmass(ivwind,1) = primary_vwind
@@ -274,7 +288,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(ispinz,1) = primary_Reff**2*spin(1,3)*primary_veq
 
     xyzmh_ptmass(iTeff,2) = secondary_Teff
-    xyzmh_ptmass(iReff,2) = secondary_Reff
+    xyzmh_ptmass(iReff,2) = secondary_Rinject
     xyzmh_ptmass(iLum,2)  = secondary_lum
     xyzmh_ptmass(imloss,2) = secondary_mdot
     xyzmh_ptmass(ivwind,2) = secondary_vwind
@@ -314,7 +328,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
 
        xyzmh_ptmass(iTeff,1) = primary_Teff
-       xyzmh_ptmass(iReff,1) = primary_Reff
+       xyzmh_ptmass(iReff,1) = primary_Rinject
        xyzmh_ptmass(iLum,1)  = primary_lum
        xyzmh_ptmass(iTeff,2) = Teff2a
        xyzmh_ptmass(iReff,2) = Reff2a
@@ -330,14 +344,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                 posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
 
        xyzmh_ptmass(iTeff,1)  = primary_Teff
-       xyzmh_ptmass(iReff,1)  = primary_Reff
+       xyzmh_ptmass(iReff,1)  = primary_Rinject
        xyzmh_ptmass(iLum,1)   = primary_lum
        xyzmh_ptmass(imloss,1) = primary_mdot
        xyzmh_ptmass(ivwind,1) = primary_vwind
        xyzmh_ptmass(iTwind,1) = primary_wind_temp
        xyzmh_ptmass(iwalpha,1) = primary_alpha
        xyzmh_ptmass(iTeff,2)  = secondary_Teff
-       xyzmh_ptmass(iReff,2)  = secondary_Reff
+       xyzmh_ptmass(iReff,2)  = secondary_Rinject
        xyzmh_ptmass(iLum,2)   = secondary_lum
        xyzmh_ptmass(iTeff,3)  = Teff2b
        xyzmh_ptmass(iReff,3)  = Reff2b
@@ -357,7 +371,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(4,1)      = primary_mass
     xyzmh_ptmass(5,1)      = primary_racc
     xyzmh_ptmass(iTeff,1)  = primary_Teff
-    xyzmh_ptmass(iReff,1)  = primary_Reff
+    xyzmh_ptmass(iReff,1)  = primary_Rinject
     xyzmh_ptmass(iLum,1)   = primary_lum
     xyzmh_ptmass(imloss,1) = primary_mdot
     xyzmh_ptmass(ivwind,1) = primary_vwind
@@ -1038,6 +1052,7 @@ subroutine write_setupfile(filename)
     call write_lum_Teff_Reff('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,iderived(1),iunit)
 
     write(iunit,"(/,a)") '# primary wind'
+    call write_inopt(primary_Rinject_str,'primary_Rinject','primary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)',iunit)
     call write_inopt(primary_mdot_msun_yr,'primary_mdot','primary wind mass loss rate (in Msun/yr)',iunit)
     call write_inopt(primary_vwind_km_s,'primary_vwind','primary wind velocity (in km/s)',iunit)
     call write_inopt(primary_wind_temp,'primary_wind_temp','primary wind temperature (K, 0 = use Teff)',iunit)
@@ -1061,6 +1076,7 @@ subroutine write_setupfile(filename)
        call write_lum_Teff_Reff('secondary',secondary_lum_lsun,secondary_Teff,secondary_Reff_au,iderived(2),iunit)
 
        write(iunit,"(/,a)") '# secondary wind'
+       call write_inopt(secondary_Rinject_str,'secondary_Rinject','secondary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)',iunit)
        call write_inopt(secondary_mdot_msun_yr,'secondary_mdot','secondary wind mass loss rate (in Msun/yr)',iunit)
        call write_inopt(secondary_vwind_km_s,'secondary_vwind','secondary wind velocity (in km/s)',iunit)
        call write_inopt(secondary_wind_temp,'secondary_wind_temp','secondary wind temperature (K, 0 = use Teff)',iunit)
@@ -1116,7 +1132,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use physcon,      only:au,solarl,solarm,km,years
- use units,        only:udist,umass,utime,unit_luminosity,unit_velocity
+ use units,        only:udist,umass,utime,unit_luminosity,unit_velocity,check_and_convert
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -1141,6 +1157,8 @@ subroutine read_setupfile(filename,ierr)
     print *,'ERROR: primary accretion radius not defined'
     nerr = nerr+1
  endif
+ call read_inopt(primary_Rinject_str,'primary_Rinject',db,default='0',errcount=nerr)
+ call check_and_convert(primary_Rinject_str,'primary_Rinject','length',primary_Rinject,nerr)
  call read_inopt(primary_mdot_msun_yr,'primary_mdot',db,min=0.,max=1.,errcount=nerr)
  primary_mdot = primary_mdot_msun_yr * (solarm / umass) * (utime /years)
  call read_inopt(primary_vwind_km_s,'primary_vwind',db,min=0.,max=1.e4,errcount=nerr)
@@ -1169,6 +1187,8 @@ subroutine read_setupfile(filename,ierr)
        print *,'ERROR: secondary accretion radius not defined'
        nerr = nerr+1
     endif
+    call read_inopt(secondary_Rinject_str,'secondary_Rinject',db,default='0',errcount=nerr)
+    call check_and_convert(secondary_Rinject_str,'secondary_Rinject','length',secondary_Rinject,nerr)
     call read_inopt(secondary_mdot_msun_yr,'secondary_mdot',db,min=0.,max=1.,errcount=nerr)
     secondary_mdot = secondary_mdot_msun_yr * (solarm / umass) *(utime /years)
     call read_inopt(secondary_vwind_km_s,'secondary_vwind',db,min=0.,max=1.e4,errcount=nerr)

@@ -137,34 +137,12 @@ end subroutine set_defaults_stars
 
 !--------------------------------------------------------------------------
 !+
-!  utility routine to convert properties to code units while checking
-!  for errors
-!+
-!--------------------------------------------------------------------------
-subroutine check_and_convert(var,desc,unit_type,val,nerr)
- use units, only:in_code_units
- use io,    only:error
- character(len=*), intent(in)    :: var,desc,unit_type
- real,             intent(out)   :: val
- integer,          intent(inout) :: nerr
- integer :: ierr
-
- val = in_code_units(var,ierr,unit_type=unit_type)
- if (ierr /= 0) then
-    call error('set_star','error parsing units for '//trim(desc),var=var)
-    nerr = nerr + 1
- endif
-
-end subroutine check_and_convert
-
-!--------------------------------------------------------------------------
-!+
 !  utility routine to convert the stellar properties to code units
 !+
 !--------------------------------------------------------------------------
 subroutine get_star_properties_in_code_units(star,rstar,mstar,rcore,mcore,hsoft,lcore,hacc,nerr,omega)
  use, intrinsic :: ieee_arithmetic, only:ieee_is_finite
- use units,   only:is_density_unit
+ use units,   only:is_density_unit,check_and_convert
  use physcon, only:pi
  use io,      only:error
  type(star_t), intent(in)    :: star
@@ -867,6 +845,7 @@ end subroutine set_stars_interactive
 !-----------------------------------------------------------------------
 subroutine write_options_star(star,iunit,label)
  use infile_utils,  only:write_inopt,get_optstring
+ use units,         only:check_and_convert
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar,need_polyk
  type(star_t),     intent(in) :: star
  integer,          intent(in) :: iunit
@@ -969,6 +948,7 @@ end subroutine write_options_star
 !-----------------------------------------------------------------------
 subroutine read_options_star(star,db,nerr,label)
  use infile_utils,  only:inopts,read_inopt
+ use units,         only:check_and_convert
  use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
  type(star_t),              intent(inout) :: star
  type(inopts),              intent(inout) :: db(:)
