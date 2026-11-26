@@ -34,6 +34,7 @@ module units
  public :: set_units, set_units_extra, print_units, select_unit
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units, in_code_units, in_units
+ public :: check_and_convert
  public :: is_time_unit, is_length_unit, is_mdot_unit, is_density_unit
  public :: in_solarr, in_solarm, in_solarl
  public :: get_unit_multiplier, get_nearest_unit
@@ -197,7 +198,7 @@ subroutine select_unit(string,unit,ierr,unit_type)
  call get_unit_multiplier(string,unitstr,fac,ierr)
 
  select case(trim(adjustl(unitstr)))
- case('solarr','rsun')
+ case('solarr','rsun','Rsun')
     unit  = solarr
     utype = 'length'
  case('jupiterr','rjup','rjupiter')
@@ -227,7 +228,7 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('cm','centimetres','centimeters')
     unit = 1.d0
     utype = 'length'
- case('solarm','msun')
+ case('solarm','msun','Msun')
     unit = solarm
     utype = 'mass'
  case('earthm','mearth')
@@ -436,6 +437,27 @@ real function in_code_units(string,ierr,unit_type) result(rval)
  endif
 
 end function in_code_units
+
+!------------------------------------------------------------------------------------
+!+
+!  convert a string with units (e.g. 2.5 au) to code units, checking that
+!  the units are of the requested type ('length', 'mass', ...). Errors
+!  are reported and counted in nerr, so that all input errors are found
+!+
+!------------------------------------------------------------------------------------
+subroutine check_and_convert(var,desc,unit_type,val,nerr)
+ character(len=*), intent(in)    :: var,desc,unit_type
+ real,             intent(out)   :: val
+ integer,          intent(inout) :: nerr
+ integer :: ierr
+
+ val = in_code_units(var,ierr,unit_type=unit_type)
+ if (ierr /= 0) then
+    print "(a)",' ERROR: could not convert '//trim(desc)//' = '//trim(var)//' to code units'
+    nerr = nerr + 1
+ endif
+
+end subroutine check_and_convert
 
 !------------------------------------------------------------------------------------
 !+

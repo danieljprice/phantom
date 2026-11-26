@@ -53,6 +53,7 @@ module setup
  ! properties of each star, in the units used in the .setup file
  type wind_star_t
     real :: mass_msun,racc_au,lum_lsun,Teff,Reff_au
+    character(len=20) :: Rinject  ! wind injection radius, with units (e.g. 2.5 au); 0 = at Reff
     real :: mdot_msun_yr,vwind_km_s,wind_temp,alpha
     real :: veq_km_s,spin(3)
     integer :: iderived
@@ -125,6 +126,7 @@ subroutine set_default_star(s,mass_msun,racc_au,lum_lsun,Reff_au)
  s%lum_lsun     = lum_lsun
  s%Teff         = 0.
  s%Reff_au      = Reff_au
+ s%Rinject      = '0'
  s%mdot_msun_yr = 0.
  s%vwind_km_s   = 0.
  s%wind_temp    = 0.
@@ -273,14 +275,19 @@ end subroutine setpart
 subroutine set_sink_properties(s,xyzmh_ptmassi)
  use part,    only:iTeff,iLum,iReff,ispinx,ispiny,ispinz,ivwind,imloss,iTwind,iwalpha
  use physcon, only:solarm,km,years
- use units,   only:umass,utime,unit_velocity
+ use units,   only:umass,utime,unit_velocity,check_and_convert
  type(wind_star_t), intent(inout) :: s
  real,              intent(inout) :: xyzmh_ptmassi(:)
- real :: lum,Reff,veq
+ real :: lum,Reff,veq,Rinject
+ integer :: nerr
 
  call get_lum_and_Reff(s%lum_lsun,s%Reff_au,s%Teff,lum,Reff,s%iderived)
+ ! the wind is injected at the stellar photosphere unless an injection radius is given
+ nerr = 0
+ call check_and_convert(s%Rinject,'Rinject','length',Rinject,nerr)
+ if (Rinject <= 0.) Rinject = Reff
  xyzmh_ptmassi(iTeff)   = s%Teff
- xyzmh_ptmassi(iReff)   = Reff
+ xyzmh_ptmassi(iReff)   = Rinject
  xyzmh_ptmassi(iLum)    = lum
  xyzmh_ptmassi(imloss)  = s%mdot_msun_yr * (solarm / umass) * (utime / years)
  xyzmh_ptmassi(ivwind)  = s%vwind_km_s * (km / unit_velocity)
@@ -582,9 +589,10 @@ end subroutine get_sink_properties
 !+
 !----------------------------------------------------------------
 subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff,ider)
- use physcon, only:au,steboltz,solarl,pi
- use units,   only:udist,unit_luminosity
- use io,      only:warning
+ use physcon,          only:au,steboltz,solarl,pi
+ use units,            only:udist,unit_luminosity
+ use io,               only:warning
+ use ptmass_radiation, only:get_Teff
  real,    intent(inout) :: lum_lsun,reff_au,Teff
  real,    intent(out)   :: lum,Reff
  integer, intent(inout) :: ider
@@ -618,19 +626,6 @@ subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff,ider)
  Reff = Reff_au*(au/udist)
 
 end subroutine get_lum_and_Reff
-
-!----------------------------------------------------------------
-!+
-!  effective temperature (K) from luminosity (Lsun) and radius (au)
-!+
-!----------------------------------------------------------------
-real function get_Teff(lum_lsun,reff_au)
- use physcon, only:au,steboltz,solarl,pi
- real, intent(in) :: lum_lsun,reff_au
-
- get_Teff = (lum_lsun*solarl/(4.*pi*steboltz*(reff_au*au)**2))**0.25
-
-end function get_Teff
 
 !----------------------------------------------------------------
 !+
@@ -671,6 +666,7 @@ subroutine write_star(s,label,iunit)
  call write_lum_Teff_Reff(label,s%lum_lsun,s%Teff,s%Reff_au,s%iderived,iunit)
 
  write(iunit,"(/,a)") '# '//label//' wind'
+ call write_inopt(s%Rinject,label//'_Rinject','wind injection radius (w. units, e.g. 2.5 au, 0=Reff)',iunit)
  call write_inopt(s%mdot_msun_yr,label//'_mdot',label//' wind mass loss rate (in Msun/yr)',iunit)
  call write_inopt(s%vwind_km_s,label//'_vwind',label//' wind velocity (in km/s)',iunit)
  call write_inopt(s%wind_temp,label//'_wind_temp',label//' wind temperature (K, 0 = use Teff)',iunit)
@@ -753,10 +749,12 @@ end subroutine write_setupfile
 !----------------------------------------------------------------
 subroutine read_star(s,label,db,nerr)
  use infile_utils, only:inopts,read_inopt
+ use units,        only:check_and_convert
  type(wind_star_t),         intent(inout) :: s
  character(len=*),          intent(in)    :: label
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
+ real :: Rinject
 
  s%iderived = iderived_none
  call read_inopt(s%mass_msun,label//'_mass',db,min=0.,max=1000.,errcount=nerr)
@@ -768,6 +766,8 @@ subroutine read_star(s,label,db,nerr)
     print "(a)",' ERROR: '//label//' accretion radius not defined'
     nerr = nerr+1
  endif
+ call read_inopt(s%Rinject,label//'_Rinject',db,default='0',errcount=nerr)
+ call check_and_convert(s%Rinject,label//'_Rinject','length',Rinject,nerr)
  call read_inopt(s%mdot_msun_yr,label//'_mdot',db,min=0.,max=1.,errcount=nerr)
  call read_inopt(s%vwind_km_s,label//'_vwind',db,min=0.,max=1.e4,errcount=nerr)
  call read_inopt(s%wind_temp,label//'_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
