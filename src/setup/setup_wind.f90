@@ -31,7 +31,7 @@ module setup
 !   - nzones_sonic_point  : *particle spacings from injection radius to sonic point*
 !   - particles_per_shell : *number of particles per shell of the primary wind*
 !   - primary_Reff        : *primary star effective radius (au)*
-!   - primary_Rinject     : *primary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)*
+!   - primary_Rinject     : *wind injection radius (w. units, e.g. 2.5 au, 0=Reff)*
 !   - primary_Teff        : *primary star effective temperature (K)*
 !   - primary_alpha       : *primary alpha parameter*
 !   - primary_lum         : *primary star luminosity (Lsun)*
@@ -48,7 +48,7 @@ module setup
 !   - racc2a              : *tight binary primary accretion radius*
 !   - racc2b              : *tight binary secondary accretion radius*
 !   - secondary_Reff      : *secondary star effective radius (au)*
-!   - secondary_Rinject   : *secondary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)*
+!   - secondary_Rinject   : *wind injection radius (w. units, e.g. 2.5 au, 0=Reff)*
 !   - secondary_Teff      : *secondary star effective temperature)*
 !   - secondary_alpha     : *secondary alpha parameter*
 !   - secondary_lum       : *secondary star luminosity (Lsun)*
@@ -908,6 +908,7 @@ subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff,ider)
  use physcon, only:au,steboltz,solarl,pi
  use units,   only:udist,unit_luminosity
  use io,      only:warning
+ use ptmass_radiation, only:get_Teff
  real,    intent(inout) :: lum_lsun,reff_au,Teff
  real,    intent(out)   :: lum,Reff
  integer, intent(inout) :: ider
@@ -941,19 +942,6 @@ subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff,ider)
  Reff = Reff_au*(au/udist)
 
 end subroutine get_lum_and_Reff
-
-!----------------------------------------------------------------
-!+
-!  effective temperature (K) from luminosity (Lsun) and radius (au)
-!+
-!----------------------------------------------------------------
-real function get_Teff(lum_lsun,reff_au)
- use physcon, only:au,steboltz,solarl,pi
- real, intent(in) :: lum_lsun,reff_au
-
- get_Teff = (lum_lsun*solarl/(4.*pi*steboltz*(reff_au*au)**2))**0.25
-
-end function get_Teff
 
 !----------------------------------------------------------------
 !+
@@ -1052,7 +1040,7 @@ subroutine write_setupfile(filename)
     call write_lum_Teff_Reff('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,iderived(1),iunit)
 
     write(iunit,"(/,a)") '# primary wind'
-    call write_inopt(primary_Rinject_str,'primary_Rinject','primary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)',iunit)
+    call write_inopt(primary_Rinject_str,'primary_Rinject','wind injection radius (w. units, e.g. 2.5 au, 0=Reff)',iunit)
     call write_inopt(primary_mdot_msun_yr,'primary_mdot','primary wind mass loss rate (in Msun/yr)',iunit)
     call write_inopt(primary_vwind_km_s,'primary_vwind','primary wind velocity (in km/s)',iunit)
     call write_inopt(primary_wind_temp,'primary_wind_temp','primary wind temperature (K, 0 = use Teff)',iunit)
@@ -1076,7 +1064,8 @@ subroutine write_setupfile(filename)
        call write_lum_Teff_Reff('secondary',secondary_lum_lsun,secondary_Teff,secondary_Reff_au,iderived(2),iunit)
 
        write(iunit,"(/,a)") '# secondary wind'
-       call write_inopt(secondary_Rinject_str,'secondary_Rinject','secondary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)',iunit)
+       call write_inopt(secondary_Rinject_str,'secondary_Rinject',&
+                        'wind injection radius (w. units, e.g. 2.5 au, 0=Reff)',iunit)
        call write_inopt(secondary_mdot_msun_yr,'secondary_mdot','secondary wind mass loss rate (in Msun/yr)',iunit)
        call write_inopt(secondary_vwind_km_s,'secondary_vwind','secondary wind velocity (in km/s)',iunit)
        call write_inopt(secondary_wind_temp,'secondary_wind_temp','secondary wind temperature (K, 0 = use Teff)',iunit)

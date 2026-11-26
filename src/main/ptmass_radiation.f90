@@ -31,7 +31,7 @@ module ptmass_radiation
 
  public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
- public :: get_dust_temperature,get_stellar_radius
+ public :: get_dust_temperature,get_stellar_radius,get_Teff
  public :: init_radiation_ptmass
 
  private
@@ -492,5 +492,18 @@ real function get_stellar_radius(xyzmh_ptmassi) result(Rstar)
  endif
 
 end function get_stellar_radius
+
+!-----------------------------------------------------------------------
+!+
+!  effective temperature (K) from luminosity (Lsun) and radius (au)
+!+
+!-----------------------------------------------------------------------
+real function get_Teff(lum_lsun,reff_au)
+ use physcon, only:au,steboltz,solarl,pi
+ real, intent(in) :: lum_lsun,reff_au
+
+ get_Teff = real((lum_lsun*solarl/(4.*pi*steboltz*(reff_au*au)**2))**0.25)
+
+end function get_Teff
 
 end module ptmass_radiation

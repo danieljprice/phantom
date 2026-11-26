@@ -153,7 +153,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
- use ptmass_radiation, only:isink_radiation
+ use ptmass_radiation, only:isink_radiation,get_Teff
  use dust_formation,   only:idust_opacity
 
  integer, intent(in)    :: icase
@@ -184,7 +184,8 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
     !xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot
     xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/umass)/(years/utime)
  elseif (icase == 2) then      !super sonic-wind
-    xyzmh_ptmass(iTeff,1) = 3000.
+    ! stellar radius of 1 au as in Siess et al. (2022), inside the injection radius
+    xyzmh_ptmass(iTeff,1) = get_Teff(2.e4,1.)
     xyzmh_ptmass(ivwind,1) = 20.*km/seconds/unit_velocity
     xyzmh_ptmass(iTwind,1) = 2500.
     xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot

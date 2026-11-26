@@ -384,7 +384,8 @@ subroutine wind_step(params,state)
  v_old  = state%v
  dt_old = state%dt
  state%r_old = state%r
- call evolve_hydro(state%dt,rvT,state%Rstar,params%Mdot,state%mu,state%gamma,state%alpha,state%dalpha_dr,&
+ ! the injection radius is the length scale of the 1D wind equations
+ call evolve_hydro(state%dt,rvT,state%r0,params%Mdot,state%mu,state%gamma,state%alpha,state%dalpha_dr,&
       state%Q,state%dQ_dr,state%spcode,state%dt_force,dt_next)
  state%r   = rvT(1)
  state%v   = rvT(2)
@@ -565,7 +566,8 @@ subroutine wind_step(params,state)
  rvT(3) = state%Tg
  v_old  = state%v
  state%r_old = state%r
- call evolve_hydro(state%dt,rvT,state%Rstar,params%Mdot,state%mu,state%gamma,state%alpha,state%dalpha_dr,&
+ ! the injection radius is the length scale of the 1D wind equations
+ call evolve_hydro(state%dt,rvT,state%r0,params%Mdot,state%mu,state%gamma,state%alpha,state%dalpha_dr,&
       state%Q,state%dQ_dr,state%spcode,state%dt_force,dt_next)
  state%r    = rvT(1)
  state%v    = rvT(2)

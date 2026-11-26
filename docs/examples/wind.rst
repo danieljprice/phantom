@@ -45,7 +45,7 @@ Content of the .setup file
            primary_Reff =       2.517    ! primary star effective radius (au)
 
    # primary wind
-        primary_Rinject =           0    ! primary wind injection radius (with units, e.g. 2.5 au; 0 = Reff)
+        primary_Rinject =           0    ! wind injection radius (w. units, e.g. 2.5 au, 0=Reff)
            primary_mdot =   3.000E-06    ! primary wind mass loss rate (in Msun/yr)
           primary_vwind =        16.5    ! primary wind velocity (in km/s)
       primary_wind_temp =       1500.    ! primary wind temperature (K, 0 = use Teff)
