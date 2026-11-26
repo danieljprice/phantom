@@ -230,6 +230,7 @@ module part
  integer, parameter :: inseed   = 27 ! number of seeds into a sink (icreate_sinks == 2)
  integer, parameter :: irbondi  = 28 ! Bondi radius
  integer, parameter :: ipbondi  = 29 ! external pressure at the Bondi radius
+ integer, parameter :: iwshell  = 31 ! number of the next wind shell to emit (0 if none emitted yet)
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
 
  real,    allocatable :: xyzmh_ptmass(:,:)
@@ -246,7 +247,8 @@ module part
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   ','vwind    ','Twind    ','ieject   ',&
-    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi ','alpha    '/)
+    'sftype   ','nseed    ','Rbondi   ','Pr_Bondi ','alpha    ',&
+    'wshell   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
