@@ -153,6 +153,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     xyzmh_ptmass(4,nptmass+2)   = m2
     xyzmh_ptmass(5,nptmass+2)   = hacc2
     vxyz_ptmass(1:3,nptmass+2)  = v2
+    nptmass = nptmass + 2
 
     ! set orbit elements from position and velocity, so they can be used to compute the period
     call set_orbit_elements(orbit,m1,m2,verbose=verbose)

@@ -469,7 +469,7 @@ subroutine test_profiles_per_sink(ntests,npass,rmax)
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: rmax
  integer, parameter :: nsinks = 3
- real,    parameter :: tol_mdot = 4.e-16, tol_age = 1.e-11
+ real,    parameter :: tol_mdot = 4.e-16, tol_age = 1.e-14
  real,    parameter :: mdot_msun_yr(nsinks) = (/1.e-5,0.,3.e-6/)
  type(wind_params) :: params
  integer :: i,k,nfailed(5),ncheck(2)
@@ -501,8 +501,8 @@ subroutine test_profiles_per_sink(ntests,npass,rmax)
               wind_profiles(k)%trvurho(3,i)/(mdot_msun_yr(k)*solarm/years)
        call checkvalbuf(mdot,1.,tol_mdot,'dM/dt of own sink',nfailed(4),ncheck(1),errmax(1))
     enddo
-    ! r -> age is the inverse of age -> r
-    do i=1,size(wind_profiles(k)%trvurho,dim=2),10
+    ! r -> age is the inverse of age -> r (from row 2, since row 1 is at age zero)
+    do i=2,size(wind_profiles(k)%trvurho,dim=2),10
        age = 0.7*wind_profiles(k)%trvurho(1,i)/utime
        call interp_wind_profile(k,age,r,v,u,rho)
        call checkvalbuf(wind_age_at_r(k,r)/age,1.,tol_age,'age from radius',nfailed(5),ncheck(2),errmax(2))

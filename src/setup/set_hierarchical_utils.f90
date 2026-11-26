@@ -21,7 +21,8 @@ module sethier_utils
 
  implicit none
  integer, parameter, public :: max_hier_levels=10
- integer, parameter, public :: hier_db_size=10, hier_db_prop=10
+ ! one row per sink and per intermediate level of the hierarchy
+ integer, parameter, public :: hier_db_size=2*max_hier_levels, hier_db_prop=10
  integer, parameter, public :: lenhierstring = 100
  real, parameter, public :: pi = 4.*atan(1.)
 
@@ -244,7 +245,7 @@ subroutine load_hierarchy_file(filename, data, lines, ierr)
  if (iexist) then
     open(2,file=trim(filename),status='old')
     lines=0
-    do
+    do while (lines < hier_db_size)
        read(2, *,iostat=io) data(lines+1,:)
        if (io/=0) exit
        lines = lines + 1
