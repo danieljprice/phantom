@@ -845,8 +845,9 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  endif
 
  if (.not.got_iseed_sink .and. inject_parts) then
+    ! 0 means the emitting sink is unknown
     do i=i1,i2
-       iseed_sink(i) = i + noffset
+       iseed_sink(i) = 0
     enddo
     if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: iseed_sink not in dump'
  endif

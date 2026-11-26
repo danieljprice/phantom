@@ -1092,8 +1092,9 @@ subroutine interp_wind_profile(time,local_time,r,v,u,rho,e,GM,fdone,isink,JKmuS)
     do j=1,n_nucleation
        JKmuS(j) = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),JKmuS_1D(j,indx),JKmuS_1D(j,indx+1))
     enddo
+    ! the adiabatic index of the shell, given to the injected particles
+    ! by add_or_update_particle from JKmuS
     gammai = JKmuS(idgamma)
-    gamma  = gammai
  else
     gammai = gamma
  endif
@@ -1148,6 +1149,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  use dust_formation,   only:idust_opacity
  use ptmass_radiation, only:iget_tdust
  use options,          only:write_files
+ use io,               only:id,master
  integer,           intent(in)  :: isink
  type(wind_params), intent(in)  :: params
  real,              intent(in)  :: tend,rout,rfill
@@ -1164,12 +1166,15 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  real, allocatable :: JKmuS_temp(:,:)
  type(wind_state) :: state
  integer :: iter,itermax,nwrite,writeline
+ logical :: do_write
  character(len=64) :: cstop
 
  if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
  if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
 
- write (*,'("Saving 1D model to ",A)') trim(filename)
+ ! the profile is computed on every MPI task, but written by the master task only
+ do_write = write_files .and. id==master
+ if (do_write) write (*,'("Saving 1D model to ",A)') trim(filename)
  if (rfill > 0.) then
     !set a large time_end so the time integration allows the particles to reach rfill
     time_end = 1e7*utime
@@ -1182,7 +1187,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  else
     call init_wind(params,time_end,state)
  endif
- if (write_files) then
+ if (do_write) then
     open(newunit=iu,file=filename)
     call filewrite_header(iu,nwrite)
     call filewrite_state(iu,nwrite, state)
@@ -1229,7 +1234,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
          .or. ( abs((mu_incr    -mu_base)     /mu_base)     > eps ) ) then
 
        writeline = writeline + 1
-       if (write_files) call filewrite_state(iu,nwrite,state)
+       if (do_write) call filewrite_state(iu,nwrite,state)
 
        r_base     = state%r
        v_base     = state%v
@@ -1262,7 +1267,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  else
     print *,'integration successful, #',iter,' iterations required, rout = ',state%r/au
  endif
- if (write_files) close(iu)
+ if (do_write) close(iu)
  !stop 'save_windprofile'
 
  if (isink == 1) then
