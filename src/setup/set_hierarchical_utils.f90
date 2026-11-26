@@ -461,9 +461,14 @@ subroutine hierarchy_to_brackets(hierarchy,brackets,ierr)
     ierr = 1
     return
  endif
- ! the outermost pair needs no brackets
+ ! the outermost pair needs no brackets (blanked and shifted left,
+ ! rather than copying a slice of the string onto itself)
  i = len_trim(brackets)
- if (i > 2) brackets = brackets(2:i-1)
+ if (i > 2) then
+    brackets(1:1) = ' '
+    brackets(i:i) = ' '
+    brackets = adjustl(brackets)
+ endif
 
 end subroutine hierarchy_to_brackets
 

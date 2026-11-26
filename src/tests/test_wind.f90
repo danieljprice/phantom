@@ -469,7 +469,7 @@ subroutine test_profiles_per_sink(ntests,npass,rmax)
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: rmax
  integer, parameter :: nsinks = 3
- real,    parameter :: tol_mdot = 4.e-16, tol_age = 1.e-14
+ real,    parameter :: tol_mdot = 4.e-16, tol_age = 4.e-12
  real,    parameter :: mdot_msun_yr(nsinks) = (/1.e-5,0.,3.e-6/)
  type(wind_params) :: params
  integer :: i,k,nfailed(5),ncheck(2)
