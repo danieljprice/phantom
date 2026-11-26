@@ -48,6 +48,7 @@ subroutine test_orbits(ntests,npass)
  call test_escape_velocity(ntests,npass)
  call test_set_binary_simple(ntests,npass)
  call test_set_binary_full_elements(ntests,npass)
+ call test_set_orbits_nstar(ntests,npass)
 
 end subroutine test_orbits
 
@@ -315,6 +316,77 @@ subroutine test_set_binary_full_elements(ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_set_binary_full_elements
+
+!--------------------------------------------
+!+
+!  Test set_orbits for 1, 2 and several stars: star i must end
+!  up on sink i with its own mass and accretion radius, and the
+!  system must have zero total momentum
+!+
+!--------------------------------------------
+subroutine test_set_orbits_nstar(ntests,npass)
+ use setorbit,        only:orbit_t,set_defaults_orbits,set_orbits
+ use sethierarchical, only:hierarchy,set_hierarchical_default_options
+ use part,            only:nsinkproperties
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: maxstar = 4
+ character(len=*), parameter :: prefix = 'test_orbits'
+ real, parameter :: m(maxstar)    = (/1.0, 0.5, 0.3, 0.2/)
+ real, parameter :: hacc(maxstar) = (/0.01, 0.02, 0.03, 0.04/)
+ type(orbit_t) :: orbit
+ integer :: nfailed(5),nstar,nptmass,ierr,i,iu
+ real :: xyzmh(nsinkproperties,maxstar+1),vxyz(3,maxstar+1),mom(3)
+ real :: msink(maxstar),hsink(maxstar)
+ logical :: iexist
+
+ do nstar=1,maxstar
+    nfailed = 0
+    xyzmh = 0.; vxyz = 0.; nptmass = 0
+    call set_defaults_orbits(nstar,orbit)
+    call set_orbits(nstar,m,hacc,orbit,prefix,xyzmh,vxyz,nptmass,.false.,ierr)
+    call checkval(ierr,0,0,nfailed(1),'set_orbits ierr')
+    call checkval(nptmass,nstar,0,nfailed(2),'number of sinks')
+    ! copy to contiguous arrays to avoid array temporaries in the calls below
+    msink = xyzmh(4,1:maxstar)
+    hsink = xyzmh(5,1:maxstar)
+    call checkval(nstar,msink,m,0.,nfailed(3),'star i has the mass of star i')
+    call checkval(nstar,hsink,hacc,0.,nfailed(4),'star i has the accretion radius of star i')
+    do i=1,3
+       mom(i) = sum(xyzmh(4,1:nstar)*vxyz(i,1:nstar))
+    enddo
+    call checkval(sqrt(dot_product(mom,mom)),0.,tol,nfailed(5),'total momentum is zero')
+    call update_test_scores(ntests,nfailed,npass)
+ enddo
+
+ ! a binary with a planet around the first star, given so that the stars are sinks 1 and 2
+ ! and the planet is sink 3: the sinks must follow the order of the hierarchy string
+ nfailed = 0
+ nstar = 3
+ xyzmh = 0.; vxyz = 0.; nptmass = 0
+ call set_defaults_orbits(nstar,orbit)
+ hierarchy = '111,12,112'
+ call set_hierarchical_default_options()
+ call set_orbits(nstar,m,hacc,orbit,prefix,xyzmh,vxyz,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(1),'set_orbits ierr (111,12,112)')
+ call checkval(nptmass,nstar,0,nfailed(2),'number of sinks (111,12,112)')
+ msink = xyzmh(4,1:maxstar)
+ hsink = xyzmh(5,1:maxstar)
+ call checkval(nstar,msink,m,0.,nfailed(3),'sinks in order of hierarchy string (mass)')
+ call checkval(nstar,hsink,hacc,0.,nfailed(4),'sinks in order of hierarchy string (racc)')
+ do i=1,3
+    mom(i) = sum(xyzmh(4,1:nstar)*vxyz(i,1:nstar))
+ enddo
+ call checkval(sqrt(dot_product(mom,mom)),0.,tol,nfailed(5),'total momentum is zero (111,12,112)')
+ call update_test_scores(ntests,nfailed,npass)
+
+ ! remove the file written by the hierarchical setup
+ inquire(file=prefix//'.hierarchy',exist=iexist)
+ if (iexist) then
+    open(newunit=iu,file=prefix//'.hierarchy',status='old')
+    close(iu,status='delete')
+ endif
+
+end subroutine test_set_orbits_nstar
 
 end module testorbits
 

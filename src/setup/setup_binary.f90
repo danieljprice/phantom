@@ -49,10 +49,9 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
- use part,           only:gr,nptmass,xyzmh_ptmass,vxyz_ptmass,&
-                          ihacc,ihsoft,eos_vars,rad,nsinkproperties,iJ2,iReff,ispinx,ispinz
- use setorbit,       only:set_defaults_orbit,set_orbit
- use sethierarchical,only:set_hierarchical,set_hierarchical_default_options,hs,generate_hierarchy_string
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,eos_vars,rad,nsinkproperties,iJ2,&
+                          iReff,ispinx,ispinz
+ use setorbit,       only:set_defaults_orbits,set_orbits
  use options,        only:iexternalforce,alphau
  use externalforces, only:iext_corotate,iext_geopot,iext_star,iext_gwinspiral,omega_corotate,mass1,accradius1
  use extern_gwinspiral, only:Nstar_gw
@@ -79,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  integer :: ierr,nptmass_in,iextern_prev,i
  logical :: add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,max_stars),vxyz_ptmass_in(3,max_stars),angle
- real :: m1,m2,hacc1,hacc2
+ real :: m(max_stars),hacc(max_stars)
  logical, parameter :: set_oblateness = .false.
 !
 !--general parameters
@@ -106,9 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  nptmass = 0
  nstar = 2
  call set_defaults_stars(star)
- call set_defaults_orbit(orbit)
- call generate_hierarchy_string(nstar)
- call set_hierarchical_default_options()
+ call set_defaults_orbits(nstar,orbit)
  relax = .true.
  corotate = .false.
  gwinspiral = .false.
@@ -140,30 +137,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  xyzmh_ptmass_in(:,:) = 0.
  vxyz_ptmass_in(:,:) = 0.
  nptmass_in = 0
- if (nstar > 2) then
-    ! setup hierarchical multiple system
+ if (nstar >= 2) then
+    ! place stars on orbits: a binary for nstar=2, a hierarchical system for nstar>=3,
+    ! with star i on sink i
     do i=1,nstar
-       hs%sinks(i)%mass = star(i)%m_code
-       hs%sinks(i)%accr = star(i)%hacc_code
+       m(i)    = star(i)%m_code
+       hacc(i) = star(i)%hacc_code
     enddo
-    call set_hierarchical(fileprefix,nptmass_in,xyzmh_ptmass_in,vxyz_ptmass_in,ierr)
-    if (ierr /= 0) call fatal ('setup_binary','error in call to set_hierarchical')
- elseif (nstar == 2) then
-    ! setup binary system
-    m1 = star(1)%m_code
-    m2 = star(2)%m_code
-    hacc1 = star(1)%hacc_code
-    hacc2 = star(2)%hacc_code
-
-    if (iextern_prev==iext_corotate) then
-       call set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass_in,vxyz_ptmass_in,&
-                      nptmass_in,(id==master),ierr,omega_corotate)
+    if (nstar == 2 .and. iextern_prev==iext_corotate) then
+       call set_orbits(nstar,m,hacc,orbit,fileprefix,xyzmh_ptmass_in,vxyz_ptmass_in,&
+                       nptmass_in,(id==master),ierr,omega_corotate)
     else
-       call set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass_in,vxyz_ptmass_in,&
-                      nptmass_in,(id==master),ierr)
-       add_spin = corotate
+       call set_orbits(nstar,m,hacc,orbit,fileprefix,xyzmh_ptmass_in,vxyz_ptmass_in,&
+                       nptmass_in,(id==master),ierr)
+       add_spin = corotate .and. nstar == 2
     endif
-    if (ierr /= 0) call fatal ('setup_binary','error in call to set_orbit')
+    if (ierr /= 0) call fatal ('setup_binary','error in call to set_orbits')
  endif
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
@@ -213,9 +202,8 @@ end subroutine setpart
 subroutine write_setupfile(filename)
  use infile_utils,    only:write_inopt
  use setstar,         only:write_options_stars
- use setorbit,        only:write_options_orbit
+ use setorbit,        only:write_options_orbits
  use setunits,        only:write_options_units
- use sethierarchical, only:write_hierarchical_setupfile
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -225,13 +213,12 @@ subroutine write_setupfile(filename)
 
  call write_options_units(iunit,gr)
  call write_options_stars(star,relax,write_rho_to_file,ieos,iunit,nstar)
- if (nstar > 2) then
-    call write_hierarchical_setupfile(iunit,nstar)
- elseif (nstar == 2) then
+ if (nstar == 2) then
     call write_inopt(corotate,'corotate','set stars in corotation',iunit)
     call write_inopt(gwinspiral,'gwinspiral','set gravitational wave inspiral',iunit)
-    call write_options_orbit(orbit,iunit)
-
+ endif
+ call write_options_orbits(nstar,orbit,iunit)
+ if (nstar == 2) then
     write(iunit,"(/,a)") '# timestepping'
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
     call write_inopt(deltat,'deltat','output interval as fraction of binary period',iunit)
@@ -247,36 +234,35 @@ end subroutine write_setupfile
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils,    only:open_db_from_file,inopts,read_inopt,close_db
- use io,              only:error,fatal
  use setstar,         only:read_options_stars
- use setorbit,        only:read_options_orbit
+ use setorbit,        only:read_options_orbits
  use setunits,        only:read_options_and_set_units
- use sethierarchical, only:read_hierarchical_setupfile
  use units,           only:in_code_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
  integer :: nerr,ierr1
  type(inopts), allocatable :: db(:)
- real :: m1,m2
+ real :: m(2)
 
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr,gr)
  call read_options_stars(star,ieos,relax,write_rho_to_file,db,nerr,nstar)
- if (nstar > 2) then
-    call read_hierarchical_setupfile(db,nerr,nstar)
- elseif (nstar == 2) then
+ m = 0.
+ if (nstar == 2) then
     call read_inopt(corotate,'corotate',db,errcount=nerr)
     call read_inopt(gwinspiral,'gwinspiral',db,errcount=nerr,default=.false.)
-    m1 = in_code_units(star(1)%m,ierr,unit_type='mass')
-    m2 = in_code_units(star(2)%m,ierr1,unit_type='mass')
+    m(1) = in_code_units(star(1)%m,ierr,unit_type='mass')
+    m(2) = in_code_units(star(2)%m,ierr1,unit_type='mass')
     if (ierr /= 0 .or. ierr1 /= 0) then
        print*,' ERROR: error converting masses to code units'
        nerr = nerr + 1
     endif
-    call read_options_orbit(orbit,m1,m2,db,nerr)
+ endif
+ call read_options_orbits(nstar,orbit,m,db,nerr)
+ if (nstar == 2) then
     call read_inopt(norbits,'norbits',db,errcount=nerr)
     call read_inopt(deltat,'deltat',db,errcount=nerr,default=0.1)
  endif
