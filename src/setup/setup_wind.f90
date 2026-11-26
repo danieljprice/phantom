@@ -1257,9 +1257,36 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
  endif
  call close_db(db)
+ call check_stellar_props('primary',primary_lum_lsun,primary_Teff,primary_Reff_au,.true.,nerr)
+ if (icompanion_star > 0) &
+    call check_stellar_props('secondary',secondary_lum_lsun,secondary_Teff,secondary_Reff_au,.false.,nerr)
  ierr = nerr
  call write_setupfile(filename)
 
 end subroutine read_setupfile
+
+!----------------------------------------------------------------
+!+
+!  check that two of L, Teff and Reff are given, so that the third
+!  can be derived. Stars that are not required may give none of them
+!+
+!----------------------------------------------------------------
+subroutine check_stellar_props(star,lum,Teff,Reff,required,nerr)
+ character(len=*), intent(in)    :: star
+ real,             intent(in)    :: lum,Teff,Reff
+ logical,          intent(in)    :: required
+ integer,          intent(inout) :: nerr
+ integer :: ngiven
+
+ ngiven = 0
+ if (lum  > 0.) ngiven = ngiven + 1
+ if (Teff > 0.) ngiven = ngiven + 1
+ if (Reff > 0.) ngiven = ngiven + 1
+ if (ngiven == 1 .or. (required .and. ngiven == 0)) then
+    print "(a)",' ERROR: '//star//' star needs two of '//star//'_lum, '//star//'_Teff and '//star//'_Reff'
+    nerr = nerr + 1
+ endif
+
+end subroutine check_stellar_props
 
 end module setup

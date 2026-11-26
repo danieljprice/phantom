@@ -25,8 +25,9 @@ program multirun
  use viscosity,        only:irealvisc,shearparam
  implicit none
  integer :: i,nargs,nruns,np,iampl,idot
- character(len=120) :: infile,logfile,evfile,dumpfile
- character(len=140) :: outfile
+ ! derived file names append suffixes to the input file prefix
+ character(len=120) :: infile
+ character(len=140) :: logfile,evfile,dumpfile,outfile
  character(len=12) :: string
  real :: fac,alphamin,dalpha,alphaSS,C_courin,C_forcein
  real :: HonR,facHonR

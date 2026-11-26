@@ -62,7 +62,7 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  use timestep, only:tmax
  use ptmass_radiation, only:iget_tdust
  use units,            only:utime,udist
- use physcon,          only:pi
+ use physcon,          only:pi,Rg
  use eos,              only:gamma,gmw
  use dust_formation,   only:set_abundances,init_muGamma,idust_opacity
 
@@ -71,7 +71,7 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
  real,              intent(in)    :: u_to_T
  real,              intent(out)   :: rsonic, tsonic
  real :: tau_lucy_init,time_end,Rst
- real :: rho_cgs, wind_mu,T0!, pH, pH_tot
+ real :: rho_cgs, wind_mu,T0,vin!, pH, pH_tot
 
  ! not every branch below finds the sonic point
  rsonic = 0.
@@ -83,7 +83,10 @@ subroutine setup_wind(params,u_to_T,rsonic,tsonic,stype)
 
  if (idust_opacity == 2) then
     call set_abundances
-    rho_cgs      = params%Mdot/(4.*pi*params%Rinject**2*params%vwind)
+    ! trans-sonic winds have no input velocity: estimate it by the sound speed
+    vin = params%vwind
+    if (vin <= 0.) vin = sqrt(gamma*Rg*T0/gmw)
+    rho_cgs      = params%Mdot/(4.*pi*params%Rinject**2*vin)
     wind_gamma   = gamma
     wind_mu      = gmw
     call init_muGamma(rho_cgs,T0,wind_mu,wind_gamma)
@@ -335,16 +338,20 @@ end subroutine init_wind
 !-----------------------------------------------------------------------
 !
 !  Specific internal energy of the wind (cgs). This is not defined for
-!  an isothermal gas (gamma = 1), where a dummy value is returned
+!  an isothermal gas, where a dummy value is returned. For gamma -> 1
+!  the monatomic value is used, consistent with u_to_T in solve_wind
 !
 !-----------------------------------------------------------------------
 real function wind_internal_energy(p,rho,gamma) result(u)
  real, intent(in) :: p,rho,gamma
+ real :: gam1
 
- if (isothermal .or. gamma <= 1.0001) then
+ if (isothermal) then
     u = 1.
  else
-    u = p/((gamma-1.)*rho)
+    gam1 = gamma - 1.
+    if (gamma <= 1.0001) gam1 = 2./3.
+    u = p/(gam1*rho)
  endif
 
 end function wind_internal_energy
@@ -1151,7 +1158,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  integer :: iu
  real :: time_end, tau_lucy_init
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,&
-         eps,time_base,time_incr,r_bound
+         eps,time_base,time_incr,r_bound,alpha_bound
  logical :: supersonic
  real, allocatable :: trvurho_temp(:,:)
  real, allocatable :: JKmuS_temp(:,:)
@@ -1199,6 +1206,7 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  ! the wind is bound and the profile beyond this radius is not physical
  supersonic = (state%v > state%c)
  r_bound    = -1.
+ alpha_bound = 0.
 
  do while((state%r < rfill .or. state%time < time_end) .and. tfill < 0. .and. &
       iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
@@ -1235,9 +1243,12 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
     endif
     if (state%r > rout)  tcross = min(state%time,tcross)
     if (state%r > rfill .and. rfill > 0.) tfill  = state%time
-    if (supersonic .and. r_bound < 0. .and. state%v <= state%c) r_bound = state%r
+    if (supersonic .and. r_bound < 0. .and. state%v <= state%c) then
+       r_bound     = state%r
+       alpha_bound = state%alpha  ! radiative force factor applied by wind_step
+    endif
  enddo
- if (r_bound > 0.) call warn_bound_wind(params,r_bound)
+ if (r_bound > 0.) call warn_bound_wind(params,r_bound,alpha_bound)
  if (state%time/time_end < .3 .and. state%r < rfill) then
     cstop = 'undefined'
     if (state%Tg < Tdust_stop) cstop = 'temperature reached lower limit (Tdust_stop)'
@@ -1277,18 +1288,19 @@ end subroutine save_windprofile
 !-----------------------------------------------------------------------
 !
 !  Warn that the 1D wind is bound (decelerates to the sound speed),
-!  giving the escape velocity at the injection radius for comparison
+!  giving the escape velocity at the injection radius for comparison,
+!  reduced by the radiative force factor alpha that was actually applied
 !
 !-----------------------------------------------------------------------
-subroutine warn_bound_wind(params,r_bound)
+subroutine warn_bound_wind(params,r_bound,alpha)
  use physcon, only:au,km,gg
  use io,      only:warning
  type(wind_params), intent(in) :: params
- real,              intent(in) :: r_bound
+ real,              intent(in) :: r_bound,alpha
  real :: vesc
  character(len=160) :: msg
 
- vesc = sqrt(2.*gg*params%Mstar*max(1.-params%alpha_rad,0.)/params%Rinject)
+ vesc = sqrt(2.*gg*params%Mstar*max(1.-alpha,0.)/params%Rinject)
  write(msg,"(a,f0.2,a,f0.1,a,f0.1,a)") 'v reaches the sound speed at r = ',r_bound/au,&
       ' au (v_wind = ',params%vwind/km,' km/s < v_esc = ',vesc/km,&
       ' km/s); increase wind velocity or alpha (and set isink_radiation)'

@@ -301,12 +301,13 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     ! derived quantities
     if (eccentricity < 1.) then
        print fmt,'period                     :',period
+       print fmt,'mean angular speed         :',2.*pi/period
        print fmt,'pericentre, apocentre      :',rperi,rapo
     else
        print fmt,'pericentre                 :',rperi
     endif
     print fmt,'energy, ang. momentum      :',energy,angmbin
-    print fmt,'mean angular speed         :',omega0
+    print fmt,'initial angular speed      :',omega0
 
     if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
        label = trim(orbit_type)//' anomaly'  ! pad to the same width as the other labels
@@ -315,7 +316,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     print fmt,'separation, |dv|           :',sqrt(dot_product(dx,dx)),sqrt(dot_product(dv,dv))
     print fmt,'separation (dx,dy,dz)      :',dx
     print fmt,'relative vel (dvx,dvy,dvz) :',dv
-    if (present(omega_corotate)) print "(2x,a)",'velocities set in frame corotating at the mean angular speed'
+    if (present(omega_corotate)) print "(2x,a)",'velocities set in frame corotating at the initial angular speed'
     print "(2x,66('-'),/)"
  endif
 
