@@ -556,9 +556,9 @@ real function lambertw(x,branch) result(w)
  integer, intent(in) :: branch
  real,    parameter  :: exp1 = exp(1.), sqrt2 = sqrt(2.)
  real,    parameter  :: M1 = 0.3361, M2 = -0.0042, M3 = -0.0201
- integer, parameter  :: nits = 2
+ integer, parameter  :: itsmax = 20
  integer :: i
- real :: eta,N1,N2,sigma,f
+ real :: eta,N1,N2,sigma,f,dw,L1
 
  if (branch == 0) then
     eta = sqrt(max(2. + 2.*exp1*x,0.))
@@ -569,12 +569,19 @@ real function lambertw(x,branch) result(w)
  else
     sigma = sqrt(max(-1. - log(-x),0.))
     w = -1. - sigma**2 - (2.*(1. - 1./(1. + (M1*sigma*(1. + exp(M3*sigma)*M2*sigma**2))/sqrt2)))/M1
+    ! the approximation fails for x -> 0-: use the asymptotic expansion there
+    if (w > -1.) then
+       L1 = log(-x)
+       w  = L1 - log(-L1)
+    endif
  endif
 
- do i=1,nits
+ do i=1,itsmax
     if (abs(w + 1.) < epsilon(w)) exit ! at the branch point, w = -1
-    f = w*exp(w) - x
-    w = w - f/(exp(w)*(w + 1.) - (w + 2.)*f/(2.*w + 2.))
+    f  = w*exp(w) - x
+    dw = f/(exp(w)*(w + 1.) - (w + 2.)*f/(2.*w + 2.))
+    w  = w - dw
+    if (abs(dw) <= 4.*epsilon(w)*abs(w)) exit
  enddo
 
 end function lambertw
