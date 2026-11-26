@@ -325,16 +325,29 @@ subroutine init_wind(params,time_end,state,tau_lucy_init)
  state%JKmuS(idgamma) = state%gamma
  state%dalpha_dr = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
- if (isothermal) then
-    state%u = 1.
- else
-    state%u = state%p/((state%gamma-1.)*state%rho)
- endif
+ state%u = wind_internal_energy(state%p,state%rho,state%gamma)
  state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%error    = .false.
 
 end subroutine init_wind
+
+!-----------------------------------------------------------------------
+!
+!  Specific internal energy of the wind (cgs). This is not defined for
+!  an isothermal gas (gamma = 1), where a dummy value is returned
+!
+!-----------------------------------------------------------------------
+real function wind_internal_energy(p,rho,gamma) result(u)
+ real, intent(in) :: p,rho,gamma
+
+ if (isothermal .or. gamma <= 1.0001) then
+    u = 1.
+ else
+    u = p/((gamma-1.)*rho)
+ endif
+
+end function wind_internal_energy
 
 #ifdef CALC_HYDRO_THEN_CHEM
 
@@ -417,7 +430,7 @@ subroutine wind_step(params,state)
  end select
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%p    = state%rho*Rg*state%Tg/state%mu
- if (.not.isothermal) state%u    = state%p/((state%gamma-1.)*state%rho)
+ state%u    = wind_internal_energy(state%p,state%rho,state%gamma)
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
  !calculate dust temperature using new r and old tau
@@ -562,7 +575,7 @@ subroutine wind_step(params,state)
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%rho  = params%Mdot/(4.*pi*state%r**2*state%v)
  state%p    = state%rho*Rg*state%Tg/state%mu
- if (.not.isothermal) state%u    = state%p/((state%gamma-1.)*state%rho)
+ state%u    = wind_internal_energy(state%p,state%rho,state%gamma)
 
  !calculate dust temperature using new r but old tau
  if (iget_tdust == 4) then

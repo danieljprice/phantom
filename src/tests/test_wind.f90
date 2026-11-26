@@ -15,7 +15,7 @@ module testwind
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary, checksetup, dim, dust_formation,
-!   eos, inject, io, options, part, partinject, physcon, ptmass,
+!   eos, inject, io, mathfunc, options, part, partinject, physcon, ptmass,
 !   ptmass_radiation, readwrite_dumps, step_lf_global, testutils, timestep,
 !   timestep_ind, units, wind
 !
@@ -74,6 +74,9 @@ subroutine test_wind(ntests,npass)
  endif
  tolv = 1.e2
  rmax = 10.*au/udist
+
+ ! test the 1D wind solver against the exact solution for an isothermal wind
+ call test_parker_wind(ntests,npass,rmax)
 
  ! test trans-sonic wind - no radiation, no dust
  if (.not.isothermal) then
@@ -361,6 +364,114 @@ subroutine test_against_1D_profile(ntests,npass,npart,xyzh,vxyzu,isink,xyzmh_ptm
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_against_1D_profile
+
+!-----------------------------------------------------------------------
+!+
+!  checks the 1D wind solver against the exact solution for an
+!  isothermal (Parker) wind with constant Eddington factor alpha,
+!  written in terms of the Lambert W function (Cranmer 2004)
+!+
+!-----------------------------------------------------------------------
+subroutine test_parker_wind(ntests,npass,rmax)
+ use physcon, only:au,solarm,years,gg,Rg
+ use units,   only:umass,udist,utime
+ use part,    only:nptmass,xyzmh_ptmass,nsinkproperties,iTeff,iTwind,ivwind,imloss,iReff,iwalpha
+ use eos,     only:gmw,gamma,ieos,init_eos,polyk
+ use options, only:icooling,write_files
+ use wind,    only:wind_params,get_wind_solution,save_windprofile,trvurho_1D
+ use ptmass_radiation, only:isink_radiation
+ use dust_formation,   only:idust_opacity
+ integer, intent(inout) :: ntests,npass
+ real,    intent(in)    :: rmax
+ integer, parameter :: nalpha = 2
+ real,    parameter :: alpha_test(nalpha) = (/0.,0.2/)
+ real,    parameter :: tol_rs = 1.1e-2, tol_v0 = 3.5e-4, tol_v = 5.e-3
+ type(wind_params) :: params
+ integer :: i,j,ierr,nfailed(3),ncheck,icooling_prev,isink_radiation_prev
+ real    :: xyzmh(nsinkproperties),rsonic,cs,rc,r,v,vexact,errmax,tcross,tfill
+ logical :: write_files_prev
+
+ if (id==master) write(*,"(/,a)") '--> testing 1D wind solver against exact isothermal (Parker) wind'
+
+ ! mass-losing sink particle with unknown wind velocity, to be found by the 1D solver
+ nptmass = 1
+ xyzmh_ptmass = 0.
+ xyzmh_ptmass(4,1)      = 1.2*solarm/umass
+ xyzmh_ptmass(5,1)      = au/udist
+ xyzmh_ptmass(iTeff,1)  = 50000.
+ xyzmh_ptmass(iTwind,1) = 50000.
+ xyzmh_ptmass(ivwind,1) = 0.
+ xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/umass)/(years/utime)
+ xyzmh_ptmass(iReff,1)  = 2.*au/udist
+
+ ! isothermal gas, no cooling and no dust
+ gmw   = 2.381
+ gamma = 1.
+ ieos  = 1
+ polyk = 0.
+ call init_eos(ieos,ierr)
+ icooling_prev        = icooling
+ isink_radiation_prev = isink_radiation
+ write_files_prev     = write_files
+ icooling        = 0
+ idust_opacity   = 0
+ isink_radiation = 1   ! constant Eddington factor, alpha_rad
+ write_files     = .false.
+
+ cs = sqrt(Rg*xyzmh_ptmass(iTwind,1)/gmw)
+ do j=1,nalpha
+    if (id==master) write(*,"(/,a,f4.2)") '--> Parker wind with alpha = ',alpha_test(j)
+    xyzmh_ptmass(iwalpha,1) = alpha_test(j)
+    nfailed = 0; ncheck = 0; errmax = 0.
+
+    ! trans-sonic solution: sonic radius and velocity at the injection radius
+    call get_wind_solution(xyzmh_ptmass(:,1),1,xyzmh,params,rsonic)
+    rc = gg*params%Mstar*(1.-alpha_test(j))/(2.*cs**2)
+    call checkval(rsonic,rc,tol_rs,nfailed(1),'sonic radius')
+    vexact = parker_wind_velocity(params%Rinject,rc,cs)
+    call checkval(params%vwind,vexact,tol_v0,nfailed(2),'injection velocity')
+
+    ! velocity profile through and beyond the sonic point
+    call save_windprofile(params,rmax*udist,rmax*udist,0.,tcross,tfill,'parker_profile.dat',1)
+    do i=1,size(trvurho_1D,dim=2)
+       r = trvurho_1D(2,i)
+       v = trvurho_1D(3,i)
+       call checkvalbuf(v,parker_wind_velocity(r,rc,cs),tol_v,'v(r)',nfailed(3),ncheck,errmax)
+    enddo
+    call checkvalbuf_end('v(r) against Lambert W solution',ncheck,nfailed(3),errmax,tol_v)
+    call update_test_scores(ntests,nfailed,npass)
+ enddo
+
+ icooling        = icooling_prev
+ isink_radiation = isink_radiation_prev
+ write_files     = write_files_prev
+
+end subroutine test_parker_wind
+
+!-----------------------------------------------------------------------
+!+
+!  exact velocity of an isothermal trans-sonic wind with sound speed cs
+!  and sonic radius rc = GM(1-alpha)/(2 cs^2) (Cranmer 2004):
+!
+!    v^2/cs^2 = -W[-D(r)],  D(r) = (rc/r)^4 exp(3 - 4 rc/r)
+!
+!  where W is the Lambert W function, using the principal branch for
+!  the subsonic flow (r < rc) and the -1 branch for supersonic flow
+!+
+!-----------------------------------------------------------------------
+real function parker_wind_velocity(r,rc,cs) result(v)
+ use mathfunc, only:lambertw
+ real, intent(in) :: r,rc,cs
+ real :: d
+
+ d = (rc/r)**4*exp(3. - 4.*rc/r)
+ if (r < rc) then
+    v = cs*sqrt(-lambertw(-d,0))
+ else
+    v = cs*sqrt(-lambertw(-d,-1))
+ endif
+
+end function parker_wind_velocity
 
 !-----------------------------------------------------------------------
 !+
