@@ -190,8 +190,8 @@ subroutine relax_star(nt,rhotab,pr,temp,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
  !
- where (rhotab > epsilon(0.) .and. gamma > 1.)
-    entrop = pr/rhotab**gamma
+ where (rhotab > tiny(rhotab) .and. gamma > 1.)
+    entrop = pr/max(rhotab**gamma, tiny(pr))
     utherm = pr/(rhotab*(gamma-1.))
  elsewhere
     entrop = 0.

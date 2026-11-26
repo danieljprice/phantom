@@ -1168,7 +1168,7 @@ subroutine write_options_stars_eos(nstars,star,label,ieos,iunit)
        call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
        call write_inopt(Z_in,'Z','metallicity',iunit)
     endif
- case(15)
+ case(15,17)
     ! options for setting initial thermal energy (e.g. if degenerate matter eos)
     do i=1,nstars
        if (star(i)%iprofile > 0) then
@@ -1218,7 +1218,7 @@ subroutine read_options_stars_eos(nstars,star,label,ieos,db,nerr)
        call read_inopt(X_in,'X',db,min=0.,max=1.,errcount=nerr)
        call read_inopt(Z_in,'Z',db,min=0.,max=1.,errcount=nerr)
     endif
- case(15)
+ case(15,17)
     do i=1,nstars
        if (star(i)%iprofile > 0) then
           call read_inopt(star(i)%initialtemp,'initialtemp'//trim(label(i)),&

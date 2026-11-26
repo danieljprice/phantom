@@ -25,6 +25,7 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
+!    17 = Potekhin & Chabrier (2013, 2022) EIP eos
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !    23 = Hypervelocity Impact of solids-fluids from Tillotson EOS (Tillotson 1962 - implemented by Brundage A. 2013
 !    24 = read tabulated eos (for use with icooling == 9)
@@ -53,8 +54,8 @@ module eos
 !   - rho_branch_cgs     : *density threshold for warm branch in g cm^-3*
 !
 ! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
-!   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stamatellos, eos_stratified, eos_tillotson, eos_zerotemp,
+!   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_potekhin,
+!   eos_shen, eos_stamatellos, eos_stratified, eos_tillotson, eos_zerotemp,
 !   infile_utils, io, ionization_mod, mesa_microphysics, part, physcon,
 !   units
 !
@@ -118,7 +119,8 @@ module eos
     ieos_isothermal = 1, &
     ieos_idealgas = 2, &
     ieos_idealplusrad = 12, &
-    ieos_helmholtz = 15
+    ieos_helmholtz = 15, &
+    ieos_potekhin = 17
 
 !
 ! Default temperature prescription for vertical stratification (0=MAPS, 1=Dartois)
@@ -146,6 +148,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use physcon,       only:Rg,radconst,kb_on_mh
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound,eos_helmholtz_compute_pres_sound,eos_helmholtz_energy_from_rhoT
+ use eos_potekhin,  only:eos_potekhin_pres_sound,eos_potekhin_compute_pres_sound,eos_potekhin_energy_from_rhoT
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad, only:get_idealplusrad_pres,get_idealplusrad_temp,get_idealplusrad_spsoundi
  use eos_gasradrec,    only:equationofstate_gasradrec
@@ -436,6 +439,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
     call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
 
+ case(17)
+!
+!--Potekhin & Chabrier (2013, 2022) EOS for fully ionized electron-ion plasma
+!
+    call eos_potekhin_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
+
  case(16)
 !
 !--Shen (2012) equation of state for neutron stars
@@ -569,6 +578,7 @@ subroutine init_eos(eos_type,ierr)
  use io,             only:error,warning
  use eos_mesa,       only:init_eos_mesa
  use eos_helmholtz,  only:eos_helmholtz_init
+ use eos_potekhin,   only:eos_potekhin_init
  use eos_piecewise,  only:init_eos_piecewise
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
@@ -634,6 +644,10 @@ subroutine init_eos(eos_type,ierr)
 
     call eos_helmholtz_init(ierr)
 
+ case(17)
+
+    call eos_potekhin_init(ierr)
+
  case(16)
 
     call init_eos_shen_NL3(ierr)
@@ -691,6 +705,7 @@ end subroutine init_eos
 subroutine finish_eos(eos_type,ierr)
  use eos_mesa,       only:finish_eos_mesa
  use eos_helmholtz,  only:eos_helmholtz_finish
+ use eos_potekhin,   only:eos_potekhin_finish
  use eos_stamatellos,only:finish_coolra
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -703,6 +718,11 @@ subroutine finish_eos(eos_type,ierr)
     !--Helmholtz eos deallocation
     !
     call eos_helmholtz_finish(ierr)
+ case(17)
+    !
+    !--Potekhin eos finish
+    !
+    call eos_potekhin_finish(ierr)
  case(10)
     !
     !--MESA EoS deallocation
@@ -967,6 +987,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
  use eos_stamatellos,  only:getintenerg_opdep
  use eos_helmholtz,   only:eos_helmholtz_energy_from_rhoT
+ use eos_potekhin,    only:eos_potekhin_energy_from_rhoT
  use eos_zerotemp,    only:get_zerotemp_u
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rho,pres
@@ -1001,6 +1022,8 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
     call get_eos_eT_from_rhop_mesa(rho,pres,ene,temp,guesseint)
  case(15) ! Helmholtz EOS
     call eos_helmholtz_energy_from_rhoT(rho,temp,ene)
+ case(17) ! Potekhin EOS
+    call eos_potekhin_energy_from_rhoT(rho,temp,ene)
  case(20) ! Ideal gas + radiation + recombination (from HORMONE, Hirai et al., 2020)
     call calc_uT_from_rhoP_gasradrec(rho,pres,X,1.-X-Z,temp,ene,mu,ierr,do_radiation_local)
     if (present(mu_local)) mu_local = mu
@@ -1490,7 +1513,7 @@ logical function eos_is_non_ideal(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(10,12,15,20,25)
+ case(10,12,15,17,20,25)
     eos_is_non_ideal = .true.
  case default
     eos_is_non_ideal = .false.
@@ -1543,7 +1566,7 @@ logical function eos_outputs_gasP(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(8,9,10,15,23)
+ case(8,9,10,15,17,23)
     eos_outputs_gasP = .true.
  case default
     eos_outputs_gasP = .false.
@@ -1648,7 +1671,7 @@ logical function eos_allows_shock_and_work(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(2,5,10,12,15,16,21,24,25)
+ case(2,5,10,12,15,16,17,21,24,25)
     eos_allows_shock_and_work = .true.
  case default
     eos_allows_shock_and_work = .false.
@@ -1693,7 +1716,7 @@ logical function eos_is_not_implemented(ieos)
  integer, intent(in) :: ieos
 
  select case(ieos)
- case(17,18,19)
+ case(18,19)
     eos_is_not_implemented = .true.
  case default
     eos_is_not_implemented = .false.
@@ -1710,6 +1733,7 @@ subroutine eosinfo(eos_type,iprint)
  use dim,            only:maxvxyzu
  use io,             only:fatal,id,master
  use eos_helmholtz,  only:eos_helmholtz_eosinfo
+ use eos_potekhin,   only:eos_potekhin_eosinfo
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
@@ -1759,6 +1783,8 @@ subroutine eosinfo(eos_type,iprint)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Gas + radiation equation of state: gmw = ',gmw,' gamma = ',gamma
  case(15)
     call eos_helmholtz_eosinfo(iprint)
+ case(17)
+    call eos_potekhin_eosinfo(iprint)
  case(20)
     call eos_info_gasradrec(iprint)
     if (use_var_comp) then
@@ -1892,6 +1918,7 @@ subroutine write_options_eos(iunit)
  use dim,            only:use_krome,isothermal,mhd
  use infile_utils,   only:write_inopt
  use eos_helmholtz,  only:write_options_eos_helmholtz
+ use eos_potekhin,   only:write_options_eos_potekhin
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
@@ -1917,6 +1944,8 @@ subroutine write_options_eos(iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
  case(15) ! helmholtz eos
     call write_options_eos_helmholtz(iunit)
+ case(17) ! potekhin eos
+    call write_options_eos_potekhin(iunit)
  case(20)
     call write_options_eos_gasradrec(iunit)
     if (.not. use_var_comp) then
@@ -1961,6 +1990,7 @@ subroutine read_options_eos(db,nerr)
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
  use eos_helmholtz,  only:read_options_eos_helmholtz
+ use eos_potekhin,   only:read_options_eos_potekhin
  use eos_tillotson,  only:read_options_eos_tillotson
  use eos_zerotemp,   only:read_options_eos_zerotemp
  type(inopts), intent(inout) :: db(:)
@@ -1998,6 +2028,7 @@ subroutine read_options_eos(db,nerr)
  if (ieos== 8) call read_options_eos_barotropic(db,nerr)
  if (ieos== 9) call read_options_eos_piecewise(db,nerr)
  if (ieos==15) call read_options_eos_helmholtz(db,nerr)
+ if (ieos==17) call read_options_eos_potekhin(db,nerr)
  if (ieos==20) call read_options_eos_gasradrec(db,nerr)
  if (ieos==22) then
     call error(label,'ieos=22 is replaced by ieos=2 with icooling=10 (HII regions)')

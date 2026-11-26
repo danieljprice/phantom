@@ -47,7 +47,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,gr,eos_vars,itemp
- use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz
+ use eos,             only:gamma,polyk,eos_requires_polyk,ieos_helmholtz,ieos_potekhin
  use centreofmass,    only:get_centreofmass
  use apr,             only:sync_aprmassoftype
  use options,         only:ieos,iexternalforce,use_dustfrac,use_hybrid,ireconav
@@ -262,9 +262,9 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
  endif
  !
- !--check that temperature guess is set if using Helmholtz EOS
+ !--check that temperature guess is set if using Helmholtz or Potekhin EOS
  !
- if (ieos==ieos_helmholtz) then
+ if (ieos==ieos_helmholtz .or. ieos==ieos_potekhin) then
     nbad = 0
     do i=1,npart
        if (eos_vars(itemp,i) <= 0.) then
@@ -273,7 +273,7 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
     enddo
     if (nbad > 0) then
-       print*,'ERROR: Using Helmholtz EOS but temperature guess not set on ',nbad,' of ',npart,' particles'
+       print*,'ERROR: Using Helmholtz/Potekhin EOS but temperature guess not set on ',nbad,' of ',npart,' particles'
        nerror = nerror + 1
     endif
  endif
