@@ -647,7 +647,7 @@ subroutine init_eos(eos_type,ierr)
 
  case(21)
 
-    call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
+    call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,X_in,Z_in,ierr)
 
  case(23)
     call init_eos_tillotson(ierr)
@@ -1923,6 +1923,9 @@ subroutine write_options_eos(iunit)
        call write_inopt(X_in,'X','H mass fraction (ignored if variable composition)',iunit)
        call write_inopt(Z_in,'Z','metallicity (ignored if variable composition)',iunit)
     endif
+ case(21)
+    call write_inopt(X_in,'X','H mass fraction (composition of the ionised gas)',iunit)
+    call write_inopt(Z_in,'Z','metallicity (composition of the ionised gas)',iunit)
  case(23)
     call write_options_eos_tillotson(iunit)
  case(25)

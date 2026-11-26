@@ -86,10 +86,10 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine initialize_H2R
- use io,      only:iprint,iverbose,id,master
+ use io,      only:iprint,iverbose,id,master,fatal
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm,c
- use eos,     only:gmw
+ use eos,     only:gmw,X_in,Z_in
  use dim,     only:maxptmass
  use healpix, only:pix2vec_nest,vec2pix_nest
  use part,    only:eos_vars,imu
@@ -102,7 +102,10 @@ subroutine initialize_H2R
  hv_on_c = ((18.6*eV)/c)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
- mH = gmw*mass_proton_cgs/umass
+ !-- ionised gas: n_p = X rho/m_p and n_e = (X + Y/4) rho/m_p (H+ and He+, as muion),
+ !   mH is the mass such that n_e n_p = (rho/mH)**2
+ if (X_in <= 0.) call fatal('initialize_H2R','HII regions need hydrogen',var='X',val=X_in)
+ mH = mass_proton_cgs/umass/sqrt(X_in*(X_in + 0.25*(1. - X_in - Z_in)))
  mH1 = 1./mH
  ! photons needed to ionise a particle are this times its mass and density
  DNcoeff = log10(ar*mH1**2/utime)

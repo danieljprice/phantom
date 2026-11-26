@@ -1812,25 +1812,28 @@ end subroutine test_HIIregion
 !-----------------------------------------------------------------------
 subroutine test_HII_eos(ntests,npass)
  use io,        only:id,master,iprint
- use eos,       only:gmw,gamma,polyk,init_eos,temperature_coef
- use eos_HIIR,  only:get_eos_HIIR,Tion,Tcold,muion,polykion,uIon
+ use eos,       only:gmw,gamma,polyk,init_eos,temperature_coef,X_in,Z_in
+ use eos_HIIR,  only:get_eos_HIIR,init_eos_HIIR,Tion,Tcold,muion,polykion,uIon
  use HIIRegion, only:relax_u_HIIR,heated_u_HIIR,is_ionised,Crelax
  use units,     only:set_units,unit_velocity
  use physcon,   only:pc,solarm,kboltz,mass_proton_cgs
  use testutils, only:checkval,update_test_scores
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(19),ierr
+ integer :: nfailed(21),ierr
  real    :: tempi,ponrhoi,spsoundi,ucold,u0,h,dt,trelax,Crelax0,muhalf,uhalf
- real    :: gmw0,gamma0,polyk0
+ real    :: gmw0,gamma0,polyk0,X0,Z0
 
  if (id==master) write(iprint,"(/,a)") '--> testing HII region two phase model'
  nfailed(:) = 0
- gmw0 = gmw; gamma0 = gamma; polyk0 = polyk; Crelax0 = Crelax
+ gmw0 = gmw; gamma0 = gamma; polyk0 = polyk; Crelax0 = Crelax; X0 = X_in; Z0 = Z_in
  call set_units(dist=pc,mass=solarm,G=1.d0)
- gmw   = 1.
+ gmw   = 1.  ! neutral atomic hydrogen
+ X_in  = 1.
+ Z_in  = 0.
  gamma = 5./3.
  polyk = (kboltz*100.)/(gmw*mass_proton_cgs)/unit_velocity**2
  call init_eos(21,ierr)
+ call checkval(muion,0.5,epsilon(0.),nfailed(20),'eos: mu of ionised hydrogen')
  ucold  = polyk/(gamma - 1.)
  muhalf = 0.5*(muion + gmw)
  uhalf  = 0.5*(Tion + Tcold)/(temperature_coef*muhalf*(gamma - 1.))
@@ -1882,8 +1885,13 @@ subroutine test_HII_eos(ntests,npass)
  call checkval(heated_u_HIIR(ucold,muhalf),uhalf,1.e-14,nfailed(18),'heat: front particle at its target')
  call checkval(heated_u_HIIR(2.*uhalf,muhalf),2.*uhalf,epsilon(0.),nfailed(19),'heat: shocked front kept')
 
+ !-- H+ and He+ in a solar mix X = 0.7, Z = 0: 1/mu = 2X + Y/2
+ gmw = 2.35
+ call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,0.7,0.,ierr)
+ call checkval(muion,1./1.55,1.e-14,nfailed(21),'eos: mu of ionised H and He+')
+
  Crelax = Crelax0
- gmw = gmw0; gamma = gamma0; polyk = polyk0
+ gmw = gmw0; gamma = gamma0; polyk = polyk0; X_in = X0; Z_in = Z0
 
  call update_test_scores(ntests,nfailed,npass)
 
@@ -1899,15 +1907,15 @@ subroutine test_HII_exp(ntests,npass)
  use io,             only:id,master,iprint
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,npart,xyzh,vxyzu,&
                           init_part,irstrom,irateion,rho,eos_vars
- use eos,            only:ieos
- use units,          only:utime
- use physcon,        only:pi
+ use eos,            only:ieos,X_in,Z_in
+ use units,          only:utime,umass
+ use physcon,        only:pi,mass_proton_cgs
  use testutils,      only:checkval,update_test_scores
  use HIIRegion,      only:HII_feedback,ar,mH,iH2R,nside_H2R,rstrom_sec,initialize_H2R,sectors_on
  use mpiutils,       only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
- integer          :: nfailed(14),itest,nion,ngas
- real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth,psep
+ integer          :: nfailed(15),itest,nion,ngas
+ real             :: rstrommax,Rstrom,rho0,Rdense,rnorth,rsouth,psep,X0,Z0
  character(len=22) :: string
 
  if (periodic) then
@@ -1916,11 +1924,14 @@ subroutine test_HII_exp(ntests,npass)
  else
     write(iprint,*) '--> testing HII feedback. Compute Stromgrën radius in homogeneous sphere'
  endif
+ X0 = X_in; Z0 = Z_in
  call setup_HII_sphere(49.,rho0)
 
  psep = norm2(xyzh(1:3,1)-xyzh(1:3,2))
 
  nfailed(:) = 0
+ !-- ionised hydrogen: n_e = n_p = rho/m_p
+ call checkval(mH,mass_proton_cgs/umass,1.e-14,nfailed(15),'mass per recombining pair')
  do itest = 1,4
     !-- itest 3: bounded neighbours from scratch, itest 4: warm start from the radius of itest 3
     iH2R = min(itest,3)
@@ -2040,6 +2051,7 @@ subroutine test_HII_exp(ntests,npass)
  call init_part()
  iH2R = 0
  ieos = 2
+ X_in = X0; Z_in = Z0
 
 end subroutine test_HII_exp
 
@@ -2056,7 +2068,7 @@ subroutine bench_HIIregion()
  use io,             only:id,master,iprint,nprocs
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,npart,xyzh,vxyzu,&
                           init_part,irstrom,irateion,rho,eos_vars
- use eos,            only:ieos
+ use eos,            only:ieos,X_in,Z_in
  use units,          only:utime
  use physcon,        only:pi
  use timing,         only:getused
@@ -2068,7 +2080,7 @@ subroutine bench_HIIregion()
  character(len=12), parameter :: label(nmeth) = &
     (/'KNN         ','ray tracing ','bounded     ','bounded warm'/)
  integer :: iq,imeth,nion(nq,nmeth)
- real    :: rho0,Rstrom(nq),rmeas(nq,nmeth),tmeth(nq,nmeth)
+ real    :: rho0,Rstrom(nq),rmeas(nq,nmeth),tmeth(nq,nmeth),X0,Z0
  real(kind=4) :: t1,t2
 
  if (periodic) then
@@ -2076,6 +2088,7 @@ subroutine bench_HIIregion()
     return
  endif
  if (id==master) write(iprint,"(/,a)") '--> benchmarking HII region methods in a homogeneous sphere'
+ X0 = X_in; Z0 = Z_in
  call setup_HII_sphere(logQ(1),rho0)
 
  nion  = 0
@@ -2132,6 +2145,7 @@ subroutine bench_HIIregion()
  call init_part()
  iH2R = 0
  ieos = 2
+ X_in = X0; Z_in = Z0
 
 end subroutine bench_HIIregion
 
@@ -2205,7 +2219,7 @@ subroutine setup_HII_sphere(logQ,rho0)
  use dim,            only:maxp,maxphase,maxvxyzu
  use io,             only:id,master,iverbose
  use eos_HIIR,       only:init_eos_HIIR
- use eos,            only:gmw,ieos,polyk,gamma,temperature_coef
+ use eos,            only:gmw,ieos,polyk,gamma,temperature_coef,X_in,Z_in
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,npart,irstrom,xyzh,vxyzu,&
                           hfact,igas,npartoftype,fxyzu,massoftype,init_part,&
                           iphase,isetphase,irateion
@@ -2229,7 +2243,9 @@ subroutine setup_HII_sphere(logQ,rho0)
  ! initialise arrays to zero
  !
  call init_part()
- gmw = 1.0
+ gmw  = 1.0  ! neutral atomic hydrogen
+ X_in = 1.
+ Z_in = 0.
 
  xyzmh_ptmass(1,:) = 1.e-8 ! to avoid having superimposed particles
  xyzmh_ptmass(2,:) = 0.
@@ -2285,7 +2301,7 @@ subroutine setup_HII_sphere(logQ,rho0)
  xyzmh_ptmass(irstrom,1) = -1.
 
  polyk = (kboltz*temp)/(gmw*mass_proton_cgs)*((unit_velocity)**2)
- call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
+ call init_eos_HIIR(gamma,polyk,gmw,temperature_coef,X_in,Z_in,ierr)
  vxyzu(:,:) = 0.
  fxyzu(:,:) = 0.
  if (maxvxyzu >= 4) vxyzu(4,:) = polyk/(gamma - 1.)  ! cold phase

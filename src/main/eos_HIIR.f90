@@ -21,7 +21,7 @@ module eos_HIIR
  public :: get_eos_HIIR,init_eos_HIIR
 
  real, public, parameter :: Tion = 10000.
- real, public, parameter :: muion = 0.5
+ real, public           :: muion = 0.5  ! ionised gas: H+ and He+, set from X and Z in init_eos_HIIR
  real, public           :: polykion
  real, public           :: csion
  real, public           :: uIon
@@ -37,14 +37,16 @@ contains
  !+
  !-----------------------------------------------------------------------
 
-subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,ierr)
+subroutine init_eos_HIIR(gamma,polyk,gmw,temperature_coef,X,Z,ierr)
  use physcon, only:kb_on_mh
  use units,   only:unit_velocity
  use io,      only:fatal
 
  integer, intent(out) :: ierr
- real,    intent(in)  :: gamma,polyk,gmw,temperature_coef
+ real,    intent(in)  :: gamma,polyk,gmw,temperature_coef,X,Z
 
+ !-- H fully ionised, He singly ionised (O stars give few photons above 54.4 eV), metals neglected
+ muion     = 1./(2.*X + 0.5*(1. - X - Z))
  polykion  = (kb_on_mh*Tion/muion)/(unit_velocity**2)
  csion     = sqrt(polykion)
  Tcold     = polyk*gmw*temperature_coef
