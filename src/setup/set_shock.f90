@@ -22,6 +22,9 @@ module setshock
 
  private
 
+ ! shock position, smoothing width and densities, used by the density callback rhosmooth
+ real :: xshock0,dxsmooth,smooth_fac0,rholeft0,rhoright0
+
 contains
 !-----------------------------------------------------------------------
 !+
@@ -81,6 +84,7 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
     xminright(1) = xshock
     if (id==master) write(*,'(1x,3(a,es16.8))') 'shock: left half  ',xminleft(1), ' to ',xmaxleft(1), ' with dx_left  = ',dxleft
     dxright = dxleft*(rholeft/rhoright)**(1./3.) ! NB: dxright is corrected for closepacked
+    call set_smoothing_params(xshock,min(dxleft,dxright),smooth_fac,rholeft,rhoright)
 
     ! set up a uniform lattice for left half
     if (smooth_fac > 0.) then
@@ -107,7 +111,8 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
        dxright = (xmaxright(1) - xminright(1))/((totmass/massoftype(itype))/(ny*nz))
     endif
 
-    ! now set up box for right half
+    ! now set up box for right half, smoothing over the corrected right-hand spacing
+    call set_smoothing_params(xshock,min(dxleft,dxright),smooth_fac,rholeft,rhoright)
     if (id==master) write(*,'(1x,3(a,es16.8))') 'shock: right half ',xminright(1),' to ',xmaxright(1),' with dx_right = ',dxright
 
     if (smooth_fac > 0.) then
@@ -130,7 +135,8 @@ subroutine set_shock(latticetype,id,master,itype,rholeft,rhoright,xmin,xmax,ymin
     massoftype(itype) = totmass/real(npart-npartold)
  endif
 
-contains
+end subroutine set_shock
+
 !----------------------------------------------
 !+
 !  Callback function to setup smooth density
@@ -139,11 +145,25 @@ contains
 real function rhosmooth(x)
  real, intent(in) :: x
 
- rhosmooth = fsmooth(x,xshock,min(dxleft,dxright),smooth_fac,rholeft,rhoright)
+ rhosmooth = fsmooth(x,xshock0,dxsmooth,smooth_fac0,rholeft0,rhoright0)
 
 end function rhosmooth
 
-end subroutine set_shock
+!----------------------------------------------
+!+
+!  Store the shock parameters read by rhosmooth
+!+
+!----------------------------------------------
+subroutine set_smoothing_params(xshock,dx,smooth_fac,rholeft,rhoright)
+ real, intent(in) :: xshock,dx,smooth_fac,rholeft,rhoright
+
+ xshock0     = xshock
+ dxsmooth    = dx
+ smooth_fac0 = smooth_fac
+ rholeft0    = rholeft
+ rhoright0   = rhoright
+
+end subroutine set_smoothing_params
 
 !------------------------------------------------------------------------
 !+
