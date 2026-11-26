@@ -1277,6 +1277,11 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  r_bound    = -1.
  alpha_bound = 0.
 
+ ! the first row is the state at injection, so that the profile at age zero is exact
+ writeline = 1
+ trvurho_temp(:,writeline) = (/state%time,state%r,state%v,state%u,state%rho/)
+ if (idust_opacity == 2) JKmuS_temp(:,writeline) = (/state%JKmuS(1:n_nucleation)/)
+
  do while((state%r < rfill .or. state%time < time_end) .and. tfill < 0. .and. &
       iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1

@@ -43,7 +43,7 @@ module inject
 !
 ! Read from input file
  integer :: wind_type = 0
- integer :: iboundary_spheres = 5
+ integer, public :: iboundary_spheres = 5
  integer :: nfill_domain(maxptmass) = 0  ! number of background shells of each sink
  real :: outer_boundary_au = 30.
  real :: pulsation_period
@@ -429,7 +429,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
     dt_shell = massoftype(igas)*xyzmh_ptmass(ieject,isink)/xyzmh_ptmass(imloss,isink)
     ishell_last = floor(time/dt_shell)
     ishell_first = get_first_new_shell(isink,nint(xyzmh_ptmass(iwshell,isink)),ishell_last,&
-                                       nboundary,dtlast)
+                                       nboundary,time,dtlast)
     !
     ! update boundary shells, then emit the new shells
     !
@@ -470,22 +470,23 @@ end function is_wind_sink
 !  shell stored on the sink (0 if this sink has not emitted any shell)
 !  and the number of the last shell due at the current time:
 !
-!  - on a new calculation, the boundary shells and the background
-!    shells (filling the domain) are all emitted at once
+!  - on a new calculation (at t=0, with no boundary particles), the
+!    boundary shells and the background shells (filling the domain)
+!    are all emitted at once
 !  - on a restart from a dump written before shells were counted,
-!    the existing boundary shells are kept and only new shells emitted
+!    the existing particles are kept and only new shells emitted
 !+
 !-----------------------------------------------------------------------
-integer function get_first_new_shell(isink,ishell_next,ishell_last,nboundary,dtlast) result(ishell_first)
+integer function get_first_new_shell(isink,ishell_next,ishell_last,nboundary,time,dtlast) result(ishell_first)
  use io, only:fatal,warning
  integer, intent(in) :: isink,ishell_next,ishell_last,nboundary
- real,    intent(in) :: dtlast
+ real,    intent(in) :: time,dtlast
  integer :: nnew
 
  if (ishell_next == 0) then
-    if (nboundary > 0) then
+    if (nboundary > 0 .or. time > 0.) then
        ishell_first = ishell_last + 1
-       call warning(label,'number of wind shells not in dump: keeping the existing boundary shells',ival=isink)
+       call warning(label,'number of wind shells not in dump: keeping the existing particles',ival=isink)
     else
        ishell_first = ishell_last - (iboundary_spheres + nfill_domain(isink)) + 1
     endif
@@ -725,11 +726,11 @@ subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundar
  real,              intent(in)  :: time_between_spheres,d_part
  real,              intent(out) :: tboundary,tcross,tfill
  real :: tend,rout,rfill
- character(len=len(fileprefix)+14) :: wfile ! prefix + NN_profile.dat
+ character(len=len(fileprefix)+16) :: wfile ! prefix + NN(NN)_profile.dat
 
  tboundary = (iboundary_spheres+nfill_domain(isink))*time_between_spheres
  tend      = max(tmax,tboundary)*utime
- write(wfile,'(a,i2.2,"_profile.dat")') trim(fileprefix),isink
+ write(wfile,'(a,i0.2,"_profile.dat")') trim(fileprefix),isink
 
  rout = outer_boundary_au*au
  rfill = rfill_domain_au*au

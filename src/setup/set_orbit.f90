@@ -713,7 +713,9 @@ end subroutine set_orbits
 !+
 !  set up a hierarchical system of nstar stars and append its sinks
 !  after the existing nptmass sinks. set_hierarchical returns the
-!  sinks in the order of the labels in the hierarchy string
+!  sinks in the order of the labels in the hierarchy string. Sink
+!  indices in the .hierarchy file count from the first sink of this
+!  system (1..nstar), not from the first sink in the simulation
 !+
 !----------------------------------------------------------------
 subroutine set_hierarchical_orbits(nstar,m,hacc,prefix,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)

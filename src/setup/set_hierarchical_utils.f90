@@ -49,7 +49,7 @@ module sethier_utils
     type(hs_sink_properties) :: sinks(max_hier_levels)
  end type hierarchical_system
 
- public :: hierarchical_system,process_hierarchy
+ public :: hierarchical_system,process_hierarchy,count_hierarchy_labels
  public :: recursive_splitting, get_hierarchical_level_mass
  public :: load_hierarchy_file,update_hierarchy_file,check_substitution
  public :: find_hierarchy_index,find_hier_level_orb_elem,find_data_index
@@ -87,9 +87,10 @@ pure function process_hierarchy(string) result(mylabels)
  pre_del_pos = 0
  mylabels%sink_num = 0
 
- ! count the number of sinks in the system
+ ! count the number of sinks in the system (labels beyond
+ ! max_hier_levels are ignored: see count_hierarchy_labels)
  del_pos = scan(string, ',')
- do while (del_pos > pre_del_pos)
+ do while (del_pos > pre_del_pos .and. mylabels%sink_num < max_hier_levels-1)
     mylabels%sink(mylabels%sink_num+1) = string(pre_del_pos+1:del_pos-1)
     mylabels%sink_num=mylabels%sink_num+1
     pre_del_pos = del_pos
@@ -117,6 +118,22 @@ pure function process_hierarchy(string) result(mylabels)
  enddo
 
 end function process_hierarchy
+
+!--------------------------------------------------------------------------
+!+
+!  number of labels (comma-separated) in a hierarchy string
+!+
+!--------------------------------------------------------------------------
+pure integer function count_hierarchy_labels(string) result(n)
+ character(len=*), intent(in) :: string
+ integer :: i
+
+ n = 1
+ do i=1,len_trim(string)
+    if (string(i:i) == ',') n = n + 1
+ enddo
+
+end function count_hierarchy_labels
 
 !--------------------------------------------------------------------------
 !+
@@ -221,6 +238,7 @@ subroutine load_hierarchy_file(filename, data, lines, ierr)
  integer :: io
  logical :: iexist
 
+ ierr = 0
  inquire(file=trim(filename), exist=iexist)
 
  if (iexist) then

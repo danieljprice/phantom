@@ -69,7 +69,8 @@ Each star is a sink particle. Its properties, e.g. its luminosity, are used to c
 Companions are added by increasing ``nstar``. Each extra star gets its own block of options (``secondary_*``, then ``star3_*``, ``star4_*``, ...), and star i is sink particle i.
 For ``nstar = 2`` the orbit is given by the generic orbit options (``itype``, ``a``, ``e``, ``i``, ``O``, ``w``, ``f``), where the semi-major axis can be given with units (e.g. ``a = 143 au``).
 For ``nstar >= 3`` the stars are placed in a hierarchical system set by the ``hierarchy`` string and the orbit of each level (e.g. ``1_a``, ``12_e``); the .setup file lists which star corresponds to which label in the hierarchy string. Star i is the i-th label in the hierarchy string, so the order of the string sets the order of the stars (see :doc:`hierarchicalsystems` for the hierarchical labels).
-Setup files from older versions, with ``icompanion_star``, ``semi_major_axis``, ``eccentricity`` and ``true_anomaly``, are still read and are rewritten with the new options.
+Single-star and binary setup files from older versions, with ``icompanion_star = 0`` or ``1``, ``semi_major_axis``, ``eccentricity`` and ``true_anomaly``, are still read and are rewritten with the new options.
+Triples from older versions (``icompanion_star = 2``) are not converted automatically: keep the original file and convert a copy to ``nstar = 3`` with the hierarchical options.
 Any of the stars can have a wind (set ``*_mdot > 0``), and each wind is computed from the 1D wind profile of its own star.
 
 The wind of each star is set by:

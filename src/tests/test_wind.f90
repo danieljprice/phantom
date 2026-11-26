@@ -287,7 +287,8 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
     ngrid = size(wind_profiles(1)%trvurho,dim=2)
     if (id==master) write(*,"(/,a)") '--> checking 1D wind profile'
     mdot0 = xyzmh_ptmass(imloss,1)
-    mstar = xyzmh_ptmass(4,1)*umass
+    ! use the mass of the star the profile was computed with (before the prefill was emitted)
+    mstar = mstar0*umass
     do i=1,ngrid
        r = wind_profiles(1)%trvurho(2,i)
        v = wind_profiles(1)%trvurho(3,i)
@@ -526,7 +527,7 @@ end subroutine test_profiles_per_sink
 !+
 !-----------------------------------------------------------------------
 subroutine test_multiple_wind_sinks(ntests,npass)
- use inject,       only:init_inject,inject_particles,set_default_options_inject
+ use inject,       only:init_inject,inject_particles,set_default_options_inject,iboundary_spheres
  use units,        only:umass,udist,utime,unit_velocity,unit_luminosity
  use physcon,      only:au,solarm,solarl,km,years,kboltz,mass_proton_cgs
  use eos,          only:gmw,ieos,init_eos,gamma,polyk
@@ -586,6 +587,7 @@ subroutine test_multiple_wind_sinks(ntests,npass)
  tmax  = 12.
  rfill_domain_au = 0.
  call set_default_options_inject(0)
+ iboundary_spheres = 5
  massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,100,0)
  call init_inject(ierr)
  call sync_aprmassoftype()
@@ -621,7 +623,8 @@ subroutine test_multiple_wind_sinks(ntests,npass)
     nshell(k) = 0
     if (mdot_msun_yr(k) > 0.) nshell(k) = nint(nb(k)/real(nps(k))) + floor(t/dt_shell(k))
  enddo
- call checkval(nb(1)/real(nps(1)),nb(3)/real(nps(3)),0.,nfailed(1),'boundary shells complete')
+ call checkval(nb(1),iboundary_spheres*nps(1),0,nfailed(1),'boundary shells complete (sink 1)')
+ call checkval(nb(3),iboundary_spheres*nps(3),0,nfailed(1),'boundary shells complete (sink 3)')
  call checkval(nk(2),0_8,0,nfailed(2),'no particles from sink 2')
  call checkval(xyzmh_ptmass(4,2),m0(2),0.,nfailed(3),'mass of sink 2 unchanged')
  call checkval(nk(1),int(nps(1)*nshell(1),kind=8),0,nfailed(4),'particles emitted by sink 1')

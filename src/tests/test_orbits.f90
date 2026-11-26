@@ -329,9 +329,10 @@ subroutine test_set_orbits_nstar(ntests,npass)
  use setorbit,        only:orbit_t,set_defaults_orbits,set_orbits
  use sethierarchical, only:hierarchy,set_hierarchical_default_options
  use part,            only:nsinkproperties
+ use io,              only:id
  integer, intent(inout) :: ntests,npass
  integer, parameter :: maxstar = 4
- character(len=*), parameter :: prefix = 'test_orbits'
+ character(len=20) :: prefix
  real, parameter :: m(maxstar)    = (/1.0, 0.5, 0.3, 0.2/)
  real, parameter :: hacc(maxstar) = (/0.01, 0.02, 0.03, 0.04/)
  type(orbit_t) :: orbit
@@ -340,6 +341,8 @@ subroutine test_set_orbits_nstar(ntests,npass)
  real :: msink(maxstar),hsink(maxstar)
  logical :: iexist
 
+ ! one hierarchy file per MPI task, since every task runs this test
+ write(prefix,"(a,i0)") 'test_orbits',id
  do nstar=1,maxstar
     nfailed = 0
     xyzmh = 0.; vxyz = 0.; nptmass = 0
@@ -381,9 +384,9 @@ subroutine test_set_orbits_nstar(ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
 
  ! remove the file written by the hierarchical setup
- inquire(file=prefix//'.hierarchy',exist=iexist)
+ inquire(file=trim(prefix)//'.hierarchy',exist=iexist)
  if (iexist) then
-    open(newunit=iu,file=prefix//'.hierarchy',status='old')
+    open(newunit=iu,file=trim(prefix)//'.hierarchy',status='old')
     close(iu,status='delete')
  endif
 

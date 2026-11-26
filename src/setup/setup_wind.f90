@@ -152,7 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setorbit,         only:set_orbits
  use io,               only:master,fatal
  use eos,              only:gmw,ieos,isink,qfacdisc,init_eos
- use infile_utils,     only:get_options
+ use infile_utils,     only:get_options,infile_exists
  use kernel,           only:hfact_default
  use ptmass_radiation, only:isink_radiation
  integer,          intent(in)    :: id
@@ -164,17 +164,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(out)   :: polyk,gamma,hfact
  real,             intent(inout) :: time
  character(len=*), intent(in)    :: fileprefix
- character(len=len(fileprefix)+6) :: filename
  integer :: ierr,i,wind_type,iref
- logical :: iexist
  real :: m(maxstars),racc(maxstars)
 
  hfact = hfact_default
  call set_units(dist=au,mass=solarm,G=1.d0)
  call set_default_parameters_wind()
- filename = trim(fileprefix)//'.in'
- inquire(file=filename,exist=iexist)
- if (.not. iexist) call set_default_options_inject()
+ if (.not. infile_exists(fileprefix)) call set_default_options_inject()
 
 !--general parameters
 !
@@ -449,9 +445,14 @@ subroutine get_sink_spin(s)
        call prompt('enter x-component',s%spin(1),-1.,1.)
        call prompt('enter y-component',s%spin(2),-1.,1.)
        call prompt('enter z-component',s%spin(3),-1.,1.)
-       ! renormalize vector
+       ! renormalize vector, using the z-axis if a zero vector is given
        spin = sqrt(s%spin(1)**2+s%spin(2)**2+s%spin(3)**2)
-       s%spin = s%spin/spin
+       if (spin > 0.) then
+          s%spin = s%spin/spin
+       else
+          print "(a)",' WARNING: zero spin axis given, using the z-axis'
+          s%spin = (/0.,0.,1./)
+       endif
     endif
  endif
 end subroutine get_sink_spin
@@ -797,6 +798,7 @@ subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db,int_to_string
  use physcon,      only:solarm
  use units,        only:umass
+ use io,           only:fatal
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -811,8 +813,11 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(nstar,'nstar',db,default=0,min=0,max=maxstars,errcount=nerr)
  if (nstar == 0) then
     ! setup files from before nstar was introduced give icompanion_star
-    ! (hierarchical triples set up with icompanion_star = 2 are no longer supported)
-    call read_inopt(icompanion_star,'icompanion_star',db,min=0,max=1,errcount=nerr)
+    ! (hierarchical triples set up with icompanion_star = 2 are no longer supported:
+    ! stop here so that the file is not overwritten with a binary setup)
+    call read_inopt(icompanion_star,'icompanion_star',db,min=0,max=2,errcount=nerr)
+    if (icompanion_star == 2) call fatal('setup','icompanion_star = 2 is no longer supported: '//&
+       'convert a copy of '//trim(filename)//' to nstar = 3 with the hierarchical options')
     nstar = icompanion_star + 1
     print "(a)",' WARNING: icompanion_star is deprecated, using nstar = '//trim(int_to_string(nstar))//' instead'
  endif
@@ -842,7 +847,6 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(iwind,'iwind',db,min=2,max=3,default=2,errcount=nerr)
     call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
     if (iwind == 3) then
-       star(1)%Teff = T_wind
        call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
     endif
  else
@@ -853,6 +857,7 @@ subroutine read_setupfile(filename,ierr)
     call check_stellar_props(trim(star_label(i)),star(i)%lum_lsun,star(i)%Teff,star(i)%Reff_au,&
                              i==1 .or. star(i)%mdot_msun_yr > 0.,nerr)
  enddo
+ call check_wind_velocities(nerr)
  ierr = nerr
  call write_setupfile(filename)
 
@@ -914,5 +919,31 @@ subroutine check_stellar_props(label,lum,Teff,Reff,required,nerr)
  endif
 
 end subroutine check_stellar_props
+
+!----------------------------------------------------------------
+!+
+!  the wind type (given wind velocity or trans-sonic) is the same
+!  for all stars, so either all stars with a wind give a wind
+!  velocity or none of them do
+!+
+!----------------------------------------------------------------
+subroutine check_wind_velocities(nerr)
+ integer, intent(inout) :: nerr
+ integer :: i,nwind,nvwind
+
+ nwind  = 0
+ nvwind = 0
+ do i=1,nstar
+    if (star(i)%mdot_msun_yr > 0.) then
+       nwind = nwind + 1
+       if (star(i)%vwind_km_s > 0.) nvwind = nvwind + 1
+    endif
+ enddo
+ if (nvwind > 0 .and. nvwind < nwind) then
+    print "(a)",' ERROR: either all stars with a wind give *_vwind > 0, or none do (trans-sonic winds)'
+    nerr = nerr + 1
+ endif
+
+end subroutine check_wind_velocities
 
 end module setup

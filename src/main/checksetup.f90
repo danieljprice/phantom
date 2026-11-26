@@ -41,7 +41,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
                 do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome,ind_timesteps,use_apr,&
-                maxdvdx,mpi,inject_parts
+                maxdvdx
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
@@ -138,13 +138,6 @@ subroutine check_setup(nerror,nwarn,restart)
  elseif (npart==0 .and. inject_type /= 'wind') then
     if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
- endif
- !
- !--wind injection works with MPI, the other injection modules do not (yet)
- !
- if (mpi .and. inject_parts .and. inject_type /= 'wind') then
-    if (id==master) print*,'ERROR: MPI currently not compatible with particle injection'
-    nerror = nerror + 1
  endif
 
  if (maxphase==maxp) then

@@ -24,7 +24,8 @@ module sethierarchical
 !
 ! :Dependencies: infile_utils, setbinary, sethier_utils
 !
- use sethier_utils, only:process_hierarchy,max_hier_levels,lenhierstring,hierarchical_system,&
+ use sethier_utils, only:process_hierarchy,count_hierarchy_labels,max_hier_levels,lenhierstring,&
+      hierarchical_system,&
       hier_db_size,hier_db_prop,recursive_splitting, gen_rotate, find_hier_level_orb_elem, &
       find_hierarchy_index, find_data_index, find_ptmass_index,&
       load_hierarchy_file,update_hierarchy_file,check_substitution,write_hierarchy_file,&
@@ -225,6 +226,11 @@ subroutine read_hierarchical_setupfile(db,nerr,nstar)
  integer :: i
 
  call read_inopt(hierarchy,'hierarchy',db,errcount=nerr)
+ if (count_hierarchy_labels(hierarchy) > max_hier_levels) then
+    print "(a,i0,a)",' ERROR: more than ',max_hier_levels,' sinks in hierarchy string'
+    nerr = nerr + 1
+    return
+ endif
  call set_hierarchical_default_options() ! process hierarchy string and set default orbit parameters
 
  if (present(nstar)) then
