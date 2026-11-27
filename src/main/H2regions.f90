@@ -399,6 +399,8 @@ subroutine HII_bound(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,vxyzu,rho,eos_v
     escaped   = .false.
     query     = .true.
     its       = 0
+    nneigh_shell = 0  ! set by compute_dnspheres; initialised to avoid a compiler warning
+    nneigh_inner = 0
     deltafind: do while (.not.all(converged))
        its = its + 1
        if (its > maxits) then

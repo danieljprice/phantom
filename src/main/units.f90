@@ -34,9 +34,10 @@ module units
  public :: set_units, set_units_extra, print_units, select_unit
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units, in_code_units, in_units
+ public :: check_and_convert
  public :: is_time_unit, is_length_unit, is_mdot_unit, is_density_unit
  public :: in_solarr, in_solarm, in_solarl
- public :: get_unit_multiplier
+ public :: get_unit_multiplier, get_nearest_unit
 
  integer, parameter :: len_utype = 10
 
@@ -197,7 +198,7 @@ subroutine select_unit(string,unit,ierr,unit_type)
  call get_unit_multiplier(string,unitstr,fac,ierr)
 
  select case(trim(adjustl(unitstr)))
- case('solarr','rsun')
+ case('solarr','rsun','Rsun')
     unit  = solarr
     utype = 'length'
  case('jupiterr','rjup','rjupiter')
@@ -227,7 +228,7 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('cm','centimetres','centimeters')
     unit = 1.d0
     utype = 'length'
- case('solarm','msun')
+ case('solarm','msun','Msun')
     unit = solarm
     utype = 'mass'
  case('earthm','mearth')
@@ -245,8 +246,14 @@ subroutine select_unit(string,unit,ierr,unit_type)
  case('days','day')
     unit = days
     utype = 'time'
+ case('Gyr')
+    unit = 1.d9*years
+    utype = 'time'
  case('Myr')
     unit = 1.d6*years
+    utype = 'time'
+ case('kyr')
+    unit = 1.d3*years
     utype = 'time'
  case('yr','year','yrs','years')
     unit = years
@@ -430,6 +437,64 @@ real function in_code_units(string,ierr,unit_type) result(rval)
  endif
 
 end function in_code_units
+
+!------------------------------------------------------------------------------------
+!+
+!  convert a string with units (e.g. 2.5 au) to code units, checking that
+!  the units are of the requested type ('length', 'mass', ...). Errors
+!  are reported and counted in nerr, so that all input errors are found
+!+
+!------------------------------------------------------------------------------------
+subroutine check_and_convert(var,desc,unit_type,val,nerr)
+ character(len=*), intent(in)    :: var,desc,unit_type
+ real,             intent(out)   :: val
+ integer,          intent(inout) :: nerr
+ integer :: ierr
+
+ val = in_code_units(var,ierr,unit_type=unit_type)
+ if (ierr /= 0) then
+    print "(a)",' ERROR: could not convert '//trim(desc)//' = '//trim(var)//' to code units'
+    nerr = nerr + 1
+ endif
+
+end subroutine check_and_convert
+
+!------------------------------------------------------------------------------------
+!+
+!  express a value in code units as a human-readable string in a sensible
+!  physical unit of the requested type ('time' or 'length') where value is >= 1,
+!  e.g. '1048.55 years' or '4.2 au'.
+!+
+!------------------------------------------------------------------------------------
+function get_nearest_unit(val,unit_type) result(string)
+ real,             intent(in) :: val
+ character(len=*), intent(in) :: unit_type
+ character(len=24) :: string
+ character(len=5), parameter :: unit_names(12) = &    ! order by increasing size
+    (/'s    ','min  ','hr   ','days ','years','Myr  ','Gyr  ','km   ','rsun ','au   ','pc   ','kpc  '/)
+ character(len=13) :: valstring
+ real, parameter :: xmin = 0.9999  ! allow for round-off when the value is exactly one unit
+ real    :: unit_code,x
+ integer :: i,ierr
+ logical :: got_unit
+
+ write(valstring,"(1pg13.6)") val
+ string = trim(adjustl(valstring))
+ got_unit = .false.
+ do i=1,size(unit_names)
+    ! value of one unit in code units, ierr /= 0 if it is not of the requested type
+    unit_code = in_code_units(trim(unit_names(i)),ierr,unit_type=unit_type)
+    if (ierr /= 0) cycle
+    x = val/unit_code
+    ! take the smallest unit of this type, then any larger unit where the value is >= 1
+    if (.not.got_unit .or. abs(x) >= xmin) then
+       got_unit = .true.
+       write(valstring,"(1pg13.6)") x
+       string = trim(adjustl(valstring))//' '//trim(unit_names(i))
+    endif
+ enddo
+
+end function get_nearest_unit
 
 !------------------------------------------------------------------------------------
 !+
