@@ -60,6 +60,9 @@ subroutine test_setstar(ntests,npass)
  ! test white dwarf
  call test_whitedwarf(ntests,npass)
 
+ ! test reading and writing ATON stellar profiles
+ call test_read_aton(ntests,npass)
+
 end subroutine test_setstar
 
 !-----------------------------------------------------------------------
@@ -370,6 +373,77 @@ subroutine test_whitedwarf(ntests,npass)
  call test_relax_mesa_star(ntests,npass,'pourmandwd.data','white dwarf',star,ieos_list,1500,0.05)
 
 end subroutine test_whitedwarf
+
+!-----------------------------------------------------------------------
+!+
+!   test reading an ATON stellar profile (0.814 Msun AGB star) against
+!   values in the file, and that write_aton/read_aton is a round trip.
+!   Skipped if the profile is not found.
+!+
+!-----------------------------------------------------------------------
+subroutine test_read_aton(ntests,npass)
+ use io,             only:id,master,warning
+ use datafiles,      only:find_phantom_datafile
+ use readwrite_aton, only:read_aton,write_aton
+ use physcon,        only:solarm
+ integer, intent(inout) :: ntests,npass
+ character(len=*), parameter :: profile = 'ATONStar.txt'
+ character(len=120) :: filepath,fileout
+ real, parameter :: tol = 1.e-14
+ real, allocatable :: r(:),den(:),pres(:),temp(:),en(:),m(:),Xfrac(:),Yfrac(:),mu(:)
+ real, allocatable :: r2(:),den2(:),pres2(:),temp2(:),en2(:),m2(:),Xfrac2(:),Yfrac2(:),mu2(:)
+ real    :: Mstar,Mstar2
+ integer :: ierr,n,nfail(9)
+ logical :: iexist
+
+ if (id==master) write(*,"(/,a,/)") '--> testing read of ATON stellar profile'
+ filepath = find_phantom_datafile(profile,'star_data_files/aton')
+ inquire(file=trim(filepath),exist=iexist)
+ if (.not.iexist) then
+    call warning('test_setstar',profile//' not found, skipping ATON reader test')
+    return
+ endif
+
+ ! read profile in cgs units and compare to the first (centre) and last (surface) rows of the file
+ call read_aton(filepath,den,r,pres,m,en,temp,0.7,0.02,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits=.true.)
+ nfail = 0
+ call checkval(ierr,0,0,nfail(1),'read_aton error code')
+ call update_test_scores(ntests,nfail(1:1),npass)
+ if (ierr /= 0) return
+ n = size(r)
+ call checkval(n,3910,0,nfail(1),'number of rows read from '//profile)
+ call checkval(Mstar/solarm,8.12039437e-1,tol,nfail(2),'stellar mass')
+ call checkval(r(1),3.27413918e5,tol,nfail(3),'central radius')
+ call checkval(den(1),2.14646095e6,tol,nfail(4),'central density')
+ call checkval(pres(1),8.45420888e22,tol,nfail(5),'central pressure')
+ call checkval(temp(n),2.51499584e3,tol,nfail(6),'surface temperature')
+ call checkval(Xfrac(n),7.02133193e-1,tol,nfail(7),'surface hydrogen mass fraction')
+ call checkval(mu(n),1.31212579,tol,nfail(8),'surface mean molecular weight')
+ call checkval(count(r(2:n) <= r(1:n-1) .or. m(2:n) < m(1:n-1)),0,0,nfail(9),'r and m increase outwards')
+ call update_test_scores(ntests,nfail,npass)
+
+ ! write the profile and read it back
+ fileout = 'test_aton_profile.txt'
+ call write_aton(fileout,m,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
+ call read_aton(fileout,den2,r2,pres2,m2,en2,temp2,0.7,0.02,Xfrac2,Yfrac2,mu2,Mstar2,ierr,cgsunits=.true.)
+ nfail = 0
+ call checkval(ierr,0,0,nfail(1),'read_aton error code after write_aton')
+ call update_test_scores(ntests,nfail(1:1),npass)
+ if (ierr /= 0 .or. size(r2) /= n) return
+ call checkval(n,m2,m,tol,nfail(1),'mass after write/read')
+ call checkval(n,r2,r,tol,nfail(2),'radius after write/read')
+ call checkval(n,den2,den,tol,nfail(3),'density after write/read')
+ call checkval(n,pres2,pres,tol,nfail(4),'pressure after write/read')
+ call checkval(n,temp2,temp,tol,nfail(5),'temperature after write/read')
+ call checkval(n,en2,en,tol,nfail(6),'internal energy after write/read')
+ call checkval(n,Xfrac2,Xfrac,tol,nfail(7),'hydrogen after write/read')
+ call checkval(n,Yfrac2,Yfrac,tol,nfail(8),'helium after write/read')
+ call checkval(n,mu2,mu,tol,nfail(9),'mean molecular weight after write/read')
+ call update_test_scores(ntests,nfail,npass)
+ open(newunit=n,file=fileout,status='old',iostat=ierr)
+ if (ierr==0) close(n,status='delete')
+
+end subroutine test_read_aton
 
 !-----------------------------------------------------------------------
 !+

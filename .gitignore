@@ -47,3 +47,5 @@ data/binarybh/*
 !data/eos/*/README
 !data/*/README
 data/star_data_files/pourmandwd.data*
+data/star_data_files/aton/*
+!data/star_data_files/aton/README

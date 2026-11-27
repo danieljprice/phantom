@@ -99,6 +99,8 @@ function map_dir_to_web(search_dir) result(url)
     url = 'https://zenodo.org/records/18615172/files/'
  case('data/eos/lombardi')
     url = 'https://zenodo.org/records/13842491/files/'
+ case('data/star_data_files/aton')
+    url = 'https://zenodo.org/records/21718292/files/'
  case('data/star_data_files')
     url = 'https://zenodo.org/records/20738843/files/'
  case default
