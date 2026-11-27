@@ -756,17 +756,15 @@ subroutine read_setupfile(filename,ierr)
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
  type(inopts), allocatable     :: db(:)
- integer :: nerr,i,icompanion_star
- real :: m(maxstars)
- logical :: old_format
+ integer :: nerr,i,icompanion_star,ierr_mdot
+ real :: m(maxstars),mdot
 
  nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
 
  call read_inopt(nstar,'nstar',db,default=0,min=0,max=maxstars,errcount=nerr)
- old_format = (nstar == 0)
- if (old_format) then
+ if (nstar == 0) then
     ! setup files from before nstar was introduced give icompanion_star
     ! (hierarchical triples set up with icompanion_star = 2 are no longer supported:
     ! stop here so that the file is not overwritten with a binary setup)
@@ -807,9 +805,11 @@ subroutine read_setupfile(filename,ierr)
  else
     call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
  endif
+ ! before the wind was a property of each star, the wind of the primary star
+ ! (and the resolution) were set in the .in file
+ call read_inopt(mdot,'primary_mdot',db,err=ierr_mdot)
  call close_db(db)
- ! older still: the wind of the primary star and the resolution were set in the .in file
- if (old_format) call get_old_wind_options(filename)
+ if (ierr_mdot /= 0) call get_old_wind_options(filename)
  do i=1,nstar
     call check_stellar_props(trim(star_label(i)),star(i)%lum_lsun,star(i)%Teff,star(i)%Reff_au,&
                              i==1 .or. star(i)%mdot_msun_yr > 0.,nerr)
