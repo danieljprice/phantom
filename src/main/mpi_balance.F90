@@ -239,6 +239,10 @@ subroutine balance_init(npart)
  ! use a dummy call to fill_sendbuf to find out the number of reals per particle
  call fill_sendbuf(1,xbuffer,npartbuf) ! just fill for particle #1
 
+ ! the number of reals per particle changes if optional arrays are (re)allocated
+ if (allocated(xsendbatch)) then
+    if (size(xsendbatch,1) /= npartbuf*nbatch) deallocate(xsendbatch,nbatched,icurbuf,isendreq,countsendreq)
+ endif
  if (.not.allocated(xsendbatch)) then
     allocate(xsendbatch(npartbuf*nbatch,2,nprocs),nbatched(nprocs),icurbuf(nprocs))
     allocate(isendreq(2,nprocs),countsendreq(nprocs))

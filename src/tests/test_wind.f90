@@ -37,7 +37,7 @@ subroutine test_wind(ntests,npass)
  use boundary,   only:set_boundary
  use physcon,    only:au,solarm
  use units,      only:set_units,udist
- use part,       only:npart,xyzmh_ptmass,xyzh,vxyzu,dust_temp,iReff
+ use part,       only:npart,xyzmh_ptmass,xyzh,vxyzu,dust_temp,iReff,iseed_sink
  use dim,        only:maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,disc_viscosity,&
                       nalpha,isothermal
  use ptmass,     only:set_integration_precision
@@ -56,6 +56,13 @@ subroutine test_wind(ntests,npass)
     return
  else
     if (id==master) write(*,"(/,a,/)") '--> TESTING WIND MODULE'
+ endif
+
+ ! the wind injection records the emitting sink of each particle, but
+ ! iseed_sink is only allocated in builds compiled with INJECT_PARTICLES=yes
+ if (size(iseed_sink) < maxp) then
+    if (allocated(iseed_sink)) deallocate(iseed_sink)
+    call allocate_array('iseed_sink',iseed_sink,maxp)
  endif
 
  call set_units(dist=au,mass=solarm,G=1.d0)
