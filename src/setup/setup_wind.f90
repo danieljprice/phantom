@@ -953,7 +953,7 @@ subroutine check_wind_velocities(nerr)
     endif
  enddo
  if (nvwind > 0 .and. nvwind < nwind) then
-    print "(a)",' ERROR: either all stars with a wind give *_vwind > 0, or none do (trans-sonic winds)'
+    print "(a)",' ERROR: either all stars with a wind give vwind > 0, or none do (trans-sonic winds)'
     nerr = nerr + 1
  endif
 
