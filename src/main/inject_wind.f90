@@ -188,7 +188,7 @@ subroutine print_wind_resolution(xyzmh_ptmass,nptmass,pmass,gamma)
  real :: xyzmh(size(xyzmh_ptmass,1)),rsonic,res,dshell
  integer :: isink,nshell
 
- print "(/,a,es10.3,a)",' particle mass = ',pmass*umass/solarm,' Msun'
+ print "(a,es10.3,a)",' particle mass = ',pmass*umass/solarm,' Msun'
  do isink=1,nptmass
     if (xyzmh_ptmass(imloss,isink) <= 0.) cycle
     call get_wind_solution(xyzmh_ptmass(:,isink),wind_type,xyzmh,params,rsonic)
@@ -205,6 +205,7 @@ subroutine print_wind_resolution(xyzmh_ptmass,nptmass,pmass,gamma)
              (rsonic-params%Rinject)/udist/dshell
     endif
  enddo
+ print "(a)"
 
 end subroutine print_wind_resolution
 
@@ -598,7 +599,7 @@ end subroutine update_boundary_shells
 !-----------------------------------------------------------------------
 subroutine set_wind_particle(i,itype,isink,dir,age,xyzmh_ptmassi,vxyz_ptmassi,npart,npartoftype,xyzh,vxyzu)
  use part,             only:massoftype,igas,hn,n_nucleation,iReff,ispinx,ispinz,ivwind,iTeff,&
-                            dust_temp,Bevol,Bxyz
+                            dust_temp,Bevol,Bxyz,rho
  use partinject,       only:add_or_update_particle
  use injectutils,      only:get_wind_velocity,jets
  use wind,             only:interp_wind_profile
@@ -622,7 +623,10 @@ subroutine set_wind_particle(i,itype,isink,dir,age,xyzmh_ptmassi,vxyz_ptmassi,np
  else
     call add_or_update_particle(itype,xyz,vxyz,h,u,i,npart,npartoftype,xyzh,vxyzu,isink=isink)
  endif
- xyzh(4,i) = h   ! add_or_update_particle does not reset h of boundary particles
+ ! add_or_update_particle does not reset h or rho of boundary particles
+ ! (with APR the stored rho, not h, is the starting guess for the density)
+ xyzh(4,i) = h
+ rho(i)    = rhoi
  if (isink_radiation > 0) dust_temp(i) = xyzmh_ptmassi(iTeff)
  if (mhd) call set_injected_Bfield(xyzmh_ptmassi,xyzh(:,i),Bevol(:,i),Bxyz(:,i),massoftype(igas))
 

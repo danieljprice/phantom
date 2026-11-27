@@ -629,15 +629,17 @@ end subroutine set_defaults_orbits
 !----------------------------------------------------------------
 !+
 !  write orbit options for a system of nstar stars to .setup file
+!  (star_names, if given, label the stars of a hierarchical system)
 !+
 !----------------------------------------------------------------
-subroutine write_options_orbits(nstar,orbit,iunit)
+subroutine write_options_orbits(nstar,orbit,iunit,star_names)
  use sethierarchical, only:write_hierarchical_setupfile
- integer,       intent(in) :: nstar,iunit
- type(orbit_t), intent(in) :: orbit
+ integer,          intent(in) :: nstar,iunit
+ type(orbit_t),    intent(in) :: orbit
+ character(len=*), intent(in), optional :: star_names(:)
 
  if (nstar >= 3) then
-    call write_hierarchical_setupfile(iunit,nstar)
+    call write_hierarchical_setupfile(iunit,nstar,star_names)
  elseif (nstar == 2) then
     call write_options_orbit(orbit,iunit)
  endif

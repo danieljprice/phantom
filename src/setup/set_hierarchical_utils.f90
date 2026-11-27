@@ -549,7 +549,7 @@ subroutine print_hierarchy(hierarchy)
     return
  endif
  labels = process_hierarchy(hierarchy)
- print "(a)",' hierarchy (o = star): '//trim(brackets)
+ print "(a)",' Hierarchy (o = star): '//trim(brackets)
 
  ! stars from left to right: for labels made of 1 and 2 this is alphabetical order
  nleaves = labels%sink_num

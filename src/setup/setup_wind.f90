@@ -53,7 +53,7 @@ module setup
  ! properties of each star, in the units used in the .setup file
  type wind_star_t
     real :: mass_msun,racc_au,lum_lsun,Teff,Reff_au
-    character(len=20) :: Rinject  ! wind injection radius, with units (e.g. 2.5 au); 0 = at Reff
+    character(len=20) :: rinject  ! wind injection radius, with units (e.g. 2.5 au)
     real :: mdot_msun_yr,vwind_km_s,wind_temp,alpha
     real :: veq_km_s,spin(3)
     integer :: iderived
@@ -126,7 +126,7 @@ subroutine set_default_star(s,mass_msun,racc_au,lum_lsun,Reff_au)
  s%lum_lsun     = lum_lsun
  s%Teff         = 0.
  s%Reff_au      = Reff_au
- s%Rinject      = '0'
+ s%rinject      = '0'
  s%mdot_msun_yr = 0.
  s%vwind_km_s   = 0.
  s%wind_temp    = 0.
@@ -281,16 +281,16 @@ subroutine set_sink_properties(s,xyzmh_ptmassi)
  use units,   only:umass,utime,unit_velocity,check_and_convert
  type(wind_star_t), intent(inout) :: s
  real,              intent(inout) :: xyzmh_ptmassi(:)
- real :: lum,Reff,veq,Rinject
+ real :: lum,Reff,veq,rinject
  integer :: nerr
 
  call get_lum_and_Reff(s%lum_lsun,s%Reff_au,s%Teff,lum,Reff,s%iderived)
  ! the wind is injected at the stellar photosphere unless an injection radius is given
  nerr = 0
- call check_and_convert(s%Rinject,'Rinject','length',Rinject,nerr)
- if (Rinject <= 0.) Rinject = Reff
+ call check_and_convert(s%rinject,'Rinj','length',rinject,nerr)
+ if (rinject <= 0.) rinject = Reff
  xyzmh_ptmassi(iTeff)   = s%Teff
- xyzmh_ptmassi(iReff)   = Rinject
+ xyzmh_ptmassi(iReff)   = rinject
  xyzmh_ptmassi(iLum)    = lum
  xyzmh_ptmassi(imloss)  = s%mdot_msun_yr * (solarm / umass) * (utime / years)
  xyzmh_ptmassi(ivwind)  = s%vwind_km_s * (km / unit_velocity)
@@ -305,19 +305,22 @@ end subroutine set_sink_properties
 
 !----------------------------------------------------------------
 !+
-!  determine which problem to set up interactively
+!  set up interactively: the number of stars, then the properties
+!  of each star, with defaults that depend on the choice of mass
+!  and radius (e.g. trans-sonic), then the orbit and resolution
 !+
 !----------------------------------------------------------------
 subroutine setup_interactive()
- use prompting,       only:prompt
- use io,              only:fatal
- use sethierarchical, only:generate_hierarchy_string,set_hierarchical_default_options
- real :: a_au
- integer :: i,ichoice
+ use prompting, only:prompt
+ use io,        only:fatal
+ integer :: i
 
+ nstar = 1
+ call prompt('Number of stars (1=single, 2=binary, >=3 hierarchical system)',nstar,1,maxstars)
  if (isothermal) then
-    iwind = 2
+    call prompt('Type of wind:  2=isoT, 3=T(r)',iwind,2,3)
  else
+    ! the other types need an isothermal build, so this tells the user how to get them
     iwind = 1
     call prompt('Type of wind:  1=adia, 2=isoT, 3=T(r)',iwind,1,3)
     if (iwind == 2 .or. iwind == 3) then
@@ -325,49 +328,183 @@ subroutine setup_interactive()
     endif
  endif
 
- nstar = 1
- call prompt('Number of stars (1=single, 2=binary, >=3 hierarchical system)',nstar,1,maxstars)
-
  do i=1,nstar
-    if (nstar == 1) then
-       print "(a)",'Stellar parameters'
-    else
-       print "(/,a)",trim(star_label(i))//' star parameters'
-    endif
-    ! define stellar properties, wind and spin characteristics
-    call get_sink_properties(star(i))
-    call get_sink_wind(star(i))
-    call get_sink_spin(star(i))
+    call get_star(star(i),trim(star_label(i)),i==1)
  enddo
  if (iwind == 3) T_wind = star(1)%Teff
 
- if (nstar == 2) then
-    ichoice = 1
-    print "(/,a)",'Orbital parameters'
-    print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0, true-anom = 180',' 0: custom'
-    call prompt('select semi-major axis, ecccentricity, and true anomaly',ichoice,0,1)
-    select case(ichoice)
-    case(1)
-       a_au    = 3.7
-       orbit%e = 0.
-    case default
-       a_au    = 1.
-       orbit%e = 0.
-       call prompt('enter semi-major axis in au',a_au,0.)
-       call prompt('enter eccentricity',orbit%e,0.)
-       call prompt('enter true anomaly',orbit%f,0.,360.)
-    end select
-    write(orbit%elems%a,"(g13.6)") a_au
-    orbit%elems%a = adjustl(orbit%elems%a)
- elseif (nstar >= 3) then
-    ! default hierarchy and orbits, to be edited in the .setup file
-    call generate_hierarchy_string(nstar)
-    call set_hierarchical_default_options()
-    print "(/,a)",' using default orbits for the hierarchical system: edit the .setup file to change them'
- endif
+ call get_orbits()
  call get_resolution()
 
 end subroutine setup_interactive
+
+!----------------------------------------------------------------
+!+
+!  prompt for the properties of a star. The type of star sets the
+!  defaults for the values asked for afterwards
+!+
+!----------------------------------------------------------------
+subroutine get_star(s,label,primary)
+ use prompting, only:prompt
+ type(wind_star_t), intent(inout) :: s
+ character(len=*),  intent(in)    :: label
+ logical,           intent(in)    :: primary
+ integer, parameter :: itype_agb = 1, itype_transsonic = 2, itype_ms = 3
+ integer :: itype,ipair
+
+ print "(/,a)",label//' star parameters'
+ itype = itype_agb
+ if (.not.primary) itype = itype_ms
+ print "(a)",' 1: AGB star (1.2 Msun, racc=0.2568 au, Teff=3000 K, Reff=1 au, Mdot=1e-7 Msun/yr)',&
+             ' 2: hot star with a trans-sonic wind (1.2 Msun, racc=1 au, L=2e4 Lsun, Reff=2 au, Mdot=1e-5 Msun/yr)',&
+             ' 3: main-sequence star without a wind (1 Msun, racc=0.1 au, L=1 Lsun, Reff=1 Rsun)'
+ call prompt('select type of star',itype,1,3)
+ select case(itype)
+ case(itype_transsonic)
+    call set_default_star(s,mass_msun=1.2,racc_au=1.,lum_lsun=2.e4,Reff_au=2.)
+    call set_star_wind(s,mdot_msun_yr=1.e-5,vwind_km_s=0.,wind_temp=5.e4)
+    wind_gamma = 1.4
+    ipair = 3
+ case(itype_ms)
+    call set_default_star(s,mass_msun=1.0,racc_au=0.1,lum_lsun=1.,Reff_au=0.00465)
+    ipair = 3
+ case default
+    call set_default_star(s,mass_msun=1.2,racc_au=0.2568,lum_lsun=0.,Reff_au=1.)
+    s%Teff = 3000.
+    call set_star_wind(s,mdot_msun_yr=1.e-7,vwind_km_s=10.,wind_temp=3000.)
+    ipair = 1
+ end select
+ call prompt('enter mass (Msun)',s%mass_msun,0.)
+ call prompt('enter accretion radius (au)',s%racc_au,0.)
+ !
+ ! two of L, Teff and Reff: the third is derived from them
+ !
+ print "(a)",' 1: Teff and Reff',' 2: L and Teff',' 3: L and Reff'
+ call prompt('select which two of L, Teff and Reff to set',ipair,1,3)
+ call get_lum_Teff_Reff(s,ipair)
+ !
+ ! wind and rotation
+ !
+ call prompt('enter wind mass loss rate (Msun/yr, 0=no wind)',s%mdot_msun_yr,0.,1.)
+ if (s%mdot_msun_yr > 0.) then
+    call prompt('enter wind velocity (km/s, 0=trans-sonic)',s%vwind_km_s,0.,10000.)
+    call prompt('enter wind temperature (K, 0=use Teff)',s%wind_temp,0.,1.e7)
+    call prompt('enter wind acceleration parameter alpha (0.0=no accel,1.0=free wind)',s%alpha,0.,10.)
+    call get_sink_spin(s)
+ endif
+
+end subroutine get_star
+
+!----------------------------------------------------------------
+!+
+!  prompt for the two of L, Teff and Reff chosen by ipair
+!  (1 = Teff and Reff, 2 = L and Teff, 3 = L and Reff), with the
+!  default values derived from those of the star
+!+
+!----------------------------------------------------------------
+subroutine get_lum_Teff_Reff(s,ipair)
+ use prompting, only:prompt
+ type(wind_star_t), intent(inout) :: s
+ integer,           intent(in)    :: ipair
+ real :: lum,Reff
+
+ ! fill in the third value so that every default is consistent
+ call get_lum_and_Reff(s%lum_lsun,s%Reff_au,s%Teff,lum,Reff,s%iderived)
+ s%iderived = iderived_none
+ if (ipair /= 1) then
+    call prompt('enter luminosity (Lsun)',s%lum_lsun,0.)
+ else
+    s%lum_lsun = 0.
+ endif
+ if (ipair /= 3) then
+    call prompt('enter effective temperature (K)',s%Teff,0.)
+ else
+    s%Teff = 0.
+ endif
+ if (ipair /= 2) then
+    call prompt('enter effective radius (au)',s%Reff_au,0.)
+ else
+    s%Reff_au = 0.
+ endif
+
+end subroutine get_lum_Teff_Reff
+
+!----------------------------------------------------------------
+!+
+!  prompt for the rotation of a star: equatorial velocity and,
+!  if it rotates, the direction of the spin axis
+!+
+!----------------------------------------------------------------
+subroutine get_sink_spin(s)
+ use prompting, only:prompt
+ type(wind_star_t), intent(inout) :: s
+ real :: spin
+
+ call prompt('enter rotation velocity of star at equator (km/s)',s%veq_km_s,0.,1000.)
+ if (s%veq_km_s > 0.) then
+    call prompt('enter x-component of spin axis',s%spin(1),-1.,1.)
+    call prompt('enter y-component of spin axis',s%spin(2),-1.,1.)
+    call prompt('enter z-component of spin axis',s%spin(3),-1.,1.)
+    ! renormalize vector, using the z-axis if a zero vector is given
+    spin = sqrt(s%spin(1)**2+s%spin(2)**2+s%spin(3)**2)
+    if (spin > 0.) then
+       s%spin = s%spin/spin
+    else
+       print "(a)",' WARNING: zero spin axis given, using the z-axis'
+       s%spin = (/0.,0.,1./)
+    endif
+ endif
+
+end subroutine get_sink_spin
+
+!----------------------------------------------------------------
+!+
+!  set the wind of a star (wind_temp = 0 means use Teff)
+!+
+!----------------------------------------------------------------
+subroutine set_star_wind(s,mdot_msun_yr,vwind_km_s,wind_temp)
+ type(wind_star_t), intent(inout) :: s
+ real,              intent(in)    :: mdot_msun_yr,vwind_km_s,wind_temp
+
+ s%mdot_msun_yr = mdot_msun_yr
+ s%vwind_km_s   = vwind_km_s
+ s%wind_temp    = wind_temp
+
+end subroutine set_star_wind
+
+!----------------------------------------------------------------
+!+
+!  prompt for the orbit of a binary; a hierarchical system gets
+!  default orbits, to be edited in the .setup file
+!+
+!----------------------------------------------------------------
+subroutine get_orbits()
+ use prompting,       only:prompt
+ use sethierarchical, only:generate_hierarchy_string,set_hierarchical_default_options,hs
+ integer :: i
+ real :: a_au
+
+ if (nstar == 2) then
+    print "(/,a)",'Orbital parameters'
+    a_au    = 3.7
+    orbit%e = 0.
+    orbit%f = 180.
+    call prompt('enter semi-major axis in au',a_au,0.)
+    call prompt('enter eccentricity',orbit%e,0.)
+    call prompt('enter true anomaly (180=apastron)',orbit%f,0.,360.)
+    write(orbit%elems%a,"(g13.6)") a_au
+    orbit%elems%a = adjustl(orbit%elems%a)
+ elseif (nstar >= 3) then
+    call generate_hierarchy_string(nstar)
+    call set_hierarchical_default_options()
+    ! each orbit is 8 times wider than the one inside it, the innermost being 3.7 au
+    do i=1,hs%labels%hl_num
+       hs%levels(i)%a = 3.7*8.**(nstar-1-len_trim(hs%labels%hl(i)))
+    enddo
+    print "(/,a)",' using default orbits for the hierarchical system: edit the .setup file to change them'
+ endif
+
+end subroutine get_orbits
 
 !--------------------------------------------------------
 !+
@@ -408,184 +545,6 @@ logical function sonic_option_allowed()
  sonic_option_allowed = (nstar == 1 .and. .not.isothermal)
 
 end function sonic_option_allowed
-
-!--------------------------------------------------------
-!+
-! set spin properties of the sink particle :
-! rotation axis + spin rate in unit of critical spin rate
-!+
-!--------------------------------------------------------
-subroutine get_sink_spin(s)
- use prompting, only:prompt
- type(wind_star_t), intent(inout) :: s
- integer :: ichoice
- real :: spin
-
- ichoice = 2
- print "(a)",' 2: No rotation',&
-      ' 1: Equatorial velocity = 10 km/s', &
-      ' 0: custom'
- call prompt('select equatorial velocity',ichoice,0,2)
- select case(ichoice)
- case(2)
-    s%veq_km_s = 0.
- case(1)
-    s%veq_km_s = 10.
- case default
-    ! would be more interesting to input the omega parameter instead
-    call prompt('enter wind rotation speed in km/s',s%veq_km_s,0.,1000.)
- end select
- if (s%veq_km_s /= 0.) then
-    ichoice = 1
-    print "(a)",'spin orientation (vector)'
-    print "(a)",' 1: along z-axis',&
-         ' 0: custom'
-    call prompt('select spin orientation',ichoice,0,1)
-    if (ichoice == 0) then
-       call prompt('enter x-component',s%spin(1),-1.,1.)
-       call prompt('enter y-component',s%spin(2),-1.,1.)
-       call prompt('enter z-component',s%spin(3),-1.,1.)
-       ! renormalize vector, using the z-axis if a zero vector is given
-       spin = sqrt(s%spin(1)**2+s%spin(2)**2+s%spin(3)**2)
-       if (spin > 0.) then
-          s%spin = s%spin/spin
-       else
-          print "(a)",' WARNING: zero spin axis given, using the z-axis'
-          s%spin = (/0.,0.,1./)
-       endif
-    endif
- endif
-end subroutine get_sink_spin
-
-!--------------------------------------------------------
-!+
-! set wind properties of the sink particle :
-! wind mass loss rate, velocity and temperature
-!+
-!--------------------------------------------------------
-subroutine get_sink_wind(s)
- use prompting, only:prompt
- type(wind_star_t), intent(inout) :: s
- integer :: ichoice
-
- ichoice = 1
- print "(a)",'Wind properties'
- print "(a)",' 2: No wind',&
-      ' 1: Mass loss rate = 1e-7 Msun/yr', &
-      ' 0: custom'
- call prompt('select wind mass loss rate',ichoice,0,2)
- select case(ichoice)
- case(2)
-    s%mdot_msun_yr = 0.
- case(1)
-    s%mdot_msun_yr = 1.e-7
- case default
-    call prompt('enter wind mass loss rate',s%mdot_msun_yr,0.,1.)
- end select
- if (s%mdot_msun_yr /= 0.) then
-    ichoice = 1
-    print "(a)",' 1: Wind velocity = 10 km/s',&
-         ' 0: custom'
-    call prompt('select wind velocity',ichoice,0,1)
-    select case (ichoice)
-    case(1)
-       s%vwind_km_s = 10.
-    case default
-       call prompt('enter wind speed in km/s',s%vwind_km_s,0.,10000.)
-    end select
-    ichoice = 1
-    print "(a)",' 2: Wind temperature = Teff',&
-         ' 1: Wind temperature = 3000K',&
-         ' 0: custom'
-    call prompt('select wind temperature',ichoice,0,2)
-    select case (ichoice)
-    case(2)
-       s%wind_temp = 0.  ! 0 means use Teff
-    case(1)
-       s%wind_temp = 3000.
-    case default
-       call prompt('enter wind temperature in K',s%wind_temp,1.,1.e7)
-    end select
-    ichoice = 1
-    print "(a)",' 1: Wind parameter alpha = 0.',&
-         ' 0: custom'
-    call prompt('select wind velocity',ichoice,0,1)
-    select case (ichoice)
-    case(1)
-       s%alpha = 0.
-    case default
-       call prompt('enter wind alpha parameter',s%alpha,0.,10.)
-    end select
- else
-    s%vwind_km_s = 0.
-    s%wind_temp  = 0.
-    s%alpha      = 0.
- endif
-
-end subroutine get_sink_wind
-
-!--------------------------------------------------------
-!+
-! set properties of the sink particle :
-! mass, effective radius, accretion radius, luminosity
-! and surface temperature
-!+
-!--------------------------------------------------------
-subroutine get_sink_properties(s)
- use prompting, only:prompt
- type(wind_star_t), intent(inout) :: s
- integer :: ichoice
-
- ichoice = 2
- print "(a)",' 3: Mass = 1.2 Msun, accretion radius = 1. au (trans-sonic)',&
-    ' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
-    ' 1: Mass = 1.0 Msun, accretion radius = 1.2568 au', &
-    ' 0: custom'
- call prompt('select mass and radius',ichoice,0,3)
- select case(ichoice)
- case(3)
-    s%lum_lsun  = 2.d4
-    s%Teff      = 5.d4
-    s%mass_msun = 1.2
-    s%racc_au   = 1.
-    wind_gamma  = 1.4
- case(2)
-    s%mass_msun = 1.2
-    s%racc_au   = 0.2568
- case(1)
-    s%mass_msun = 1.
-    s%racc_au   = 1.2568
- case default
-    call prompt('enter stellar mass',s%mass_msun,0.,100.)
-    call prompt('enter accretion radius in au ',s%racc_au,0.)
- end select
- ichoice = 1
- print "(a)",' 2: Effective radius = 0.1 au',&
-    ' 1: Effective radius = 1 au',&
-    ' 0: custom'
- call prompt('select effective radius',ichoice,0,2)
- select case(ichoice)
- case(2)
-    s%Reff_au = 0.1
- case(1)
-    s%Reff_au = 1.
- case default
-    call prompt('enter effective radius in au ',s%Reff_au,0.)
- end select
- ichoice = 1
- print "(a)",' 1: Effective temperature = 3000 K, luminosity = 5000 Lsun',&
-    ' 0: custom'
- call prompt('select effective temperature and luminosity',ichoice,0,1)
- select case(ichoice)
- case(1)
-    s%Teff     = 3000.
-    s%lum_lsun = 5000.
- case default
-    call prompt('enter effective temperature ',s%Teff,0.)
-    call prompt('enter luminosity ',s%lum_lsun,0.)
- end select
-
-end subroutine get_sink_properties
 
 !----------------------------------------------------------------
 !+
@@ -673,14 +632,12 @@ subroutine write_star(s,label,iunit)
  call write_inopt(s%racc_au,label//'_racc',label//' star accretion radius (au)',iunit)
  call write_lum_Teff_Reff(label,s%lum_lsun,s%Teff,s%Reff_au,s%iderived,iunit)
 
- write(iunit,"(/,a)") '# '//label//' wind'
- call write_inopt(s%Rinject,label//'_Rinject','wind injection radius (w. units, e.g. 2.5 au, 0=Reff)',iunit)
+ call write_inopt(s%rinject,label//'_Rinj','wind injection radius (e.g. 2.5 au, 0=Reff)',iunit)
  call write_inopt(s%mdot_msun_yr,label//'_mdot',label//' wind mass loss rate (in Msun/yr)',iunit)
  call write_inopt(s%vwind_km_s,label//'_vwind',label//' wind velocity (in km/s)',iunit)
  call write_inopt(s%wind_temp,label//'_wind_temp',label//' wind temperature (K, 0 = use Teff)',iunit)
  call write_inopt(s%alpha,label//'_alpha',label//' alpha parameter',iunit)
 
- write(iunit,"(/,a)") '# '//label//' spin'
  call write_inopt(s%veq_km_s,label//'_veq',label//' equatorial velocity (in km/s)',iunit)
  if (s%veq_km_s /= 0) then
     call write_inopt(s%spin(1),label//'_spinx','x-component of spin direction',iunit)
@@ -698,7 +655,6 @@ end subroutine write_star
 subroutine write_setupfile(filename)
  use infile_utils,    only:write_inopt
  use setorbit,        only:write_options_orbits
- use sethierarchical, only:hs
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
  integer :: i
@@ -714,13 +670,7 @@ subroutine write_setupfile(filename)
     call write_star(star(i),trim(star_label(i)),iunit)
  enddo
 
- if (nstar >= 3) then
-    write(iunit,"(/,a)") '# stars in the hierarchy, in the order of the hierarchy string:'
-    do i=1,nstar
-       write(iunit,"(a)") '#   '//trim(hs%labels%sink(i))//' = '//trim(star_label(i))
-    enddo
- endif
- call write_options_orbits(nstar,orbit,iunit)
+ call write_options_orbits(nstar,orbit,iunit,star_label)
 
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(iresolution,'iresolution','particle mass from 0=mass,1=particles_per_shell,2=sonic point',iunit)
@@ -762,7 +712,7 @@ subroutine read_star(s,label,db,nerr)
  character(len=*),          intent(in)    :: label
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
- real :: Rinject
+ real :: rinject
 
  s%iderived = iderived_none
  call read_inopt(s%mass_msun,label//'_mass',db,min=0.,max=1000.,errcount=nerr)
@@ -774,8 +724,8 @@ subroutine read_star(s,label,db,nerr)
     print "(a)",' ERROR: '//label//' accretion radius not defined'
     nerr = nerr+1
  endif
- call read_inopt(s%Rinject,label//'_Rinject',db,default='0',errcount=nerr)
- call check_and_convert(s%Rinject,label//'_Rinject','length',Rinject,nerr)
+ call read_inopt(s%rinject,label//'_Rinj',db,default='0',errcount=nerr)
+ call check_and_convert(s%rinject,label//'_Rinj','length',rinject,nerr)
  call read_inopt(s%mdot_msun_yr,label//'_mdot',db,min=0.,max=1.,errcount=nerr)
  call read_inopt(s%vwind_km_s,label//'_vwind',db,min=0.,max=1.e4,errcount=nerr)
  call read_inopt(s%wind_temp,label//'_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
@@ -819,7 +769,7 @@ subroutine read_setupfile(filename,ierr)
     if (icompanion_star == 2) call fatal('setup','icompanion_star = 2 is no longer supported: '//&
        'convert a copy of '//trim(filename)//' to nstar = 3 with the hierarchical options')
     nstar = icompanion_star + 1
-    print "(a)",' WARNING: icompanion_star is deprecated, using nstar = '//trim(int_to_string(nstar))//' instead'
+    print "(/,a,/)",' WARNING: icompanion_star is deprecated, using nstar = '//trim(int_to_string(nstar))//' instead'
  endif
  do i=1,nstar
     call read_star(star(i),trim(star_label(i)),db,nerr)
@@ -859,7 +809,6 @@ subroutine read_setupfile(filename,ierr)
  enddo
  call check_wind_velocities(nerr)
  ierr = nerr
- call write_setupfile(filename)
 
 end subroutine read_setupfile
 
@@ -868,7 +817,8 @@ end subroutine read_setupfile
 !  read the orbit(s) of the stars. Binary setup files from before
 !  the generic orbit options give semi_major_axis, eccentricity
 !  and true_anomaly instead: these are used to set the orbit, and
-!  the .setup file is then rewritten with the generic options
+!  get_options rewrites the .setup file with the generic options
+!  because nstar is missing
 !+
 !----------------------------------------------------------------
 subroutine read_orbit_options(db,m,nerr)

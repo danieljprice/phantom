@@ -69,7 +69,6 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  character(len=30) :: filename
 
  call print_chess_logo()
- call print_hierarchy(hierarchy)
  filename = hierarchy_filename(prefix)
 
  splits = 0
@@ -103,6 +102,9 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
  ! put the sinks in the order of the labels in the hierarchy string
  if (ierr == 0) call order_sinks_as_labels(filename, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+
+ ! summary of the system, printed after the parameters of each binary
+ call print_hierarchy(hierarchy)
 
 end subroutine set_hierarchical
 
@@ -167,13 +169,15 @@ end subroutine order_sinks_as_labels
 
 !--------------------------------------------------------------------------
 !+
-!  write options to .setup file
+!  write options to .setup file (star_names, if given, are the names
+!  of the stars in the order of the hierarchy string)
 !+
 !--------------------------------------------------------------------------
-subroutine write_hierarchical_setupfile(iunit,nstar)
+subroutine write_hierarchical_setupfile(iunit,nstar,star_names)
  use infile_utils, only:write_inopt
- integer, intent(in) :: iunit
- integer, intent(in), optional :: nstar
+ integer,          intent(in) :: iunit
+ integer,          intent(in), optional :: nstar
+ character(len=*), intent(in), optional :: star_names(:)
  integer :: i
 
  write(iunit,"(/,a)") '# options for hierarchical system'
@@ -194,9 +198,10 @@ subroutine write_hierarchical_setupfile(iunit,nstar)
     enddo
  endif
 
- write(iunit,"(/,a)") '# orbit properties'
  do i=1,hs%labels%hl_num
-    write(iunit,"(a)") '# binary '//trim(hs%labels%hl(i))
+    write(iunit,"(/,a)") '# binary '//trim(hs%labels%hl(i))//': '//&
+         trim(component_name(trim(hs%labels%hl(i))//'1',star_names))//' + '//&
+         trim(component_name(trim(hs%labels%hl(i))//'2',star_names))
     call write_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a',&
          'semi-major axis for binary '//trim(hs%labels%hl(i)),iunit)
     call write_inopt(hs%levels(i)%e, trim(hs%labels%hl(i))//'_e',&
@@ -212,6 +217,29 @@ subroutine write_hierarchical_setupfile(iunit,nstar)
  enddo
 
 end subroutine write_hierarchical_setupfile
+
+!--------------------------------------------------------------------------
+!+
+!  name of a component of a binary in the hierarchy: the name of the
+!  star (or its label if no names are given), or the binary it labels
+!+
+!--------------------------------------------------------------------------
+function component_name(label,star_names) result(name)
+ character(len=*), intent(in) :: label
+ character(len=*), intent(in), optional :: star_names(:)
+ character(len=40) :: name
+ integer :: k
+
+ name = 'binary '//trim(label)
+ do k=1,hs%labels%sink_num
+    if (trim(hs%labels%sink(k)) /= trim(label)) cycle
+    name = label
+    if (present(star_names)) then
+       if (k <= size(star_names)) name = star_names(k)
+    endif
+ enddo
+
+end function component_name
 
 !--------------------------------------------------------------------------
 !+
@@ -887,7 +915,7 @@ subroutine print_chess_logo()
 
  print "(/,65('-'),2(/,a),/,65('-'),/)",&
          '  Welcome to CHESS (Complete Hierarchical Endless System Setup)',&
-         '     please cite Ceppi et al. (2022, 2023) when using CHESS'
+         '  Please cite Ceppi et al. (2022, 2023) when using CHESS'
 
 end subroutine print_chess_logo
 
