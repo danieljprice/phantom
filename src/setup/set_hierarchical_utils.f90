@@ -110,7 +110,8 @@ pure function process_hierarchy(string) result(mylabels)
        if ( .not. any(mylabels%hl == trim(temp_hl))) then
           if ( any(mylabels%sink == trim(temp_hl)) .or. any(mylabels%sink == trim(temp_hl))) then
              ! add to discs
-          else
+          elseif (mylabels%hl_num < max_hier_levels) then
+             ! (a string that is not a binary tree could give more levels than fit)
              mylabels%hl_num=mylabels%hl_num+1
              mylabels%hl(mylabels%hl_num) = trim(temp_hl)
           endif
