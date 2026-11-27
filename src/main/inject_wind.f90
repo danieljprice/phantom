@@ -926,7 +926,7 @@ subroutine print_old_wind_options(db,mdot_msun_yr,vwind_km_s,wind_temp,rinj_au,a
     print "(4x,a,f0.3)",'primary_alpha = ',a
  endif
  if (m > 0.) then
-    print "(4x,a,es10.4,a,i0,a)",'iresolution = 0 and mass_of_particles = ',m,&
+    print "(4x,a,es11.4,a,i0,a)",'iresolution = 0 and mass_of_particles = ',m,&
           ' (the particle mass given by iwind_resolution = ',iwindres,')'
     print "(4x,a,i0,a)",'or iresolution = 1 and particles_per_shell = ',nshell,' (the same number of particles per shell)'
  elseif (nshell > 0) then
