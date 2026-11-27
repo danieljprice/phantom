@@ -36,7 +36,7 @@ module io
  integer, public :: iverbose = 0
 
  public :: set_io_unit_numbers,real4,warn,error,fatal,die,comment
- public :: formatreal,formatint,cstring,warning
+ public :: formatreal,formatint,cstring,warning,num
 
  !--generic interface to convert either real*8's or integers
  !  to real*4 for output
@@ -221,6 +221,43 @@ subroutine formatreal(val,string,ierror,precision)
  string = trim(adjustl(string))
 
 end subroutine formatreal
+
+!-----------------------------------------------------------------------
+!+
+!  format a number to three significant figures for printing,
+!  e.g. 0.575, 14.7 or 119, using exponent notation (4.30E-05)
+!  only for numbers outside the range [0.01,1000). If width is given the
+!  number is right-justified in a string of this length, for aligned output
+!+
+!-----------------------------------------------------------------------
+function num(x,width) result(string)
+ real,    intent(in) :: x
+ integer, intent(in), optional :: width
+ character(len=:), allocatable :: string
+ character(len=16) :: tmp,fmtstring
+ integer :: ndec
+
+ if (x == 0.) then
+    tmp = '0'
+ elseif (abs(x) >= 1.e-2 .and. abs(x) < 1.e3) then
+    ndec = max(0,2 - floor(log10(abs(x))))  ! decimal places for three significant figures
+    if (ndec == 0) then
+       write(tmp,"(i0)") nint(x)
+    else
+       write(fmtstring,"('(f0.',i0,')')") ndec
+       write(tmp,fmtstring) x
+    endif
+ else
+    write(tmp,"(es9.2)") x
+ endif
+ tmp = adjustl(tmp)
+ ! add leading zero omitted by some compilers, e.g. .575 -> 0.575
+ if (tmp(1:1) == '.') tmp = '0'//tmp(1:len(tmp)-1)
+ if (tmp(1:2) == '-.') tmp = '-0'//tmp(2:len(tmp)-1)
+ string = trim(tmp)
+ if (present(width)) string = repeat(' ',max(0,width-len(string)))//string
+
+end function num
 
 !--------------------------------------------------------------------
 !+

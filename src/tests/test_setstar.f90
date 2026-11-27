@@ -47,6 +47,7 @@ subroutine test_setstar(ntests,npass)
  ! test the get_mass_coordinate routine in relax_star
  call test_get_mass_coord(ntests,npass)
  call test_spin_options(ntests,npass)
+ call test_convective_stability(ntests,npass)
 
  ! test that a star moved onto a circular orbit is set corotating
  call test_shift_star_corotate(ntests,npass)
@@ -186,6 +187,55 @@ subroutine test_get_mass_coord(ntests,npass)
  enddo
 
 end subroutine test_get_mass_coord
+
+!-----------------------------------------------------------------------
+!+
+!   Unit tests of the convective stability check: with an ideal gas
+!   (gamma=5/3), polytropes with n >= 3/2 are stable (n=3/2 is neutrally
+!   stable, i.e. isentropic) while n < 3/2 (e.g. n=1) is unstable everywhere
+!+
+!-----------------------------------------------------------------------
+subroutine test_convective_stability(ntests,npass)
+ use setstar_utils, only:check_convective_stability
+ use rho_profile,   only:rho_polytrope,calc_mass_enc
+ use units,         only:set_units
+ use physcon,       only:solarr,solarm
+ use io,            only:id,master
+ use eos,           only:gamma
+ integer, intent(inout) :: ntests,npass
+ integer, parameter :: ng = 5000, ieos = 2
+ real,    parameter :: gamma_poly(3) = (/5./3.,4./3.,2./)
+ integer, parameter :: nunstable_exact(3) = (/0,0,1/)
+ character(len=*), parameter :: label(3) = (/'n=3/2','n=3  ','n=1  '/)
+ real    :: r(ng),den(ng),pres(ng),mu(ng),X(ng),Y(ng),m(ng),polyk,mstar,rstar,rinner,gamma_old
+ integer :: i,npts,nunstable,nfail(2)
+
+ if (id==master) write(*,"(/,a,/)") '--> testing convective stability check'
+ call set_units(dist=solarr,mass=solarm,G=1.d0)
+
+ gamma_old = gamma
+ gamma = 5./3.  ! adiabatic index of the ideal gas equation of state
+ mu = 0.6
+ X  = 0.7
+ Y  = 0.28
+ do i=1,size(gamma_poly)
+    mstar = 1.
+    rstar = 1.
+    polyk = 1.
+    call rho_polytrope(gamma_poly(i),polyk,mstar,r,den,npts,set_polyk=.true.,Rstar=rstar)
+    pres(1:npts) = polyk*den(1:npts)**gamma_poly(i)
+    call calc_mass_enc(npts,r,den,mtab=m(1:npts))
+    call check_convective_stability(ieos,r(1:npts),den(1:npts),pres(1:npts),&
+                                    mu(1:npts),X(1:npts),Y(1:npts),m(1:npts),0.,nunstable,rinner)
+
+    nfail = 0
+    call checkval(nunstable,nunstable_exact(i),0,nfail(1),'number of unstable regions for '//trim(label(i))//' polytrope')
+    if (nunstable > 0) call checkval(rinner,0.,0.,nfail(2),'unstable from centre for '//trim(label(i))//' polytrope')
+    call update_test_scores(ntests,nfail,npass)
+ enddo
+ gamma = gamma_old
+
+end subroutine test_convective_stability
 
 !-----------------------------------------------------------------------
 !+

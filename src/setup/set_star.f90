@@ -200,10 +200,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use centreofmass,       only:reset_centreofmass
  use dim,                only:gr,gravity,maxvxyzu,do_radiation
  use io,                 only:fatal,error,warning
- use eos,                only:eos_works_with_radiation,eos_outputs_mu,polyk_eos=>polyk
+ use eos,                only:eos_works_with_radiation,eos_outputs_mu,polyk_eos=>polyk,gmw,&
+                              X_eos=>X_in,Z_eos=>Z_in
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
-                              write_kepler_comp
+                              write_kepler_comp,check_convective_stability
  use relaxstar,          only:relax_star
  use part,               only:ihsoft,igas,imu,set_particle_type,ilum
  use extern_densprofile, only:write_rhotab
@@ -232,11 +233,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,            intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax,nerr
- integer                        :: ncols_compo,npart_old,i,iptmass_core,nptmass_old
+ integer                        :: ncols_compo,npart_old,i,iptmass_core,nptmass_old,nunstable
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
  real                           :: rmin,rhocentre,rmserr,en_err
- real                           :: mstar,omega
+ real                           :: mstar,omega,rinner
  character(len=20), allocatable :: comp_label(:)
  character(len=30)              :: lattice  ! The lattice type if stretchmap is used
  logical                        :: use_exactN,composition_exists,write_dumps
@@ -464,6 +465,21 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  endif
 
  if (ierr_relax /= 0) call warning('setup_star','ERRORS DURING RELAXATION, SEE ABOVE!!')
+ !
+ ! check whether the thermal energy profile obtained by inverting P(rho)
+ ! with the chosen equation of state is convectively stable
+ !
+ if (id==master .and. maxvxyzu==4 .and. .not.do_radiation) then
+    ! without variable composition the equation of state uses the global composition
+    if (.not.use_var_comp) then
+       mu    = gmw
+       Xfrac = X_eos
+       Yfrac = 1. - X_eos - Z_eos
+    endif
+    call check_convective_stability(ieos,r(1:npts),den(1:npts),pres(1:npts),mu(1:npts),&
+                                    Xfrac(1:npts),Yfrac(1:npts),mtab(1:npts),star%mcore_code,&
+                                    nunstable,rinner)
+ endif
 
 end subroutine set_star
 

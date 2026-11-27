@@ -56,6 +56,7 @@ module setstar_utils
  public :: write_kepler_comp
  public :: need_inputprofile,need_polyk,need_rstar,need_mu
  public :: get_mass_coord
+ public :: check_convective_stability
 
  private
 
@@ -77,7 +78,8 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  use eos_piecewise,      only:get_dPdrho_piecewise
  use kernel,             only:radkern
  use part,               only:do_radiation
- use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
+ use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func,calc_mass_enc
+ use eos,                only:gmw,get_mean_molecular_weight
  use readwrite_mesa,     only:read_mesa,write_mesa
  use readwrite_kepler,   only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
@@ -97,7 +99,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  real,                           intent(inout) :: rcore,mcore
  integer,                        intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out)   :: comp_label(:)
- integer :: ierr,eos_type
+ integer :: ierr,eos_type,i
  logical :: calc_polyk,iexist,regrid_core
  procedure(func), pointer :: get_dPdrho
  !
@@ -107,6 +109,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  calc_polyk = .true.
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
  temp = 0.  ! Initialize temperature array for non-file-based profiles
+ mtab = 0.  ! mass coordinate is computed from the density profile if not read from file
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
  select case(iprofile)
  case(ipoly)
@@ -197,6 +200,23 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
     pres = polyk*den**gamma
     print*,' Assuming polyk = ',polyk
  end select
+ !
+ ! always return the mass coordinate and mean molecular weight tables,
+ ! computed from the density profile or the composition if not read from file
+ !
+ if (all(mtab(1:npts) < tiny(0.))) call calc_mass_enc(npts,r,den,mtab=mtab(1:npts))
+ if (.not.allocated(mu)) then
+    allocate(mu(size(r)))
+    mu = gmw
+ endif
+ if (.not.allocated(Xfrac)) then
+    allocate(Xfrac(size(r)),Yfrac(size(r)))
+    Xfrac = X_in
+    Yfrac = 1. - X_in - Z_in
+ endif
+ do i=1,size(mu)
+    if (mu(i) <= 0.) mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))
+ enddo
 
 end subroutine read_star_profile
 
@@ -639,5 +659,149 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
  enddo
 
 end subroutine solve_uT_profiles
+
+!-----------------------------------------------------------------------
+!+
+!  Check the convective stability of the stellar profile, given the
+!  density and pressure (in code units) that the star is set up with,
+!  where the thermal energy is obtained by inverting the equation of state.
+!
+!  A fluid parcel displaced adiabatically outwards from zone i to i+1 keeps
+!  its composition and changes density according to dln(rho) = dln(P)/Gamma_1.
+!  It is buoyant (unstable) if it ends up less dense than its surroundings,
+!  i.e. if
+!
+!     dln(rho)/dln(P) < 1/Gamma_1
+!
+!  This is the Ledoux criterion, since any composition gradient is included
+!  in the density of the surroundings, reducing to the Schwarzschild
+!  criterion for uniform composition. Gamma_1 = cs^2 rho/P is obtained from
+!  the sound speed returned by the equation of state.
+!
+!  Unstable regions will convect. Since nothing removes heat at the stellar
+!  surface, the convected energy can only be released by expanding the star.
+!+
+!-----------------------------------------------------------------------
+subroutine check_convective_stability(ieos,r,den,pres,mu,Xfrac,Yfrac,mtab,mcore,nunstable,rinner)
+ use units,   only:udist,umass
+ use physcon, only:solarr,solarm
+ use eos,     only:get_gamma1
+ use io,      only:num
+ integer, intent(in)  :: ieos
+ real,    intent(in)  :: r(:),den(:),pres(:),mu(:),Xfrac(:),Yfrac(:)
+ real,    intent(in)  :: mtab(:)  ! mass coordinate, used for reporting only
+ real,    intent(in)  :: mcore    ! mass of sink particle core (not included in mtab)
+ integer, intent(out) :: nunstable
+ real,    intent(out) :: rinner
+ real, parameter   :: tol = 1.e-3  ! ignore regions where the buoyancy of a rising parcel is < tol
+ real, allocatable :: gamma1(:),buoy(:),superad(:)
+ real    :: buoyreg,underdense,superad_max
+ integer :: i,n,istart,ierr,nskip,nempty
+ character(len=13) :: criterion
+
+ nunstable = 0
+ rinner = 0.
+ n = size(r)
+ if (n < 3) return
+
+ ! get Gamma_1 in each zone, skipping empty zones and zones where this cannot be computed
+ allocate(gamma1(n),buoy(n),superad(n))
+ nskip  = 0
+ nempty = 0
+ do i=1,n
+    if (den(i) <= 0. .or. pres(i) <= 0.) then
+       gamma1(i) = -1.
+       nempty = nempty + 1
+       cycle
+    endif
+    gamma1(i) = get_gamma1(ieos,den(i),pres(i),ierr,mu_local=mu(i),&
+                           X_local=Xfrac(i),Z_local=1.-Xfrac(i)-Yfrac(i))
+    if (ierr /= 0) nskip = nskip + 1
+ enddo
+ if (nskip + nempty==n) then
+    write(*,"(/,a,i0,/)") ' Convective stability check not available for ieos=',ieos
+    return
+ endif
+
+ ! log density contrast acquired by a parcel displaced adiabatically from zone i to i+1:
+ ! positive if the parcel is less dense than its surroundings (buoyant). Dividing by the
+ ! change in ln P gives the superadiabaticity, 1/Gamma_1 - dln rho/dln P, which equals
+ ! nabla - nabla_ad for an ideal gas of uniform composition
+ buoy = 0.
+ superad = 0.
+ do i=1,n-1
+    if (min(gamma1(i),gamma1(i+1),den(i),den(i+1),pres(i),pres(i+1)) <= 0.) cycle
+    if (pres(i+1)==pres(i)) cycle
+    buoy(i) = log(den(i+1)/den(i)) - log(pres(i+1)/pres(i))/(0.5*(gamma1(i) + gamma1(i+1)))
+    superad(i) = buoy(i)/abs(log(pres(i+1)/pres(i)))
+    if (r(i+1) < r(i)) buoy(i) = -buoy(i)  ! profile ordered surface to centre
+    if (r(i+1) < r(i)) superad(i) = -superad(i)
+ enddo
+
+ criterion = 'Schwarzschild'
+ if (maxval(mu(1:n)) - minval(mu(1:n)) > epsilon(0.)*maxval(mu(1:n))) criterion = 'Ledoux'
+ write(*,"(/,a,i0,a)") ' Checking convective stability of stellar profile with ieos=',ieos,&
+                       ' ('//trim(criterion)//' criterion)'
+ if (nempty > 0) write(*,"(a,i0,a)") ' WARNING: ',nempty,' zones have zero density or pressure'
+ if (nskip > 0) write(*,"(a,i0,a)") ' WARNING: Ignoring invalid Gamma_1 in ',nskip,' zones'
+
+ ! find contiguous unstable regions and report the significant ones
+ istart = 0
+ do i=1,n
+    if (i < n .and. buoy(min(i,n-1)) > 0.) then
+       if (istart==0) istart = i
+    elseif (istart > 0) then
+       buoyreg = sum(buoy(istart:i-1))
+       if (buoyreg > tol) then
+          nunstable = nunstable + 1
+          if (nunstable==1) then
+             rinner = min(r(istart),r(i))
+             write(*,"(/,a)") ' WARNING: star is convectively unstable:'
+          endif
+          ! fraction by which a parcel rising through the whole region is less dense than its surroundings
+          underdense  = 1. - exp(-buoyreg)
+          superad_max = maxval(superad(istart:i-1))
+          write(*,"(a)") '   '//num(min(r(istart),r(i))*udist/solarr,5)//' < r < '//&
+             num(max(r(istart),r(i))*udist/solarr,5)//' Rsun ('//&
+             num((min(mtab(istart),mtab(i))+mcore)*umass/solarm,5)//' < m < '//&
+             num((max(mtab(istart),mtab(i))+mcore)*umass/solarm,5)//' Msun): '//&
+             num(100.*underdense,4)//'% underdense -> '//trim(adjustl(instability_label(underdense)))
+       endif
+       istart = 0
+    endif
+ enddo
+
+ if (nunstable > 0) then
+    write(*,"(/,a)") ' WARNING: star will expand after relaxation for r > '//num(rinner*udist/solarr)//' Rsun'
+    write(*,"(a)") '          (unstable regions convect, and since nothing removes heat at the stellar surface', &
+                   '           the convected energy can only be released by expanding the star)'
+    write(*,"(a)")
+ else
+    write(*,"(a,/)") ' Stellar profile is convectively stable'
+ endif
+
+end subroutine check_convective_stability
+
+!-----------------------------------------------------------------------
+!+
+!  describe the strength of a convective instability by the fraction
+!  by which a parcel rising through the unstable region becomes less
+!  dense than its surroundings
+!+
+!-----------------------------------------------------------------------
+function instability_label(underdense) result(label)
+ real, intent(in) :: underdense
+ character(len=19) :: label  ! right-aligned so that the columns line up
+
+ if (underdense < 0.05) then
+    label = 'mildly unstable'
+ elseif (underdense < 0.3) then
+    label = 'moderately unstable'
+ else
+    label = 'strongly unstable'
+ endif
+ label = adjustr(label)
+
+end function instability_label
 
 end module setstar_utils

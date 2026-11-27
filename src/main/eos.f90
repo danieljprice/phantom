@@ -74,7 +74,7 @@ module eos
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gamma,eos_outputs_gasP
  public  :: eos_outputs_temp,get_local_u_internal,get_temperature_from_u
  public  :: calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT,get_u_from_rho_s
- public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,correct_entropy_derivative
+ public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s,correct_entropy_derivative,get_gamma1
  public  :: init_eos,finish_eos
  public  :: write_options_eos,read_options_eos,set_defaults_eos
  public  :: write_headeropts_eos,read_headeropts_eos
@@ -1157,6 +1157,47 @@ real function get_entropy(rho,pres,mu_in,ieos)
  get_entropy = cgss/unit_ergg ! units in erg/grK, here it turns to code units
 
 end function get_entropy
+
+!-----------------------------------------------------------------------
+!+
+!  adiabatic index Gamma_1 = cs^2 rho/P given density and pressure in
+!  code units, obtained by inverting the equation of state for the
+!  internal energy and computing the sound speed. Returns ierr /= 0
+!  if the equation of state cannot be inverted or Gamma_1 is invalid.
+!  Composition is as in calc_temp_and_ene (defaults to gmw, X_in, Z_in)
+!+
+!-----------------------------------------------------------------------
+real function get_gamma1(eos_type,rho,pres,ierr,mu_local,X_local,Z_local) result(gamma1)
+ use, intrinsic :: ieee_arithmetic, only:ieee_is_finite
+ use units,   only:unit_density,unit_pressure,unit_ergg
+ use physcon, only:Rg,radconst
+ integer, intent(in)  :: eos_type
+ real,    intent(in)  :: rho,pres
+ integer, intent(out) :: ierr
+ real,    intent(in), optional :: mu_local,X_local,Z_local
+ real :: rho_cgs,p_cgs,mu,X,Z,tempi,eni,ponrhoi,spsoundi
+
+ gamma1 = -1.
+ ierr = 1
+ if (rho <= 0. .or. pres <= 0.) return
+
+ mu = gmw
+ X  = X_in
+ Z  = Z_in
+ if (present(mu_local)) mu = mu_local
+ if (present(X_local))  X  = X_local
+ if (present(Z_local))  Z  = Z_local
+ rho_cgs = rho*unit_density
+ p_cgs   = pres*unit_pressure
+ tempi   = min((3.*p_cgs/radconst)**0.25, p_cgs*mu/(rho_cgs*Rg))  ! temperature guess
+ call calc_temp_and_ene(eos_type,rho_cgs,p_cgs,eni,tempi,ierr,mu_local=mu,X_local=X,Z_local=Z)
+ if (ierr /= 0) return
+
+ call equationofstate(eos_type,ponrhoi,spsoundi,rho,0.,0.,0.,tempi,eni/unit_ergg,mu_local=mu,Xlocal=X,Zlocal=Z)
+ gamma1 = spsoundi**2/ponrhoi
+ if (.not.ieee_is_finite(gamma1) .or. gamma1 <= 0.) ierr = 2
+
+end function get_gamma1
 
 !-----------------------------------------------------------------------
 !+
