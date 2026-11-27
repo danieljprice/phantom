@@ -75,8 +75,13 @@ subroutine test_matrix_inversion(ntests,npass)
 
  call update_test_scores(ntests,nfail,npass)
 
-contains
+end subroutine test_matrix_inversion
 
+!--------------------------------------------
+!+
+!  matrix-vector product A x for the solver test
+!+
+!--------------------------------------------
 function get_Ax_local(n,x) result(Ax)
  integer, intent(in) :: n
  real,    intent(in) :: x(n)
@@ -85,7 +90,5 @@ function get_Ax_local(n,x) result(Ax)
  Ax = matmul(A,x)
 
 end function get_Ax_local
-
-end subroutine test_matrix_inversion
 
 end module testlinalg

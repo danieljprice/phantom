@@ -31,7 +31,7 @@ module ptmass_radiation
 
  public :: get_rad_accel_from_ptmass,calc_alpha
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
- public :: get_dust_temperature
+ public :: get_dust_temperature,get_stellar_radius,get_Teff
  public :: init_radiation_ptmass
 
  private
@@ -319,7 +319,7 @@ end subroutine get_dust_temperature
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau,tau_lucy)
  use, intrinsic :: ieee_arithmetic, only:ieee_is_nan
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff,itemp
+ use part,    only:isdead_or_accreted,iLum,iTeff,itemp
  integer, intent(in)  :: nptmass,npart
  real,    intent(in)  :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
  real,    intent(out) :: dust_temp(:)
@@ -339,7 +339,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
  j = 1
  T_star = xyzmh_ptmass(iTeff,j)
  L_star = xyzmh_ptmass(iLum,j)
- R_star = xyzmh_ptmass(iReff,j) !sqrt(L_star/(4.*pi*steboltz*utime**3/umass*R_star**4))
+ R_star = get_stellar_radius(xyzmh_ptmass(:,j))
  xa = xyzmh_ptmass(1,j)
  ya = xyzmh_ptmass(2,j)
  za = xyzmh_ptmass(3,j)
@@ -467,5 +467,43 @@ subroutine read_options_ptmass_radiation(db,nerr)
  if (iget_tdust == 3) itau_alloc  = 1
 
 end subroutine read_options_ptmass_radiation
+
+!-----------------------------------------------------------------------
+!+
+!  stellar (photospheric) radius of a sink in code units, from
+!  L = 4 pi sigma R^2 Teff^4. This can be smaller than the effective
+!  radius iReff, which is where the wind is injected. If L or Teff
+!  is not set, the effective radius is returned
+!+
+!-----------------------------------------------------------------------
+real function get_stellar_radius(xyzmh_ptmassi) result(Rstar)
+ use part,    only:ilum,iTeff,iReff
+ use physcon, only:pi,steboltz
+ use units,   only:udist,unit_luminosity
+ real, intent(in) :: xyzmh_ptmassi(:)
+ real :: Lstar,Teff
+
+ Lstar = xyzmh_ptmassi(ilum)
+ Teff  = xyzmh_ptmassi(iTeff)
+ if (Lstar > 0. .and. Teff > 0.) then
+    Rstar = real(sqrt(Lstar*unit_luminosity/(4.*pi*steboltz*Teff**4))/udist)
+ else
+    Rstar = xyzmh_ptmassi(iReff)
+ endif
+
+end function get_stellar_radius
+
+!-----------------------------------------------------------------------
+!+
+!  effective temperature (K) from luminosity (Lsun) and radius (au)
+!+
+!-----------------------------------------------------------------------
+real function get_Teff(lum_lsun,reff_au)
+ use physcon, only:au,steboltz,solarl,pi
+ real, intent(in) :: lum_lsun,reff_au
+
+ get_Teff = real((lum_lsun*solarl/(4.*pi*steboltz*(reff_au*au)**2))**0.25)
+
+end function get_Teff
 
 end module ptmass_radiation

@@ -172,8 +172,8 @@ subroutine RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
 
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
  r = r0+A5*h
- v = v0+h*(B51*dv1_dr+B52+dv2_dr+B53*dv3_dr+B54*dv4_dr)
- T = T0+h*(B51*dT1_dr+B52+dT2_dr+B53*dT3_dr+B54*dT4_dr)
+ v = v0+h*(B51*dv1_dr+B52*dv2_dr+B53*dv3_dr+B54*dv4_dr)
+ T = T0+h*(B51*dT1_dr+B52*dT2_dr+B53*dT3_dr+B54*dT4_dr)
 
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv5_dr, dT5_dr, numerator, denominator)
  r = r0+A6*h
@@ -181,7 +181,7 @@ subroutine RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr
  T = T0+h*(B61*dT1_dr+B62*dT2_dr+B63*dT3_dr+B64*dT4_dr+B65*dT5_dr)
 
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv6_dr, dT6_dr, numerator, denominator)
- new_rvT(1) = r
+ new_rvT(1) = r0+h
  new_rvT(2) = v0+h*(C1*dv1_dr+C3*dv3_dr+C4*dv4_dr+C6*dv6_dr)
  new_rvT(3) = T0+h*(C1*dT1_dr+C3*dT3_dr+C4*dT4_dr+C6*dT6_dr)
 
@@ -249,7 +249,7 @@ subroutine RK4_step_dr(dt,rvT,Rstar_cgs,Mdot_cgs,mu,gamma,alpha,dalpha_dr,Q,dQ_d
  ! else
  r = r0+A4*H
  v = v0+H*(B41*dv1_dr+B42*dv2_dr+B43*dv3_dr)
- T = T0+H*(B41*dv1_dr+B42*dv2_dr+B43*dT3_dr)
+ T = T0+H*(B41*dT1_dr+B42*dT2_dr+B43*dT3_dr)
  call calc_dvT_dr(r, v, T, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, dv4_dr, dT4_dr, numerator, denominator)
  new_rvT(1) = r
  new_rvT(2) = v0 + H*(C1*dv1_dr+C2*dv2_dr+C3*dv3_dr+C4*dv4_dr)
