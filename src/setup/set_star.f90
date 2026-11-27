@@ -88,6 +88,7 @@ contains
 !+
 !--------------------------------------------------------------------------
 subroutine set_defaults_star(star)
+ use setstar_utils, only:get_softened_profile_filename
  type(star_t), intent(out) :: star
 
  star%iprofile    = 2
@@ -107,7 +108,7 @@ subroutine set_defaults_star(star)
  star%isofteningopt  = 1 ! By default, specify rcore
  star%np             = 1000
  star%input_profile  = 'P12_Phantom_Profile.data'
- star%outputfilename = 'mysoftenedstar.dat'
+ star%outputfilename = get_softened_profile_filename(star%input_profile)
  star%dens_profile   = 'density.profile'
  star%compfile       = 'kepler.comp'
  star%label          = ''
@@ -296,7 +297,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         npts,rmin,star%r_code,mstar,rhocentre,&
                         star%isoftcore,star%isofteningopt,star%rcore_code,star%mcore_code,&
                         star%hsoft_code,star%outputfilename,composition,&
-                        comp_label,ncols_compo)
+                        comp_label,ncols_compo,star%np,hfact)
 
  star%m_code = mstar + star%mcore_code
  !
@@ -727,7 +728,8 @@ end subroutine set_defaults_given_profile
 !-----------------------------------------------------------------------
 subroutine set_star_interactive(star)
  use prompting,     only:prompt
- use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar
+ use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar,&
+                         get_softened_profile_filename
  use units,         only:in_code_units
  type(star_t), intent(inout) :: star
  integer :: i
@@ -762,6 +764,8 @@ subroutine set_star_interactive(star)
 
  select case (star%iprofile)
  case(imesa,ikepler,iaton)
+    star%outputfilename = get_softened_profile_filename(star%input_profile)
+    call set_core_defaults_from_profile(star)
     print*,'Soften the core density profile and add a sink particle core?'
     print "(3(/,a))",'0: Do not soften profile', &
                      '1: Use cubic softened density profile', &
@@ -800,6 +804,7 @@ subroutine set_star_interactive(star)
     case(2)
        star%isinkcore = .true. ! Create sink particle core automatically
        print*,'Specify core radius and initial guess for mass of sink particle core'
+       print*,'(defaults are suggested from the input profile, see hints above)'
        call prompt('Enter core radius (e.g. 0.1*rsun): ',star%rcore)
        call prompt('Enter guess for core mass (e.g. 0.1*Msun): ',star%mcore)
        call prompt('Enter sink particle luminosity (e.g. 1.*lsun',star%lcore)
@@ -812,6 +817,38 @@ subroutine set_star_interactive(star)
  end select
 
 end subroutine set_star_interactive
+
+!-----------------------------------------------------------------------
+!+
+!  read the input MESA profile and use it to set sensible defaults
+!  for the core softening radius, core mass and sink softening length,
+!  printing hints on how to choose these
+!+
+!-----------------------------------------------------------------------
+subroutine set_core_defaults_from_profile(star)
+ use setstar_utils,  only:get_core_softening_hints,print_core_softening_hints
+ use readwrite_mesa, only:read_mesa
+ use eos,            only:X_in,Z_in
+ use kernel,         only:radkern,hfact_default
+ use units,          only:udist,umass
+ use io,             only:num
+ type(star_t), intent(inout) :: star
+ real, allocatable :: r(:),den(:),pres(:),mtab(:),en(:),temp(:),Xfrac(:),Yfrac(:),mu(:)
+ real    :: Mstar,r_core,m_core,rcore_min,rcore_rec
+ integer :: ierr
+
+ if (star%iprofile /= imesa) return
+ call read_mesa(star%input_profile,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mstar,ierr,cgsunits=.true.)
+ if (ierr /= 0) return
+
+ call print_core_softening_hints(r,mtab,den,star%np,hfact_default,0.,0.)
+ call get_core_softening_hints(r,mtab,den,star%np,hfact_default,r_core,m_core,rcore_min,rcore_rec)
+ ! defaults given in code units
+ star%rcore = num(rcore_rec/udist)
+ star%hsoft = num(rcore_rec/udist/radkern)
+ if (m_core > 0.) star%mcore = num(m_core/umass)
+
+end subroutine set_core_defaults_from_profile
 
 !-----------------------------------------------------------------------
 !+
@@ -965,7 +1002,7 @@ end subroutine write_options_star
 subroutine read_options_star(star,db,nerr,label)
  use infile_utils,  only:inopts,read_inopt
  use units,         only:check_and_convert
- use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
+ use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts,get_softened_profile_filename
  type(star_t),              intent(inout) :: star
  type(inopts),              intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
@@ -1008,7 +1045,10 @@ subroutine read_options_star(star,db,nerr,label)
        endif
     else
        star%isinkcore = .true.
-       call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
+       ! output filename is optional, by default profile.data -> profile-softened.data
+       star%outputfilename = get_softened_profile_filename(star%input_profile)
+       if (any(db%tag=='outputfilename'//trim(c))) &
+          call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
        if (star%isoftcore==2) then
           star%isofteningopt=3
        elseif (star%isoftcore==1) then

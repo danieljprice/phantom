@@ -57,6 +57,8 @@ module setstar_utils
  public :: need_inputprofile,need_polyk,need_rstar,need_mu
  public :: get_mass_coord
  public :: check_convective_stability
+ public :: get_softened_profile_filename
+ public :: get_core_softening_hints,print_core_softening_hints
 
  private
 
@@ -73,7 +75,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
                              r,den,pres,temp,en,mtab,X_in,Z_in,Xfrac,Yfrac,mu,&
                              npts,rmin,Rstar,Mstar,rhocentre,&
                              isoftcore,isofteningopt,rcore,mcore,hsoft,outputfilename,&
-                             composition,comp_label,columns_compo)
+                             composition,comp_label,columns_compo,np,hfact)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
  use kernel,             only:radkern
@@ -99,6 +101,8 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  real,                           intent(inout) :: rcore,mcore
  integer,                        intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out)   :: comp_label(:)
+ integer,                        intent(in)    :: np
+ real,                           intent(in)    :: hfact
  integer :: ierr,eos_type,i
  logical :: calc_polyk,iexist,regrid_core
  procedure(func), pointer :: get_dPdrho
@@ -144,12 +148,14 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
                            Mstar,composition,comp_label,Xfrac,Yfrac,columns_compo,ierr,cgsunits=.true.)
        endif
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from '//trim(input_profile))
+       ! print advice on choosing the core radius and mass, and check the values supplied
+       call print_core_softening_hints(r,mtab,den,np,hfact,rcore*udist,mcore*umass)
        if (do_radiation) then
           eos_type = 12
        else
           eos_type = ieos
        endif
-       regrid_core = .false.  ! hardwired to be false for now
+       regrid_core = (isoftcore==2)  ! uniform grid for the fixed-entropy softened region
        mcore = mcore * umass / solarm ! mcore and rcore needed in solar units for set softened star
        rcore = rcore * udist / solarr
        call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,mtab,Xfrac,Yfrac,ierr)
@@ -659,6 +665,165 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
  enddo
 
 end subroutine solve_uT_profiles
+
+!-----------------------------------------------------------------------
+!+
+!  default filename for the softened stellar profile, from the name of
+!  the input profile (without any directory): profile.data gives
+!  profile-softened.data, other names have .softened appended
+!+
+!-----------------------------------------------------------------------
+function get_softened_profile_filename(input_profile) result(filename)
+ use fileutils, only:basename
+ character(len=*), intent(in) :: input_profile
+ character(len=120) :: filename
+ integer :: n
+
+ filename = basename(input_profile)
+ n = len_trim(filename)
+ if (n > 5 .and. filename(max(n-4,1):n) == '.data') then
+    filename = filename(1:n-5)//'-softened.data'
+ else
+    filename = trim(filename)//'.softened'
+ endif
+
+end function get_softened_profile_filename
+
+!-----------------------------------------------------------------------
+!+
+!  Find the edge of the dense (hydrogen-depleted) core of a giant star
+!  from the steepest density gradient, dln(rho)/dln(r), inside 0.1 R,
+!  taking the outer edge of the steep region where the gradient rises
+!  back above dln(rho)/dln(r) = -5. The gradient is measured on a uniform
+!  grid in ln(r) so that it does not depend on the zoning of the profile.
+!  A core is only identified if the steepest gradient is below -5
+!  (cf. ~ -0.3 inside 0.1 R for a main sequence star), otherwise
+!  r_core = m_core = 0. This agrees with the X < 0.1 boundary for
+!  profiles with composition.
+!+
+!-----------------------------------------------------------------------
+subroutine find_dense_core(r,m,den,r_core,m_core)
+ use table_utils, only:yinterp
+ real, intent(in)  :: r(:),m(:),den(:)
+ real, intent(out) :: r_core,m_core
+ integer, parameter :: ngrid = 200
+ real,    parameter :: grad_crit = -5.
+ real, allocatable  :: lnr(:),lnrho(:)
+ real    :: lnr1,dlnr,grad(ngrid-1),lnrho_grid(ngrid)
+ integer :: i,imin,n
+
+ r_core = 0.
+ m_core = 0.
+ n = size(r)
+ lnr   = log(max(r,tiny(0.)))
+ lnrho = log(max(den,tiny(0.)))
+ lnr1  = log(max(r(1),1.e-6*r(n)))
+ dlnr  = (log(0.1*r(n)) - lnr1)/(ngrid - 1)
+ do i=1,ngrid
+    lnrho_grid(i) = yinterp(lnrho,lnr,lnr1 + (i-1)*dlnr)
+ enddo
+ grad = (lnrho_grid(2:ngrid) - lnrho_grid(1:ngrid-1))/dlnr
+ imin = minloc(grad,1)
+ if (grad(imin) >= grad_crit) return
+
+ ! move to the outer edge of the steep region
+ i = imin
+ do while (i < ngrid-1 .and. grad(i) < grad_crit)
+    i = i + 1
+ enddo
+ r_core = exp(lnr1 + (i-1)*dlnr)
+ m_core = yinterp(m,r,r_core)
+
+end subroutine find_dense_core
+
+!-----------------------------------------------------------------------
+!+
+!  Suggest values for the radius and mass of a softened stellar core,
+!  given a stellar profile (any consistent units, ordered centre to
+!  surface) and the number of particles used to resolve the envelope:
+!
+!   r_core,m_core : radius and mass of the dense core (see find_dense_core),
+!                   which should be contained within the sink particle
+!   rcore_min     : smallest rcore for which the sink softening length
+!                   hsoft = rcore/radkern exceeds the gas smoothing length
+!                   at rcore, i.e. rcore > radkern*h(rcore)
+!   rcore_rec     : as above but with hsoft > 2h(rcore)
+!
+!  The smoothing length is estimated from the density of the original
+!  profile, h = hfact*(mpart/rho)^(1/3). The local density is used because
+!  almost all of the mass inside rcore is given to the sink when the core
+!  is softened, so the softened region holds only of order
+!  4/3 pi rcore^3 rho(rcore) of gas. rcore/h first decreases outwards from
+!  the dense core then increases through the envelope, so the radii are
+!  found by moving inwards from where rcore/h peaks.
+!+
+!-----------------------------------------------------------------------
+subroutine get_core_softening_hints(r,m,den,np,hfact,r_core,m_core,rcore_min,rcore_rec)
+ use kernel,  only:radkern
+ real,    intent(in)  :: r(:),m(:),den(:),hfact
+ integer, intent(in)  :: np
+ real,    intent(out) :: r_core,m_core,rcore_min,rcore_rec
+ real, allocatable :: ratio(:)
+ real    :: mpart
+ integer :: i,n,ipeak
+
+ n = size(r)
+ call find_dense_core(r,m,den,r_core,m_core)
+
+ ! particle mass if np particles are used to resolve the gas outside the core
+ mpart = (m(n) - m_core)/max(np,1)
+
+ ! rcore/(radkern*h) at each radius outside the dense core
+ allocate(ratio(n))
+ ratio = 0.
+ where (r > r_core .and. den > 0.) ratio = r/(radkern*hfact*(mpart/den)**(1./3.))
+ ipeak = maxloc(ratio,1)
+
+ rcore_min = r(ipeak)
+ rcore_rec = r(ipeak)
+ do i=ipeak,1,-1
+    if (ratio(i) < 1.) exit
+    rcore_min = r(i)
+ enddo
+ do i=ipeak,1,-1
+    if (ratio(i) < 2.) exit
+    rcore_rec = r(i)
+ enddo
+ rcore_min = max(rcore_min,r_core)
+ rcore_rec = max(rcore_rec,rcore_min)
+
+end subroutine get_core_softening_hints
+
+!-----------------------------------------------------------------------
+!+
+!  print advice on choosing the core softening radius and core mass,
+!  checking the values supplied by the user (input in cgs units)
+!+
+!-----------------------------------------------------------------------
+subroutine print_core_softening_hints(r,m,den,np,hfact,rcore,mcore)
+ use physcon, only:solarr,solarm
+ use io,      only:num
+ real,    intent(in) :: r(:),m(:),den(:),hfact,rcore,mcore
+ integer, intent(in) :: np
+ real    :: r_core,m_core,rcore_min,rcore_rec
+
+ call get_core_softening_hints(r,m,den,np,hfact,r_core,m_core,rcore_min,rcore_rec)
+
+ write(*,"(/,a,i0,a)",advance='no') ' Core softening (np = ',np,'):'
+ if (m_core > 0.) then
+    write(*,"(a)") ' dense core inside r = '//num(r_core/solarr)//' Rsun, try mcore ~ '//num(m_core/solarm)
+    write(*,"(a)") '  need rcore > '//num(rcore_min/solarr)//' Rsun for sink softening > gas smoothing length h'
+ else
+    write(*,"(a)") ' no dense core found'
+ endif
+
+ if (rcore > 0. .and. rcore < r_core) write(*,"(/,a)") &
+    ' WARNING: rcore = '//num(rcore/solarr)//' Rsun is inside dense core (r < '//num(r_core/solarr)//' Rsun)'
+ if (rcore > 0. .and. rcore < rcore_min) write(*,"(/,a,i0,a)") &
+    ' WARNING: rcore = '//num(rcore/solarr)//' Rsun unresolved with np = ',np,' particles, need rcore > '//num(rcore_min/solarr)
+ if (mcore > m(size(m))) write(*,"(/,a)") ' WARNING: mcore > stellar mass'
+
+end subroutine print_core_softening_hints
 
 !-----------------------------------------------------------------------
 !+
