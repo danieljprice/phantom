@@ -816,9 +816,9 @@ end subroutine read_setupfile
 !+
 !  read the orbit(s) of the stars. Binary setup files from before
 !  the generic orbit options give semi_major_axis, eccentricity
-!  and true_anomaly instead: these are used to set the orbit, and
-!  get_options rewrites the .setup file with the generic options
-!  because nstar is missing
+!  and true_anomaly instead: these are used to set the orbit (the
+!  file is rewritten with the generic options if phantomsetup is
+!  run with a command line option, e.g. --nstar=2)
 !+
 !----------------------------------------------------------------
 subroutine read_orbit_options(db,m,nerr)

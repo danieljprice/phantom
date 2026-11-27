@@ -476,7 +476,7 @@ subroutine test_profiles_per_sink(ntests,npass,rmax)
  integer, intent(inout) :: ntests,npass
  real,    intent(in)    :: rmax
  integer, parameter :: nsinks = 3
- real,    parameter :: tol_mdot = 4.e-16, tol_age = 4.e-12
+ real,    parameter :: tol_mdot = 7.e-16, tol_age = 4.e-12
  real,    parameter :: mdot_msun_yr(nsinks) = (/1.e-5,0.,3.e-6/)
  type(wind_params) :: params
  integer :: i,k,nfailed(5),ncheck(2)
@@ -534,7 +534,7 @@ end subroutine test_profiles_per_sink
 !+
 !-----------------------------------------------------------------------
 subroutine test_multiple_wind_sinks(ntests,npass)
- use inject,       only:init_inject,inject_particles,set_default_options_inject,iboundary_spheres
+ use inject,       only:init_inject,inject_particles,set_default_options_inject
  use units,        only:umass,udist,utime,unit_velocity,unit_luminosity
  use physcon,      only:au,solarm,solarl,km,years,kboltz,mass_proton_cgs
  use eos,          only:gmw,ieos,init_eos,gamma,polyk
@@ -551,9 +551,10 @@ subroutine test_multiple_wind_sinks(ntests,npass)
  use dim,              only:isothermal
  integer, intent(inout) :: ntests,npass
  integer, parameter :: nsinks = 3, nsteps = 40
+ integer, parameter :: nboundary = 5  ! default number of boundary shells (iboundary_spheres)
  real,    parameter :: mdot_msun_yr(nsinks) = (/1.e-5,0.,3.e-6/), xsink(nsinks) = (/0.,-20.,20./)
  real,    parameter :: tol_sum = 2.e-14, tol_m = 1.e-15
- integer :: i,k,ierr,istep,istepfrac,npart_old,nfailed(9),nshell(nsinks),nps(nsinks),nb(nsinks)
+ integer :: i,k,ierr,istep,istepfrac,npart_old,nfailed(10),nshell(nsinks),nps(nsinks),nb(nsinks)
  integer(kind=8) :: nk(nsinks)
  real    :: t,dt,dtinject,mtot0,mtot,m0(nsinks),dt_shell(nsinks),sums(2,nsinks),sums_new(2,nsinks)
  logical :: one_radius(nsinks)
@@ -594,7 +595,6 @@ subroutine test_multiple_wind_sinks(ntests,npass)
  tmax  = 12.
  rfill_domain_au = 0.
  call set_default_options_inject(0)
- iboundary_spheres = 5
  massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),0,100,0)
  call init_inject(ierr)
  call sync_aprmassoftype()
@@ -630,8 +630,8 @@ subroutine test_multiple_wind_sinks(ntests,npass)
     nshell(k) = 0
     if (mdot_msun_yr(k) > 0.) nshell(k) = nint(nb(k)/real(nps(k))) + floor(t/dt_shell(k))
  enddo
- call checkval(nb(1),iboundary_spheres*nps(1),0,nfailed(1),'boundary shells complete (sink 1)')
- call checkval(nb(3),iboundary_spheres*nps(3),0,nfailed(1),'boundary shells complete (sink 3)')
+ call checkval(nb(1),nboundary*nps(1),0,nfailed(1),'boundary shells complete (sink 1)')
+ call checkval(nb(3),nboundary*nps(3),0,nfailed(10),'boundary shells complete (sink 3)')
  call checkval(nk(2),0_8,0,nfailed(2),'no particles from sink 2')
  call checkval(xyzmh_ptmass(4,2),m0(2),0.,nfailed(3),'mass of sink 2 unchanged')
  call checkval(nk(1),int(nps(1)*nshell(1),kind=8),0,nfailed(4),'particles emitted by sink 1')

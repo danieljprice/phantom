@@ -143,6 +143,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
        v1(i) = in_code_units(orbit%posvel%v1(i),ierr,unit_type='velocity')
        v2(i) = in_code_units(orbit%posvel%v2(i),ierr,unit_type='velocity')
     enddo
+    if (present(omega_corotate)) call set_corotating_frame(x1,x2,v1,v2,omega_corotate)
     ! body 1
     xyzmh_ptmass(1:3,nptmass+1) = x1
     xyzmh_ptmass(4,nptmass+1)   = m1
@@ -178,6 +179,30 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
  call get_orbital_time(orbit,m1,m2,orbit%period)
 
 end subroutine set_orbit
+
+!----------------------------------------------------------------
+!+
+!  initial angular speed about the z-axis of a binary given by the
+!  positions and velocities of its two bodies, and their velocities
+!  in the frame corotating at that speed (as set_binary does)
+!+
+!----------------------------------------------------------------
+subroutine set_corotating_frame(x1,x2,v1,v2,omega)
+ real, intent(in)    :: x1(3),x2(3)
+ real, intent(inout) :: v1(3),v2(3)
+ real, intent(out)   :: omega
+ real :: dx(3),dv(3)
+
+ dx = x2 - x1
+ dv = v2 - v1
+ omega = (dx(1)*dv(2) - dx(2)*dv(1))/(dx(1)**2 + dx(2)**2)
+ ! subtract omega x r, with omega along the z-axis
+ v1(1) = v1(1) + omega*x1(2)
+ v1(2) = v1(2) - omega*x1(1)
+ v2(1) = v2(1) + omega*x2(2)
+ v2(2) = v2(2) - omega*x2(1)
+
+end subroutine set_corotating_frame
 
 !----------------------------------------------------------------------
 !+

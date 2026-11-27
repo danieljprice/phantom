@@ -671,7 +671,8 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  val_default = ''
  ! necessary in case where output variable used as default= argument
  if (present(default)) val_default = default
- if (.not.match_inopt_in_db(db,tag,valstring)) ierr = -1
+ ! a missing option is only an error if there is no default
+ if (.not.match_inopt_in_db(db,tag,valstring) .and. .not.present(default)) ierr = -1
  if (present(err)) then
     err = ierr
  elseif (ierr /= 0) then

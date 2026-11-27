@@ -43,7 +43,7 @@ module inject
 !
 ! Read from input file
  integer :: wind_type = 0
- integer, public :: iboundary_spheres = 5
+ integer :: iboundary_spheres = 5
  integer :: nfill_domain(maxptmass) = 0  ! number of background shells of each sink
  real :: outer_boundary_au = 30.
  real :: pulsation_period

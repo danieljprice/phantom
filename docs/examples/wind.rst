@@ -27,8 +27,20 @@ For an isothermal wind, use SETUP=isowind
    ./phantomsetup wind
 
 
+The first time it is run, ``phantomsetup`` asks for the number of stars, the type of wind, and then the properties of each star.
+For each star you first choose a type, which sets the defaults for the questions that follow (press return to keep a default):
+
+- an AGB star (1.2 Msun, Teff=3000 K, Reff=1 au, Mdot=1e-7 Msun/yr), the default for the primary star;
+- a hot star with a trans-sonic wind (1.2 Msun, L=2e4 Lsun, Reff=2 au, Mdot=1e-5 Msun/yr, no wind velocity);
+- a main-sequence star without a wind (1 Msun, L=1 Lsun, Reff=1 Rsun), the default for companions.
+
+You are then asked for the mass, accretion radius, which two of L, Teff and Reff to give, and, if the star has a wind,
+the wind velocity, temperature, acceleration parameter alpha and the equatorial velocity of the star.
+For a binary you are asked for the semi-major axis, eccentricity and initial true anomaly (180, i.e. apastron, by default);
+a hierarchical system gets default orbits that you edit in the .setup file. Finally you are asked how to set the resolution (see below).
+
 At the end of these instructions, a wind.setup and wind.in file are created. Each file contains specific options that are described below.
-Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting.
+Edit them and rerun ``./phantomsetup wind`` to get to the final setting.
 
 Content of the .setup file
 --------------------------
@@ -46,7 +58,7 @@ Content of the .setup file
            primary_racc =       2.500    ! primary star accretion radius (au)
             primary_lum =       7250.    ! primary star luminosity (Lsun)
            primary_Reff =       2.517    ! primary star effective radius (au)
-           primary_Rinj =           0    ! wind injection radius (w. units, e.g. 2.5 au, 0=Reff)
+           primary_Rinj =           0    ! wind injection radius (e.g. 2.5 au, 0=Reff)
            primary_mdot =   3.000E-06    ! primary wind mass loss rate (in Msun/yr)
           primary_vwind =        16.5    ! primary wind velocity (in km/s)
       primary_wind_temp =       1500.    ! primary wind temperature (K, 0 = use Teff)
@@ -64,8 +76,10 @@ The .setup file contains the properties of each star and of its wind, the orbit 
 Each star is a sink particle. Its properties, e.g. its luminosity, are used to calculate the radiation pressure.
 Companions are added by increasing ``nstar``. Each extra star gets its own block of options (``secondary_*``, then ``star3_*``, ``star4_*``, ...), and star i is sink particle i.
 For ``nstar = 2`` the orbit is given by the generic orbit options (``itype``, ``a``, ``e``, ``i``, ``O``, ``w``, ``f``), where the semi-major axis can be given with units (e.g. ``a = 143 au``).
-For ``nstar >= 3`` the stars are placed in a hierarchical system set by the ``hierarchy`` string and the orbit of each level (e.g. ``1_a``, ``12_e``); the .setup file lists which star corresponds to which label in the hierarchy string. Star i is the i-th label in the hierarchy string, so the order of the string sets the order of the stars (see :doc:`hierarchicalsystems` for the hierarchical labels).
-Single-star and binary setup files from older versions, with ``icompanion_star = 0`` or ``1``, ``semi_major_axis``, ``eccentricity`` and ``true_anomaly``, are still read and are rewritten with the new options.
+For ``nstar >= 3`` the stars are placed in a hierarchical system set by the ``hierarchy`` string and the orbit of each level (e.g. ``1_a``, ``12_e``); the header of each orbit in the .setup file names its two components (e.g. ``# binary 12: secondary + star3``). Star i is the i-th label in the hierarchy string, so the order of the string sets the order of the stars (see :doc:`hierarchicalsystems` for the hierarchical labels).
+All orbits start at apastron by default (true anomaly ``f = 180``).
+Single-star and binary setup files from older versions, with ``icompanion_star = 0`` or ``1``, ``semi_major_axis``, ``eccentricity`` and ``true_anomaly``, are still read, with a warning.
+To convert such a file to the new options, run ``phantomsetup`` once with the number of stars on the command line, e.g. ``./phantomsetup wind --nstar=2``.
 Triples from older versions (``icompanion_star = 2``) are not converted automatically: keep the original file and convert a copy to ``nstar = 3`` with the hierarchical options.
 Any of the stars can have a wind (set ``*_mdot > 0``), and each wind is computed from the 1D wind profile of its own star.
 
@@ -85,9 +99,8 @@ Note also that
       \textrm{primary_lum} = 4\pi\times\textrm{primary_Reff}^2\times\sigma\times\textrm{primary_Teff}^4
 
 so you provide 2 out of these 3 variables and the third, if omitted or set to zero, is computed from the formula above.
-The default is to give the luminosity and the effective radius, since these set the radiation pressure and
-the stellar radius, and compute the effective temperature. To give the effective temperature instead,
-replace one of the other two with ``primary_Teff``.
+``phantomsetup`` asks which two to give, and writes only those two to the .setup file. To change which two are given,
+replace one of them with the third (e.g. ``primary_lum`` with ``primary_Teff``).
 If you provide all three, the luminosity and effective radius are kept, the effective temperature is recomputed,
 and a warning is given if it differs from the value you provided.
 
