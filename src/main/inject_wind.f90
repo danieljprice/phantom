@@ -567,21 +567,22 @@ subroutine update_boundary_shells(isink,time,dt_shell,xyzmh_ptmass,vxyz_ptmass,n
  integer, intent(inout) :: npart,npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer :: i,ishell
- real    :: dx(3),r,age
+ real    :: dx(3),dir(3),r,age
 
  do i=1,npart
     if (iseed_sink(i) /= isink) cycle
     if (iamtype(iphase(i)) /= iboundary .or. isdead_or_accreted(xyzh(4,i))) cycle
     dx = xyzh(1:3,i) - xyzmh_ptmass(1:3,isink)
     r  = sqrt(dot_product(dx,dx))
+    dir = dx/r
     ishell = nint((time - wind_age_at_r(isink,r))/dt_shell)
     age = time - ishell*dt_shell
     if (age < iboundary_spheres*dt_shell) then
-       call set_wind_particle(i,iboundary,isink,dx/r,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
+       call set_wind_particle(i,iboundary,isink,dir,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
                               npart,npartoftype,xyzh,vxyzu)
     else
        ! release as gas: timestep set in update_injected_particles
-       call set_wind_particle(i,igas,isink,dx/r,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
+       call set_wind_particle(i,igas,isink,dir,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
                               npart,npartoftype,xyzh,vxyzu)
        iphase(i) = int(iunknown,kind=1)
        updated_particle = .true.
