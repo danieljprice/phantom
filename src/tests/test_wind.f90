@@ -15,7 +15,7 @@ module testwind
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary, checksetup, dim, dust_formation,
-!   eos, inject, io, options, part, partinject, physcon, ptmass,
+!   eos, inject, io, mathfunc, options, part, partinject, physcon, ptmass,
 !   ptmass_radiation, readwrite_dumps, step_lf_global, testutils, timestep,
 !   timestep_ind, units, wind
 !
@@ -35,19 +35,20 @@ contains
 subroutine test_wind(ntests,npass)
  use inject,     only:inject_type
  use boundary,   only:set_boundary
- use physcon,    only:au,solarm,solarl
+ use physcon,    only:au,solarm
  use units,      only:set_units,udist
  use part,       only:npart,xyzmh_ptmass,xyzh,vxyzu,dust_temp,iReff
- use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,&
-                      disc_viscosity,nalpha,use_dust,isothermal
+ use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,ind_timesteps,disc_viscosity,&
+                      nalpha,isothermal
  use ptmass,     only:set_integration_precision
  use allocutils, only:allocate_array
  use options,    only:alpha
  use timestep,   only:tmax,tolv
- use readwrite_dumps, only:write_fulldump
  integer, intent(inout) :: ntests,npass
  integer :: npart_old,istepfrac,npart_prefill
  real    :: dtinject,rmax,mstar0
+ integer :: i
+ integer, parameter :: nshell_test(3) = (/12,252,1000/)
  logical :: testcyl,use_shock_switch
 
  if (mpi) then
@@ -74,8 +75,17 @@ subroutine test_wind(ntests,npass)
  tolv = 1.e2
  rmax = 10.*au/udist
 
+ ! test the 1D wind solver against the exact solution for an isothermal wind
+ call test_parker_wind(ntests,npass,rmax)
+
  ! test trans-sonic wind - no radiation, no dust
  if (.not.isothermal) then
+    ! particle mass set from the number of particles per shell must give exactly that number
+    do i=1,size(nshell_test)
+       if (id==master) write(*,"(/,a,i0,a,/)") '--> testing wind with ',nshell_test(i),' particles per shell'
+       call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax,nshell_test(i))
+    enddo
+
     if (id==master) write(*,"(/,a,/)") '--> testing transonic wind'
     call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
 
@@ -129,21 +139,21 @@ end subroutine test_wind
 !  Initialises the wind test, and perform checks on the wind profile
 !+
 !-----------------------------------------------------------------------
-subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax)
+subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_prefill,mstar0,rmax,nshell)
  use inject,     only:init_inject,inject_particles,set_default_options_inject
  use units,      only:umass,udist,unit_mdot,unit_velocity,unit_luminosity,utime
  use physcon,    only:au,solarm,solarl,km,seconds,years,pi,gg
  use eos,        only:gmw,ieos,init_eos,gamma,polyk
  use part,       only:npart,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,xyzh,vxyzu,init_part,&
                       npartoftype,igas,iTeff,iLum,iReff,massoftype,iTwind,ivwind,imloss,iwalpha,rho,&
-                      sync_aprmassoftype
+                      sync_aprmassoftype,ieject
  use timestep,   only:tmax,dt,dtmax,dtrad
  use dim,        only:isothermal
- use wind,       only:trvurho_1D,rfill_domain_au
+ use wind,       only:trvurho_1D,rfill_domain_au,get_wind_particle_mass
  use checksetup, only:check_setup
  use partinject, only:update_injected_particles
  use timestep_ind,     only:nbinmax
- use ptmass_radiation, only:isink_radiation
+ use ptmass_radiation, only:isink_radiation,get_Teff
  use dust_formation,   only:idust_opacity
 
  integer, intent(in)    :: icase
@@ -151,11 +161,12 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  integer, intent(out)   :: npart_old,istepfrac,npart_prefill
  real,    intent(out)   :: dtinject,mstar0
  real,    intent(in)    :: rmax
+ integer, intent(in), optional :: nshell
 
- integer :: i,ierr,nerror,nwarn,ngrid
+ integer :: i,ierr,nerror,nwarn,ngrid,wind_type
  integer :: nfailed(2),ncheck(2)
  real :: errmax(2)
- real :: t,default_particle_mass,dtnew
+ real :: t,default_particle_mass,dtnew,mdot_in,pmass_in
  real :: mdot0,mdot,mstar,r,v,rho1d,u,e,e0
  real, parameter :: tol_e = 2.e-4, tol_mdot = 5.e-16
 
@@ -173,7 +184,8 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
     !xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot
     xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/umass)/(years/utime)
  elseif (icase == 2) then      !super sonic-wind
-    xyzmh_ptmass(iTeff,1) = 3000.
+    ! stellar radius of 1 au as in Siess et al. (2022), inside the injection radius
+    xyzmh_ptmass(iTeff,1) = get_Teff(2.e4,1.)
     xyzmh_ptmass(ivwind,1) = 20.*km/seconds/unit_velocity
     xyzmh_ptmass(iTwind,1) = 2500.
     xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/years)/unit_mdot
@@ -182,12 +194,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
  xyzmh_ptmass(iLum,1)  = 2e4 *solarl / unit_luminosity
  vxyz_ptmass = 0.
  fxyz_ptmass = 0.
- !
- ! for binary wind simulations the particle mass is IRRELEVANT
- ! since it will be over-written on the first call to init_inject
- !
  default_particle_mass = 1.e-9
- massoftype(igas) = default_particle_mass * (solarm / umass)
 
  gmw = 2.381
  if (isothermal) then
@@ -226,18 +233,47 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject,npart_p
 
  ! trans-sonic wind
  call set_default_options_inject(icase)
+ ! wind type set by set_default_options_inject: trans-sonic for icase 1
+ wind_type = 0
+ if (icase == 1 .and. .not.isothermal) wind_type = 1
  call check_setup(nerror,nwarn)
 
- ! set how much of the domain to pre-fill
+ ! set how much of the domain to pre-fill (not needed to check particles per shell)
  rfill_domain_au = rmax*udist/au  ! pre-fill out to rmax
+ if (present(nshell)) rfill_domain_au = 0.
+
+ ! set the particle mass as phantomsetup does: from the number of particles per shell,
+ ! by resolving the sonic point (trans-sonic wind) or directly
+ if (present(nshell)) then
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,nshell,0)
+ elseif (icase == 1) then
+    massoftype(igas) = get_wind_particle_mass(xyzmh_ptmass(:,1),wind_type,0,8)
+ else
+    massoftype(igas) = default_particle_mass * (solarm / umass)
+ endif
 
  ! check
  nfailed = 0; ncheck = 0; errmax = 0.
  istepfrac  = 0
+ mdot_in  = xyzmh_ptmass(imloss,1)
+ pmass_in = massoftype(igas)
  call init_inject(nerror)
- call sync_aprmassoftype() ! init_inject sets the particle mass
+ call sync_aprmassoftype()
+
+ ! the mass loss rate and particle mass are inputs: init_inject must not change them
+ call checkval(xyzmh_ptmass(imloss,1),mdot_in,epsilon(0.),nfailed(1),'Mdot unchanged by init_inject')
+ call checkval(massoftype(igas),pmass_in,epsilon(0.),nfailed(2),'particle mass unchanged by init_inject')
+ call update_test_scores(ntests,nfailed,npass)
+ nfailed = 0
 
  npart_old = npart
+ npart_prefill = npart
+ if (present(nshell)) then
+    call checkval(nint(xyzmh_ptmass(ieject,1)),nshell,0,nfailed(1),'particles per shell')
+    call update_test_scores(ntests,nfailed(1:1),npass)
+    return
+ endif
+
  ! the tests below work for both trans-sonic wind and radiation-driven wind
  if (icase == 1 .or. icase == 2) then
     ! pre-fill domain with boundary + fill shells (like setup_bondiinject): dtlast=0 triggers init path
@@ -332,6 +368,114 @@ end subroutine test_against_1D_profile
 
 !-----------------------------------------------------------------------
 !+
+!  checks the 1D wind solver against the exact solution for an
+!  isothermal (Parker) wind with constant Eddington factor alpha,
+!  written in terms of the Lambert W function (Cranmer 2004)
+!+
+!-----------------------------------------------------------------------
+subroutine test_parker_wind(ntests,npass,rmax)
+ use physcon, only:au,solarm,years,gg,Rg
+ use units,   only:umass,udist,utime
+ use part,    only:nptmass,xyzmh_ptmass,nsinkproperties,iTeff,iTwind,ivwind,imloss,iReff,iwalpha
+ use eos,     only:gmw,gamma,ieos,init_eos,polyk
+ use options, only:icooling,write_files
+ use wind,    only:wind_params,get_wind_solution,save_windprofile,trvurho_1D
+ use ptmass_radiation, only:isink_radiation
+ use dust_formation,   only:idust_opacity
+ integer, intent(inout) :: ntests,npass
+ real,    intent(in)    :: rmax
+ integer, parameter :: nalpha = 2
+ real,    parameter :: alpha_test(nalpha) = (/0.,0.2/)
+ real,    parameter :: tol_rs = 1.1e-2, tol_v0 = 3.5e-4, tol_v = 5.e-3
+ type(wind_params) :: params
+ integer :: i,j,ierr,nfailed(3),ncheck,icooling_prev,isink_radiation_prev
+ real    :: xyzmh(nsinkproperties),rsonic,cs,rc,r,v,vexact,errmax,tcross,tfill
+ logical :: write_files_prev
+
+ if (id==master) write(*,"(/,a)") '--> testing 1D wind solver against exact isothermal (Parker) wind'
+
+ ! mass-losing sink particle with unknown wind velocity, to be found by the 1D solver
+ nptmass = 1
+ xyzmh_ptmass = 0.
+ xyzmh_ptmass(4,1)      = 1.2*solarm/umass
+ xyzmh_ptmass(5,1)      = au/udist
+ xyzmh_ptmass(iTeff,1)  = 50000.
+ xyzmh_ptmass(iTwind,1) = 50000.
+ xyzmh_ptmass(ivwind,1) = 0.
+ xyzmh_ptmass(imloss,1) = 1.d-5*(solarm/umass)/(years/utime)
+ xyzmh_ptmass(iReff,1)  = 2.*au/udist
+
+ ! isothermal gas, no cooling and no dust
+ gmw   = 2.381
+ gamma = 1.
+ ieos  = 1
+ polyk = 0.
+ call init_eos(ieos,ierr)
+ icooling_prev        = icooling
+ isink_radiation_prev = isink_radiation
+ write_files_prev     = write_files
+ icooling        = 0
+ idust_opacity   = 0
+ isink_radiation = 1   ! constant Eddington factor, alpha_rad
+ write_files     = .false.
+
+ cs = sqrt(Rg*xyzmh_ptmass(iTwind,1)/gmw)
+ do j=1,nalpha
+    if (id==master) write(*,"(/,a,f4.2)") '--> Parker wind with alpha = ',alpha_test(j)
+    xyzmh_ptmass(iwalpha,1) = alpha_test(j)
+    nfailed = 0; ncheck = 0; errmax = 0.
+
+    ! trans-sonic solution: sonic radius and velocity at the injection radius
+    call get_wind_solution(xyzmh_ptmass(:,1),1,xyzmh,params,rsonic)
+    rc = gg*params%Mstar*(1.-alpha_test(j))/(2.*cs**2)
+    call checkval(rsonic,rc,tol_rs,nfailed(1),'sonic radius')
+    vexact = parker_wind_velocity(params%Rinject,rc,cs)
+    call checkval(params%vwind,vexact,tol_v0,nfailed(2),'injection velocity')
+
+    ! velocity profile through and beyond the sonic point
+    call save_windprofile(params,real(rmax*udist),real(rmax*udist),0.,tcross,tfill,'parker_profile.dat',1)
+    do i=1,size(trvurho_1D,dim=2)
+       r = trvurho_1D(2,i)
+       v = trvurho_1D(3,i)
+       call checkvalbuf(v,parker_wind_velocity(r,rc,cs),tol_v,'v(r)',nfailed(3),ncheck,errmax)
+    enddo
+    call checkvalbuf_end('v(r) against Lambert W solution',ncheck,nfailed(3),errmax,tol_v)
+    call update_test_scores(ntests,nfailed,npass)
+ enddo
+
+ icooling        = icooling_prev
+ isink_radiation = isink_radiation_prev
+ write_files     = write_files_prev
+
+end subroutine test_parker_wind
+
+!-----------------------------------------------------------------------
+!+
+!  exact velocity of an isothermal trans-sonic wind with sound speed cs
+!  and sonic radius rc = GM(1-alpha)/(2 cs^2) (Cranmer 2004):
+!
+!    v^2/cs^2 = -W[-D(r)],  D(r) = (rc/r)^4 exp(3 - 4 rc/r)
+!
+!  where W is the Lambert W function, using the principal branch for
+!  the subsonic flow (r < rc) and the -1 branch for supersonic flow
+!+
+!-----------------------------------------------------------------------
+real function parker_wind_velocity(r,rc,cs) result(v)
+ use mathfunc, only:lambertw
+ real, intent(in) :: r,rc,cs
+ real :: d
+
+ d = (rc/r)**4*exp(3. - 4.*rc/r)
+ if (r < rc) then
+    v = cs*sqrt(-lambertw(-d,0))
+ else
+    v = cs*sqrt(-lambertw(-d,-1))
+ endif
+
+end function parker_wind_velocity
+
+!-----------------------------------------------------------------------
+!+
 !  checks the injected mass
 !+
 !-----------------------------------------------------------------------
@@ -368,7 +512,7 @@ end subroutine test_injected_mass
 subroutine integrate_wind(npart_old,istepfrac,dtinject)
  use io,             only:iprint
  use timestep,       only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
- use part,           only:npart,init_part,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot,rho
+ use part,           only:npart,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,npartoftype,ntot,rho
  use timestep_ind,   only:nbinmax
  use step_lf_global, only:step,init_step
  use partinject,     only:update_injected_particles

@@ -51,6 +51,10 @@ module divb_projection
  real,    allocatable :: pimult(:),svec(:),zvec(:),pvec(:),wvec(:),gvec(:,:)
  real,    allocatable :: chi(:),dchi(:)
 
+ ! densities during the solve, read by the operator and stopping test
+ ! passed to pcg_solve (module-level procedures need no trampolines)
+ real,    allocatable :: rho_solve(:)
+
  ! chi just after the previous projection, and the step it was taken
  real,    allocatable :: chi_prev(:)
  integer              :: nsteps_prev = -1
@@ -127,6 +131,7 @@ subroutine project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,tol,maxi
  tol_rel = tol
  rnorm0  = norm_v(npart,svec,rho)
  rnorm   = rnorm0
+ rho_solve = rho(1:npart)
  if (rnorm0 > tiny(rnorm0)) then
     call pcg_solve(npart,apply_laplacian,apply_jacobi,projection_converged,maxit, &
                    pimult,svec,zvec,pvec,wvec,niter,ierr_pcg)
@@ -175,19 +180,20 @@ subroutine project_divb(npart,xyzh,rho,gradh,Bevol,Bxyz,dBevol,divcurlB,tol,maxi
  if (present(nits)) nits = niter
  call release_storage
 
-contains
+end subroutine project_divb
 
 !-----------------------------------------------------------------------
 !+
 !  w = L p = D G p
 !+
 !-----------------------------------------------------------------------
-subroutine apply_laplacian(p,w)
- real, intent(in)  :: p(:)
- real, intent(out) :: w(:)
+subroutine apply_laplacian(n,p,w)
+ integer, intent(in)  :: n
+ real,    intent(in)  :: p(n)
+ real,    intent(out) :: w(n)
 
- call apply_grad(npart,p,gvec,rho)
- call apply_div(npart,gvec,w)
+ call apply_grad(n,p,gvec,rho_solve)
+ call apply_div(n,gvec,w)
 
 end subroutine apply_laplacian
 
@@ -199,22 +205,21 @@ end subroutine apply_laplacian
 !  chi_fred or that top tail is itself below the floor.
 !+
 !-----------------------------------------------------------------------
-logical function projection_converged(r)
- real, intent(in) :: r(:)
+logical function projection_converged(n,r)
+ integer, intent(in) :: n
+ real,    intent(in) :: r(n)
  real    :: rms_all,rms_top,rms_dtop
  logical :: top_ok
 
- rnorm = norm_v(npart,r,rho)
+ rnorm = norm_v(n,r,rho_solve)
  projection_converged = (rnorm <= tol_rel*(rnorm0 + tiny(rnorm0)))
  if (projection_converged) return
 
- call measure_chi(r,rms_all,rms_top,rms_dtop)
+ call measure_chi(n,r,rms_all,rms_top,rms_dtop)
  top_ok = (rms_dtop <= chi_fred*chi_top_ref) .or. (rms_top < chi_abs)
  projection_converged = top_ok .and. (rms_all < chi_abs)
 
 end function projection_converged
-
-end subroutine project_divb
 
 !-----------------------------------------------------------------------
 !+
@@ -521,13 +526,14 @@ end subroutine apply_grad
 !  diagonal (no neighbours) are left out of the solve.
 !+
 !-----------------------------------------------------------------------
-subroutine apply_jacobi(r,z)
- real, intent(in)  :: r(:)
- real, intent(out) :: z(:)
+subroutine apply_jacobi(n,r,z)
+ integer, intent(in)  :: n
+ real,    intent(in)  :: r(n)
+ real,    intent(out) :: z(n)
  integer :: i
 
- !$omp parallel do default(none) private(i) shared(active,aval,r,z)
- do i=1,size(r)
+ !$omp parallel do default(none) private(i) shared(n,active,aval,r,z)
+ do i=1,n
     if (active(i) .and. aval(i) > 0.) then
        z(i) = r(i)/aval(i)
     else
@@ -642,7 +648,7 @@ subroutine set_chi_reference(npart,ninterval)
  integer, intent(in) :: npart,ninterval
  real :: rms_all,rms_top
 
- call measure_chi(svec(1:npart),rms_all,rms_top,chi_top_ref)
+ call measure_chi(npart,svec,rms_all,rms_top,chi_top_ref)
  chi_fred = chi_fred0/real(ninterval)
 
 end subroutine set_chi_reference
@@ -654,15 +660,16 @@ end subroutine set_chi_reference
 !  field for |B|
 !+
 !-----------------------------------------------------------------------
-subroutine measure_chi(r,rms_all,rms_top,rms_dtop)
- real,    intent(in)  :: r(:)
+subroutine measure_chi(n,r,rms_all,rms_top,rms_dtop)
+ integer, intent(in)  :: n
+ real,    intent(in)  :: r(n)
  real,    intent(out) :: rms_all,rms_top,rms_dtop
  integer :: i,nact,ntop
  real    :: chii,acc
 
  nact = 0
  acc  = 0.
- do i=1,size(r)
+ do i=1,n
     if (.not. active(i)) cycle
     chii = abs(r(i))*honb(i)
     nact = nact + 1
@@ -733,6 +740,7 @@ subroutine release_storage()
  if (allocated(gvec))   deallocate(gvec)
  if (allocated(chi))    deallocate(chi)
  if (allocated(dchi))   deallocate(dchi)
+ if (allocated(rho_solve)) deallocate(rho_solve)
  ncompact = 0
 
 end subroutine release_storage
