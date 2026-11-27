@@ -58,8 +58,8 @@ Content of the .setup file
            primary_racc =       2.500    ! primary star accretion radius (au)
             primary_lum =       7250.    ! primary star luminosity (Lsun)
            primary_Reff =       2.517    ! primary star effective radius (au)
+           primary_mdot =   3.000E-06    ! primary wind mass loss rate (in Msun/yr, 0=no wind)
            primary_Rinj =           0    ! wind injection radius (e.g. 2.5 au, 0=Reff)
-           primary_mdot =   3.000E-06    ! primary wind mass loss rate (in Msun/yr)
           primary_vwind =        16.5    ! primary wind velocity (in km/s)
       primary_wind_temp =       1500.    ! primary wind temperature (K, 0 = use Teff)
           primary_alpha =       0.000    ! primary alpha parameter
@@ -82,6 +82,7 @@ Single-star and binary setup files from older versions, with ``icompanion_star =
 To convert such a file to the new options, run ``phantomsetup`` once with the number of stars on the command line, e.g. ``./phantomsetup wind --nstar=2``.
 Triples from older versions (``icompanion_star = 2``) are not converted automatically: keep the original file and convert a copy to ``nstar = 3`` with the hierarchical options.
 Any of the stars can have a wind (set ``*_mdot > 0``), and each wind is computed from the 1D wind profile of its own star.
+The other wind options of a star are only written to the .setup file when it has a wind.
 
 The wind of each star is set by:
 

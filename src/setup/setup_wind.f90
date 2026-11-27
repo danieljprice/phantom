@@ -249,7 +249,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i=nstar,1,-1
     if (xyzmh_ptmass(imloss,i) > 0.) iref = i
  enddo
- if (iresolution > 0 .and. iref == 0) call fatal('setup','no star has a wind')
+ if (iref == 0) call fatal('setup','no winds in the simulation: set mdot > 0 for at least one star')
  ! trans-sonic wind (wind_type = 1) if resolving the sonic point, or if no wind
  ! velocity is given so that it comes from the 1D wind solution
  wind_type = 0
@@ -632,17 +632,18 @@ subroutine write_star(s,label,iunit)
  call write_inopt(s%racc_au,label//'_racc',label//' star accretion radius (au)',iunit)
  call write_lum_Teff_Reff(label,s%lum_lsun,s%Teff,s%Reff_au,s%iderived,iunit)
 
- call write_inopt(s%rinject,label//'_Rinj','wind injection radius (e.g. 2.5 au, 0=Reff)',iunit)
- call write_inopt(s%mdot_msun_yr,label//'_mdot',label//' wind mass loss rate (in Msun/yr)',iunit)
- call write_inopt(s%vwind_km_s,label//'_vwind',label//' wind velocity (in km/s)',iunit)
- call write_inopt(s%wind_temp,label//'_wind_temp',label//' wind temperature (K, 0 = use Teff)',iunit)
- call write_inopt(s%alpha,label//'_alpha',label//' alpha parameter',iunit)
-
- call write_inopt(s%veq_km_s,label//'_veq',label//' equatorial velocity (in km/s)',iunit)
- if (s%veq_km_s /= 0) then
-    call write_inopt(s%spin(1),label//'_spinx','x-component of spin direction',iunit)
-    call write_inopt(s%spin(2),label//'_spiny','y-component of spin direction',iunit)
-    call write_inopt(s%spin(3),label//'_spinz','z-component of spin direction',iunit)
+ call write_inopt(s%mdot_msun_yr,label//'_mdot',label//' wind mass loss rate (in Msun/yr, 0=no wind)',iunit)
+ if (s%mdot_msun_yr > 0.) then
+    call write_inopt(s%rinject,label//'_Rinj','wind injection radius (e.g. 2.5 au, 0=Reff)',iunit)
+    call write_inopt(s%vwind_km_s,label//'_vwind',label//' wind velocity (in km/s)',iunit)
+    call write_inopt(s%wind_temp,label//'_wind_temp',label//' wind temperature (K, 0 = use Teff)',iunit)
+    call write_inopt(s%alpha,label//'_alpha',label//' alpha parameter',iunit)
+    call write_inopt(s%veq_km_s,label//'_veq',label//' equatorial velocity (in km/s)',iunit)
+    if (s%veq_km_s /= 0) then
+       call write_inopt(s%spin(1),label//'_spinx','x-component of spin direction',iunit)
+       call write_inopt(s%spin(2),label//'_spiny','y-component of spin direction',iunit)
+       call write_inopt(s%spin(3),label//'_spinz','z-component of spin direction',iunit)
+    endif
  endif
 
 end subroutine write_star
@@ -712,7 +713,7 @@ subroutine read_star(s,label,db,nerr)
  character(len=*),          intent(in)    :: label
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(inout) :: nerr
- real :: rinject
+ real    :: rinject
 
  s%iderived = iderived_none
  call read_inopt(s%mass_msun,label//'_mass',db,min=0.,max=1000.,errcount=nerr)
@@ -724,17 +725,19 @@ subroutine read_star(s,label,db,nerr)
     print "(a)",' ERROR: '//label//' accretion radius not defined'
     nerr = nerr+1
  endif
- call read_inopt(s%rinject,label//'_Rinj',db,default='0',errcount=nerr)
- call check_and_convert(s%rinject,label//'_Rinj','length',rinject,nerr)
  call read_inopt(s%mdot_msun_yr,label//'_mdot',db,min=0.,max=1.,errcount=nerr)
- call read_inopt(s%vwind_km_s,label//'_vwind',db,min=0.,max=1.e4,errcount=nerr)
- call read_inopt(s%wind_temp,label//'_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
- call read_inopt(s%alpha,label//'_alpha',db,min=0.,max=10.,errcount=nerr)
- call read_inopt(s%veq_km_s,label//'_veq',db,min=0.,max=1000.,errcount=nerr)
- if (s%veq_km_s /= 0) then
-    call read_inopt(s%spin(1),label//'_spinx',db,min=-1.,max=1.,errcount=nerr)
-    call read_inopt(s%spin(2),label//'_spiny',db,min=-1.,max=1.,errcount=nerr)
-    call read_inopt(s%spin(3),label//'_spinz',db,min=-1.,max=1.,errcount=nerr)
+ if (s%mdot_msun_yr > 0.) then
+    call read_inopt(s%rinject,label//'_Rinj',db,default='0',errcount=nerr)
+    call check_and_convert(s%rinject,label//'_Rinj','length',rinject,nerr)
+    call read_inopt(s%vwind_km_s,label//'_vwind',db,min=0.,max=1.e4,errcount=nerr)
+    call read_inopt(s%wind_temp,label//'_wind_temp',db,min=0.,max=1.e8,errcount=nerr)
+    call read_inopt(s%alpha,label//'_alpha',db,min=0.,max=10.,errcount=nerr)
+    call read_inopt(s%veq_km_s,label//'_veq',db,default=0.,min=0.,max=1000.,errcount=nerr)
+    if (s%veq_km_s /= 0) then
+       call read_inopt(s%spin(1),label//'_spinx',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(s%spin(2),label//'_spiny',db,min=-1.,max=1.,errcount=nerr)
+       call read_inopt(s%spin(3),label//'_spinz',db,min=-1.,max=1.,errcount=nerr)
+    endif
  endif
 
 end subroutine read_star
@@ -755,13 +758,15 @@ subroutine read_setupfile(filename,ierr)
  type(inopts), allocatable     :: db(:)
  integer :: nerr,i,icompanion_star
  real :: m(maxstars)
+ logical :: old_format
 
  nerr = 0
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
 
  call read_inopt(nstar,'nstar',db,default=0,min=0,max=maxstars,errcount=nerr)
- if (nstar == 0) then
+ old_format = (nstar == 0)
+ if (old_format) then
     ! setup files from before nstar was introduced give icompanion_star
     ! (hierarchical triples set up with icompanion_star = 2 are no longer supported:
     ! stop here so that the file is not overwritten with a binary setup)
@@ -803,6 +808,8 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
  endif
  call close_db(db)
+ ! older still: the wind of the primary star and the resolution were set in the .in file
+ if (old_format) call get_old_wind_options(filename)
  do i=1,nstar
     call check_stellar_props(trim(star_label(i)),star(i)%lum_lsun,star(i)%Teff,star(i)%Reff_au,&
                              i==1 .or. star(i)%mdot_msun_yr > 0.,nerr)
@@ -811,6 +818,46 @@ subroutine read_setupfile(filename,ierr)
  ierr = nerr
 
 end subroutine read_setupfile
+
+!----------------------------------------------------------------
+!+
+!  use the wind of the primary star and the particle mass from the
+!  old options in the .in file, if any, so that they are written to
+!  the .setup file
+!+
+!----------------------------------------------------------------
+subroutine get_old_wind_options(setupfile)
+ use infile_utils, only:open_db_from_file,inopts,close_db,infile_exists
+ use inject,       only:print_old_wind_options
+ character(len=*), intent(in) :: setupfile
+ integer, parameter :: iunit = 22
+ type(inopts), allocatable :: db(:)
+ character(len=len(setupfile)) :: prefix
+ real    :: mdot,vwind,wind_temp,rinj_au,alpha,pmass
+ integer :: ierr
+
+ prefix = setupfile(1:index(setupfile,'.setup',back=.true.)-1)
+ if (.not.infile_exists(prefix)) return
+ call open_db_from_file(db,trim(prefix)//'.in',iunit,ierr)
+ if (ierr /= 0) return
+ call print_old_wind_options(db,mdot,vwind,wind_temp,rinj_au,alpha,pmass)
+ call close_db(db)
+ if (mdot <= 0.) return
+
+ print "(/,a,/)",' WARNING: using the wind of the primary star and the particle mass from the old options in '//&
+                 trim(prefix)//'.in'
+ star(1)%mdot_msun_yr = mdot
+ star(1)%vwind_km_s   = vwind
+ star(1)%wind_temp    = wind_temp
+ star(1)%alpha        = alpha
+ star(1)%rinject      = '0'
+ if (rinj_au > 0.) write(star(1)%rinject,"(f0.4,a)") rinj_au,' au'
+ if (pmass > 0.) then
+    iresolution = 0
+    default_particle_mass = pmass
+ endif
+
+end subroutine get_old_wind_options
 
 !----------------------------------------------------------------
 !+

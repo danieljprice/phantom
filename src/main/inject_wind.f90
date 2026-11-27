@@ -34,7 +34,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,print_old_wind_options,&
       set_default_options_inject,update_injected_par,print_wind_resolution
 
  private
@@ -188,7 +188,7 @@ subroutine print_wind_resolution(xyzmh_ptmass,nptmass,pmass,gamma)
  real :: xyzmh(size(xyzmh_ptmass,1)),rsonic,res,dshell
  integer :: isink,nshell
 
- print "(a,es10.3,a)",' particle mass = ',pmass*umass/solarm,' Msun'
+ print "(/,a,es10.3,a)",' particle mass = ',pmass*umass/solarm,' Msun'
  do isink=1,nptmass
     if (xyzmh_ptmass(imloss,isink) <= 0.) cycle
     call get_wind_solution(xyzmh_ptmass(:,isink),wind_type,xyzmh,params,rsonic)
@@ -837,18 +837,15 @@ end subroutine write_options_inject
 subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
  use physcon,      only:deg_to_rad
- use io,           only:warning
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  logical, save :: init_opt = .false.
- integer :: iwind_resolution_old
- character(len=*), parameter :: label='read_options'
 
  if (.not.init_opt) then
     init_opt = .true.
     call set_default_options_inject()
  endif
- call read_inopt(wind_type,'wind_type',db,errcount=nerr,min=0,max=3)
+ call read_inopt(wind_type,'wind_type',db,default=0,errcount=nerr,min=0,max=3)
  if (wind_type == 2) then
     call read_inopt(pulsation_period_days,'pulsation_period',db,errcount=nerr,min=0.)
     call read_inopt(piston_velocity_km_s,'piston_velocity',db,errcount=nerr,min=0.)
@@ -858,17 +855,84 @@ subroutine read_options_inject(db,nerr)
     call read_inopt(jet_opening_angle_degree,'jet_opening_angle',db,errcount=nerr,min=0.,max=90.)
     jet_opening_angle = jet_opening_angle_degree*deg_to_rad
  endif
- ! obsolete option: the particle mass is now set in the .setup file (or read from the dump)
- iwind_resolution_old = 0
- call read_inopt(iwind_resolution_old,'iwind_resolution',db,default=0)
- if (iwind_resolution_old > 0) call warning(label,'iwind_resolution is obsolete and ignored: the particle mass '//&
-    'is set by phantomsetup; see docs/examples/wind.rst to migrate old input files')
- call read_inopt(rfill_domain_au,'rfill_domain',db,errcount=nerr,min=0.)
+ ! obsolete options: the wind and the particle mass are now set in the .setup file (or read from the dump)
+ call print_old_wind_options(db)
+ call read_inopt(rfill_domain_au,'rfill_domain',db,default=0.,errcount=nerr,min=0.)
  call read_inopt(wind_shell_spacing,'wind_shell_spacing',db,errcount=nerr,min=epsilon(0.))
  call read_inopt(iboundary_spheres,'iboundary_spheres',db,errcount=nerr,min=0)
  call read_inopt(outer_boundary_au,'outer_boundary',db,errcount=nerr,min=0.)
  if (mhd) call read_inopt(B_r,'B_r',db,errcount=nerr)
 
 end subroutine read_options_inject
+
+!-----------------------------------------------------------------------
+!+
+!  .in files from before the wind became a property of each sink give
+!  the wind of the primary star and the resolution: these are ignored,
+!  so print the options to set in the .setup file instead, or return
+!  them if the optional arguments are given (as phantomsetup does).
+!  iwind_resolution was the icosahedron resolution q before January
+!  2025 (40q(q-1)+12 particles per shell), then the number of particles
+!+
+!-----------------------------------------------------------------------
+subroutine print_old_wind_options(db,mdot_msun_yr,vwind_km_s,wind_temp,rinj_au,alpha,pmass)
+ use infile_utils, only:inopts,read_inopt
+ use physcon,      only:au,km,years
+ type(inopts), intent(inout) :: db(:)
+ real, intent(out), optional :: mdot_msun_yr,vwind_km_s,wind_temp,rinj_au,alpha,pmass
+ integer :: ierr,isonic,isink_rad,iwindres,nshell
+ real    :: mdot,v,temp,r,a,spacing,m
+ logical :: old_wind
+
+ mdot = 0.; v = 0.; temp = 0.; r = 0.; a = 0.; spacing = 1.; m = 0.
+ isonic = 0; isink_rad = 0; iwindres = 0; nshell = 0
+ call read_inopt(iwindres,'iwind_resolution',db,err=ierr)
+ call read_inopt(mdot,'wind_mass_rate',db,err=ierr)
+ old_wind = (ierr == 0)
+ call read_inopt(isonic,'sonic_type',db,err=ierr)
+ if (isonic /= 1) call read_inopt(v,'wind_velocity',db,err=ierr)
+ call read_inopt(temp,'wind_temperature',db,err=ierr)
+ call read_inopt(r,'wind_inject_radius',db,err=ierr)
+ call read_inopt(isink_rad,'isink_radiation',db,err=ierr)
+ if (isink_rad == 1 .or. isink_rad == 3) call read_inopt(a,'alpha_rad',db,err=ierr)
+ call read_inopt(spacing,'wind_shell_spacing',db,err=ierr)
+ if (iwindres > 0) then
+    nshell = iwindres
+    if (iwindres < 12) nshell = 40*iwindres*(iwindres-1) + 12
+    ! particle mass of the icosahedral shells: spacing*d*Rinject*Mdot/(N*v), with neighbour
+    ! distance d = 2/((2q-1)*sqrt(sqrt(5)*phi)) on a sphere of unit radius
+    if (iwindres < 12 .and. mdot*v*r > 0.) &
+       m = spacing*2./((2.*iwindres-1.)*sqrt(sqrt(5.)*0.5*(1.+sqrt(5.))))*r*au/(v*km)/years*mdot/nshell
+ endif
+
+ if (present(mdot_msun_yr)) then
+    mdot_msun_yr = mdot
+    if (present(vwind_km_s)) vwind_km_s = v
+    if (present(wind_temp))  wind_temp  = temp
+    if (present(rinj_au))    rinj_au    = r
+    if (present(alpha))      alpha      = a
+    if (present(pmass))      pmass      = m
+    return
+ endif
+ if (.not.old_wind .and. iwindres <= 0) return
+
+ print "(/,a)",' WARNING! old wind options in the .in file are ignored: set instead in the .setup file'
+ if (old_wind) then
+    print "(4x,a,es10.3)",'primary_mdot = ',mdot
+    print "(4x,a,f0.2)",'primary_vwind = ',v
+    print "(4x,a,f0.1)",'primary_wind_temp = ',temp
+    print "(4x,a,f0.3,a)",'primary_Rinj = ',r,' au'
+    print "(4x,a,f0.3)",'primary_alpha = ',a
+ endif
+ if (m > 0.) then
+    print "(4x,a,es10.4,a,i0,a)",'iresolution = 0 and mass_of_particles = ',m,&
+          ' (the particle mass given by iwind_resolution = ',iwindres,')'
+    print "(4x,a,i0,a)",'or iresolution = 1 and particles_per_shell = ',nshell,' (the same number of particles per shell)'
+ elseif (nshell > 0) then
+    print "(4x,a,i0,a)",'iresolution = 1 and particles_per_shell = ',nshell,' (from iwind_resolution)'
+ endif
+ print "(a)",''
+
+end subroutine print_old_wind_options
 
 end module inject
