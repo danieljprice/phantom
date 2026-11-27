@@ -8,7 +8,7 @@ module mathfunc
 !
 ! Contains utility routines for mathematical functions
 !
-! :References: None
+! :References: Barry, Parlange & Li (2000), Math. Comput. Simul. 53, 95
 !
 ! :Owner: Daniel Price
 !
@@ -20,6 +20,7 @@ module mathfunc
 
  public :: bessi0_s, bessi1_s, bessk0_s, bessk1_s,IK01A
  public :: poly,gegenbauer_poly,legendre_associated
+ public :: lambertw
 
  private
 
@@ -541,6 +542,48 @@ real(kind=8) function poly(x,coeffs)
  endif
 
 end function poly
+
 !--------------------------------------------------------------------
+! Lambert W function, the solution of w exp(w) = x for -1/e <= x < 0,
+! on either the principal branch (branch=0, giving -1 <= w < 0)
+! or the lower branch (branch=-1, giving w <= -1)
+!
+! Uses the analytic approximations of Barry, Parlange & Li (2000)
+! as a first guess, refined to machine precision by Halley iteration
+!--------------------------------------------------------------------
+real function lambertw(x,branch) result(w)
+ real,    intent(in) :: x
+ integer, intent(in) :: branch
+ real,    parameter  :: exp1 = exp(1.), sqrt2 = sqrt(2.)
+ real,    parameter  :: M1 = 0.3361, M2 = -0.0042, M3 = -0.0201
+ integer, parameter  :: itsmax = 20
+ integer :: i
+ real :: eta,N1,N2,sigma,f,dw,L1
+
+ if (branch == 0) then
+    eta = sqrt(max(2. + 2.*exp1*x,0.))
+    N2  = 6. + 3.*sqrt2 - ((-5764. - 4108.*sqrt2 + (2237. + 1457.*sqrt2)*exp1)*eta**2)/&
+          (-796. - 430.*sqrt2 + (215. + 199.*sqrt2)*exp1)
+    N1  = (1. - 1./sqrt2)*(sqrt2 + N2)
+    w   = -1. + eta/(1. + eta*N1/(eta + N2))
+ else
+    sigma = sqrt(max(-1. - log(-x),0.))
+    w = -1. - sigma**2 - (2.*(1. - 1./(1. + (M1*sigma*(1. + exp(M3*sigma)*M2*sigma**2))/sqrt2)))/M1
+    ! the approximation fails for x -> 0-: use the asymptotic expansion there
+    if (w > -1.) then
+       L1 = log(-x)
+       w  = L1 - log(-L1)
+    endif
+ endif
+
+ do i=1,itsmax
+    if (abs(w + 1.) < epsilon(w)) exit ! at the branch point, w = -1
+    f  = w*exp(w) - x
+    dw = f/(exp(w)*(w + 1.) - (w + 2.)*f/(2.*w + 2.))
+    w  = w - dw
+    if (abs(dw) <= 4.*epsilon(w)*abs(w)) exit
+ enddo
+
+end function lambertw
 
 end module mathfunc

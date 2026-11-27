@@ -45,7 +45,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,gr,pxyzu,apr_level
  use part, only:divcurlv,divcurlB,ndivcurlB,ntot,ibin,imu,igamma
- use part, only:iorig,new_iorig,iseed_sink,rho,rhoh,massoftype,aprmassoftype
+ use part, only:iorig,new_iorig,iseed_sink,rho,rhoh,massoftype,aprmassoftype,idgamma
  use io,   only:fatal
  use eos,  only:gamma,gmw
  use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr,inject_parts
@@ -125,7 +125,12 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  if (present(jKmuS)) nucleation(:,particle_number) = JKmuS(:)
  if (update_muGamma) then
     eos_vars(imu,particle_number) = gmw
-    eos_vars(igamma,particle_number) = gamma
+    ! adiabatic index from the nucleation variables of the wind if given
+    if (present(JKmuS)) then
+       eos_vars(igamma,particle_number) = JKmuS(idgamma)
+    else
+       eos_vars(igamma,particle_number) = gamma
+    endif
  endif
  if (h2chemistry) abundance(:,particle_number) = abund_default
 
@@ -176,24 +181,29 @@ end subroutine add_or_update_sink
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  use dim,          only:ind_timesteps,gr
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin,ibin_old,iphase,igas,iunknown,&
+ use part,         only:twas,ibin,ibin_old,iphase,igas,iunknown,ntot,&
                         xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
  use metric_tools, only:init_metric,imet_minkowski,imetric
  use extern_gr,    only:get_grforce_all
  use options,      only:iexternalforce
+ use mpiutils,     only:reduceall_mpi
  integer,         intent(in)    :: npartold,npart
  integer,         intent(inout) :: istepfrac
  integer(kind=1), intent(inout) :: nbinmax
  real,            intent(inout) :: dt
  real,            intent(in)    :: time,dtmax,dtinject
- integer                        :: i
+ integer                        :: i,nchanged
  integer(kind=1)                :: nbinmaxprev
  real                           :: dtext_dum
  !
- !--Exit if particles not added or updated
+ !--Exit if particles not added or updated on any MPI task, so that all tasks
+ !  take the same branch (and agree on the timestep and number of bins)
  !
- if (npartold==npart .and. .not.updated_particle) return
+ nchanged = 0
+ if (npartold /= npart .or. updated_particle) nchanged = 1
+ if (reduceall_mpi('max',nchanged) == 0) return
+ ntot = reduceall_mpi('+',npart)
 
  if (gr) then
     !

@@ -111,24 +111,23 @@ subroutine amuse_initialize_wind()
  type(inopts), allocatable :: db(:)
  integer :: nerr,i
 
- allocate(db(13))
+ allocate(db(12))
  db(1) = inopts("sonic_type", "0", .false.)
  db(2) = inopts("wind_velocity", "20.", .false.)
  db(3) = inopts("wind_inject_radius", "2.000", .false.) ! wind injection radius (au, if 0 takes Rstar)
  db(4) = inopts("wind_mass_rate", "1.000E-05", .false.) ! wind mass loss rate (Msun/yr)
  db(5) = inopts("wind_temperature", "2500.", .false.) ! wind temperature at injection radius (K, if 0 takes Teff)
- db(6) = inopts("iwind_resolution", "5", .false.) ! if<>0 set number of particles on the sphere, reset particle mass
- db(7) = inopts("nfill_domain", "0", .false.) ! number of spheres used to set the background density profile
- db(8) = inopts("wind_shell_spacing", "1.000", .false.) ! desired ratio of sphere spacing to particle spacing
- db(9) = inopts("iboundary_spheres", "5", .false.) ! number of boundary spheres (integer)
- db(10) = inopts("outer_boundary", "30.", .false.) ! delete gas particles outside this radius (au)
- db(11) = inopts("rkill", "-1.000", .false.) ! deactivate particles outside this radius (<0 is off)
+ db(6) = inopts("nfill_domain", "0", .false.) ! number of spheres used to set the background density profile
+ db(7) = inopts("wind_shell_spacing", "1.000", .false.) ! desired ratio of sphere spacing to particle spacing
+ db(8) = inopts("iboundary_spheres", "5", .false.) ! number of boundary spheres (integer)
+ db(9) = inopts("outer_boundary", "30.", .false.) ! delete gas particles outside this radius (au)
+ db(10) = inopts("rkill", "-1.000", .false.) ! deactivate particles outside this radius (<0 is off)
 
  !# options controlling dust
- db(12) = inopts("idust_opacity", "0", .false.) ! compute dust opacity (0 = off, 1 (bowen), 2 (nucleation))
+ db(11) = inopts("idust_opacity", "0", .false.) ! compute dust opacity (0 = off, 1 (bowen), 2 (nucleation))
 
  !# options controlling radiation pressure from sink particles
- db(13) = inopts("isink_radiation", "1", .false.) ! sink radiation pressure method (0 = off, 1 = alpha, 2 = dust, 3 = alpha+dust)
+ db(12) = inopts("isink_radiation", "1", .false.) ! sink radiation pressure method (0 = off, 1 = alpha, 2 = dust, 3 = alpha+dust)
 
  call read_options_inject(db,nerr)
  call read_options_dust_formation(db,nerr)

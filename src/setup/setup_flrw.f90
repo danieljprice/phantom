@@ -34,6 +34,9 @@ module setup
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
  real              :: rho_matter
+ ! wavenumber, wavelength and amplitude constants of the perturbation,
+ ! used by the density callback rhofunc
+ real              :: kwave,lambda,c1,c3
 
  private
 
@@ -51,11 +54,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:periodic
- use physcon,      only:years,pc,solarm,pi
- use units,        only:set_units
+ use physcon,      only:pi
  use mpidomain,    only:i_belong
  use stretchmap,   only:set_density_profile
- use utils_gr,     only:perturb_metric,get_u0,get_sqrtg
+ use utils_gr,     only:perturb_metric,get_sqrtg
  use infile_utils, only:get_options
 
  integer,          intent(in)    :: id
@@ -70,7 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,             intent(out)   :: vxyzu(:,:)
  character(len=40) :: lattice
  integer :: i,ierr
- real    :: kwave,denom,length,c1,c3,lambda,xval,totmass,deltax
+ real    :: denom,length,xval,totmass,deltax
  real    :: Vup(0:3),phi,sqrtg,gcov(0:3,0:3),alpha,hub
  real    :: last_scattering_temp
  procedure(rho_func), pointer :: density_func
@@ -288,13 +290,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     end select
  enddo
 
-contains
+end subroutine setpart
+
 !----------------------------------------------------
 !+
 !  callback function giving desired density profile
 !+
 !----------------------------------------------------
 real function rhofunc(x)
+ use physcon,  only:pi
  use utils_gr, only:perturb_metric, get_u0, get_sqrtg
  real, intent(in) :: x
  real :: const, phi, rhoprim, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
@@ -331,12 +335,19 @@ real function rhofunc(x)
 
 end function rhofunc
 
+!----------------------------------------------------
+!+
+!  mass integral of the perturbed density profile
+!+
+!----------------------------------------------------
 real function massfunc(x,xmin)
+ use physcon,  only:pi
  use utils_gr, only:perturb_metric, get_u0, get_sqrtg,dot_product_gr
  real, intent(in) :: x,xmin
  real :: const, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
  real :: massprimx,massprimmin,massprim
- real :: lorrentz, bigv2
+ real :: lorrentz, bigv2, phi, alpha
+ integer :: ierr
 
  ! The value inside the bracket
  const = -kwave*kwave*c1 - 2.
@@ -371,14 +382,18 @@ real function massfunc(x,xmin)
 
 end function massfunc
 
+!----------------------------------------------------
+!+
+!  integral of the density perturbation
+!+
+!----------------------------------------------------
 real function deltaint(x)
+ use physcon, only:pi
  real, intent(in) :: x
 
  deltaint = (1./kwave)*(kwave*kwave*c1 - 2)*ampl*cos(2*pi*x/lambda)
 
 end function deltaint
-
-end subroutine setpart
 
 !------------------------------------------------------------------------
 !
@@ -433,7 +448,6 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use setunits,     only:read_options_and_set_units
- use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
