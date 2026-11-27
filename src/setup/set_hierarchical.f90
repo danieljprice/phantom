@@ -279,7 +279,7 @@ subroutine set_hierarchical_default_options()
     hs%levels(i)%inc=0.
     hs%levels(i)%O=0.
     hs%levels(i)%w=0.
-    hs%levels(i)%f=0.
+    hs%levels(i)%f=180.  ! start at apastron
  enddo
 
 end subroutine set_hierarchical_default_options
