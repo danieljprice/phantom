@@ -44,6 +44,9 @@ module setup
  real :: default_particle_mass
  integer :: iresolution,particles_per_shell,nzones_sonic_point
 
+ ! types of star used to set the defaults
+ integer, parameter :: itype_agb = 1, itype_transsonic = 2, itype_ms = 3
+
  ! which of L, Teff and Reff is computed from the other two
  integer, parameter :: iderived_none = 0, &
                        iderived_lum  = 1, &
@@ -75,7 +78,7 @@ contains
 !----------------------------------------------------------------
 subroutine set_default_parameters_wind()
  use setorbit, only:set_defaults_orbit
- integer :: i
+ integer :: i,ipair
 
  wind_gamma    = 5./3.
  if (isothermal) then
@@ -92,14 +95,11 @@ subroutine set_default_parameters_wind()
  particles_per_shell   = 1000
  nzones_sonic_point    = 8
  !
- ! primary (wind-launching) star
+ ! an AGB star with a wind, and main-sequence companions without a wind
  !
- call set_default_star(star(1),mass_msun=1.5,racc_au=1.,lum_lsun=5315.,Reff_au=1.)
- !
- ! placeholder values for companions
- !
+ call set_star_type(star(1),itype_agb,ipair)
  do i=2,maxstars
-    call set_default_star(star(i),mass_msun=1.0,racc_au=0.1,lum_lsun=1000.,Reff_au=0.8)
+    call set_star_type(star(i),itype_ms,ipair)
  enddo
  !
  ! binary orbit, with the periapsis along the x-axis and starting at apastron
@@ -349,7 +349,6 @@ subroutine get_star(s,label,primary)
  type(wind_star_t), intent(inout) :: s
  character(len=*),  intent(in)    :: label
  logical,           intent(in)    :: primary
- integer, parameter :: itype_agb = 1, itype_transsonic = 2, itype_ms = 3
  integer :: itype,ipair
 
  print "(/,a)",label//' star parameters'
@@ -359,21 +358,7 @@ subroutine get_star(s,label,primary)
              ' 2: hot star with a trans-sonic wind (1.2 Msun, racc=1 au, L=2e4 Lsun, Reff=2 au, Mdot=1e-5 Msun/yr)',&
              ' 3: main-sequence star without a wind (1 Msun, racc=0.1 au, L=1 Lsun, Reff=1 Rsun)'
  call prompt('select type of star',itype,1,3)
- select case(itype)
- case(itype_transsonic)
-    call set_default_star(s,mass_msun=1.2,racc_au=1.,lum_lsun=2.e4,Reff_au=2.)
-    call set_star_wind(s,mdot_msun_yr=1.e-5,vwind_km_s=0.,wind_temp=5.e4)
-    wind_gamma = 1.4
-    ipair = 3
- case(itype_ms)
-    call set_default_star(s,mass_msun=1.0,racc_au=0.1,lum_lsun=1.,Reff_au=0.00465)
-    ipair = 3
- case default
-    call set_default_star(s,mass_msun=1.2,racc_au=0.2568,lum_lsun=0.,Reff_au=1.)
-    s%Teff = 3000.
-    call set_star_wind(s,mdot_msun_yr=1.e-7,vwind_km_s=10.,wind_temp=3000.)
-    ipair = 1
- end select
+ call set_star_type(s,itype,ipair)
  call prompt('enter mass (Msun)',s%mass_msun,0.)
  call prompt('enter accretion radius (au)',s%racc_au,0.)
  !
@@ -456,6 +441,37 @@ subroutine get_sink_spin(s)
  endif
 
 end subroutine get_sink_spin
+
+!----------------------------------------------------------------
+!+
+!  set the properties of a star of a given type: an AGB star, a hot
+!  star with a trans-sonic wind or a main-sequence star without a wind.
+!  ipair gives which two of L, Teff and Reff are set
+!  (1 = Teff and Reff, 2 = L and Teff, 3 = L and Reff)
+!+
+!----------------------------------------------------------------
+subroutine set_star_type(s,itype,ipair)
+ type(wind_star_t), intent(out) :: s
+ integer,           intent(in)  :: itype
+ integer,           intent(out) :: ipair
+
+ select case(itype)
+ case(itype_transsonic)
+    call set_default_star(s,mass_msun=1.2,racc_au=1.,lum_lsun=2.e4,Reff_au=2.)
+    call set_star_wind(s,mdot_msun_yr=1.e-5,vwind_km_s=0.,wind_temp=5.e4)
+    wind_gamma = 1.4
+    ipair = 3
+ case(itype_ms)
+    call set_default_star(s,mass_msun=1.0,racc_au=0.1,lum_lsun=1.,Reff_au=0.00465)
+    ipair = 3
+ case default
+    call set_default_star(s,mass_msun=1.2,racc_au=0.2568,lum_lsun=0.,Reff_au=1.)
+    s%Teff = 3000.
+    call set_star_wind(s,mdot_msun_yr=1.e-7,vwind_km_s=10.,wind_temp=3000.)
+    ipair = 1
+ end select
+
+end subroutine set_star_type
 
 !----------------------------------------------------------------
 !+
