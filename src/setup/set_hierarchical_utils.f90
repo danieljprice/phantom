@@ -58,7 +58,7 @@ module sethier_utils
  public :: find_ptmass_index
  public :: findloc_local
  public :: hierarchy_from_brackets,hierarchy_to_brackets,print_hierarchy
- public :: write_hierarchy_file,hierarchy_filename
+ public :: write_hierarchy_file,hierarchy_filename,shift_hierarchy_sinks
 
  interface findloc_local
   module procedure findloc_int
@@ -342,6 +342,27 @@ subroutine write_hierarchy_file(filename, data, lines)
  close(iu)
 
 end subroutine write_hierarchy_file
+
+!--------------------------------------------------------------------------
+!+
+!  add an offset to the sink indices in a .hierarchy file, e.g. when the
+!  sinks of the system are appended after existing sinks
+!+
+!--------------------------------------------------------------------------
+subroutine shift_hierarchy_sinks(filename,offset,ierr)
+ character(len=*), intent(in)  :: filename
+ integer,          intent(in)  :: offset
+ integer,          intent(out) :: ierr
+ real    :: data(hier_db_size,hier_db_prop)
+ integer :: lines
+
+ call load_hierarchy_file(filename,data,lines,ierr)
+ if (ierr /= 0) return
+ ! a zero index means the level is not a single sink
+ where (data(1:lines,1) > 0.) data(1:lines,1) = data(1:lines,1) + offset
+ call write_hierarchy_file(filename,data,lines)
+
+end subroutine shift_hierarchy_sinks
 
 !--------------------------------------------------------------------------
 !+

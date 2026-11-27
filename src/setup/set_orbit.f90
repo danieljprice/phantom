@@ -742,12 +742,12 @@ end subroutine set_orbits
 !  set up a hierarchical system of nstar stars and append its sinks
 !  after the existing nptmass sinks. set_hierarchical returns the
 !  sinks in the order of the labels in the hierarchy string. Sink
-!  indices in the .hierarchy file count from the first sink of this
-!  system (1..nstar), not from the first sink in the simulation
+!  indices in the .hierarchy file are those in the simulation
 !+
 !----------------------------------------------------------------
 subroutine set_hierarchical_orbits(nstar,m,hacc,prefix,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  use sethierarchical, only:set_hierarchical,hs
+ use sethier_utils,   only:shift_hierarchy_sinks,hierarchy_filename
  integer,          intent(in)    :: nstar
  real,             intent(in)    :: m(:),hacc(:)
  character(len=*), intent(in)    :: prefix
@@ -781,6 +781,8 @@ subroutine set_hierarchical_orbits(nstar,m,hacc,prefix,xyzmh_ptmass,vxyz_ptmass,
     xyzmh_ptmass(:,nptmass+i) = xyzmh_tmp(:,i)
     vxyz_ptmass(:,nptmass+i)  = vxyz_tmp(:,i)
  enddo
+ ! the system was set up on its own, so shift its sink indices past the existing sinks
+ if (nptmass > 0) call shift_hierarchy_sinks(hierarchy_filename(hier_prefix),nptmass,ierr)
  nptmass = nptmass + nstar
 
 end subroutine set_hierarchical_orbits

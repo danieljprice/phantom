@@ -328,6 +328,7 @@ end subroutine test_set_binary_full_elements
 subroutine test_set_orbits_nstar(ntests,npass)
  use setorbit,        only:orbit_t,set_defaults_orbits,set_orbits
  use sethierarchical, only:hierarchy,set_hierarchical_default_options
+ use sethier_utils,   only:load_hierarchy_file,hier_db_size,hier_db_prop
  use part,            only:nsinkproperties
  use io,              only:id
  integer, intent(inout) :: ntests,npass
@@ -336,8 +337,10 @@ subroutine test_set_orbits_nstar(ntests,npass)
  real, parameter :: m(maxstar)    = (/1.0, 0.5, 0.3, 0.2/)
  real, parameter :: hacc(maxstar) = (/0.01, 0.02, 0.03, 0.04/)
  type(orbit_t) :: orbit
- integer :: nfailed(5),nstar,nptmass,ierr,i,iu
+ integer :: nfailed(5),nstar,nptmass,ierr,i,iu,lines
  real :: xyzmh(nsinkproperties,maxstar+1),vxyz(3,maxstar+1),mom(3)
+ real :: data(hier_db_size,hier_db_prop)
+ integer :: isink(hier_db_size)
  real :: msink(maxstar),hsink(maxstar)
  logical :: iexist
 
@@ -381,6 +384,25 @@ subroutine test_set_orbits_nstar(ntests,npass)
     mom(i) = sum(xyzmh(4,1:nstar)*vxyz(i,1:nstar))
  enddo
  call checkval(sqrt(dot_product(mom,mom)),0.,tol,nfailed(5),'total momentum is zero (111,12,112)')
+ call update_test_scores(ntests,nfailed,npass)
+
+ ! a triple appended after an existing sink: the sinks of the triple are sinks 2 to 4,
+ ! and the .hierarchy file must give these indices
+ nfailed = 0
+ nstar = 3
+ xyzmh = 0.; vxyz = 0.; nptmass = 1
+ xyzmh(4,1) = 2.
+ call set_defaults_orbits(nstar,orbit)
+ call set_orbits(nstar,m,hacc,orbit,prefix,xyzmh,vxyz,nptmass,.false.,ierr)
+ call checkval(ierr,0,0,nfailed(1),'set_orbits ierr (appended)')
+ call checkval(nptmass,nstar+1,0,nfailed(2),'number of sinks (appended)')
+ msink = xyzmh(4,2:maxstar+1)
+ call checkval(nstar,msink,m,0.,nfailed(3),'appended sinks after the existing sink')
+ call load_hierarchy_file(trim(prefix)//'.hierarchy',data,lines,ierr)
+ isink = 0
+ isink(1:lines) = int(data(1:lines,1))
+ call checkval(minval(isink(1:lines),mask=isink(1:lines) > 0),2,0,nfailed(4),'first sink index in .hierarchy file')
+ call checkval(maxval(isink(1:lines)),nstar+1,0,nfailed(5),'last sink index in .hierarchy file')
  call update_test_scores(ntests,nfailed,npass)
 
  ! remove the file written by the hierarchical setup
