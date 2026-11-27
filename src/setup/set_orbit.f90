@@ -195,7 +195,9 @@ subroutine set_corotating_frame(x1,x2,v1,v2,omega)
 
  dx = x2 - x1
  dv = v2 - v1
- omega = (dx(1)*dv(2) - dx(2)*dv(1))/(dx(1)**2 + dx(2)**2)
+ ! no rotation about the z-axis if the bodies are separated only along z
+ omega = 0.
+ if (dx(1)**2 + dx(2)**2 > 0.) omega = (dx(1)*dv(2) - dx(2)*dv(1))/(dx(1)**2 + dx(2)**2)
  ! subtract omega x r, with omega along the z-axis
  v1(1) = v1(1) + omega*x1(2)
  v1(2) = v1(2) - omega*x1(1)

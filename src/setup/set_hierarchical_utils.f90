@@ -423,8 +423,9 @@ recursive subroutine parse_bracket_node(str,pos,label,hierarchy,ierr)
  if (pos > len(str) .or. len(label) > len(hierarchy) .or. len(label) > 10) return
  select case(str(pos:pos))
  case('o')
-    if (len_trim(hierarchy) + len(label) + 1 > len(hierarchy)) return
     if (len_trim(hierarchy) > 0) then
+       ! room for the separator and the label
+       if (len_trim(hierarchy) + len(label) + 1 > len(hierarchy)) return
        hierarchy = trim(hierarchy)//','//label
     else
        hierarchy = label
