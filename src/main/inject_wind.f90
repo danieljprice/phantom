@@ -25,16 +25,16 @@ module inject
 !   - wind_type          : *wind type 0=std, 1=transonic, 2=pulsation, 3=jets*
 !
 ! :Dependencies: dim, dust_formation, eos, infile_utils, injectutils, io,
-!   options, orbits, part, partinject, physcon, ptmass_radiation, timestep,
-!   units, wind, wind_equations
+!   mpiutils, options, orbits, part, partinject, physcon, ptmass_radiation,
+!   timestep, units, wind
 !
- use dim, only:isothermal,mhd
+ use dim, only:isothermal,mhd,maxptmass
  use wind, only:rfill_domain_au,wind_shell_spacing
 
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,print_old_wind_options,&
       set_default_options_inject,update_injected_par,print_wind_resolution
 
  private
@@ -44,7 +44,7 @@ module inject
 ! Read from input file
  integer :: wind_type = 0
  integer :: iboundary_spheres = 5
- integer :: nfill_domain = 0
+ integer :: nfill_domain(maxptmass) = 0  ! number of background shells of each sink
  real :: outer_boundary_au = 30.
  real :: pulsation_period
  real :: pulsation_period_days = 0.
@@ -59,7 +59,7 @@ module inject
  real :: omega_puls,deltaR_puls,piston_velocity !pulsations
  integer :: nwrite
 
- logical :: pulsating_wind,onewind
+ logical :: pulsating_wind
  character(len=*), parameter :: label = 'inject_wind'
  ! fewest particles per shell for the wind to be resolved azimuthally (icosahedron)
  integer, parameter :: min_particles_per_shell = 12
@@ -73,7 +73,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_inject(ierr)
  use options,           only:icooling,ieos
- use io,                only:fatal
+ use io,                only:fatal,warning
  use orbits,            only:get_eccentricity_vector,get_orbital_period
  use wind,              only:wind_params,get_params_from_sink,solve_wind
  use physcon,           only:mass_proton_cgs,kboltz,km
@@ -81,29 +81,21 @@ subroutine init_inject(ierr)
  use units,             only:unit_velocity,udist,get_nearest_unit
  use part,              only:xyzmh_ptmass,vxyz_ptmass,imloss,iReff,ivwind,iTwind,nptmass,&
                               massoftype,igas,iboundary
- use injectutils,       only:init_jets,seed_random
+ use injectutils,       only:init_jets
 
  integer, intent(out) :: ierr
  integer :: isink
  real :: time_between_spheres,d_part
  real :: tcross,rsonic,tsonic,tfill,tboundary,mu,wind_temperature
  real :: dx(3),dv(3),ecc(3)
- integer :: nwinds
  type(wind_params) :: params !reset wind temperature if init_muGamma
 
- nwinds = count(abs(xyzmh_ptmass(imloss,1:nptmass)) > tiny(0.))
- if (nwinds > 2) call fatal(label,'cannot handle more than 2 emitting sinks (1D wind profile not available)')
- onewind = (nwinds <= 1)
- ! change particle injection method if more than 1 sink is emitting a wind
- if (nwinds > 1) then
-    if (wind_type == 3) call init_jets(jet_edge_velocity,jet_opening_angle)
- endif
- if (abs(xyzmh_ptmass(imloss,1)) < tiny(0.)) call fatal(label,'the wind logic imposes that sink 1 is loosing mass')
+ ! polar jets from sink 1
+ if (wind_type == 3) call init_jets(jet_edge_velocity,jet_opening_angle)
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
-
- seed_random = -1  ! reset seed_random to avoid reproducibility issues
+ nfill_domain = 0
 
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
@@ -137,7 +129,7 @@ subroutine init_inject(ierr)
 
     ! compute 1D wind profile to get tcross & save 1D profile
     if (.not. pulsating_wind .or. rfill_domain_au > 0.) then
-       call set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundary,tcross,tfill,onewind)
+       call set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundary,tcross,tfill)
     endif
 
 ! logging
@@ -145,6 +137,8 @@ subroutine init_inject(ierr)
        call logging(params,isink,time_between_spheres,d_part,rsonic,tsonic,tboundary,tcross,tfill)
 
  enddo
+ if (count(nfill_domain(1:nptmass) > 0) > 1) call warning(label,&
+    'background shells of several sinks may overlap: reduce rfill_domain if so')
 
  if (nptmass == 2) then
     ! period from the relative position and velocity, valid at any orbital phase
@@ -211,6 +205,7 @@ subroutine print_wind_resolution(xyzmh_ptmass,nptmass,pmass,gamma)
              (rsonic-params%Rinject)/udist/dshell
     endif
  enddo
+ print "(a)"
 
 end subroutine print_wind_resolution
 
@@ -394,20 +389,24 @@ end subroutine logging
 !-----------------------------------------------------------------------
 !+
 !  Main routine handling wind injection.
+!
+!  Each wind-emitting sink emits shells of particles, numbered by the
+!  time of their emission (shell s is emitted at time s*dt_shell). The
+!  number of the next shell to emit is stored on the sink (iwshell), so
+!  that no shell is emitted twice, including after a restart.
+!
+!  The innermost iboundary_spheres shells of each sink are boundary
+!  particles, set from the 1D wind profile of the sink. Boundary
+!  particles do not need to be stored in any particular order: their
+!  shell (and hence their age) is found from their distance to the sink,
+!  so this works with MPI and when particles are deleted or reordered.
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npart_old,npartoftype,dtinject)
- use physcon,           only:au,solarm,years
- use io,                only:fatal,iverbose,id,master
- use wind,              only:interp_wind_profile
- use part,              only:massoftype,igas,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
-                             delete_dead_particles_inside_radius,n_nucleation,ieject,imloss,ivwind,Bevol,Bxyz
- use partinject,        only:add_or_update_particle
- use units,             only:udist,umass,utime
- use dust_formation,    only:idust_opacity
- use ptmass_radiation,  only:isink_radiation
-
+ use io,       only:iverbose,id,master
+ use part,     only:massoftype,igas,iboundary,nptmass,imloss,ieject,iwshell
+ use mpiutils, only:reduceall_mpi
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real,    intent(in)    :: rho(:)
@@ -415,166 +414,271 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,rho,xyzmh_ptmass,vxyz_ptmass,
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- integer :: outer_sphere,inner_sphere,inner_boundary_sphere,ifirst,i,ipart,j, &
-            nreleased,nboundaries,isink,itype,npart_per_sphere,nfill
- real    :: local_time,GM,r,v,u,rhoi,e,mass_lost,x0(3),v0(3),inner_radius,fdone,dum
- real    :: mass_of_spheres,time_between_spheres,rinject,wind_injection_speed
- character(len=*), parameter :: label = 'inject_particles'
- logical, save :: released = .false.
- real :: JKmuS(n_nucleation)
+ integer :: isink,ishell_first,ishell_last,nboundary
+ real    :: dt_shell
 
- dum  = 0.
  dtinject = huge(dtinject)
+ !
+ ! delete particles that leave the domain
+ !
+ if (dtlast > 0.) call delete_escaped_particles(time,xyzmh_ptmass,nptmass,npart,npart_old)
+ nboundary = int(reduceall_mpi('+',npartoftype(iboundary)))
 
  do isink = 1,nptmass
+    if (.not.is_wind_sink(xyzmh_ptmass(:,isink))) cycle
 
-    if (xyzmh_ptmass(imloss,isink) <= 0.) cycle
-    if (abs(xyzmh_ptmass(ivwind,isink)) < tiny(0.)) cycle
-
-    x0 = xyzmh_ptmass(1:3,isink)
-    GM = xyzmh_ptmass(4,isink)
-    v0 = vxyz_ptmass(1:3,isink)
-
-    npart_per_sphere = nint(xyzmh_ptmass(ieject,isink))
-    mass_of_spheres =  massoftype(igas) * npart_per_sphere
-    dtinject = mass_of_spheres / xyzmh_ptmass(imloss,isink)
-    time_between_spheres = dtinject
-
-    rinject = xyzmh_ptmass(iReff,isink)
-
-    if (isink_radiation == 4)  then
-       ! take the initial velocity of the wind as 10% of the terminal velocity
-       wind_injection_speed = 0.10 * xyzmh_ptmass(ivwind,isink)
-    else
-       wind_injection_speed = xyzmh_ptmass(ivwind,isink)
-    endif
-    !if 2 winds, background particles must originate from sink 2 to keep the memory location of the boundary particles
-    if (onewind .or. isink == 2) then
-       nfill = nfill_domain
-    else
-       nfill = 0
-    endif
-
-    if (dtlast > 0.) then
-       !
-       ! delete particles that exit the outer boundary
-       !
-       inner_radius = rinject + deltaR_puls*sin(omega_puls*time)
-
-       if (outer_boundary_au > rinject) call delete_particles_outside_sphere(x0,real(outer_boundary_au*au/udist),npart)
-       call delete_dead_particles_inside_radius(x0,inner_radius,npart)
-       if (npart_old /= npart .and. iverbose > 0) print *,'deleted ',npart_old-npart,'particles, remaining',npart
-       npart_old = npart
-
-       nreleased = nfill_domain
-       nboundaries = iboundary_spheres
-       !release background shells
-       ipart = igas
-       if (.not.released .and. (isink == 2 .or. onewind)) then
-          if (nfill > 0) print '(/,"release background particles :",i7,3x,", Mdot : ",es12.4,", isink=",i1)',&
-               nreleased*npart_per_sphere,xyzmh_ptmass(imloss,isink)/(solarm/umass)*(years/utime),isink
-          do i = max(1,npart-nreleased*npart_per_sphere)+1,npart
-             if (isothermal) then
-                call add_or_update_particle(ipart,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),dum,&
-                     i,npart,npartoftype,xyzh,vxyzu)
-             else
-                call add_or_update_particle(ipart,xyzh(1:3,i),vxyzu(1:3,i),xyzh(4,i),vxyzu(4,i),&
-                     i,npart,npartoftype,xyzh,vxyzu)
-             endif
-             if (mhd) call set_injected_Bfield(xyzmh_ptmass(:,isink),xyzh(:,i),Bevol(:,i),Bxyz(:,i),massoftype(igas))
-          enddo
-          released = .true.
-       endif
-    else
-       !initialise domain with boundary particles
-       ipart = iboundary
-       nreleased = 0
-       nboundaries = iboundary_spheres+nfill
-    endif
-
-    outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nreleased
-    inner_sphere = floor(time/time_between_spheres)+nreleased
-    inner_boundary_sphere = inner_sphere + nboundaries
-
-    if (nptmass < 2) then
-! only one sphere can be ejected at a time (not valid for 2 wind-emitting sinks)
-       if (inner_sphere-outer_sphere > nboundaries) call fatal(label,'ejection of more than 1 sphere, timestep likely too large!')
-    endif
-
+    dt_shell = massoftype(igas)*xyzmh_ptmass(ieject,isink)/xyzmh_ptmass(imloss,isink)
+    ishell_last = floor(time/dt_shell)
+    ishell_first = get_first_new_shell(isink,nint(xyzmh_ptmass(iwshell,isink)),ishell_last,&
+                                       nboundary,time,dtlast)
     !
-    ! eject particles and update properties of boundary particles
+    ! update boundary shells, then emit the new shells
     !
-    do i=inner_boundary_sphere,outer_sphere,-1
-       local_time = time + (iboundary_spheres+nfill-i) * time_between_spheres
-       !compute the radius, velocity, temperature, chemistry of a shell at the current local time
-       v = wind_injection_speed
-       r = rinject
-       if (pulsating_wind.and.released) then
-          !call pulsating_wind_profile(time,local_time,r,v,u,rhoi,e,GM,i,inner_sphere)
-       else
-          if (idust_opacity == 2) then
-             call interp_wind_profile(time,local_time,r,v,u,rhoi,e,GM,fdone,isink,JKmuS)
-          else
-             call interp_wind_profile(time,local_time,r,v,u,rhoi,e,GM,fdone,isink)
-          endif
-          if (iverbose > 0) print '(" ## update boundary  ",i4,2(i4),i7,i2,5x,8(1x,es12.5))',i,&
-               inner_sphere,outer_sphere,npart,isink,time,local_time,r/xyzmh_ptmass(iReff,isink),v*udist/utime,&
-               xyzmh_ptmass(imloss,isink) /(solarm/umass) * (years/utime)
-       endif
-
-       if (i > inner_sphere) then
-          ! boundary sphere
-          if (isink == 1) ifirst = (nboundaries-i+inner_sphere)*npart_per_sphere+1
-          if (.not. onewind .and. isink ==2) ifirst = (nboundaries-i+inner_sphere)*npart_per_sphere+1 &
-               + iboundary_spheres*int(xyzmh_ptmass(ieject,1))
-          itype = ipart
-          if (iverbose > 0) print '(" @@ update boundary ",i1,i4,2(i4),i7,i7,8(1x,es12.5))',isink,i,inner_sphere,&
-               outer_sphere,ipart,ifirst,time,local_time,r/xyzmh_ptmass(iReff,isink),v*udist/utime,u,rhoi
-       else
-          ! ejected particles + create new  inner sphere
-          ifirst = npart+1
-          itype = igas
-          if (iverbose > 0) print '(" ## eject particles [",i7,"-",i7,"], sink=",i1,4(i4),7(1x,es11.4))',&
-               npart+1-npart_per_sphere,npart,isink,i,inner_sphere,outer_sphere,int(time/time_between_spheres),&
-               time,local_time,r/xyzmh_ptmass(iReff,isink),v,u,rhoi,xyzmh_ptmass(imloss,isink)/(solarm/umass)*(years/utime)
-       endif
-       if (idust_opacity == 2) then
-          call inject_sphere(i,ifirst,npart_per_sphere,r,v,u,npart,npartoftype,xyzh,vxyzu,rhoi,itype,x0,v0,isink,JKmuS)
-       else
-          call inject_sphere(i,ifirst,npart_per_sphere,r,v,u,npart,npartoftype,xyzh,vxyzu,rhoi,itype,x0,v0,isink)
-       endif
-       if (mhd) then
-          do j = ifirst,ifirst+npart_per_sphere-1
-             call set_injected_Bfield(xyzmh_ptmass(:,isink),xyzh(:,j),Bevol(:,j),Bxyz(:,j),massoftype(igas))
-          enddo
-       endif
-    enddo
-
-    if (nfill > 0 .and. outer_sphere == 1 .and. id==master) &
-       print '(3x,"injecting background particles up to r = ",f8.2,&
-            " (au), nparticles = ",i8,", isink=",i1)',r,&
-            npart_per_sphere*(nfill_domain+iboundary_spheres),isink
-
-    ! update sink particle properties
-    mass_lost = mass_of_spheres * (inner_sphere-outer_sphere+1)
-    if (dtlast <= 0. .and. nfill > 0) mass_lost = mass_lost + mass_of_spheres * nfill
-    xyzmh_ptmass(4,isink) = xyzmh_ptmass(4,isink) - mass_lost
-    if (pulsating_wind) then
-       inner_radius = rinject + deltaR_puls*sin(omega_puls*time)
-       xyzmh_ptmass(5,isink) = inner_radius
-    endif
-
+    call update_boundary_shells(isink,time,dt_shell,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,xyzh,vxyzu)
+    call emit_shells(isink,ishell_first,ishell_last,time,dt_shell,xyzmh_ptmass,vxyz_ptmass,&
+                     npart,npartoftype,xyzh,vxyzu)
+    if (iverbose > 0 .and. id==master .and. ishell_last >= ishell_first) &
+       print "(a,i0,a,i0,a,i0)",' sink ',isink,': emitted shells ',ishell_first,' to ',ishell_last
+    xyzmh_ptmass(iwshell,isink) = ishell_last + 1
+    if (pulsating_wind) xyzmh_ptmass(5,isink) = get_inner_radius(xyzmh_ptmass(:,isink),time)
     !
-    ! return timestep constraint to ensure that time between sphere
-    ! injections is adequately resolved
+    ! timestep constraint to ensure that the time between shell
+    ! emissions is adequately resolved
     !
-    !dr = neighbour_distance*rinject
-    !dtinject = 0.25*dr/sqrt(cs2max)
-    dtinject = min(0.2*time_between_spheres,dtpulsation,dtinject)
+    dtinject = min(0.2*dt_shell,dtpulsation,dtinject)
  enddo
  if (time <= 0.) dtinject = 0.01*dtinject
 
 end subroutine inject_particles
+
+!-----------------------------------------------------------------------
+!+
+!  whether a sink emits a wind
+!+
+!-----------------------------------------------------------------------
+logical function is_wind_sink(xyzmh_ptmassi)
+ use part, only:imloss,ivwind,ieject
+ real, intent(in) :: xyzmh_ptmassi(:)
+
+ is_wind_sink = xyzmh_ptmassi(imloss) > 0. .and. abs(xyzmh_ptmassi(ivwind)) > tiny(0.) &
+                .and. xyzmh_ptmassi(ieject) >= 1.
+
+end function is_wind_sink
+
+!-----------------------------------------------------------------------
+!+
+!  number of the first shell to emit, given the number of the next
+!  shell stored on the sink (0 if this sink has not emitted any shell)
+!  and the number of the last shell due at the current time:
+!
+!  - on a new calculation (at t=0, with no boundary particles), the
+!    boundary shells and the background shells (filling the domain)
+!    are all emitted at once
+!  - on a restart from a dump written before shells were counted,
+!    the existing particles are kept and only new shells emitted
+!+
+!-----------------------------------------------------------------------
+integer function get_first_new_shell(isink,ishell_next,ishell_last,nboundary,time,dtlast) result(ishell_first)
+ use io, only:fatal,warning
+ integer, intent(in) :: isink,ishell_next,ishell_last,nboundary
+ real,    intent(in) :: time,dtlast
+ integer :: nnew
+
+ if (ishell_next == 0) then
+    if (nboundary > 0 .or. time > 0.) then
+       ishell_first = ishell_last + 1
+       call warning(label,'number of wind shells not in dump: keeping the existing particles',ival=isink)
+    else
+       ishell_first = ishell_last - (iboundary_spheres + nfill_domain(isink)) + 1
+    endif
+ else
+    ishell_first = ishell_next
+    nnew = ishell_last - ishell_first + 1
+    if (nnew < 0 .or. (dtlast <= 0. .and. nnew > 1)) then
+       ! starting at a different time, or the shell spacing has changed (e.g. a new
+       ! mass loss rate or particle mass): continue from the shell due now
+       call warning(label,'wind shell number not consistent with time: restarting the count',ival=isink)
+       ishell_first = ishell_last + 1
+    elseif (nnew > max(iboundary_spheres,1)) then
+       call fatal(label,'emission of more than one shell per step, timestep likely too large!',ival=nnew)
+    endif
+ endif
+
+end function get_first_new_shell
+
+!-----------------------------------------------------------------------
+!+
+!  emit shells ishell_first to ishell_last from sink isink at the
+!  current time. Shells older than the boundary shells (background
+!  shells, on a new calculation) are emitted directly as gas.
+!  Each shell is created by one MPI task, but the mass of every shell
+!  is taken from the sink on all tasks
+!+
+!-----------------------------------------------------------------------
+subroutine emit_shells(isink,ishell_first,ishell_last,time,dt_shell,xyzmh_ptmass,vxyz_ptmass,&
+                       npart,npartoftype,xyzh,vxyzu)
+ use io,          only:id,nprocs
+ use part,        only:massoftype,igas,iboundary,ieject
+ use injectutils, only:get_shell_rotation,get_shell_direction,jets
+ integer, intent(in)    :: isink,ishell_first,ishell_last
+ real,    intent(in)    :: time,dt_shell
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart,npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer :: ishell,itype,j,nps
+ real    :: age,rotmat(3,3),dir(3)
+ logical :: jets_on
+
+ nps = nint(xyzmh_ptmass(ieject,isink))
+ jets_on = (jets .and. isink == 1)
+ do ishell=ishell_first,ishell_last
+    age = time - ishell*dt_shell
+    itype = iboundary
+    if (age >= iboundary_spheres*dt_shell) itype = igas
+    if (modulo(ishell+isink,nprocs) == id) then
+       call get_shell_rotation(ishell,jets_on,rotmat)
+       do j=0,nps-1
+          call get_shell_direction(j,nps,rotmat,jets_on,dir)
+          call set_wind_particle(npart+1,itype,isink,dir,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
+                                 npart,npartoftype,xyzh,vxyzu)
+       enddo
+    endif
+    xyzmh_ptmass(4,isink) = xyzmh_ptmass(4,isink) - nps*massoftype(igas)
+ enddo
+
+end subroutine emit_shells
+
+!-----------------------------------------------------------------------
+!+
+!  update the boundary particles of sink isink from the 1D wind profile,
+!  releasing them as gas once they are older than the boundary shells.
+!  The age of a boundary particle is found from its distance to the sink
+!  (boundary particles move with constant velocity), rounded to the age
+!  of the nearest shell so that all particles of a shell stay together
+!+
+!-----------------------------------------------------------------------
+subroutine update_boundary_shells(isink,time,dt_shell,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,xyzh,vxyzu)
+ use part,       only:iphase,iamtype,iboundary,igas,iunknown,iseed_sink,isdead_or_accreted
+ use partinject, only:updated_particle
+ use wind,       only:wind_age_at_r
+ integer, intent(in)    :: isink
+ real,    intent(in)    :: time,dt_shell
+ real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: npart,npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ integer :: i,ishell
+ real    :: dx(3),dir(3),r,age
+
+ do i=1,npart
+    if (iseed_sink(i) /= isink) cycle
+    if (iamtype(iphase(i)) /= iboundary .or. isdead_or_accreted(xyzh(4,i))) cycle
+    dx = xyzh(1:3,i) - xyzmh_ptmass(1:3,isink)
+    r  = sqrt(dot_product(dx,dx))
+    dir = dx/r
+    ishell = nint((time - wind_age_at_r(isink,r))/dt_shell)
+    age = time - ishell*dt_shell
+    if (age < iboundary_spheres*dt_shell) then
+       call set_wind_particle(i,iboundary,isink,dir,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
+                              npart,npartoftype,xyzh,vxyzu)
+    else
+       ! release as gas: timestep set in update_injected_particles
+       call set_wind_particle(i,igas,isink,dir,age,xyzmh_ptmass(:,isink),vxyz_ptmass(:,isink),&
+                              npart,npartoftype,xyzh,vxyzu)
+       iphase(i) = int(iunknown,kind=1)
+       updated_particle = .true.
+    endif
+ enddo
+
+end subroutine update_boundary_shells
+
+!-----------------------------------------------------------------------
+!+
+!  set particle i (or create it if i = npart+1) as a wind particle of
+!  sink isink with a given age, in direction dir (unit vector) from the
+!  sink, using the 1D wind profile of the sink
+!+
+!-----------------------------------------------------------------------
+subroutine set_wind_particle(i,itype,isink,dir,age,xyzmh_ptmassi,vxyz_ptmassi,npart,npartoftype,xyzh,vxyzu)
+ use part,             only:massoftype,igas,hn,n_nucleation,iReff,ispinx,ispinz,ivwind,iTeff,&
+                            dust_temp,Bevol,Bxyz,rho
+ use partinject,       only:add_or_update_particle
+ use injectutils,      only:get_wind_velocity,jets
+ use wind,             only:interp_wind_profile
+ use dust_formation,   only:idust_opacity
+ use ptmass_radiation, only:isink_radiation
+ integer, intent(in)    :: i,itype,isink
+ real,    intent(in)    :: dir(3),age,xyzmh_ptmassi(:),vxyz_ptmassi(:)
+ integer, intent(inout) :: npart,npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real :: r,v,u,rhoi,h,xyz(3),vxyz(3),JKmuS(n_nucleation)
+
+ call interp_wind_profile(isink,age,r,v,u,rhoi,JKmuS)
+ call get_wind_velocity(dir,r,v,xyzmh_ptmassi(iReff),xyzmh_ptmassi(4),xyzmh_ptmassi(ispinx:ispinz),&
+                        xyzmh_ptmassi(ivwind),(jets .and. isink == 1),xyz,vxyz)
+ ! h from the density of the wind, so that boundary particles follow the expansion
+ h = hn(rhoi/massoftype(igas))
+ xyz  = xyz  + xyzmh_ptmassi(1:3)
+ vxyz = vxyz + vxyz_ptmassi(1:3)
+ if (idust_opacity == 2) then
+    call add_or_update_particle(itype,xyz,vxyz,h,u,i,npart,npartoftype,xyzh,vxyzu,JKmuS,isink)
+ else
+    call add_or_update_particle(itype,xyz,vxyz,h,u,i,npart,npartoftype,xyzh,vxyzu,isink=isink)
+ endif
+ ! add_or_update_particle does not reset h or rho of boundary particles
+ ! (with APR the stored rho, not h, is the starting guess for the density)
+ xyzh(4,i) = h
+ rho(i)    = rhoi
+ if (isink_radiation > 0) dust_temp(i) = xyzmh_ptmassi(iTeff)
+ if (mhd) call set_injected_Bfield(xyzmh_ptmassi,xyzh(:,i),Bevol(:,i),Bxyz(:,i),massoftype(igas))
+
+end subroutine set_wind_particle
+
+!-----------------------------------------------------------------------
+!+
+!  delete particles outside the outer boundary (centred on the centre
+!  of mass of the sinks) and dead particles
+!+
+!-----------------------------------------------------------------------
+subroutine delete_escaped_particles(time,xyzmh_ptmass,nptmass,npart,npart_old)
+ use physcon, only:au
+ use units,   only:udist
+ use io,      only:iverbose
+ use part,    only:delete_particles_outside_sphere,delete_dead_particles_inside_radius
+ real,    intent(in)    :: time,xyzmh_ptmass(:,:)
+ integer, intent(in)    :: nptmass
+ integer, intent(inout) :: npart,npart_old
+ real    :: xcom(3),mtot
+ integer :: isink
+
+ if (outer_boundary_au > 0. .and. nptmass > 0) then
+    mtot = sum(xyzmh_ptmass(4,1:nptmass))
+    do isink=1,3
+       xcom(isink) = dot_product(xyzmh_ptmass(isink,1:nptmass),xyzmh_ptmass(4,1:nptmass))/mtot
+    enddo
+    call delete_particles_outside_sphere(xcom,real(outer_boundary_au*au/udist),npart)
+ endif
+ do isink=1,nptmass
+    if (.not.is_wind_sink(xyzmh_ptmass(:,isink))) cycle
+    call delete_dead_particles_inside_radius(xyzmh_ptmass(1:3,isink),&
+         get_inner_radius(xyzmh_ptmass(:,isink),time),npart)
+ enddo
+ if (npart_old /= npart .and. iverbose > 0) print *,'deleted ',npart_old-npart,'particles, remaining',npart
+ npart_old = npart
+
+end subroutine delete_escaped_particles
+
+!-----------------------------------------------------------------------
+!+
+!  inner radius of the wind of a sink (oscillating if the wind pulsates)
+!+
+!-----------------------------------------------------------------------
+real function get_inner_radius(xyzmh_ptmassi,time) result(rin)
+ use part, only:iReff
+ real, intent(in) :: xyzmh_ptmassi(:),time
+
+ rin = xyzmh_ptmassi(iReff) + deltaR_puls*sin(omega_puls*time)
+
+end function get_inner_radius
 
 !-----------------------------------------------------------------------
 !+
@@ -588,9 +692,10 @@ subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
  real, intent(out) :: Bevoli(:),Bxyzi(:)
  real :: r,r_hat(3),B_r_code,rhoi,dx(3)
 
- dx(1:3)=xyzhi(1:3)-xyzmh_ptmassi(1:3)
+ ! radial field from the sink
+ dx(1:3) = xyzhi(1:3)-xyzmh_ptmassi(1:3)
  r = sqrt(dot_product(dx,dx))
- r_hat = xyzhi(1:3)/r
+ r_hat = dx/r
  B_r_code = B_r/unit_Bfield
  ! bootstrap dens for newly injected wind particle (before density sum)
  rhoi = rhoh(xyzhi(4),pmassi)
@@ -598,45 +703,6 @@ subroutine set_injected_Bfield(xyzmh_ptmassi,xyzhi,Bevoli,Bxyzi,pmassi)
  Bxyzi(1:3) = B_r_code*r_hat
 
 end subroutine set_injected_Bfield
-
-!-----------------------------------------------------------------------
-!+
-!  inject gas particles and/or reset position of boundary particles
-!+
-!-----------------------------------------------------------------------
-subroutine inject_sphere(i,ifirst,ires,r,v,u,npart,npartoftype,xyzh,vxyzu,rho,itype,x0,v0,isink,JKmuS)
-
- use ptmass_radiation,  only:isink_radiation
- use part,              only:iTeff,dust_temp,xyzmh_ptmass,iReff,ispinx,ispinz,ivwind
- use injectutils,       only:inject_geodesic_sphere
-
- integer, intent(in)    :: i,ifirst,ires,isink,itype
- integer, intent(inout) :: npart
- real,    intent(in)    :: x0(3),v0(3),r,v,u,rho
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer, intent(inout) :: npartoftype(:)
- real,    intent(in), optional :: JKmuS(:)
-
- real :: rstar,mstar,omega_vec(3),vwind_terminal
-
- ! extract sink particle data to pass as parameters
- rstar = xyzmh_ptmass(iReff,isink)
- mstar = xyzmh_ptmass(4,isink)
- omega_vec = xyzmh_ptmass(ispinx:ispinz,isink)
- vwind_terminal = xyzmh_ptmass(ivwind,isink)
-
- if (present(JKmuS)) then
-    call inject_geodesic_sphere(i,ifirst,ires,r,v,u, &
-         npart,npartoftype,xyzh,vxyzu,rho,itype,x0,v0,isink,JKmuS, &
-         rstar=rstar,mstar=mstar,omega_vec=omega_vec,vwind_terminal=vwind_terminal)
- else
-    call inject_geodesic_sphere(i,ifirst,ires,r,v,u, &
-         npart,npartoftype,xyzh,vxyzu,rho,itype,x0,v0,isink, &
-         rstar=rstar,mstar=mstar,omega_vec=omega_vec,vwind_terminal=vwind_terminal)
- endif
- if (isink_radiation > 0) dust_temp(ifirst:ifirst+ires-1) = xyzmh_ptmass(iTeff,isink)
-
-end subroutine inject_sphere
 
 !-----------------------------------------------------------------------
 !+
@@ -653,7 +719,7 @@ end subroutine update_injected_par
 !  compute 1D wind profile and define the number of shells to fill the domain
 !+
 !-----------------------------------------------------------------------
-subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundary,tcross,tfill,onewind)
+subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundary,tcross,tfill)
  use units,     only:utime
  use physcon,   only:au
  use io,        only:fileprefix,fatal,warning,id,master
@@ -663,14 +729,13 @@ subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundar
  integer,           intent(in)  :: isink
  type(wind_params), intent(in)  :: params
  real,              intent(in)  :: time_between_spheres,d_part
- logical,           intent(in)  :: onewind
  real,              intent(out) :: tboundary,tcross,tfill
  real :: tend,rout,rfill
- character(len=len(fileprefix)+14) :: wfile ! prefix + NN_profile.dat
+ character(len=len(fileprefix)+16) :: wfile ! prefix + NN(NN)_profile.dat
 
- tboundary = (iboundary_spheres+nfill_domain)*time_between_spheres
+ tboundary = (iboundary_spheres+nfill_domain(isink))*time_between_spheres
  tend      = max(tmax,tboundary)*utime
- write(wfile,'(a,i2.2,"_profile.dat")') trim(fileprefix),isink
+ write(wfile,'(a,i0.2,"_profile.dat")') trim(fileprefix),isink
 
  rout = outer_boundary_au*au
  rfill = rfill_domain_au*au
@@ -678,10 +743,10 @@ subroutine set_1D_wind_profile(params,isink,d_part,time_between_spheres,tboundar
  if (tboundary > tmax) call warning(label,'simulation time < time to reach the last boundary shell')
 
 !define the number of background shells
- if (tfill < 1.d98 .and. rfill_domain_au > 1e-5 .and. (isink == 2 .or. onewind)) then
-    nfill_domain = int(tfill/(utime*time_between_spheres))-iboundary_spheres
-    if (id==master) print "(a,i0)",' number of background shells set to ',nfill_domain
-    if (nfill_domain < 0 ) then
+ if (tfill < 1.d98 .and. rfill_domain_au > 1e-5) then
+    nfill_domain(isink) = int(tfill/(utime*time_between_spheres))-iboundary_spheres
+    if (id==master) print "(a,i0)",' number of background shells set to ',nfill_domain(isink)
+    if (nfill_domain(isink) < 0 ) then
        call logging(params,isink,time_between_spheres,d_part,tboundary=tboundary,tcross=tcross,tfill=tfill)
        call fatal(label,'number of background shells < 0')
     endif
@@ -773,18 +838,15 @@ end subroutine write_options_inject
 subroutine read_options_inject(db,nerr)
  use infile_utils, only:inopts,read_inopt
  use physcon,      only:deg_to_rad
- use io,           only:warning
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  logical, save :: init_opt = .false.
- integer :: iwind_resolution_old
- character(len=*), parameter :: label='read_options'
 
  if (.not.init_opt) then
     init_opt = .true.
     call set_default_options_inject()
  endif
- call read_inopt(wind_type,'wind_type',db,errcount=nerr,min=0,max=3)
+ call read_inopt(wind_type,'wind_type',db,default=0,errcount=nerr,min=0,max=3)
  if (wind_type == 2) then
     call read_inopt(pulsation_period_days,'pulsation_period',db,errcount=nerr,min=0.)
     call read_inopt(piston_velocity_km_s,'piston_velocity',db,errcount=nerr,min=0.)
@@ -794,17 +856,84 @@ subroutine read_options_inject(db,nerr)
     call read_inopt(jet_opening_angle_degree,'jet_opening_angle',db,errcount=nerr,min=0.,max=90.)
     jet_opening_angle = jet_opening_angle_degree*deg_to_rad
  endif
- ! obsolete option: the particle mass is now set in the .setup file (or read from the dump)
- iwind_resolution_old = 0
- call read_inopt(iwind_resolution_old,'iwind_resolution',db,default=0)
- if (iwind_resolution_old > 0) call warning(label,'iwind_resolution is obsolete and ignored: the particle mass '//&
-    'is set by phantomsetup; see docs/examples/wind.rst to migrate old input files')
- call read_inopt(rfill_domain_au,'rfill_domain',db,errcount=nerr,min=0.)
+ ! obsolete options: the wind and the particle mass are now set in the .setup file (or read from the dump)
+ call print_old_wind_options(db)
+ call read_inopt(rfill_domain_au,'rfill_domain',db,default=0.,errcount=nerr,min=0.)
  call read_inopt(wind_shell_spacing,'wind_shell_spacing',db,errcount=nerr,min=epsilon(0.))
  call read_inopt(iboundary_spheres,'iboundary_spheres',db,errcount=nerr,min=0)
  call read_inopt(outer_boundary_au,'outer_boundary',db,errcount=nerr,min=0.)
  if (mhd) call read_inopt(B_r,'B_r',db,errcount=nerr)
 
 end subroutine read_options_inject
+
+!-----------------------------------------------------------------------
+!+
+!  .in files from before the wind became a property of each sink give
+!  the wind of the primary star and the resolution: these are ignored,
+!  so print the options to set in the .setup file instead, or return
+!  them if the optional arguments are given (as phantomsetup does).
+!  iwind_resolution was the icosahedron resolution q before January
+!  2025 (40q(q-1)+12 particles per shell), then the number of particles
+!+
+!-----------------------------------------------------------------------
+subroutine print_old_wind_options(db,mdot_msun_yr,vwind_km_s,wind_temp,rinj_au,alpha,pmass)
+ use infile_utils, only:inopts,read_inopt
+ use physcon,      only:au,km,years
+ type(inopts), intent(inout) :: db(:)
+ real, intent(out), optional :: mdot_msun_yr,vwind_km_s,wind_temp,rinj_au,alpha,pmass
+ integer :: ierr,isonic,isink_rad,iwindres,nshell
+ real    :: mdot,v,temp,r,a,spacing,m
+ logical :: old_wind
+
+ mdot = 0.; v = 0.; temp = 0.; r = 0.; a = 0.; spacing = 1.; m = 0.
+ isonic = 0; isink_rad = 0; iwindres = 0; nshell = 0
+ call read_inopt(iwindres,'iwind_resolution',db,err=ierr)
+ call read_inopt(mdot,'wind_mass_rate',db,err=ierr)
+ old_wind = (ierr == 0)
+ call read_inopt(isonic,'sonic_type',db,err=ierr)
+ if (isonic /= 1) call read_inopt(v,'wind_velocity',db,err=ierr)
+ call read_inopt(temp,'wind_temperature',db,err=ierr)
+ call read_inopt(r,'wind_inject_radius',db,err=ierr)
+ call read_inopt(isink_rad,'isink_radiation',db,err=ierr)
+ if (isink_rad == 1 .or. isink_rad == 3) call read_inopt(a,'alpha_rad',db,err=ierr)
+ call read_inopt(spacing,'wind_shell_spacing',db,err=ierr)
+ if (iwindres > 0) then
+    nshell = iwindres
+    if (iwindres < 12) nshell = 40*iwindres*(iwindres-1) + 12
+    ! particle mass of the icosahedral shells: spacing*d*Rinject*Mdot/(N*v), with neighbour
+    ! distance d = 2/((2q-1)*sqrt(sqrt(5)*phi)) on a sphere of unit radius
+    if (iwindres < 12 .and. mdot*v*r > 0.) &
+       m = spacing*2./((2.*iwindres-1.)*sqrt(sqrt(5.)*0.5*(1.+sqrt(5.))))*r*au/(v*km)/years*mdot/nshell
+ endif
+
+ if (present(mdot_msun_yr)) then
+    mdot_msun_yr = mdot
+    if (present(vwind_km_s)) vwind_km_s = v
+    if (present(wind_temp))  wind_temp  = temp
+    if (present(rinj_au))    rinj_au    = r
+    if (present(alpha))      alpha      = a
+    if (present(pmass))      pmass      = m
+    return
+ endif
+ if (.not.old_wind .and. iwindres <= 0) return
+
+ print "(/,a)",' WARNING! old wind options in the .in file are ignored: set instead in the .setup file'
+ if (old_wind) then
+    print "(4x,a,es10.3)",'primary_mdot = ',mdot
+    print "(4x,a,f0.2)",'primary_vwind = ',v
+    print "(4x,a,f0.1)",'primary_wind_temp = ',temp
+    print "(4x,a,f0.3,a)",'primary_Rinj = ',r,' au'
+    print "(4x,a,f0.3)",'primary_alpha = ',a
+ endif
+ if (m > 0.) then
+    print "(4x,a,es11.4,a,i0,a)",'iresolution = 0 and mass_of_particles = ',m,&
+          ' (the particle mass given by iwind_resolution = ',iwindres,')'
+    print "(4x,a,i0,a)",'or iresolution = 1 and particles_per_shell = ',nshell,' (the same number of particles per shell)'
+ elseif (nshell > 0) then
+    print "(4x,a,i0,a)",'iresolution = 1 and particles_per_shell = ',nshell,' (from iwind_resolution)'
+ endif
+ print "(a)",''
+
+end subroutine print_old_wind_options
 
 end module inject

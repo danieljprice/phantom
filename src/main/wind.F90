@@ -27,6 +27,7 @@ module wind
  public :: setup_wind,wind_params,get_params_from_sink
  public :: solve_wind,get_wind_solution,get_wind_particle_mass
  public :: wind_state,save_windprofile,interp_wind_profile,interp_wind_profile_at_r
+ public :: has_wind_profile,wind_age_at_r
 
  private
  ! Shared variables
@@ -40,7 +41,12 @@ module wind
  ! input parameters
  real :: u_to_temperature_ratio
  real :: wind_gamma
- real, allocatable, target, public :: trvurho_1D(:,:),trvurho_1D2(:,:),JKmuS_1D(:,:)
+ ! 1D wind profile of one sink (cgs): rows of time, r, v, u and rho in trvurho,
+ ! and the nucleation variables in JKmuS, at the same times
+ type wind_profile
+    real, allocatable :: trvurho(:,:),JKmuS(:,:)
+ end type wind_profile
+ type(wind_profile), allocatable, target, public :: wind_profiles(:)  ! one per sink
 
 ! wind properties
  type wind_state
@@ -1046,69 +1052,73 @@ end subroutine get_initial_tau_lucy
 
 !-----------------------------------------------------------------------
 !
-!  Interpolate 1D wind profile
+!  Interpolate the 1D wind profile of a sink at a given age of the wind
+!  (time since injection); in/out variables in code units, except JKmuS
 !
 !-----------------------------------------------------------------------
-subroutine interp_wind_profile(time,local_time,r,v,u,rho,e,GM,fdone,isink,JKmuS)
- !in/out variables in code units (except Jstar,K)
+subroutine interp_wind_profile(isink,age,r,v,u,rho,JKmuS)
  use units,          only:udist,utime,unit_velocity,unit_density,unit_ergg
  use dust_formation, only:idust_opacity
- use part,           only:idgamma
- use eos,            only:gamma
  use table_utils,    only:find_nearest_index,interp_1d
-
- real,    intent(in)  :: time,local_time,GM
  integer, intent(in)  :: isink
- real,    intent(out) :: u,rho,e,r,v,fdone
+ real,    intent(in)  :: age
+ real,    intent(out) :: r,v,u,rho
  real,    intent(out), optional :: JKmuS(:)
-
- real    :: ltime,gammai
+ real    :: ltime,t1,t2
  integer :: indx,j
  real, pointer :: trvurho(:,:)
 
- if (isink == 1 .and. allocated(trvurho_1D)) then
-    trvurho => trvurho_1D
- elseif (isink == 2 .and. allocated(trvurho_1D2)) then
-    trvurho => trvurho_1D2
- else
-    stop
- endif
-
- ltime = local_time*utime
+ call check_wind_profile(isink)
+ trvurho => wind_profiles(isink)%trvurho
+ ltime = age*utime
  call find_nearest_index(trvurho(1,:),ltime,indx)
+ t1 = trvurho(1,indx)
+ t2 = trvurho(1,indx+1)
 
- r   = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(2,indx),trvurho(2,indx+1))/udist
- v   = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(3,indx),trvurho(3,indx+1))/unit_velocity
+ r   = interp_1d(ltime,t1,t2,trvurho(2,indx),trvurho(2,indx+1))/udist
+ v   = interp_1d(ltime,t1,t2,trvurho(3,indx),trvurho(3,indx+1))/unit_velocity
  if (isothermal) then
     u = 0.
  else
-    u = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(4,indx),trvurho(4,indx+1))/unit_ergg
+    u = interp_1d(ltime,t1,t2,trvurho(4,indx),trvurho(4,indx+1))/unit_ergg
  endif
- rho = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),trvurho(5,indx),trvurho(5,indx+1))/unit_density
+ rho = interp_1d(ltime,t1,t2,trvurho(5,indx),trvurho(5,indx+1))/unit_density
 
- if (idust_opacity == 2) then
+ if (idust_opacity == 2 .and. present(JKmuS)) then
     do j=1,n_nucleation
-       JKmuS(j) = interp_1d(ltime,trvurho(1,indx),trvurho(1,indx+1),JKmuS_1D(j,indx),JKmuS_1D(j,indx+1))
+       JKmuS(j) = interp_1d(ltime,t1,t2,wind_profiles(isink)%JKmuS(j,indx),wind_profiles(isink)%JKmuS(j,indx+1))
     enddo
-    ! the adiabatic index of the shell, given to the injected particles
-    ! by add_or_update_particle from JKmuS
-    gammai = JKmuS(idgamma)
- else
-    gammai = gamma
- endif
-
- e = .5*v**2 - GM/r + gammai*u
- if (local_time == 0.) then
-    fdone = 1.
- else
-    fdone = ltime/(local_time*utime)
  endif
 
 end subroutine interp_wind_profile
 
 !-----------------------------------------------------------------------
 !
-!  Interpolate 1D wind profile at a given radius
+!  Age of the wind (time since injection, code units) at a given distance
+!  r (code units) from the sink: the inverse of r(age) in interp_wind_profile,
+!  using the same linear interpolation, so that r -> age -> r is exact
+!
+!-----------------------------------------------------------------------
+real function wind_age_at_r(isink,r) result(age)
+ use units,       only:udist,utime
+ use table_utils, only:find_nearest_index,interp_1d
+ integer, intent(in) :: isink
+ real,    intent(in) :: r
+ real    :: lr
+ integer :: indx
+ real, pointer :: trvurho(:,:)
+
+ call check_wind_profile(isink)
+ trvurho => wind_profiles(isink)%trvurho
+ lr = r*udist
+ call find_nearest_index(trvurho(2,:),lr,indx)
+ age = interp_1d(lr,trvurho(2,indx),trvurho(2,indx+1),trvurho(1,indx),trvurho(1,indx+1))/utime
+
+end function wind_age_at_r
+
+!-----------------------------------------------------------------------
+!
+!  Interpolate 1D wind profile at a given radius (cgs)
 !
 !-----------------------------------------------------------------------
 subroutine interp_wind_profile_at_r(r,v,u,rho,isink)
@@ -1118,22 +1128,78 @@ subroutine interp_wind_profile_at_r(r,v,u,rho,isink)
  integer, intent(in)  :: isink
  real, pointer :: trvurho(:,:)
 
- if (isink == 1 .and. allocated(trvurho_1D)) then
-    trvurho => trvurho_1D
- elseif (isink == 2 .and. allocated(trvurho_1D2)) then
-    trvurho => trvurho_1D2
- else
+ if (.not.has_wind_profile(isink)) then
     u = 0.
     v = 0.
     rho = 0.
     return
  endif
 
+ trvurho => wind_profiles(isink)%trvurho
  v = yinterp(trvurho(3,:),trvurho(2,:),r)
  u = yinterp(trvurho(4,:),trvurho(2,:),r)
  rho = yinterp(trvurho(5,:),trvurho(2,:),r)
 
 end subroutine interp_wind_profile_at_r
+
+!-----------------------------------------------------------------------
+!
+!  whether the 1D wind profile of a sink has been computed
+!
+!-----------------------------------------------------------------------
+logical function has_wind_profile(isink)
+ integer, intent(in) :: isink
+
+ has_wind_profile = .false.
+ if (.not.allocated(wind_profiles)) return
+ if (isink < 1 .or. isink > size(wind_profiles)) return
+ has_wind_profile = allocated(wind_profiles(isink)%trvurho)
+
+end function has_wind_profile
+
+!-----------------------------------------------------------------------
+!
+!  stop if the 1D wind profile of a sink has not been computed, or has
+!  too few points to interpolate
+!
+!-----------------------------------------------------------------------
+subroutine check_wind_profile(isink)
+ use io, only:fatal
+ integer, intent(in) :: isink
+
+ if (.not.has_wind_profile(isink)) then
+    call fatal(label,'no 1D wind profile for sink',ival=isink)
+ elseif (size(wind_profiles(isink)%trvurho,dim=2) < 2) then
+    call fatal(label,'1D wind profile has fewer than 2 points for sink',ival=isink)
+ endif
+
+end subroutine check_wind_profile
+
+!-----------------------------------------------------------------------
+!
+!  store the 1D wind profile of a sink, so the wind of every sink can be
+!  interpolated
+!
+!-----------------------------------------------------------------------
+subroutine store_wind_profile(isink,n,trvurho,JKmuS)
+ use dim, only:maxptmass
+ use io,  only:fatal
+ integer, intent(in) :: isink,n
+ real,    intent(in) :: trvurho(:,:)
+ real,    intent(in), optional :: JKmuS(:,:)
+
+ if (.not.allocated(wind_profiles)) allocate(wind_profiles(maxptmass))
+ if (isink < 1 .or. isink > size(wind_profiles)) call fatal(label,'sink number out of range',ival=isink)
+ if (allocated(wind_profiles(isink)%trvurho)) deallocate(wind_profiles(isink)%trvurho)
+ allocate(wind_profiles(isink)%trvurho(size(trvurho,dim=1),n))
+ wind_profiles(isink)%trvurho(:,:) = trvurho(:,1:n)
+ if (allocated(wind_profiles(isink)%JKmuS)) deallocate(wind_profiles(isink)%JKmuS)
+ if (present(JKmuS)) then
+    allocate(wind_profiles(isink)%JKmuS(size(JKmuS,dim=1),n))
+    wind_profiles(isink)%JKmuS(:,:) = JKmuS(:,1:n)
+ endif
+
+end subroutine store_wind_profile
 
 !-----------------------------------------------------------------------
 !
@@ -1211,6 +1277,11 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  r_bound    = -1.
  alpha_bound = 0.
 
+ ! the first row is the state at injection, so that the profile at age zero is exact
+ writeline = 1
+ trvurho_temp(:,writeline) = (/state%time,state%r,state%v,state%u,state%rho/)
+ if (idust_opacity == 2) JKmuS_temp(:,writeline) = (/state%JKmuS(1:n_nucleation)/)
+
  do while((state%r < rfill .or. state%time < time_end) .and. tfill < 0. .and. &
       iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1
@@ -1268,23 +1339,13 @@ subroutine save_windprofile (params,rout,rfill,tend,tcross,tfill,filename,isink)
  if (do_write) close(iu)
  !stop 'save_windprofile'
 
- if (isink == 1) then
-    if (allocated(trvurho_1D)) deallocate(trvurho_1D)
-    allocate (trvurho_1D(5,writeline))
-    trvurho_1D(:,:) = trvurho_temp(:,1:writeline)
- elseif (isink == 2) then
-    if (allocated(trvurho_1D2)) deallocate(trvurho_1D2)
-    allocate (trvurho_1D2(5,writeline))
-    trvurho_1D2(:,:) = trvurho_temp(:,1:writeline)
+ if (idust_opacity == 2) then
+    call store_wind_profile(isink,writeline,trvurho_temp,JKmuS_temp)
+    deallocate(JKmuS_temp)
+ else
+    call store_wind_profile(isink,writeline,trvurho_temp)
  endif
  deallocate(trvurho_temp)
-
- if (idust_opacity == 2) then
-    if (allocated(JKmuS_1D)) deallocate(JKmuS_1D)
-    allocate (JKmuS_1D(n_nucleation,writeline))
-    JKmuS_1D(:,:) = JKmuS_temp(:,1:writeline)
-    deallocate(JKmuS_temp)
- endif
 
 end subroutine save_windprofile
 

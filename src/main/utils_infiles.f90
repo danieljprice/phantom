@@ -666,12 +666,22 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  character(len=*), intent(in),    optional :: default
  character(len=len(valstring)) :: val_default
  integer :: ierr
+ logical :: matched
 
  ierr = 0
  val_default = ''
  ! necessary in case where output variable used as default= argument
  if (present(default)) val_default = default
- if (.not.match_inopt_in_db(db,tag,valstring)) ierr = -1
+ ! a missing option is only an error if there is no default
+ ! (the lookup is a separate statement so that it is always evaluated)
+ matched = match_inopt_in_db(db,tag,valstring)
+ if (.not.matched) then
+    if (present(default)) then
+       valstring = val_default
+    else
+       ierr = -1
+    endif
+ endif
  if (present(err)) then
     err = ierr
  elseif (ierr /= 0) then

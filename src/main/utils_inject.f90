@@ -14,8 +14,8 @@ module injectutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: geometry, icosahedron, part, partinject, physcon, random,
-!   units, vectorutils
+! :Dependencies: geometry, icosahedron, part, partinject, physcon, units,
+!   vectorutils
 !
  use physcon, only:pi
 
@@ -23,7 +23,6 @@ module injectutils
  real, parameter :: phi = (sqrt(5.)+1.)/2. ! Golden ratio
 
  logical :: jets = .false.
- integer :: seed_random = -1
  real    :: edge_velocity, opening_angle
 
 contains
@@ -50,87 +49,107 @@ end function get_neighb_distance
 subroutine inject_geodesic_sphere(sphere_number,first_particle,ires,r,v,u, &
              npart,npartoftype,xyzh,vxyzu,rho,itype,x0,v0, &
              isink,JKmuS,rstar,mstar,omega_vec,vwind_terminal)
- use icosahedron, only:fibonacci_sphere,fibonacci_jets
  use partinject,  only:add_or_update_particle
  use part,        only:hn,massoftype
- use units,       only:unit_velocity
- use physcon,     only:km
  integer, intent(in)    :: sphere_number,first_particle,ires,itype,isink
  real,    intent(in)    :: r,v,u,rho,x0(3),v0(3)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(in), optional :: rstar,mstar,omega_vec(3),vwind_terminal
  real,    intent(in), optional :: JKmuS(:)
-
- real :: omega,rotation_speed_crit,wind_rotation_speed,h_sim
- real :: radial_unit_vector(3),radial_unit_vector_rotated(3),omega_axis(3)
- real :: particle_position(3),particle_velocity(3),rotation_angles(3),rotmat(3,3)
- integer :: j,particles_per_sphere
+ real :: h_sim,dir(3),rotmat(3,3),xyz(3),vxyz(3)
+ real :: rstari,mstari,omega_veci(3),vterm
+ logical :: jets_on
+ integer :: j
 
  ! set h from number density n = rho/mpart (rho is mass density here)
  h_sim = hn(rho/massoftype(itype))
- particles_per_sphere = ires
+
+ rstari = 0.
+ mstari = 0.
+ omega_veci = 0.
+ vterm = v
+ if (present(rstar))          rstari = rstar
+ if (present(mstar))          mstari = mstar
+ if (present(omega_vec))      omega_veci = omega_vec
+ if (present(vwind_terminal)) vterm = vwind_terminal
+ jets_on = (jets .and. isink == 1)
+
+ call get_shell_rotation(sphere_number,jets_on,rotmat)
+ do j=0,ires-1
+    call get_shell_direction(j,ires,rotmat,jets_on,dir)
+    call get_wind_velocity(dir,r,v,rstari,mstari,omega_veci,vterm,jets_on,xyz,vxyz)
+    call add_or_update_particle(itype,xyz+x0,vxyz+v0, &
+         h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS,isink)
+ enddo
+
+end subroutine inject_geodesic_sphere
+
+!-----------------------------------------------------------------------
+!+
+!  unit vector to particle j of a shell of nps particles, rotated by
+!  the rotation matrix of the shell (a Fibonacci sphere, or a sphere
+!  concentrated towards the poles for jets)
+!+
+!-----------------------------------------------------------------------
+subroutine get_shell_direction(j,nps,rotmat,jets_on,dir)
+ use icosahedron, only:fibonacci_sphere,fibonacci_jets
+ integer, intent(in)  :: j,nps
+ real,    intent(in)  :: rotmat(3,3)
+ logical, intent(in)  :: jets_on
+ real,    intent(out) :: dir(3)
+ real :: unrotated(3)
+
+ if (jets_on) then
+    call fibonacci_jets(j,nps,unrotated)
+ else
+    call fibonacci_sphere(j,nps,unrotated)
+ endif
+ dir = matmul(rotmat,unrotated)
+
+end subroutine get_shell_direction
+
+!-----------------------------------------------------------------------
+!+
+!  position (relative to the sink) and velocity (relative to the sink)
+!  of a wind particle at distance r in direction dir (unit vector) with
+!  radial velocity v, including the rotation of the star (omega_vec is
+!  the spin angular momentum per unit mass) or polar jets
+!+
+!-----------------------------------------------------------------------
+subroutine get_wind_velocity(dir,r,v,rstar,mstar,omega_vec,vwind_terminal,jets_on,xyz,vxyz)
+ use units,   only:unit_velocity
+ use physcon, only:km
+ real,    intent(in)  :: dir(3),r,v,rstar,mstar,omega_vec(3),vwind_terminal
+ logical, intent(in)  :: jets_on
+ real,    intent(out) :: xyz(3),vxyz(3)
+ real :: omega,wind_rotation_speed,omega_axis(3),radial_unit_vector(3)
 
  ! check if the wind emitting sink is rotating
  wind_rotation_speed = 0.
- if (present(rstar) .and. present(omega_vec)) then
-    if (rstar > 0.) wind_rotation_speed = sqrt(sum(omega_vec**2))/rstar**2
- endif
+ if (rstar > 0.) wind_rotation_speed = sqrt(sum(omega_vec**2))/rstar**2
 
  omega = 0.
- if (wind_rotation_speed > 0.001*km/unit_velocity .and. present(rstar) .and. present(mstar)) then
-    rotation_speed_crit = sqrt(mstar/rstar)
-    omega = wind_rotation_speed/rotation_speed_crit
+ omega_axis = 0.
+ if (wind_rotation_speed > 0.001*km/unit_velocity .and. mstar > 0.) then
+    omega = wind_rotation_speed/sqrt(mstar/rstar)
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
     omega_axis = omega_vec/(wind_rotation_speed*rstar**2)
     ! make sure the rotation axis is a unit vector
     omega_axis = merge(omega_axis, 0., abs(omega_axis) > 1e-5)
  endif
 
- if (jets .and. isink == 1) then
-    call optimal_rot_angles(ires,rotation_angles,.true.)
+ radial_unit_vector = dir
+ if (jets_on) then
+    call velocity_jets(radial_unit_vector,r,v,edge_velocity,opening_angle,xyz,vxyz,vwind_terminal)
+ elseif (omega > 0.01) then
+    call velocity_rotating_sink(radial_unit_vector,r,v,omega,omega_axis,xyz,vxyz,rstar,omega_vec)
  else
-    call optimal_rot_angles(ires,rotation_angles,.false.)
+    xyz  = r*dir
+    vxyz = v*dir
  endif
 
- rotation_angles = rotation_angles * sphere_number
- call make_rotation_matrix(rotation_angles, rotmat)
-
- do j=0,particles_per_sphere-1
-    if (jets .and. isink == 1) then
-       call fibonacci_jets(j,particles_per_sphere,radial_unit_vector)
-    else
-       call fibonacci_sphere(j,particles_per_sphere,radial_unit_vector)
-    endif
-
-    radial_unit_vector_rotated(1) = radial_unit_vector(1)*rotmat(1,1) &
-                                  + radial_unit_vector(2)*rotmat(1,2) &
-                                  + radial_unit_vector(3)*rotmat(1,3)
-    radial_unit_vector_rotated(2) = radial_unit_vector(1)*rotmat(2,1) &
-                                  + radial_unit_vector(2)*rotmat(2,2) &
-                                  + radial_unit_vector(3)*rotmat(2,3)
-    radial_unit_vector_rotated(3) = radial_unit_vector(1)*rotmat(3,1) &
-                                  + radial_unit_vector(2)*rotmat(3,2) &
-                                  + radial_unit_vector(3)*rotmat(3,3)
-
-    if (jets .and. isink == 1 .and. present(vwind_terminal)) then
-       call velocity_jets(radial_unit_vector_rotated,r,v,edge_velocity,opening_angle,&
-                          particle_position,particle_velocity,vwind_terminal)
-    elseif (omega > 0.01 .and. present(rstar) .and. present(omega_vec)) then
-       call velocity_rotating_sink(radial_unit_vector_rotated,r,v,omega,omega_axis,&
-                                   particle_position,particle_velocity,rstar,omega_vec)
-    else
-       particle_position = r*radial_unit_vector_rotated
-       particle_velocity = v*radial_unit_vector_rotated
-    endif
-    particle_position = particle_position + x0
-    particle_velocity = particle_velocity + v0
-
-    call add_or_update_particle(itype,particle_position,particle_velocity, &
-         h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS,isink)
- enddo
-
-end subroutine inject_geodesic_sphere
+end subroutine get_wind_velocity
 
 !-----------------------------------------------------------------------
 !+
@@ -308,29 +327,27 @@ end subroutine velocity_jets
 
 !-----------------------------------------------------------------------
 !+
-!  Return the optimal rotation angles given the resolution
-!  (optimal = which gives the most homogeneous distribution
-!  of particles)
+!  rotation matrix of shell number ishell: fixed base angles (giving
+!  a homogeneous distribution over consecutive shells) multiplied by
+!  the shell number, so that the orientation of a shell depends only on
+!  its number (the same on every MPI task and after a restart).
+!  Polar jets are only rotated about the z-axis
 !+
 !-----------------------------------------------------------------------
-subroutine optimal_rot_angles(ires,rotation_angles,rot_jets)
- use random, only:ran2
- integer, intent(in)  :: ires
- real,    intent(out) :: rotation_angles(3)
- logical, intent(in), optional :: rot_jets
+subroutine get_shell_rotation(ishell,rot_jets,rotmat)
+ integer, intent(in)  :: ishell
+ logical, intent(in)  :: rot_jets
+ real,    intent(out) :: rotmat(3,3)
+ real(kind=8), parameter :: base_angles(3) = &
+    (/1.28693610288783d0, 2.97863087745917d0, 1.03952835451832d0/)
+ real(kind=8), parameter :: twopi8 = 2.d0*3.14159265358979323846d0
+ real :: rotation_angles(3)
 
-! for the fibonacci sphere injection method, the rotation angles are pseudo-random
-! (actually follow a sequence of length cycle 2.30584E+18), results are reproducible
- rotation_angles(3) = ran2(seed_random) * 2.* pi
- if (rot_jets) then
-! rotate only about the z-axis for the polar jets
-    rotation_angles(1) = 0.
-    rotation_angles(2) = 0.
- else
-    rotation_angles(1) = ran2(seed_random) * 2.* pi
-    rotation_angles(2) = ran2(seed_random) * 2.* pi
- endif
+ ! reduce modulo 2 pi in double precision, as the shell number can be large
+ rotation_angles = real(modulo(base_angles*real(ishell,kind=8),twopi8))
+ if (rot_jets) rotation_angles(1:2) = 0.
+ call make_rotation_matrix(rotation_angles,rotmat)
 
-end subroutine optimal_rot_angles
+end subroutine get_shell_rotation
 
 end module injectutils

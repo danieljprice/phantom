@@ -18,7 +18,7 @@ module partinject
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, cooling_ism, dim, eos, extern_gr, io,
-!   metric_tools, options, part, timestep_ind
+!   metric_tools, mpiutils, options, part, timestep_ind
 !
  implicit none
 
@@ -48,7 +48,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:iorig,new_iorig,iseed_sink,rho,rhoh,massoftype,aprmassoftype,idgamma
  use io,   only:fatal
  use eos,  only:gamma,gmw
- use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr,inject_parts
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr
  use timestep_ind, only:nbinmax
  use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
@@ -73,7 +73,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     npartoftype(itype) = npartoftype(itype) + 1
     ! add particle ID
     iorig(particle_number) = new_iorig()
-    if (present(isink) .and. inject_parts) iseed_sink(particle_number) = isink
+    if (present(isink) .and. size(iseed_sink) >= particle_number) iseed_sink(particle_number) = isink
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
  elseif (particle_number <= npart) then
@@ -247,6 +247,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
           endif
        endif
     enddo
+    updated_particle = .false.
  endif
 
 end subroutine update_injected_particles

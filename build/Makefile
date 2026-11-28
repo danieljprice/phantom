@@ -638,13 +638,12 @@ phantomsetup: setup
 
 SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 readwrite_aton.f90 \
             set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-            set_star_utils.f90 relax_star.f90 set_star.f90 set_orbit.f90
+            set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 set_orbit.f90
 
 SRCSETUP= utils_omp.f90 setup_params.f90 \
           ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
           set_slab.f90 utils_filenames.f90 utils_tables.f90 \
           grids_for_setup.f90 set_disc.f90 \
-          set_hierarchical.f90 \
           velfield_fromcubes.f90 set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
@@ -1157,7 +1156,8 @@ cleanmultirun:
 #
 SRCBIN = prompting.f90 utils_datafiles.f90 datafiles.f90 ${CONFIG} physcon.f90 io.F90 \
          utils_filenames.f90 mpi_utils.F90 utils_allocate.f90 dtype_kdtree.F90 utils_orbits.f90 \
-         utils_infiles.f90 units.f90 set_binary.f90 set_orbit.f90 test_binary.f90 testbinary.f90
+         utils_infiles.f90 units.f90 set_binary.f90 set_hierarchical_utils.f90 set_hierarchical.f90 \
+         set_orbit.f90 test_binary.f90 testbinary.f90
 OBJBIN1 = ${SRCBIN:.f90=.o}
 OBJBIN = ${OBJBIN1:.F90=.o}
 

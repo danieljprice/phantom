@@ -20,12 +20,14 @@ module setorbit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, orbits, physcon, setbinary, units
+! :Dependencies: infile_utils, orbits, physcon, setbinary, sethierarchical,
+!   units
 !
  implicit none
  public :: set_orbit
  public :: set_defaults_orbit,write_options_orbit,read_options_orbit,get_orbital_time
  public :: orbit_t,write_trajectory_to_file,set_orbit_elements
+ public :: set_orbits,set_defaults_orbits,write_options_orbits,read_options_orbits
 !
  ! define data types with options needed
  ! to setup an orbit
@@ -118,7 +120,6 @@ end subroutine set_defaults_orbit
 subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose,ierr,omega_corotate)
  use units,     only:in_code_units
  use setbinary, only:set_binary
- use orbits,    only:convert_flyby_to_elements,convert_posvel_to_flyby,get_orbital_elements
  type(orbit_t), intent(inout) :: orbit
  real,          intent(in)    :: m1,m2,hacc1,hacc2
  real,          intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -142,6 +143,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
        v1(i) = in_code_units(orbit%posvel%v1(i),ierr,unit_type='velocity')
        v2(i) = in_code_units(orbit%posvel%v2(i),ierr,unit_type='velocity')
     enddo
+    if (present(omega_corotate)) call set_corotating_frame(x1,x2,v1,v2,omega_corotate)
     ! body 1
     xyzmh_ptmass(1:3,nptmass+1) = x1
     xyzmh_ptmass(4,nptmass+1)   = m1
@@ -152,6 +154,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
     xyzmh_ptmass(4,nptmass+2)   = m2
     xyzmh_ptmass(5,nptmass+2)   = hacc2
     vxyz_ptmass(1:3,nptmass+2)  = v2
+    nptmass = nptmass + 2
 
     ! set orbit elements from position and velocity, so they can be used to compute the period
     call set_orbit_elements(orbit,m1,m2,verbose=verbose)
@@ -177,6 +180,32 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
 
 end subroutine set_orbit
 
+!----------------------------------------------------------------
+!+
+!  initial angular speed about the z-axis of a binary given by the
+!  positions and velocities of its two bodies, and their velocities
+!  in the frame corotating at that speed (as set_binary does)
+!+
+!----------------------------------------------------------------
+subroutine set_corotating_frame(x1,x2,v1,v2,omega)
+ real, intent(in)    :: x1(3),x2(3)
+ real, intent(inout) :: v1(3),v2(3)
+ real, intent(out)   :: omega
+ real :: dx(3),dv(3)
+
+ dx = x2 - x1
+ dv = v2 - v1
+ ! no rotation about the z-axis if the bodies are separated only along z
+ omega = 0.
+ if (dx(1)**2 + dx(2)**2 > 0.) omega = (dx(1)*dv(2) - dx(2)*dv(1))/(dx(1)**2 + dx(2)**2)
+ ! subtract omega x r, with omega along the z-axis
+ v1(1) = v1(1) + omega*x1(2)
+ v1(2) = v1(2) - omega*x1(1)
+ v2(1) = v2(1) + omega*x2(2)
+ v2(2) = v2(2) - omega*x2(1)
+
+end subroutine set_corotating_frame
+
 !----------------------------------------------------------------------
 !+
 !  convert input parameters to standard orbital elements (a,e,i,O,w,f)
@@ -186,8 +215,8 @@ subroutine set_orbit_elements(orbit,m1,m2,verbose,nerr)
  use physcon, only:days
  use units,   only:in_code_units,is_time_unit,utime
  use orbits,  only:get_semimajor_axis,convert_flyby_to_elements,get_orbital_elements,&
-                   get_pericentre_distance,get_true_anomaly_from_separation,rad_to_deg,&
-                   get_time_to_separation,get_time_between_true_anomalies
+                   get_pericentre_distance,get_true_anomaly_from_separation,&
+                   get_time_between_true_anomalies
  type(orbit_t), intent(inout) :: orbit
  real,          intent(in)    :: m1,m2
  logical,       intent(in),    optional :: verbose
@@ -604,5 +633,160 @@ subroutine read_options_orbit(orbit,m1,m2,db,nerr,label,prefix,input_type)
  endif
 
 end subroutine read_options_orbit
+
+!----------------------------------------------------------------
+!+
+!  default orbit options for a system of nstar stars:
+!  a two-body orbit for nstar=2, a hierarchical system for nstar>=3
+!+
+!----------------------------------------------------------------
+subroutine set_defaults_orbits(nstar,orbit)
+ use sethierarchical, only:generate_hierarchy_string,set_hierarchical_default_options
+ integer,       intent(in)  :: nstar
+ type(orbit_t), intent(out) :: orbit
+
+ call set_defaults_orbit(orbit)
+ if (nstar >= 3) then
+    call generate_hierarchy_string(nstar)
+    call set_hierarchical_default_options()
+ endif
+
+end subroutine set_defaults_orbits
+
+!----------------------------------------------------------------
+!+
+!  write orbit options for a system of nstar stars to .setup file
+!  (star_names, if given, label the stars of a hierarchical system)
+!+
+!----------------------------------------------------------------
+subroutine write_options_orbits(nstar,orbit,iunit,star_names)
+ use sethierarchical, only:write_hierarchical_setupfile
+ integer,          intent(in) :: nstar,iunit
+ type(orbit_t),    intent(in) :: orbit
+ character(len=*), intent(in), optional :: star_names(:)
+
+ if (nstar >= 3) then
+    call write_hierarchical_setupfile(iunit,nstar,star_names)
+ elseif (nstar == 2) then
+    call write_options_orbit(orbit,iunit)
+ endif
+
+end subroutine write_options_orbits
+
+!----------------------------------------------------------------
+!+
+!  read orbit options for a system of nstar stars from .setup file
+!  (masses m are in code units, needed to convert orbital elements)
+!+
+!----------------------------------------------------------------
+subroutine read_options_orbits(nstar,orbit,m,db,nerr)
+ use infile_utils,    only:inopts
+ use sethierarchical, only:read_hierarchical_setupfile
+ integer,                   intent(in)    :: nstar
+ type(orbit_t),             intent(out)   :: orbit
+ real,                      intent(in)    :: m(:)
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer,                   intent(inout) :: nerr
+
+ call set_defaults_orbit(orbit)
+ if (nstar >= 3) then
+    call read_hierarchical_setupfile(db,nerr,nstar)
+ elseif (nstar == 2) then
+    call read_options_orbit(orbit,m(1),m(2),db,nerr)
+ endif
+
+end subroutine read_options_orbits
+
+!----------------------------------------------------------------
+!+
+!  place nstar sink particles with masses m and accretion radii
+!  hacc on orbits: a single sink at rest at the origin for nstar=1,
+!  a two-body orbit for nstar=2 and a hierarchical system for
+!  nstar>=3. Sinks are appended after the existing nptmass sinks,
+!  in the same order as the stars, i.e. star i is sink nptmass+i
+!+
+!----------------------------------------------------------------
+subroutine set_orbits(nstar,m,hacc,orbit,prefix,xyzmh_ptmass,vxyz_ptmass,nptmass,verbose,ierr,omega_corotate)
+ integer,          intent(in)    :: nstar
+ real,             intent(in)    :: m(:),hacc(:)
+ type(orbit_t),    intent(inout) :: orbit
+ character(len=*), intent(in)    :: prefix
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,          intent(inout) :: nptmass
+ logical,          intent(in)    :: verbose
+ integer,          intent(out)   :: ierr
+ real,             intent(out), optional :: omega_corotate
+
+ ierr = 0
+ if (present(omega_corotate)) omega_corotate = 0.
+ if (nstar >= 3) then
+    call set_hierarchical_orbits(nstar,m,hacc,prefix,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ elseif (nstar == 2) then
+    if (present(omega_corotate)) then
+       call set_orbit(orbit,m(1),m(2),hacc(1),hacc(2),xyzmh_ptmass,vxyz_ptmass,&
+                      nptmass,verbose,ierr,omega_corotate)
+    else
+       call set_orbit(orbit,m(1),m(2),hacc(1),hacc(2),xyzmh_ptmass,vxyz_ptmass,&
+                      nptmass,verbose,ierr)
+    endif
+ elseif (nstar == 1) then
+    nptmass = nptmass + 1
+    xyzmh_ptmass(:,nptmass) = 0.
+    xyzmh_ptmass(4,nptmass) = m(1)
+    xyzmh_ptmass(5,nptmass) = hacc(1)
+    vxyz_ptmass(:,nptmass)  = 0.
+ endif
+
+end subroutine set_orbits
+
+!----------------------------------------------------------------
+!+
+!  set up a hierarchical system of nstar stars and append its sinks
+!  after the existing nptmass sinks. set_hierarchical returns the
+!  sinks in the order of the labels in the hierarchy string. Sink
+!  indices in the .hierarchy file are those in the simulation
+!+
+!----------------------------------------------------------------
+subroutine set_hierarchical_orbits(nstar,m,hacc,prefix,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ use sethierarchical, only:set_hierarchical,hs
+ use sethier_utils,   only:shift_hierarchy_sinks,hierarchy_filename
+ integer,          intent(in)    :: nstar
+ real,             intent(in)    :: m(:),hacc(:)
+ character(len=*), intent(in)    :: prefix
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,          intent(inout) :: nptmass
+ integer,          intent(out)   :: ierr
+ ! one spare slot: each substitution appends a binary before removing the substituted sink
+ real :: xyzmh_tmp(size(xyzmh_ptmass,1),nstar+1),vxyz_tmp(size(vxyz_ptmass,1),nstar+1)
+ integer :: i,ntmp
+ character(len=20) :: hier_prefix
+
+ ierr = 0
+ if (hs%labels%sink_num /= nstar) then
+    print "(a)",' ERROR: number of stars in hierarchy string does not match number of stars'
+    ierr = 1
+    return
+ endif
+ do i=1,nstar
+    hs%sinks(i)%mass = m(i)
+    hs%sinks(i)%accr = hacc(i)
+ enddo
+
+ hier_prefix = prefix
+ xyzmh_tmp = 0.
+ vxyz_tmp  = 0.
+ ntmp = 0
+ call set_hierarchical(hier_prefix,ntmp,xyzmh_tmp,vxyz_tmp,ierr)
+ if (ierr /= 0) return
+
+ do i=1,nstar
+    xyzmh_ptmass(:,nptmass+i) = xyzmh_tmp(:,i)
+    vxyz_ptmass(:,nptmass+i)  = vxyz_tmp(:,i)
+ enddo
+ ! the system was set up on its own, so shift its sink indices past the existing sinks
+ if (nptmass > 0) call shift_hierarchy_sinks(hierarchy_filename(hier_prefix),nptmass,ierr)
+ nptmass = nptmass + nstar
+
+end subroutine set_hierarchical_orbits
 
 end module setorbit

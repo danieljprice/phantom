@@ -31,7 +31,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,     only:mhd,gravity,ngradh,maxvxyzu,use_dust,gr
- use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts,h2chemistry,driving,disc_viscosity
+ use dim,      only:use_dustgrowth,maxtypes,h2chemistry,driving,disc_viscosity
  use io,       only:error,id,master,warning
  use mpiutils, only:barrier_mpi
  use metric_tools, only:icoordinate,icoord_cartesian
@@ -120,11 +120,6 @@ subroutine check_compile_time_settings(ierr)
     ierr = 15
  endif
 #endif
-
- if (mpi .and. inject_parts) then
-    if (id==master) call error(string,'MPI currently not compatible with particle injection')
-    ierr = 16
- endif
 
  call barrier_mpi
 

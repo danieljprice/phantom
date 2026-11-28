@@ -107,7 +107,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use centreofmass,     only:get_centreofmass,print_particle_extent
  use dynamic_dtmax,    only:get_dtmax_initial
  use energies,         only:xyzcom
- use inject,           only:init_inject,inject_particles
+ use inject,           only:init_inject,inject_particles,inject_type
  use krome_interface,  only:initialise_krome
  use mpibalance,       only:balancedomains
  use mpiutils,         only:reduceall_mpi
@@ -190,6 +190,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
  ! inject particles at t=0, and get timestep constraint on this
  if (inject_parts) then
+    ! wind injection works with MPI, the other injection modules do not (yet)
+    if (mpi .and. inject_type /= 'wind') call fatal('initial','MPI currently not compatible with particle injection')
     call init_inject(ierr)
     if (ierr /= 0) call fatal('initial','error initialising particle injection')
     npart_old = npart

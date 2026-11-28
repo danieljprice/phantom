@@ -90,9 +90,10 @@ subroutine get_rad_accel_from_ptmass (nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fext
     !compute radiative acceleration if sink particle is assigned a non-zero luminosity
     if (Lstar > 0.d0) then
        if (extrap) then
-          dx = xi - xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j)
-          dy = yi - xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j)
-          dz = zi - xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j)
+          ! separation from the extrapolated sink position, as in get_accel_sink_gas
+          dx = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
+          dy = yi - (xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j))
+          dz = zi - (xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j))
        else
           dx = xi - xyzmh_ptmass(1,j)
           dy = yi - xyzmh_ptmass(2,j)
@@ -110,7 +111,7 @@ end subroutine get_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine calc_rad_accel_from_ptmass(npart,i,dx,dy,dz,Lstar,Mstar,rstar,vwind,alpha_rad,fextx,fexty,fextz,tau)
- use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
+ use part,  only:dust_temp,nucleation,idkappa,idalpha
  use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer, intent(in)    :: npart,i
@@ -441,7 +442,6 @@ end subroutine write_options_ptmass_radiation
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(db,nerr)
- use io,             only:error
  use dim,            only:itau_alloc,itauL_alloc
  use infile_utils,   only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
