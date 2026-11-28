@@ -126,13 +126,13 @@
    +-----------+--------------------------------------------------------------------------------------------------------------------------+
    | 21        | **HII region two temperature "equation of state"**                                                                       |
    |           |                                                                                                                          |
-   |           | flips the temperature depending on whether a particle is ionised or not,                                                 |
-   |           | use with ISOTHERMAL=yes                                                                                                  |
+   |           | two isothermal phases (cold and ionised), adiabatic gas at the ionisation front,                                         |
+   |           | use with ISOTHERMAL=no and HII regions (iH2R > 0)                                                                        |
    |           |                                                                                                                          |
    +-----------+--------------------------------------------------------------------------------------------------------------------------+
-   | 22        | **Same as ieos=21 but sets the thermal energy**                                                                          |
+   | 22        | **Removed: use ieos=21**                                                                                                 |
    |           |                                                                                                                          |
-   |           | for use when u is stored (ISOTHERMAL=no)                                                                                 |
+   |           | ieos=21 now stores the thermal energy (ISOTHERMAL=no)                                                                    |
    |           |                                                                                                                          |
    +-----------+--------------------------------------------------------------------------------------------------------------------------+
    | 23        | **Tillotson (1962) equation of state for solids (basalt, granite, ice, etc.)**                                           |

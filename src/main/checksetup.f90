@@ -1182,11 +1182,14 @@ end subroutine check_regnbody
 subroutine check_HIIRegion(nerror)
  use HIIRegion, only:iH2R
  use eos,       only:ieos
- use dim,       only:gr,mpi,periodic
- use options,   only:icooling
+ use dim,       only:gr,mpi,periodic,maxvxyzu
  integer, intent(inout) :: nerror
- if (iH2R > 0 .and. .not.(ieos==21 .or. (ieos==2 .and. icooling==10))) then
-    print "(/,a,/)", "Error: If HII activated, use ieos = 21, or ieos = 2 with icooling = 10"
+ if (iH2R > 0 .and. ieos /= 21) then
+    print "(/,a,/)", "Error: If HII activated, use ieos = 21"
+    nerror = nerror + 1
+ endif
+ if (ieos == 21 .and. (iH2R == 0 .or. maxvxyzu < 4)) then
+    print "(/,a,/)", "Error: ieos = 21 needs HII regions (iH2R > 0) and the thermal energy (ISOTHERMAL=no)"
     nerror = nerror + 1
  endif
  if (iH2R > 0 .and. gr) then

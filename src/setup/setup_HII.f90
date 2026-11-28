@@ -14,9 +14,8 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, datafiles, dim, eos, io, options, part,
-!   physcon, prompting, random, spherical, timestep, units,
-!   utils_shuffleparticles
+! :Dependencies: HIIRegion, datafiles, dim, eos, io, part, physcon,
+!   prompting, random, spherical, timestep, units, utils_shuffleparticles
 !
  implicit none
  public :: setpart
@@ -47,7 +46,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
  use HIIRegion, only:iH2R
- use options,   only:icooling
  use utils_shuffleparticles, only:shuffleparticles
 
  integer,          intent(in)    :: id
@@ -76,8 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 0.01
  rmin  = 0.
  rmax  = 1.257*pc/udist
- ieos  = 2
- icooling = 10  ! HII regions: two phase relaxation of the thermal energy
+ ieos  = 21
  IH2R  = 1
  temp = 100.
  totmass  = 6.4e2*solarm/umass

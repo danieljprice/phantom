@@ -258,7 +258,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa,idmu,idgamma,icv
  use part,              only:nucleation,igamma
- use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma,icooling
+ use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma
@@ -298,7 +298,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(iphase,maxphase,maxp) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation,icooling,gmw) &
+!$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation,gmw) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
 !$omp private(Bxi,Byi,Bzi,psii,Bi,temperaturei,ierr) &
 !$omp private(xi,yi,zi,hi) &
@@ -341,10 +341,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           X_i = eos_vars(iX,i)
           Z_i = eos_vars(iZ,i)
        endif
-       !--HII regions (icooling=10): mu set by the HII routines, for the temperature
-       if (icooling == 10) then
+       !--HII regions: mu set by the HII routines, for the temperature
+       if (ieos == 21) then
           mui = eos_vars(imu,i)
-          if (mui <= 0.) mui = gmw
        endif
        if (do_nucleation) then
           mui    = nucleation(idmu,i)

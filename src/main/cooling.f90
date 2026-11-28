@@ -16,7 +16,6 @@ module cooling
 !     6 = Koyama & Inutuska (2002)        [implicit]
 !     7 = Gammie cooling power law        [explicit]
 !     9 = Young et al. (2024)             [implicit]
-!    10 = HII regions, two phase model    [implicit]
 !
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
@@ -68,11 +67,9 @@ subroutine init_cooling(id,master,iprint,ierr)
  use part,              only:iHI
  use cooling_ism,       only:init_cooling_ism,abund_default
  use cooling_koyamainutsuka, only:init_cooling_KI02
- use cooling_HIIR,      only:init_cooling_HIIR
  use cooling_solver,         only:init_cooling_solver
  use cooling_radapprox, only:init_star
  use viscosity,         only:irealvisc
- use dim,               only:h2chemistry,store_dust_temperature
 
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
@@ -91,12 +88,6 @@ subroutine init_cooling(id,master,iprint,ierr)
     if (irealvisc > 0) call warning('cooling',&
          'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
     call init_star()
- case(10)
-    if (ieos /= 2) call fatal('cooling','icooling=10 (HII regions) requires ieos=2',var='ieos',ival=ieos)
-    !--the relaxation needs the particle index, not passed on the chemistry/dust temperature paths
-    if (h2chemistry .or. store_dust_temperature) &
-       call fatal('cooling','icooling=10 (HII regions) is not compatible with h2chemistry or a stored dust temperature')
-    call init_cooling_HIIR(ierr)
  case(6)
     call init_cooling_KI02(ierr)
  case(5)
@@ -149,8 +140,6 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
  use cooling_radapprox,      only:radcool_update_du
- use cooling_HIIR,           only:relax_HIIR
- use part,                   only:xyzh
 
  real(kind=4), intent(in)  :: divv               ! in code units
  real,         intent(in)  :: xi,yi,zi,ui,rho,dt                      ! in code units
@@ -195,8 +184,6 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
  case (9)
     call radcool_update_du(ipart,xi,yi,zi,rho,ui,duhydro,Tfloor)
- case (10)
-    call relax_HIIR(ui,xyzh(4,ipart),mui,gammai,dt,dudt)
  case default
     call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa)
  end select
@@ -216,12 +203,11 @@ subroutine write_options_cooling(iunit)
  !use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
  use cooling_radapprox, only:write_options_cooling_radapprox
- use cooling_HIIR,      only:write_options_cooling_HIIR
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
  call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
-                     '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw, 9=radiative approx, 10=HII regions)',iunit)
+                     '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw, 9=radiative approx)',iunit)
  if (icooling > 0) call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  select case(icooling)
  case(0,5,6)
@@ -234,8 +220,6 @@ subroutine write_options_cooling(iunit)
     call write_options_cooling_gammie_PL(iunit)
  case(9)
     call write_options_cooling_radapprox(iunit)
- case(10)
-    call write_options_cooling_HIIR(iunit)
  case default
     call write_options_cooling_solver(iunit)
  end select
@@ -257,13 +241,12 @@ subroutine read_options_cooling(db,nerr)
  !use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
  use cooling_radapprox, only:read_options_cooling_radapprox
- use cooling_HIIR,      only:read_options_cooling_HIIR
  use infile_utils,      only:inopts,read_inopt
  type(inopts), intent(inout) :: db(:)
  integer,      intent(inout) :: nerr
  character(len=*), parameter  :: label = 'read_infile'
 
- call read_inopt(icooling,'icooling',db,errcount=nerr,min=0,max=10,default=icooling)
+ call read_inopt(icooling,'icooling',db,errcount=nerr,min=0,max=9,default=icooling)
  if (icooling > 0 .and. .not. eos_allows_shock_and_work(ieos)) &
     call error(label,'cooling requires adiabatic eos (e.g. ieos=2)')
  if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
@@ -282,8 +265,6 @@ subroutine read_options_cooling(db,nerr)
     call read_options_cooling_gammie_PL(db,nerr)
  case(9)
     call read_options_cooling_radapprox(db,nerr)
- case(10)
-    call read_options_cooling_HIIR(db,nerr)
  case default
     call read_options_cooling_solver(db,nerr)
  end select
