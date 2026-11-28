@@ -187,6 +187,12 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
  logical,      intent(in)    :: inject_flag_present
  real(kind=4) :: twallperdump
  integer :: npart_old,nalive,istepHII
+
+ !
+ ! Sink creation
+ !
+ if (gravity .and. icreate_sinks > 0) call ptmass_create_and_update_forces(time,dtextforce)
+
  !
  ! injection of new particles into simulation
  !
@@ -237,8 +243,6 @@ subroutine evol_prestep(time,dtmax,dt,t1,tcpu1,nactive,inject_flag_present)
     nskip = int(ntot)
     nactive = npart
  endif
-
- if (gravity .and. icreate_sinks > 0) call ptmass_create_and_update_forces(time,dtextforce)
 
  if (iH2R > 0) then
     istepHII = 1

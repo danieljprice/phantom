@@ -1134,7 +1134,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 #ifdef PERIODIC
  use boundary,      only:dxbound,dybound,dzbound
 #endif
- use part,          only:ibin,ibin_wake
+ use part,          only:ibin,twas
+ use timestep,      only:dtmax
+ use timestep_ind,  only:wake_particle
  use neighkdtree,   only:getneigh_pos,leaf_is_active,listneigh=>listneigh_global
  use eos,           only:gamma
  use eos_barotropic,only:gamma_barotropic
@@ -1312,7 +1314,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
-!$omp shared(ibin_wake,ibin_itest,apr_level,aprmassoftype) &
+!$omp shared(ibin,twas,ibin_itest,time,dtmax,apr_level,aprmassoftype) &
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
@@ -1356,7 +1358,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,pxyzu,fxyzu,fext,divcurlv,pote
     if (rij2 < hcheck2) then
 
        if (ind_timesteps) then
-          ibin_wake(j) = max(ibin_wake(j),ibin_itest)
+          ! wake j now into the bin of the candidate, so that it is active at the next step
+          ! of the candidate, i.e. the next time the candidate can be tested
+          call wake_particle(ibin(j),twas(j),ibin_itest,time,dtmax)
           if (.not.iactivej .or. ifail==inosink_active) then
              ifail = inosink_active
              cycle over_neigh
