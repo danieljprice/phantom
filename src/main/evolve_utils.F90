@@ -175,7 +175,7 @@ end subroutine ptmass_create_and_update_forces
 subroutine write_ev_files(ntot,time,dt,nskip,nskipped,nskipped_sink,at_dump_time)
  use io,             only:iverbose
  use checkconserved, only:check_conservation_errors
- use energies,       only:totmom,angtot,etot,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0
+ use energies,       only:totmom,angtot,etot,ekin,mdust,mtot,hdivBonB_ave,hdivBonB_max,np_e_eq_0,np_cs_eq_0
  use evwrite,        only:write_evfile
  use externalforces, only:iext_spiral
  use options,        only:write_files,iexternalforce
@@ -214,7 +214,7 @@ subroutine write_ev_files(ntot,time,dt,nskip,nskipped,nskipped_sink,at_dump_time
     nskipped = 0
     call get_timings(t1,tcpu1)
     call write_evfile(time,dt) ! the write_files option is checked inside the routine
-    call check_conservation_errors(totmom,angtot,etot,mdust,mtot,hdivBonB_ave,&
+    call check_conservation_errors(totmom,angtot,etot,ekin,mdust,mtot,hdivBonB_ave,&
                                    hdivBonB_max,np_e_eq_0,np_cs_eq_0)
 
     !--write with the same ev file frequency also mass flux and binary position
