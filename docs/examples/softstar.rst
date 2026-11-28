@@ -70,7 +70,7 @@ Specify the name of the file in the prompt shown below:
 
 ::
 
-    Enter output file name of cored stellar profile: (blank="blank",default="mysoftenedstar.dat"): 
+    Enter output file name of cored stellar profile: (blank="blank",default="P12_Phantom_Profile-softened.data"):
 
 
 If you would like to relax the star automatically, answer yes to the following prompt:
@@ -99,7 +99,7 @@ The relevant options in the setup file for core softening are
                 gamma =       1.667    ! adiabatic index
         isofteningopt =           3    ! 1=supply hsoft, 2=supply mcore, 3=supply both
    unsoftened_profile =  profile51.data   ! Path to MESA profile for softening
-       outputfilename =  mysoftenedstar.dat   ! Output path for softened MESA profile
+       outputfilename =  profile51-softened.data   ! Output path for softened MESA profile
                 hdens =         15.    ! Radius of core softening
                 mcore =       3.150    ! Mass of sink particle stellar core
                 hsoft =       7.500    ! Softening length of sink particle stellar core
@@ -114,4 +114,5 @@ In this example,
   The core mass is 3.15 Msun, while the softening radius is 15 Rsun.
 
 * phantomsetup will read the original mesa profile, "profile51.data", and write
-  a softened profile, "mysoftenedstar.dat".
+  a softened profile, "profile51-softened.data" (by default the name of the input
+  profile with -softened inserted before .data).

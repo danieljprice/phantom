@@ -1,0 +1,4 @@
+Stellar profiles from the ATON stellar evolution code, downloaded at runtime from
+https://zenodo.org/records/21718292
+
+ATONStar.txt: 0.814 Msun AGB star (initial mass 1.1 Msun, Z = 0.008)

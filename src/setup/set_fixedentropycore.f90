@@ -79,6 +79,9 @@ subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycor
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
  write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
+ ! a shot that stops early (negative mass or pressure inversion) leaves the inner zones unset
+ if (any(rho_alloc(1:icore) <= 0.)) call fatal('setup','fixed entropy softened core did not reach '//&
+    'the centre: try a different rcore or initial mcore')
  rho(1:icore)  = rho_alloc(1:icore)
  pres(1:icore) = pres_alloc(1:icore)
  call calc_mass_from_rho(r(1:icore),rho(1:icore),m(1:icore))
@@ -130,7 +133,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
 
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
-    elseif (mass/msoft < 1d-10) then  ! m(r=0) sufficiently close to zero
+    elseif (mass/msoft < 1d-10 .and. ierr /= ierr_pres) then  ! m(r=0) sufficiently close to zero
        exit
     else
        mcore = mcore * (1. + fac)
@@ -183,6 +186,7 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
 
  rcore = r(Nmax)
  mass  = msoft
+ ierr  = 0
 
  do i = Nmax, 1, -1
     pres(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
@@ -206,7 +210,8 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
        endif
        ierr = ierr_rho
     endif
-    if (pres(i-1)<pres(i)) then
+    ! dP/dr = 0 at the centre, so ignore round-off inversions in the last step to r = 0
+    if (pres(i-1)<pres(i) .and. i > 1) then
        if (iverbose > 1) then
           print*,'WARNING: Pressure inversion at i = ',i, 'm = ',mass/solarm
           write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,pres(i-1),rho(i),mass

@@ -54,7 +54,7 @@ subroutine read_aton(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,mu,Mst
  !--Get path name
  !
  ierr = 0
- fullfilepath = find_phantom_datafile(filepath,'star_data_files')
+ fullfilepath = find_phantom_datafile(filepath,'star_data_files/aton')
  inquire(file=trim(fullfilepath),exist=iexist)
  if (.not.iexist) then
     ierr = 1

@@ -102,9 +102,10 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     X1 = X
     Y1 = Y
     Ncore = 5000  ! number of grid points in softened region (hardwired for now)
-    call calc_regrid_core(Ncore,rc,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
-    X(:) = X(size(X))
-    Y(:) = Y(size(Y))
+    call calc_regrid_core(Ncore,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
+    ! softened region has the composition at the core boundary
+    X(1:core_index) = Xcore
+    Y(1:core_index) = Y(core_index)
  endif
 
  ! call core-softening subroutines
@@ -140,9 +141,9 @@ end subroutine set_softened_core
 !  Ncore: No. of grid points to use in softened region
 !+
 !-----------------------------------------------------------------------
-subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
+subroutine calc_regrid_core(Ncore,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
+ use table_utils, only:yinterp
  integer,           intent(in)    :: Ncore
- real,              intent(in)    :: rcore_cm
  integer,           intent(inout) :: icore
  real,              intent(in)    :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
  real, allocatable, intent(out)   :: r2(:),den2(:),pres2(:),m2(:),X2(:),Y2(:)
@@ -160,12 +161,17 @@ subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,
  X2(Ncore:npts)    = X1(icore:npts_old)
  Y2(Ncore:npts)    = Y1(icore:npts_old)
 
- ! Set uniform r grid in softened region
- dr = rcore_cm/real(Ncore)
+ ! Set uniform r grid in softened region, ending at the zone closest to rcore,
+ ! interpolating the original profile onto it
+ dr = r1(icore)/real(Ncore)
  do i = 1,Ncore-1
-    r2(i) = real(i)*dr
+    r2(i)    = real(i)*dr
+    den2(i)  = yinterp(den1,r1,r2(i))
+    pres2(i) = yinterp(pres1,r1,r2(i))
+    m2(i)    = yinterp(m1,r1,r2(i))
+    X2(i)    = yinterp(X1,r1,r2(i))
+    Y2(i)    = yinterp(Y1,r1,r2(i))
  enddo
- r2(Ncore) = rcore_cm
 
  icore = Ncore
 
