@@ -28,7 +28,7 @@ module ptmass_tree
  type(ptmasstree)     :: ptmasskdtree
  integer, parameter   :: nmaxleaf   = 2
  integer, parameter   :: iroot      = 1
- integer, parameter   :: istacksize = 512
+ integer, parameter   :: istacksize = maxptmass ! enough for the deepest tree (one sink split off per level)
 
  integer, parameter   :: nfastacc   = 100
 
@@ -50,175 +50,126 @@ subroutine deallocate_ptmasstree
 end subroutine deallocate_ptmasstree
 !-----------------------------------------------------------------
 !+
-! Build ptmass KD-tree in parallel using omp task and atomic
+! Build ptmass KD-tree (serial: there are at most maxptmass sinks)
 !+
 !-----------------------------------------------------------------
-subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree)
- use io, only:fatal
+subroutine build_ptmass_tree(xyzmh_ptmass,nptmass,tree,hacc_min)
+ use io,   only:fatal
+ use part, only:ihacc
  real,             intent(in)    :: xyzmh_ptmass(:,:)
  integer,          intent(in)    :: nptmass
  type(ptmasstree), intent(inout) :: tree
- integer, allocatable :: stack(:)
- integer :: i,k,iaxis,inode,lchild,rchild
+ real,             intent(in), optional :: hacc_min ! sinks with a smaller hacc cannot accrete (stars)
+ integer :: stack(istacksize)
+ integer :: i,iaxis,inode,lchild,rchild
  integer :: istart,iend,imed,npnode
- integer :: nlvl,maxlevel_indexed,ilvl
- real    :: xmin(3), xmax(3)
+ integer :: nnodes,istack
+ real    :: xmin(3),xmax(3)
  real    :: dx(3),dr2,r2max
- integer :: nnodes,istack,nnodes_old,myslot,isr,isl
  real    :: xtmp(3),xcen(3)
  real    :: xpivot,mtot
- logical :: buildingtree
 
- if (.not.allocated(stack)) allocate(stack(istacksize))
-
- maxlevel_indexed = int(log(real(nnodeptmassmax+1))/log(2.)) - 1
-
+ !-- initialize tree part index array with the alive sinks that can accrete
  npnode = 0
- buildingtree = .true.
-
- !-- initialize tree part index array (can't be parallel)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
+       if (present(hacc_min)) then
+          if (xyzmh_ptmass(ihacc,i) < hacc_min) cycle
+       endif
        npnode = npnode + 1
        tree%iptmassnode(npnode) = i
     endif
  enddo
 
- !-- fill the root inode level info
+ !-- fill the root inode info
  nnodes               = 1
  tree%nodes(1)%istart = 1
  tree%nodes(1)%iend   = npnode
  tree%nodes(1)%parent = 0
+ tree%nodes(1)%lchild = 0
+ tree%nodes(1)%rchild = 0
+ tree%nodes(1)%xcen   = 0.
+ tree%nodes(1)%size   = 0.
 
  istack = 0
- ilvl   = 0
- nlvl   = 1
- inode  = 0
- !$omp parallel default(none)&
- !$omp shared(tree,xyzmh_ptmass,nnodeptmassmax)&
- !$omp shared(maxlevel_indexed,ilvl,nnodes,istack,stack)&
- !$omp private(istart,iend,npnode,xmin,xmax,xcen,r2max,dr2,dx,nnodes_old)&
- !$omp private(iaxis,xpivot,imed,lchild,rchild,xtmp,mtot,isr,isl,myslot)&
- !$omp firstprivate(buildingtree,nlvl,inode)
- !$omp single
- do while(buildingtree)
-    nnodes_old = nnodes
-    do k=1,nlvl
-       if (ilvl >= maxlevel_indexed) then
-          inode = stack(istack)
-          istack = istack - 1
-       else
-          inode = inode + 1
-       endif
+ if (npnode > 0) then
+    istack = 1
+    stack(istack) = iroot
+ endif
 
-       istart = tree%nodes(inode)%istart
-       iend   = tree%nodes(inode)%iend
-       npnode = iend - istart + 1
+ do while (istack > 0)
+    inode  = stack(istack)
+    istack = istack - 1
 
-       !$omp task firstprivate(inode,istart,iend,npnode)
+    istart = tree%nodes(inode)%istart
+    iend   = tree%nodes(inode)%iend
+    npnode = iend - istart + 1
 
-       !-- compute bounding box and center for this inode
-       xmin =  huge(0.)
-       xmax = -huge(0.)
-       xcen = 0.
-       mtot = 0.
+    !-- compute bounding box and center for this inode
+    xmin =  huge(0.)
+    xmax = -huge(0.)
+    xcen = 0.
+    mtot = 0.
 
-       do i=istart,iend
-          xtmp = xyzmh_ptmass(1:3, tree%iptmassnode(i))
-          xmin(1) = min(xmin(1), xtmp(1))
-          xmin(2) = min(xmin(2), xtmp(2))
-          xmin(3) = min(xmin(3), xtmp(3))
-          xmax(1) = max(xmax(1), xtmp(1))
-          xmax(2) = max(xmax(2), xtmp(2))
-          xmax(3) = max(xmax(3), xtmp(3))
-          xcen    = xcen + xtmp*xyzmh_ptmass(4, tree%iptmassnode(i))
-          mtot    = mtot + xyzmh_ptmass(4, tree%iptmassnode(i))
-       enddo
-
-       xcen  = xcen/mtot
-       r2max = 0.
-       do i=istart,iend
-          dx(1) = xyzmh_ptmass(1,tree%iptmassnode(i)) - xcen(1)
-          dx(2) = xyzmh_ptmass(2,tree%iptmassnode(i)) - xcen(2)
-          dx(3) = xyzmh_ptmass(3,tree%iptmassnode(i)) - xcen(3)
-          dr2   = dx(1)*dx(1) + dx(2)*dx(2) + dx(3)*dx(3)
-          r2max = max(r2max,dr2)
-       enddo
-       tree%nodes(inode)%xcen = xcen
-       tree%nodes(inode)%size = sqrt(r2max) + epsilon(r2max)
-
-       !-- decide whether to split
-       if (npnode > nmaxleaf) then ! inode remains a leaf
-          !-- choose split dimension: longest dimension
-          iaxis  = maxloc(xmax - xmin,1)
-          xpivot = xcen(iaxis)
-
-          !-- sort the indices in this inode by chosen dimension
-          call sort_tree_ptmass_id(xyzmh_ptmass,tree%iptmassnode,istart,iend,iaxis,xpivot,imed)
-
-          !-- create two child nodes (left: istart..m, right: m+1..iend)
-
-          if (ilvl < maxlevel_indexed) then
-             lchild  = inode*2
-             rchild  = lchild + 1
-          else
-             !$omp atomic capture
-             myslot  = nnodes
-             nnodes  = nnodes + 2
-             !$omp end atomic
-             lchild  = myslot + 1
-             rchild  = myslot + 2
-          endif
-
-          if (rchild > nnodeptmassmax) call fatal("ptmass_tree","node array overflow...",ival=rchild)
-
-          !-- assign children to this inode
-          tree%nodes(inode)%lchild = lchild
-          tree%nodes(inode)%rchild = rchild
-
-          !-- fill child metadata
-          tree%nodes(lchild)%istart = istart
-          tree%nodes(lchild)%iend   = imed
-          tree%nodes(lchild)%parent = inode
-          tree%nodes(rchild)%istart = imed + 1
-          tree%nodes(rchild)%iend   = iend
-          tree%nodes(rchild)%parent = inode
-
-          if ((ilvl>=maxlevel_indexed)) then
-             !$omp atomic capture
-             myslot  = istack
-             istack  = istack + 2
-             !$omp end atomic
-             isl     = myslot + 1
-             isr     = myslot + 2
-             if (isr > istacksize) call fatal("ptmass_tree","stack overflow...",ival=isr)
-             stack(isl) = lchild
-             stack(isr) = rchild
-          endif
-
-       else !-- make sure the leaves are not connected to previous tree builds
-          tree%nodes(inode)%lchild  = 0
-          tree%nodes(inode)%rchild  = 0
-       endif
-       !$omp end task
+    do i=istart,iend
+       xtmp = xyzmh_ptmass(1:3, tree%iptmassnode(i))
+       xmin = min(xmin, xtmp)
+       xmax = max(xmax, xtmp)
+       xcen = xcen + xtmp*xyzmh_ptmass(4, tree%iptmassnode(i))
+       mtot = mtot + xyzmh_ptmass(4, tree%iptmassnode(i))
     enddo
-    !$omp taskwait
-    ilvl = ilvl + 1
 
-    if (ilvl >= maxlevel_indexed) then
-       nlvl = istack
-    else
-       nlvl = 2**ilvl
-       nnodes = 2**(ilvl)-1
+    xcen  = xcen/mtot
+    r2max = 0.
+    do i=istart,iend
+       dx    = xyzmh_ptmass(1:3,tree%iptmassnode(i)) - xcen
+       dr2   = dx(1)*dx(1) + dx(2)*dx(2) + dx(3)*dx(3)
+       r2max = max(r2max,dr2)
+    enddo
+    tree%nodes(inode)%xcen = xcen
+    tree%nodes(inode)%size = sqrt(r2max) + epsilon(r2max)
+
+    !-- leaves are not connected to previous tree builds
+    tree%nodes(inode)%lchild = 0
+    tree%nodes(inode)%rchild = 0
+
+    !-- split the inode if it holds more than nmaxleaf sinks
+    if (npnode > nmaxleaf) then
+       !-- choose split dimension: longest dimension
+       iaxis  = maxloc(xmax - xmin,1)
+       xpivot = xcen(iaxis)
+
+       !-- sort the indices in this inode by chosen dimension
+       call sort_tree_ptmass_id(xyzmh_ptmass,tree%iptmassnode,istart,iend,iaxis,xpivot,imed)
+
+       !-- all sinks on one side of the pivot (e.g. same position): split the index range
+       if (imed < istart .or. imed >= iend) imed = (istart + iend)/2
+
+       !-- create two child nodes (left: istart..imed, right: imed+1..iend)
+       lchild = nnodes + 1
+       rchild = nnodes + 2
+       nnodes = nnodes + 2
+       if (rchild > nnodeptmassmax) call fatal("ptmass_tree","node array overflow...",ival=rchild)
+
+       !-- assign children to this inode
+       tree%nodes(inode)%lchild = lchild
+       tree%nodes(inode)%rchild = rchild
+
+       !-- fill child metadata
+       tree%nodes(lchild)%istart = istart
+       tree%nodes(lchild)%iend   = imed
+       tree%nodes(lchild)%parent = inode
+       tree%nodes(rchild)%istart = imed + 1
+       tree%nodes(rchild)%iend   = iend
+       tree%nodes(rchild)%parent = inode
+
+       if (istack + 2 > istacksize) call fatal("ptmass_tree","stack overflow...",ival=istack+2)
+       stack(istack+1) = lchild
+       stack(istack+2) = rchild
+       istack = istack + 2
     endif
-
-    buildingtree = nnodes /= nnodes_old
  enddo
- !$omp end single
- !$omp end parallel
  tree%nnodes = nnodes
-
- if (allocated(stack)) deallocate(stack)
 
 end subroutine build_ptmass_tree
 
@@ -285,16 +236,14 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
  integer,          intent(out) :: listneigh(:)
  integer,          intent(out) :: nneigh
 
- integer, allocatable :: stack(:)
+ integer              :: stack(istacksize)
  integer              :: istack
- integer              :: inode,i,istart,iend,il,ir,npnode
- real                 :: r2,dr2,dx,dy,dz,size
+ integer              :: inode,i,j,k,istart,iend,il,ir,npnode
+ real                 :: dr2,dx,dy,dz,size
  logical              :: isleaf,isneigh
 
- r2 = rsearch*rsearch
  nneigh = 0
 
- allocate(stack(istacksize))
  istack = 1
  stack(istack) = iroot
 
@@ -316,20 +265,21 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
     istart = tree%nodes(inode)%istart
     iend   = tree%nodes(inode)%iend
 
-    isneigh = dr2 < (r2 + size*size)
+    isneigh = dr2 < (rsearch + size)**2
     isleaf  = (il==0) .and. (ir==0)
 
     if (isneigh) then
-       npnode = (istart - iend) + 1
+       npnode = iend - istart + 1
        if (npnode > 0) then
           if (isleaf) then
+             if (nneigh + npnode > maxptmass) call fatal("ptmass_neigh","search found more sinks than can exist",ival=nneigh+npnode)
              do i = istart, iend
                 nneigh = nneigh + 1
                 listneigh(nneigh) = tree%iptmassnode(i)
              enddo
           else
              !-- push children (if exist)
-             if ((istack + 2) < istacksize) then
+             if (istack + 2 <= istacksize) then
                 if (il /= 0) then
                    istack = istack + 1
                    stack(istack) = il
@@ -339,14 +289,24 @@ subroutine get_ptmass_neigh(tree,xpos,rsearch,listneigh,nneigh)
                    stack(istack) = ir
                 endif
              else
-                call fatal("ptmass_neigh","stack overflow in tree build",ival=istack)
+                call fatal("ptmass_neigh","stack overflow in tree search",ival=istack)
              endif
           endif
        endif
     endif
  enddo
 
- if (allocated(stack)) deallocate(stack)
+ !-- sort by sink index, as in the direct loop over the sinks (the first unconditional match wins)
+ do i = 2, nneigh
+    j = listneigh(i)
+    k = i - 1
+    do while (k > 0)
+       if (listneigh(k) <= j) exit
+       listneigh(k+1) = listneigh(k)
+       k = k - 1
+    enddo
+    listneigh(k+1) = j
+ enddo
 
 end subroutine get_ptmass_neigh
 
